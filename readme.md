@@ -2,7 +2,10 @@
 
 This benchmark focuses on evaluating the performance of synthetic data generators on generating tabular non-series data.
 
+All data are stored on Dropbox. 
+
 ## List of datasets and metric
+
 
 ### Synthetic
 
@@ -11,6 +14,7 @@ This benchmark focuses on evaluating the performance of synthetic data generator
 - high D Gaussian
 
 
+### Real
 - MINIST binary
 - Covertype (8 continuous + 40 binary + 1 multi) `https://archive.ics.uci.edu/ml/datasets/Covertype`
 - KDD Census data set `https://archive.ics.uci.edu/ml/datasets/Census-Income+%28KDD%29`
