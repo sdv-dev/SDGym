@@ -38,9 +38,5 @@ def verify(datafile, metafile):
 
     data = np.load(datafile)
 
-    assert data['train1k'].shape[0] == 1000
-    verify_table(data['train1k'], meta)
-    assert data['train10k'].shape[0] == 10000
-    verify_table(data['train10k'], meta)
     verify_table(data['train'], meta)
     verify_table(data['test'], meta)

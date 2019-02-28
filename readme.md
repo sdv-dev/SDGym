@@ -4,7 +4,7 @@ This benchmark focuses on evaluating the performance of synthetic data generator
 
 All data are stored on Dropbox. 
 
-## Meta Format
+## Data Format
 meta data is a JSON file. 
 
 ```
@@ -25,6 +25,17 @@ meta data is a JSON file.
 ]
 
 ```
+
+Tabular data is a npz file, include 2 tables `train` and `test`. Each is a numpy array of float or integer. (1~8 bytes)
+
+## Benchmark Framework
+
+- Preprocess and get clean synthetic and real data sets. All code should goto `sdata_maker` and `rdata_maker`. (Once done, everything will be uploaded to S3, so that data are fixed for future use. 
+- Synthesizers are several baseline synthesizers. 
+- Evaluators
+	- Synthesizer launcher: launches one synthesizer on all datasets or one dataset.
+	- Quality Evaluator: evaluate the output of one synthesizer on all datasets or one dataset, and store in a json file.
+	- Result summarizer: summarize all json result files.
 
 ## List of datasets and metric
 

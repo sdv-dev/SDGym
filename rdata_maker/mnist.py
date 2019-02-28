@@ -41,8 +41,10 @@ def make_data(t_train, t_test, wh, name):
 
     np.random.shuffle(t_train)
 
-    np.savez("{}/{}.npz".format(output_dir, name), train1k=t_train[:1000],
-        train10k=t_train[:10000], train=t_train, test=t_test)
+    t_train = t_train.astype('int8')
+    t_test = t_test.astype('int8')
+
+    np.savez("{}/{}.npz".format(output_dir, name), train=t_train, test=t_test)
 
 
     verify("{}/{}.npz".format(output_dir, name),
