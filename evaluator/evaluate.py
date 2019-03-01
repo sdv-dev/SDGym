@@ -31,7 +31,7 @@ def default_multi_classification(x_train, y_train, x_test, y_test):
         (DTC(max_depth=10), "Decision Tree (max_depth=5)"),
         (DTC(max_depth=30), "Decision Tree (max_depth=5)"),
         (ABC(), "Adaboost (estimator=50)"),
-        (LRC(n_jobs=2, "Logistic Regression"),
+        (LRC(n_jobs=2), "Logistic Regression"),
         (MLPC((100, )), "MLP (100)"),
         (MLPC((100, 100)), "MLP (100, 100)")
     ]
