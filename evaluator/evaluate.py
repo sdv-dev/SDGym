@@ -155,7 +155,7 @@ def make_features(dataset, meta, label_column='label', sample=10000):
 
 
 def evalute_dataset(dataset, trainset, testset, meta):
-    if dataset == "mnist28" or dataset == "mnist12":
+    if dataset in ["mnist12", "mnist28", "covtype", "intrusion"]:
         x_train, y_train = make_features(trainset, meta)
         x_test, y_test = make_features(testset, meta)
 
@@ -172,6 +172,7 @@ def evalute_dataset(dataset, trainset, testset, meta):
 
         return default_regression(x_train, y_train, x_test, y_test)
     else:
+        logging.warning("{} evaluation not defined.".format(dataset))
         assert 0
 
 
