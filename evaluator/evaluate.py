@@ -19,7 +19,10 @@ parser = argparse.ArgumentParser(description='Evaluate output of one synthesizer
 
 parser.add_argument('--result', type=str, default='output/__result__',
                     help='result dir')
-parser.add_argument('--synthetic', type=str, required=True,
+parser.add_argument('--force', dest='force', action='store_true', help='overwrite result')
+parser.set_defaults(force=False)
+
+parser.add_argument('synthetic', type=str,
                     help='synthetic data folder')
 
 
@@ -121,7 +124,7 @@ def evalute_dataset(dataset, trainset, testset, meta):
         x_test, y_test = make_features(testset, meta)
 
         return default_multi_classification(x_train, y_train, x_test, y_test)
-    elif dataset == 'credit':
+    elif dataset in ['credit', 'census', 'adult']:
         x_train, y_train = make_features(trainset, meta)
         x_test, y_test = make_features(testset, meta)
 
@@ -140,7 +143,10 @@ if __name__ == "__main__":
     result_file = "{}/{}.json".format(args.result, args.synthetic.replace('/', '\t').split()[-1])
     if os.path.exists(result_file):
         logging.warning("Skip. result file {} exists.".format(result_file))
-        exit()
+        if args.force:
+            logging.warning("overwrite {}.".format(result_file))
+        else:
+            exit()
 
     logging.info("use result file {}.".format(result_file))
 

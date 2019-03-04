@@ -1,4 +1,4 @@
-# Generate MNIST28 and MINIST14 datasets
+# Generate credit datasets
 
 import os
 import logging
@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import cv2
 
-from keras.datasets import mnist
 from utils import CATEGORICAL, CONTINUOUS, ORDINAL, verify
 
 
@@ -53,8 +52,8 @@ if __name__ == "__main__":
 
     np.random.seed(0)
     np.random.shuffle(values)
-    t_train = values[:-20000]
-    t_test = values[-20000:]
+    t_train = values[:-20000].astype('float32')
+    t_test = values[-20000:].astype('float32')
 
     name = "credit"
     with open("{}/{}.json".format(output_dir, name), 'w') as f:
