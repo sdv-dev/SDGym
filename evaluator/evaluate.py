@@ -5,10 +5,18 @@ import os
 import json
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier as DTC
+from sklearn.tree import DecisionTreeRegressor as DTR
+
 from sklearn.ensemble import AdaBoostClassifier as ABC
+from sklearn.ensemble import AdaBoostRegressor as ABR
+
 from sklearn.linear_model import LogisticRegression as LRC
+from sklearn.linear_model import LinearRegression as LRR
+
 from sklearn.neural_network import MLPClassifier as MLPC
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.neural_network import MLPRegressor as MLPR
+
+from sklearn.metrics import accuracy_score, f1_score, r2_score
 from sklearn.utils import shuffle
 
 from utils import CATEGORICAL, CONTINUOUS, ORDINAL
@@ -29,7 +37,7 @@ parser.add_argument('synthetic', type=str,
 def default_multi_classification(x_train, y_train, x_test, y_test):
     classifiers = [
         (DTC(max_depth=10, class_weight='balanced'), "Decision Tree (max_depth=5)"),
-        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=30)"),
         (ABC(), "Adaboost (estimator=50)"),
         (LRC(solver='lbfgs', n_jobs=2, multi_class="auto", class_weight='balanced'), "Logistic Regression"),
         (MLPC((100, )), "MLP (100)"),
@@ -61,7 +69,7 @@ def default_multi_classification(x_train, y_train, x_test, y_test):
 def default_binary_classification(x_train, y_train, x_test, y_test):
     classifiers = [
         (DTC(max_depth=10, class_weight='balanced'), "Decision Tree (max_depth=5)"),
-        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=30)"),
         (ABC(), "Adaboost (estimator=50)"),
         (LRC(solver='lbfgs', n_jobs=2, multi_class="auto", class_weight='balanced'), "Logistic Regression"),
         (MLPC((100, )), "MLP (100)"),
@@ -82,6 +90,34 @@ def default_binary_classification(x_train, y_train, x_test, y_test):
                 "name": name,
                 "accuracy": acc,
                 "f1": f1
+            }
+        )
+
+    return performance
+
+
+def default_regression(x_train, y_train, x_test, y_test):
+    regressor = [
+        (DTR(max_depth=10), "Decision Tree (max_depth=5)"),
+        (DTR(max_depth=30), "Decision Tree (max_depth=30)"),
+        (ABR(), "Adaboost (estimator=50)"),
+        (LRR(), "Logistic Regression"),
+        (MLPR((100, )), "MLP (100)"),
+        (MLPR((100, 100)), "MLP (100, 100)")
+    ]
+
+
+    performance = []
+    for clf, name in regressor:
+        clf.fit(x_train, y_train)
+        pred = clf.predict(x_test)
+
+        r2 = r2_score(y_test, pred)
+
+        performance.append(
+            {
+                "name": name,
+                "r2": r2,
             }
         )
 
@@ -130,6 +166,11 @@ def evalute_dataset(dataset, trainset, testset, meta):
 
         return default_binary_classification(x_train, y_train, x_test, y_test)
 
+    elif dataset in ['news']:
+        x_train, y_train = make_features(trainset, meta)
+        x_test, y_test = make_features(testset, meta)
+
+        return default_regression(x_train, y_train, x_test, y_test)
     else:
         assert 0
 

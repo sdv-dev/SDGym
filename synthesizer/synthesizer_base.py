@@ -22,7 +22,8 @@ parser.add_argument('--name', type=str, default='',
 class SynthesizerBase(object):
     """docstring for Synthesizer."""
 
-    supported_datasets = ['mnist12', 'mnist28', 'credit', 'census', 'adult']
+    supported_datasets = ['mnist12', 'mnist28', 'credit', 'census', 'adult',
+                        'news', 'covtype', 'intrusion']
 
     def train(self, train_data):
         pass
