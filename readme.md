@@ -89,6 +89,7 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 ### Real
 - MINIST28: Use flatten 28\*28 pixels into 784 binary columns with an extra label column. 
 - MINIST12: Reshape 28\*28 pixels into 12\*12 binary columns with an extra label column. 
+- Credit: Kaggle credit card fr dataset. 
 
 
 ```

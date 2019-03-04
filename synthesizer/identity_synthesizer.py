@@ -3,8 +3,6 @@ from synthesizer_base import SynthesizerBase, run
 class IdentitySynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
-    supported_datasets = ['mnist12', 'mnist28']
-
     def train(self, train_data):
         self.learned = train_data
 

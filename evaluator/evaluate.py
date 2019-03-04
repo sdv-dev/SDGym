@@ -11,6 +11,8 @@ from sklearn.neural_network import MLPClassifier as MLPC
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.utils import shuffle
 
+from utils import CATEGORICAL, CONTINUOUS, ORDINAL
+
 logging.basicConfig(level=logging.INFO)
 
 parser = argparse.ArgumentParser(description='Evaluate output of one synthesizer.')
@@ -22,16 +24,11 @@ parser.add_argument('--synthetic', type=str, required=True,
 
 
 def default_multi_classification(x_train, y_train, x_test, y_test):
-    N = 10000
-    x_train, y_train = shuffle(x_train, y_train)
-    x_train = x_train[:N]
-    y_train = y_train[:N]
-
     classifiers = [
-        (DTC(max_depth=10), "Decision Tree (max_depth=5)"),
-        (DTC(max_depth=30), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=10, class_weight='balanced'), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=5)"),
         (ABC(), "Adaboost (estimator=50)"),
-        (LRC(n_jobs=2), "Logistic Regression"),
+        (LRC(solver='lbfgs', n_jobs=2, multi_class="auto", class_weight='balanced'), "Logistic Regression"),
         (MLPC((100, )), "MLP (100)"),
         (MLPC((100, 100)), "MLP (100, 100)")
     ]
@@ -58,15 +55,78 @@ def default_multi_classification(x_train, y_train, x_test, y_test):
     return performance
 
 
+def default_binary_classification(x_train, y_train, x_test, y_test):
+    classifiers = [
+        (DTC(max_depth=10, class_weight='balanced'), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=5)"),
+        (ABC(), "Adaboost (estimator=50)"),
+        (LRC(solver='lbfgs', n_jobs=2, multi_class="auto", class_weight='balanced'), "Logistic Regression"),
+        (MLPC((100, )), "MLP (100)"),
+        (MLPC((100, 100)), "MLP (100, 100)")
+    ]
+
+
+    performance = []
+    for clf, name in classifiers:
+        clf.fit(x_train, y_train)
+        pred = clf.predict(x_test)
+
+        acc = accuracy_score(y_test, pred)
+        f1 = f1_score(y_test, pred, average='binary')
+
+        performance.append(
+            {
+                "name": name,
+                "accuracy": acc,
+                "f1": f1
+            }
+        )
+
+    return performance
+
+
+def make_features(dataset, meta, label_column='label', sample=10000):
+    dataset = dataset.copy()
+    np.random.shuffle(dataset)
+    dataset = dataset[:sample]
+
+    features = []
+    labels = []
+
+    for row in dataset:
+        feature = []
+        label = None
+        for col, cinfo in zip(row, meta):
+            if cinfo['name'] == 'label':
+                label = int(col)
+                continue
+            if cinfo['type'] in [CONTINUOUS, ORDINAL]:
+                feature.append(col)
+            else:
+                if cinfo['size'] <= 2:
+                    feature.append(col)
+                else:
+                    tmp = [0] * cinfo['size']
+                    tmp[int(col)] = 1
+                    feature += tmp
+        features.append(feature)
+        labels.append(label)
+
+    return features, labels
+
+
 def evalute_dataset(dataset, trainset, testset, meta):
     if dataset == "mnist28" or dataset == "mnist12":
-        x_train = trainset[:, :-1]
-        y_train = trainset[:, -1]
-
-        x_test = testset[:, :-1]
-        y_test = testset[:, -1]
+        x_train, y_train = make_features(trainset, meta)
+        x_test, y_test = make_features(testset, meta)
 
         return default_multi_classification(x_train, y_train, x_test, y_test)
+    elif dataset == 'credit':
+        x_train, y_train = make_features(trainset, meta)
+        x_test, y_test = make_features(testset, meta)
+
+        return default_binary_classification(x_train, y_train, x_test, y_test)
+
     else:
         assert 0
 
@@ -90,7 +150,6 @@ if __name__ == "__main__":
 
     results = []
 
-    print(synthetic_files)
     for synthetic_file in synthetic_files:
         syn = np.load(synthetic_file)['syn']
 
