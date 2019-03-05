@@ -5,11 +5,21 @@ import os
 import json
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier as DTC
+from sklearn.tree import DecisionTreeRegressor as DTR
+
 from sklearn.ensemble import AdaBoostClassifier as ABC
+from sklearn.ensemble import AdaBoostRegressor as ABR
+
 from sklearn.linear_model import LogisticRegression as LRC
+from sklearn.linear_model import LinearRegression as LRR
+
 from sklearn.neural_network import MLPClassifier as MLPC
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.neural_network import MLPRegressor as MLPR
+
+from sklearn.metrics import accuracy_score, f1_score, r2_score
 from sklearn.utils import shuffle
+
+from utils import CATEGORICAL, CONTINUOUS, ORDINAL
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,21 +27,19 @@ parser = argparse.ArgumentParser(description='Evaluate output of one synthesizer
 
 parser.add_argument('--result', type=str, default='output/__result__',
                     help='result dir')
-parser.add_argument('--synthetic', type=str, required=True,
+parser.add_argument('--force', dest='force', action='store_true', help='overwrite result')
+parser.set_defaults(force=False)
+
+parser.add_argument('synthetic', type=str,
                     help='synthetic data folder')
 
 
 def default_multi_classification(x_train, y_train, x_test, y_test):
-    N = 10000
-    x_train, y_train = shuffle(x_train, y_train)
-    x_train = x_train[:N]
-    y_train = y_train[:N]
-
     classifiers = [
-        (DTC(max_depth=10), "Decision Tree (max_depth=5)"),
-        (DTC(max_depth=30), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=10, class_weight='balanced'), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=30)"),
         (ABC(), "Adaboost (estimator=50)"),
-        (LRC(n_jobs=2, "Logistic Regression"),
+        (LRC(solver='lbfgs', n_jobs=2, multi_class="auto", class_weight='balanced'), "Logistic Regression"),
         (MLPC((100, )), "MLP (100)"),
         (MLPC((100, 100)), "MLP (100, 100)")
     ]
@@ -58,16 +66,113 @@ def default_multi_classification(x_train, y_train, x_test, y_test):
     return performance
 
 
-def evalute_dataset(dataset, trainset, testset, meta):
-    if dataset == "mnist28" or dataset == "mnist12":
-        x_train = trainset[:, :-1]
-        y_train = trainset[:, -1]
+def default_binary_classification(x_train, y_train, x_test, y_test):
+    classifiers = [
+        (DTC(max_depth=10, class_weight='balanced'), "Decision Tree (max_depth=5)"),
+        (DTC(max_depth=30, class_weight='balanced'), "Decision Tree (max_depth=30)"),
+        (ABC(), "Adaboost (estimator=50)"),
+        (LRC(solver='lbfgs', n_jobs=2, multi_class="auto", class_weight='balanced'), "Logistic Regression"),
+        (MLPC((100, )), "MLP (100)"),
+        (MLPC((100, 100)), "MLP (100, 100)")
+    ]
 
-        x_test = testset[:, :-1]
-        y_test = testset[:, -1]
+
+    performance = []
+    for clf, name in classifiers:
+        clf.fit(x_train, y_train)
+        pred = clf.predict(x_test)
+
+        acc = accuracy_score(y_test, pred)
+        f1 = f1_score(y_test, pred, average='binary')
+
+        performance.append(
+            {
+                "name": name,
+                "accuracy": acc,
+                "f1": f1
+            }
+        )
+
+    return performance
+
+
+def default_regression(x_train, y_train, x_test, y_test):
+    regressor = [
+        (DTR(max_depth=10), "Decision Tree (max_depth=5)"),
+        (DTR(max_depth=30), "Decision Tree (max_depth=30)"),
+        (ABR(), "Adaboost (estimator=50)"),
+        (LRR(), "Logistic Regression"),
+        (MLPR((100, )), "MLP (100)"),
+        (MLPR((100, 100)), "MLP (100, 100)")
+    ]
+
+
+    performance = []
+    for clf, name in regressor:
+        clf.fit(x_train, y_train)
+        pred = clf.predict(x_test)
+
+        r2 = r2_score(y_test, pred)
+
+        performance.append(
+            {
+                "name": name,
+                "r2": r2,
+            }
+        )
+
+    return performance
+
+
+def make_features(dataset, meta, label_column='label', sample=10000):
+    dataset = dataset.copy()
+    np.random.shuffle(dataset)
+    dataset = dataset[:sample]
+
+    features = []
+    labels = []
+
+    for row in dataset:
+        feature = []
+        label = None
+        for col, cinfo in zip(row, meta):
+            if cinfo['name'] == 'label':
+                label = int(col)
+                continue
+            if cinfo['type'] in [CONTINUOUS, ORDINAL]:
+                feature.append(col)
+            else:
+                if cinfo['size'] <= 2:
+                    feature.append(col)
+                else:
+                    tmp = [0] * cinfo['size']
+                    tmp[int(col)] = 1
+                    feature += tmp
+        features.append(feature)
+        labels.append(label)
+
+    return features, labels
+
+
+def evalute_dataset(dataset, trainset, testset, meta):
+    if dataset in ["mnist12", "mnist28", "covtype", "intrusion"]:
+        x_train, y_train = make_features(trainset, meta)
+        x_test, y_test = make_features(testset, meta)
 
         return default_multi_classification(x_train, y_train, x_test, y_test)
+    elif dataset in ['credit', 'census', 'adult']:
+        x_train, y_train = make_features(trainset, meta)
+        x_test, y_test = make_features(testset, meta)
+
+        return default_binary_classification(x_train, y_train, x_test, y_test)
+
+    elif dataset in ['news']:
+        x_train, y_train = make_features(trainset, meta)
+        x_test, y_test = make_features(testset, meta)
+
+        return default_regression(x_train, y_train, x_test, y_test)
     else:
+        logging.warning("{} evaluation not defined.".format(dataset))
         assert 0
 
 
@@ -80,7 +185,10 @@ if __name__ == "__main__":
     result_file = "{}/{}.json".format(args.result, args.synthetic.replace('/', '\t').split()[-1])
     if os.path.exists(result_file):
         logging.warning("Skip. result file {} exists.".format(result_file))
-        exit()
+        if args.force:
+            logging.warning("overwrite {}.".format(result_file))
+        else:
+            exit()
 
     logging.info("use result file {}.".format(result_file))
 
@@ -90,7 +198,6 @@ if __name__ == "__main__":
 
     results = []
 
-    print(synthetic_files)
     for synthetic_file in synthetic_files:
         syn = np.load(synthetic_file)['syn']
 
