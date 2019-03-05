@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     meta = []
     for col_name in df.columns:
-        if "_is_" in col_name:
+        if "is_" in col_name:
             meta.append({
                 "name": col_name,
                 "type": CATEGORICAL,
