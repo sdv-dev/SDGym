@@ -72,9 +72,46 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 
 ## Summary Examples
 
-<img src="misc/coverage.jpg" width="40%">
-<img src="misc/mnist12.jpg" width="40%">
+<table>
+<tr>
+<td>
+<img src="misc/coverage.jpg" width="100%">
+</td>
+<tr>
+	<td>
+	<img src="misc/mnist12.jpg" width="100%">
+	</td>
+	<td>
+	<img src="misc/mnist28.jpg" width="100%">
+	</td>
+</tr>
+<tr>
+	<td>
+	<img src="misc/adult.jpg" width="100%">
+	</td>
+	<td>
+	<img src="misc/census.jpg" width="100%">
+	</td>
+</tr>
+<tr>
+	<td>
+	<img src="misc/credit.jpg" width="100%">
+	</td>
+	<td>
+	<img src="misc/covtype.jpg" width="100%">
+	</td>
+</tr>
 
+<tr>
+	<td>
+	<img src="misc/intrusion.jpg" width="100%">
+	</td>
+	<td>
+	<img src="misc/news.jpg" width="100%">
+	</td>
+</tr>
+
+</table>
 
 ## List of datasets and metric
 
