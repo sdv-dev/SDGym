@@ -68,6 +68,8 @@ if __name__ == "__main__":
     }
     df.iloc[:, -1] = df.iloc[:, -1].apply(lambda x: label_mapping[x])
 
+    df.drop([19], axis=1, inplace=True)
+
     col_type = [
         ("duration", CONTINUOUS),
         ("protocol_type", CATEGORICAL),
@@ -76,19 +78,19 @@ if __name__ == "__main__":
         ("src_bytes", CONTINUOUS),
         ("dst_bytes", CONTINUOUS),
         ("land", CATEGORICAL),
-        ("wrong_fragment", CONTINUOUS),
-        ("urgent", CONTINUOUS),
+        ("wrong_fragment", ORDINAL, ['0', '1', '2', '3']),
+        ("urgent", ORDINAL, ['0', '1', '2', '3']),
         ("hot", CONTINUOUS),
-        ("num_failed_logins", CONTINUOUS),
+        ("num_failed_logins", ORDINAL, ['0', '1', '2', '3', '4', '5']),
         ("logged_in", CATEGORICAL),
         ("num_compromised", CONTINUOUS),
-        ("root_shell", CONTINUOUS),
-        ("su_attempted", CONTINUOUS),
+        ("root_shell", CATEGORICAL),
+        ("su_attempted", ORDINAL, ['0', '1', '2', '3']),
         ("num_root", CONTINUOUS),
         ("num_file_creations", CONTINUOUS),
-        ("num_shells", CONTINUOUS),
-        ("num_access_files", CONTINUOUS),
-        ("num_outbound_cmds", CONTINUOUS),
+        ("num_shells", ORDINAL, ['0', '1', '2']),
+        ("num_access_files", ORDINAL, ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']),
+        # ("num_outbound_cmds", CONTINUOUS), # all zero, removed
         ("is_host_login", CATEGORICAL),
         ("is_guest_login", CATEGORICAL),
         ("count", CONTINUOUS),
@@ -123,9 +125,12 @@ if __name__ == "__main__":
                 "max": np.max(df.iloc[:, id_].values.astype('float'))
             })
         else:
-            value_count = list(dict(df.iloc[:, id_].value_counts()).items())
-            value_count = sorted(value_count, key=lambda x: -x[1])
-            mapper = list(map(lambda x: x[0], value_count))
+            if info[1] == CATEGORICAL:
+                value_count = list(dict(df.iloc[:, id_].value_counts()).items())
+                value_count = sorted(value_count, key=lambda x: -x[1])
+                mapper = list(map(lambda x: x[0], value_count))
+            else:
+                mapper = info[2]
 
             meta.append({
                 "name": info[0],
