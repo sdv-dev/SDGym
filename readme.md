@@ -42,9 +42,14 @@ Tabular data is a npz file, include 2 tables `train` and `test`. Each is a numpy
 
 ### Synthetic
 
-- 2D Ring
-- 2D Grid
-- high D Gaussian
+- Bivariate 
+	- Two Rings: A simple distribution of a large circle containing a smaller circle. 
+	- Gaussian Ring: Gaussian Mixtures arranged in a ring.
+	- Gaussian Grid: Gaussian Mixtures arranged in a grid.
+- Multivariate Data Generatedd From Bayesian Network
+	- Line 
+	- Star
+	- More Complex
 
 
 ### Real
