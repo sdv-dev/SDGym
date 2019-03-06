@@ -7,10 +7,10 @@ class IdentitySynthesizer(SynthesizerBase):
         self.learned = train_data
 
     def generate(self, n):
-        assert len(self.learned == n)
+        assert len(self.learned) == n
         return [(0, self.learned)]
 
-    def init(self, datset, meta):
+    def init(self, meta, working_dir):
         pass
 
 
