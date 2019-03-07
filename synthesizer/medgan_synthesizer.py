@@ -126,7 +126,7 @@ class MedganSynthesizer(SynthesizerBase):
         self.transformer = GeneralTransformer(self.meta)
         self.transformer.fit(train_data)
         train_data = self.transformer.transform(train_data)
-        dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')))
+        dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
 
 
@@ -163,9 +163,9 @@ class MedganSynthesizer(SynthesizerBase):
             n_g = 1
             for id_, data in enumerate(loader):
                 real = data[0].to(self.device)
-                mean = torch.zeros(self.batch_size, self.randomDim)
+                mean = torch.zeros(self.batch_size, self.randomDim, device=self.device)
                 std = mean + 1
-                noise = torch.normal(mean=mean, std=std).to(self.device)
+                noise = torch.normal(mean=mean, std=std)
                 emb = generator(noise)
                 fake = decoder(emb)
 
@@ -227,7 +227,10 @@ class MedganSynthesizer(SynthesizerBase):
     def init(self, meta, working_dir):
         self.meta = meta
         self.working_dir = working_dir
-        os.mkdir(working_dir)
+        try:
+            os.mkdir(working_dir)
+        except:
+            pass
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
