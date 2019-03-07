@@ -10,7 +10,7 @@ class UniformSynthesizer(SynthesizerBase):
         self.shape = train_data.shape
 
     def generate(self, n):
-        data = rng.uniform(0, 1, self.shape)
+        data = rng.uniform(0, 1, (n, self.shape[1]))
 
         for i, c in enumerate(self.meta):
             if c['type'] == 'continuous':

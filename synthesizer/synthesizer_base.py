@@ -19,6 +19,9 @@ parser.add_argument('--output', type=str, default='output',
 parser.add_argument('--name', type=str, default='',
                     help='model name, default is model class name.')
 
+parser.add_argument('--sample', type=int, default=20000,
+                    help='maximum samples in the synthetic data.')
+
 class SynthesizerBase(object):
     """docstring for Synthesizer."""
 
@@ -87,7 +90,8 @@ def run(synthesizer):
             working_dir = "{}/ckpt_{}_{}".format(output, dataset, i)
             synthesizer.init(meta, working_dir)
             synthesizer.train(data)
-            generated = synthesizer.generate(data.shape[0])
+            sample = min(args.sample, data.shape[0])
+            generated = synthesizer.generate(sample)
 
             if len(generated) == 0:
                 logging.warning("{} fails on {}. ".format(name, dataset))

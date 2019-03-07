@@ -52,7 +52,7 @@ def dataset_performance(dataset, results):
                         if one_result['step'] == 0:
                             synthesizer_name = synthesizer
                         else:
-                            synthesizer_name = synthesizer + "_" + int(item['step'])
+                            synthesizer_name = synthesizer + "_" + str(one_result['step'])
 
                         if not synthesizer_name in synthesizer_metric_perform:
                             synthesizer_metric_perform[synthesizer_name] = {}
