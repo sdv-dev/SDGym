@@ -1,4 +1,5 @@
 from synthesizer_base import SynthesizerBase, run
+import numpy as np
 
 class IdentitySynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""

@@ -47,8 +47,12 @@ def default_multi_classification(x_train, y_train, x_test, y_test):
 
     performance = []
     for clf, name in classifiers:
-        clf.fit(x_train, y_train)
-        pred = clf.predict(x_test)
+        unique_labels = np.unique(y_train)
+        if len(unique_labels) == 1:
+            pred = [unique_labels[0]] * len(x_test)
+        else:
+            clf.fit(x_train, y_train)
+            pred = clf.predict(x_test)
 
         acc = accuracy_score(y_test, pred)
         macro_f1 = f1_score(y_test, pred, average='macro')
@@ -79,8 +83,12 @@ def default_binary_classification(x_train, y_train, x_test, y_test):
 
     performance = []
     for clf, name in classifiers:
-        clf.fit(x_train, y_train)
-        pred = clf.predict(x_test)
+        unique_labels = np.unique(y_train)
+        if len(unique_labels) == 1:
+            pred = [unique_labels[0]] * len(x_test)
+        else:
+            clf.fit(x_train, y_train)
+            pred = clf.predict(x_test)
 
         acc = accuracy_score(y_test, pred)
         f1 = f1_score(y_test, pred, average='binary')
@@ -226,7 +234,7 @@ if __name__ == "__main__":
         with open(meta_filename[0]) as f:
             meta = json.load(f)
 
-
+        logging.info("Evaluating {}".format(synthetic_file))
         performance = evalute_dataset(dataset, syn, data, meta)
 
         res = {

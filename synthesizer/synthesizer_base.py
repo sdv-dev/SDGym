@@ -87,6 +87,7 @@ def run(synthesizer):
 
 
         for i in range(repeat):
+            logging.info("Generating {} iter {}".format(dataset, i))
             working_dir = "{}/ckpt_{}_{}".format(output, dataset, i)
             synthesizer.init(meta, working_dir)
             synthesizer.train(data)

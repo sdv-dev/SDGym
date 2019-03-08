@@ -217,7 +217,7 @@ class MedganSynthesizer(SynthesizerBase):
                 noise = torch.normal(mean=mean, std=std).to(self.device)
                 emb = generator(noise)
                 fake = decoder(emb)
-                data.append(fake.detach().numpy())
+                data.append(fake.detach().cpu().numpy())
             data = np.concatenate(data, axis=0)
             data = data[:n]
             data = self.transformer.inverse_transform(data)
