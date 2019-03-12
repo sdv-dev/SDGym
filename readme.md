@@ -120,16 +120,41 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 
 - Bivariate 
 	- Two Rings: A simple distribution of a large circle containing a smaller circle. 
-	<img src="misc/two_rings.png" width="50%">
+	
 	- Gaussian Ring: Gaussian Mixtures arranged in a ring.
-	<img src="misc/gaussian_ring.png" width="50%">
-
+	
 	- Gaussian Grid: Gaussian Mixtures arranged in a grid.
-	<img src="misc/gaussian_grid.png" width="50%">
-- Multivariate Data Generatedd From Bayesian Network
-	- Line 
-	- Star
-	- More Complex
+	<table>
+	<tr>
+	<td>
+	<img src="misc/two_rings.png" width="100%">
+	</td>
+	<td>
+	<img src="misc/gaussian_ring.png" width="100%">
+	</td>
+	<td>
+	<img src="misc/gaussian_grid.png" width="100%">
+	</td>
+	</tr>
+	</table>
+- Multivariate Structured Data: Generate samples from some pre-specified common causal strutures. 
+
+	- Chain
+	<figure>
+	<img src="misc/chain.png" width = "100" height = "200">
+	</figure>
+	- Tree
+	<figure>
+	<img src="misc/tree.png" width = "170" height = "100">
+	</figure>
+	- Fully Connected
+	<figure>
+	<img src="misc/fc.png" width = "170" height = "200">
+	</figure>
+	- General
+	<figure>
+	<img src="misc/general.png" width = "170" height = "200">
+	</figure>
 
 
 ### Real
