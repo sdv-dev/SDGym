@@ -116,7 +116,7 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 ## List of datasets and metric
 
 
-### Synthetic
+### Simulated data
 
 - Bivariate 
 	- Two Rings: A simple distribution of a large circle containing a smaller circle. 
@@ -137,27 +137,31 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 	</td>
 	</tr>
 	</table>
+
 - Multivariate Structured Data: Generate samples from some pre-specified common causal strutures. 
 
 	- Chain
 	<figure>
 	<img src="misc/chain.png" width = "100" height = "200">
 	</figure>
+	
 	- Tree
 	<figure>
 	<img src="misc/tree.png" width = "170" height = "100">
 	</figure>
+	
 	- Fully Connected
 	<figure>
 	<img src="misc/fc.png" width = "170" height = "200">
 	</figure>
+	
 	- General
 	<figure>
 	<img src="misc/general.png" width = "170" height = "200">
 	</figure>
 
 
-### Real
+### Real data
 - MINIST28: Use flatten 28\*28 pixels into 784 binary columns with an extra label column.
 - MINIST12: Reshape 28\*28 pixels into 12\*12 binary columns with an extra label column.
 - Credit: Kaggle credit card fr dataset. `https://www.kaggle.com/mlg-ulb/creditcardfraud`
