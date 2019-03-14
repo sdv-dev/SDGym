@@ -96,7 +96,7 @@ class Generator(nn.Module):
         self.outputInfo = outputInfo
 
         self.rnn = nn.LSTMCell(randomDim, hiddenDim)
-        self.fcs = []
+        self.fcs = nn.ModuleList()
         for info in outputInfo:
             fc = nn.Sequential(
                         nn.Linear(hiddenDim, hiddenDim),
