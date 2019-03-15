@@ -79,6 +79,31 @@ def dataset_performance(dataset, results):
     plt.legend(title=None)
     plt.savefig("{}/{}.pdf".format(summary_dir, dataset), bbox_inches='tight')
 
+    return synthesizer_metric_perform
+
+def generate_tabular_result(dataset_perform):
+    df = pd.DataFrame(data={'alg': []})
+
+    for dataset, alg_metric_perform in dataset_perform.items():
+        for alg, metric_perform in alg_metric_perform.items():
+            for metric, perform in metric_perform.items():
+                column_name = "{}/{}".format(dataset, metric)
+                row_name = alg
+
+                if not column_name in df.columns:
+                    df[column_name] = [None] * len(df)
+
+                if not row_name in df['alg'].unique():
+                    row_id = len(df)
+                    df.loc[row_id] = [None] * len(df.columns)
+                    df['alg'][row_id] = alg
+                else:
+                    row_id = df[df['alg'] == row_name].index[0]
+
+                df[column_name][row_id] = np.mean(perform)
+
+    df.to_csv("{}/results.csv".format(summary_dir))
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -101,5 +126,13 @@ if __name__ == "__main__":
         results.append((model, res))
 
     coverage(datasets, results)
+
+    dataset_perform = {}
     for dataset in datasets:
-        dataset_performance(dataset, results)
+        perform = dataset_performance(dataset, results)
+        if perform is None:
+            continue
+        else:
+            dataset_perform[dataset] = perform
+
+    generate_tabular_result(dataset_perform)
