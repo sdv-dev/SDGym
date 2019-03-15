@@ -33,7 +33,7 @@ def coverage(datasets, results):
     plt.title("coverage")
     plt.ylim(0, 1)
 
-    plt.savefig("{}/coverage.pdf".format(summary_dir), bbox_inches='tight')
+    plt.savefig("{}/coverage.jpg".format(summary_dir), bbox_inches='tight')
 
 
 def dataset_performance(dataset, results):
@@ -77,7 +77,7 @@ def dataset_performance(dataset, results):
     plt.title(dataset)
     plt.xlabel(None)
     plt.legend(title=None)
-    plt.savefig("{}/{}.pdf".format(summary_dir, dataset), bbox_inches='tight')
+    plt.savefig("{}/{}.jpg".format(summary_dir, dataset), bbox_inches='tight')
 
 
 if __name__ == "__main__":
