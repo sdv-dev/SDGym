@@ -94,27 +94,32 @@ class Generator(nn.Module):
     def __init__(self, randomDim, hiddenDim, outputInfo):
         super(Generator, self).__init__()
         self.outputInfo = outputInfo
-
-        self.rnn = nn.LSTMCell(randomDim, hiddenDim)
+        self.hiddenDim = hiddenDim
+        self.randomDim = randomDim
+        self.go = torch.nn.Parameter(torch.zeros(1, hiddenDim))
+        self.rnn = nn.LSTMCell(randomDim + hiddenDim, hiddenDim)
         self.fcs = nn.ModuleList()
+
         for info in outputInfo:
-            fc = nn.Sequential(
+            tmp = nn.ModuleList()
+            tmp.append(nn.Sequential(
                         nn.Linear(hiddenDim, hiddenDim),
-                        nn.ReLU(),
+                        nn.ReLU()))
+            tmp.append(nn.Sequential(
                         nn.Linear(hiddenDim, info[0]),
-                        get_activate(info[1]))
+                        get_activate(info[1])))
 
-            self.fcs.append(fc)
-
+            self.fcs.append(tmp)
 
     def forward(self, input):
         states = None
-
+        prev = self.go.expand(input.size()[0], self.hiddenDim)
         outputs = []
         for fc in self.fcs:
-            states = self.rnn(input)
-            output = fc(states[0])
-            outputs.append(output)
+            states = self.rnn(torch.cat([input, prev], dim=1))
+            hid = fc[0](states[0])
+            outputs.append(fc[1](hid))
+            prev = hid
 
         return outputs
 
@@ -136,7 +141,7 @@ class Discriminator(nn.Module):
         return self.seq(input_concat)
 
 
-class TganSynthesizer(SynthesizerBase):
+class TganFFSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
     supported_datasets = ['credit', 'census', 'adult',
@@ -250,4 +255,4 @@ class TganSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(TganSynthesizer())
+    run(TganFFSynthesizer())
