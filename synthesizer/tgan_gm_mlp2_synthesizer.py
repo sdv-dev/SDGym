@@ -91,17 +91,21 @@ def get_activate(x):
     assert 0
 
 class Generator(nn.Module):
-    def __init__(self, randomDim, hiddenDim, outputInfo):
+    def __init__(self, randomDim, hiddenDims, outputInfo):
         super(Generator, self).__init__()
         self.outputInfo = outputInfo
 
-        self.rnn = nn.LSTMCell(randomDim, hiddenDim)
+        dim = randomDim
+        seq = []
+        for item in list(hiddenDims):
+            seq += [nn.Linear(dim, dim),
+                    nn.ReLU()]
+        self.seq = nn.Sequential(*seq)
+
         self.fcs = nn.ModuleList()
         for info in outputInfo:
             fc = nn.Sequential(
-                        nn.Linear(hiddenDim, hiddenDim),
-                        nn.ReLU(),
-                        nn.Linear(hiddenDim, info[0]),
+                        nn.Linear(dim, info[0]),
                         get_activate(info[1]))
 
             self.fcs.append(fc)
@@ -110,10 +114,10 @@ class Generator(nn.Module):
     def forward(self, input):
         states = None
 
+        features = self.seq(input)
         outputs = []
         for fc in self.fcs:
-            states = self.rnn(input)
-            output = fc(states[0])
+            output = fc(features)
             outputs.append(output)
 
         return outputs
@@ -136,7 +140,7 @@ class Discriminator(nn.Module):
         return self.seq(input_concat)
 
 
-class TganSynthesizer(SynthesizerBase):
+class TganGMMLPSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
     supported_datasets = ['credit', 'census', 'adult',
@@ -144,14 +148,14 @@ class TganSynthesizer(SynthesizerBase):
 
     def __init__(self,
                  randomDim=128,
-                 generatorDim=256,                 # RNN 200, FC 200
+                 generatorDims=(128, 128, 128),
                  discriminatorDims=(256, 256, 1),   # datadim -> 256 -> 256 -> 1
                  l2scale=1e-5,
                  batch_size=500,
                  store_epoch=[10, 20, 50]):
 
         self.randomDim = randomDim
-        self.generatorDim = generatorDim
+        self.generatorDims = generatorDims
         self.discriminatorDims = discriminatorDims
         self.l2scale = l2scale
 
@@ -169,7 +173,7 @@ class TganSynthesizer(SynthesizerBase):
         output_info = self.transformer.output_info
         data_dim = self.transformer.output_stack_dim
 
-        generator = Generator(self.randomDim, self.generatorDim, output_info).to(self.device)
+        generator = Generator(self.randomDim, self.generatorDims, output_info).to(self.device)
         discriminator = Discriminator(data_dim, self.discriminatorDims).to(self.device)
         optimizerG = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
         optimizerD = optim.Adam(discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
@@ -212,7 +216,7 @@ class TganSynthesizer(SynthesizerBase):
 
     def generate(self, n):
         output_info = self.transformer.output_info
-        generator = Generator(self.randomDim, self.generatorDim, output_info).to(self.device)
+        generator = Generator(self.randomDim, self.generatorDims, output_info).to(self.device)
 
         ret = []
         mean = torch.zeros(self.batch_size, self.randomDim, device=self.device)
@@ -248,4 +252,4 @@ class TganSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(TganSynthesizer())
+    run(TganGMMLPSynthesizer())

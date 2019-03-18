@@ -129,9 +129,6 @@ class MedganSynthesizer(SynthesizerBase):
         dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
 
-
-        n_batch = len(train_data) // self.batch_size
-
         data_dim = self.transformer.output_dim
         # print(train_data.shape, data_dim)
         # assert 0
@@ -177,7 +174,7 @@ class MedganSynthesizer(SynthesizerBase):
                 optimizerD.step()
 
                 if i % n_d == 0:
-                    for i in range(n_g):
+                    for _ in range(n_g):
                         noise = torch.normal(mean=mean, std=std)
                         emb = generator(noise)
                         fake = decoder(emb)
