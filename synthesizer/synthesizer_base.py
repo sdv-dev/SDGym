@@ -19,7 +19,7 @@ parser.add_argument('--output', type=str, default='output',
 parser.add_argument('--name', type=str, default='',
                     help='model name, default is model class name.')
 
-parser.add_argument('--sample', type=int, default=20000,
+parser.add_argument('--sample', type=int, default=50000,
                     help='maximum samples in the synthetic data.')
 
 class SynthesizerBase(object):
