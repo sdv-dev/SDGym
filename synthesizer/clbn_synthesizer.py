@@ -60,7 +60,7 @@ def bnsample(model, n):
 
 
 
-class GreedyBNSynthesizer(SynthesizerBase):
+class CLBNSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
     def train(self, train_data):
@@ -80,4 +80,4 @@ class GreedyBNSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(GreedyBNSynthesizer())
+    run(CLBNSynthesizer())

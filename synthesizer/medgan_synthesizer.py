@@ -104,9 +104,9 @@ class MedganSynthesizer(SynthesizerBase):
                  decompressDims=(),                 # embeddingDim -> datadim
                  bnDecay=0.99,
                  l2scale=0.001,
-                 pretrain_epoch=100,
+                 pretrain_epoch=200,
                  batch_size=1000,
-                 store_epoch=[50, 100, 200]):
+                 store_epoch=[100, 200, 500]):
 
         self.embeddingDim = embeddingDim
         self.randomDim = randomDim
