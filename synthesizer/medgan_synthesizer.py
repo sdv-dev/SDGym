@@ -173,13 +173,13 @@ class MedganSynthesizer(SynthesizerBase):
                     optimizerD.zero_grad()
                     y_real = discriminator(real)
                     y_fake = discriminator(fake)
-                    loss_d = -(torch.log(y_real + 1e-12).mean()) - (torch.log(1. - y_fake + 1e-12).mean())
+                    loss_d = -(torch.log(y_real + 1e-4).mean()) - (torch.log(1. - y_fake + 1e-4).mean())
                     loss_d.backward()
                     optimizerD.step()
                 else:
                     optimizerG.zero_grad()
                     y_fake = discriminator(fake)
-                    loss_g = -(torch.log(y_fake + 1e-12).mean())
+                    loss_g = -(torch.log(y_fake + 1e-4).mean())
                     loss_g.backward()
                     optimizerG.step()
 
