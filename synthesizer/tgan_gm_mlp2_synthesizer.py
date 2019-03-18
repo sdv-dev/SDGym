@@ -140,7 +140,7 @@ class Discriminator(nn.Module):
         return self.seq(input_concat)
 
 
-class TganGMMLPSynthesizer(SynthesizerBase):
+class TganGMMLPSynthesizer2(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
     supported_datasets = ['credit', 'census', 'adult',
@@ -252,4 +252,4 @@ class TganGMMLPSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(TganGMMLPSynthesizer())
+    run(TganGMMLPSynthesizer2())
