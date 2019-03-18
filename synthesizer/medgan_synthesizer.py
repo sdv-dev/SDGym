@@ -157,31 +157,35 @@ class MedganSynthesizer(SynthesizerBase):
         optimizerG = optim.Adam(generator.parameters(), weight_decay=self.l2scale)
         optimizerD = optim.Adam(discriminator.parameters(), weight_decay=self.l2scale)
 
+        mean = torch.zeros(self.batch_size, self.randomDim, device=self.device)
+        std = mean + 1
         max_epoch = max(self.store_epoch)
         for i in range(max_epoch):
             n_d = 2
             n_g = 1
             for id_, data in enumerate(loader):
                 real = data[0].to(self.device)
-                mean = torch.zeros(self.batch_size, self.randomDim, device=self.device)
-                std = mean + 1
                 noise = torch.normal(mean=mean, std=std)
                 emb = generator(noise)
                 fake = decoder(emb)
 
-                if id_ % (n_d + n_g) < n_d:
-                    optimizerD.zero_grad()
-                    y_real = discriminator(real)
-                    y_fake = discriminator(fake)
-                    loss_d = -(torch.log(y_real + 1e-4).mean()) - (torch.log(1. - y_fake + 1e-4).mean())
-                    loss_d.backward()
-                    optimizerD.step()
-                else:
-                    optimizerG.zero_grad()
-                    y_fake = discriminator(fake)
-                    loss_g = -(torch.log(y_fake + 1e-4).mean())
-                    loss_g.backward()
-                    optimizerG.step()
+                optimizerD.zero_grad()
+                y_real = discriminator(real)
+                y_fake = discriminator(fake)
+                loss_d = -(torch.log(y_real + 1e-4).mean()) - (torch.log(1. - y_fake + 1e-4).mean())
+                loss_d.backward()
+                optimizerD.step()
+
+                if i % n_d == 0:
+                    for i in range(n_g):
+                        noise = torch.normal(mean=mean, std=std)
+                        emb = generator(noise)
+                        fake = decoder(emb)
+                        optimizerG.zero_grad()
+                        y_fake = discriminator(fake)
+                        loss_g = -(torch.log(y_fake + 1e-4).mean())
+                        loss_g.backward()
+                        optimizerG.step()
 
             print(loss_d, loss_g)
             if i+1 in self.store_epoch:
