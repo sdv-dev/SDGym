@@ -70,7 +70,10 @@ def dataset_performance(dataset, results):
     barchart = []
     for synthesizer, metric_perform in synthesizer_metric_perform.items():
         for k, v in metric_perform.items():
-            barchart.append((synthesizer, k, np.mean(v)))
+            v_t = np.mean(v)
+            if k == 'r2':
+                v_t = v_t.clip(-1, 1)
+            barchart.append((synthesizer, k, v_t))
 
     barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
     barchart.pivot("metric", "synthesizer", "val").plot(kind='bar')
@@ -93,7 +96,7 @@ def generate_tabular_result(dataset_perform):
                 if not column_name in df.columns:
                     df[column_name] = [None] * len(df)
 
-                if not row_name in df['alg'].unique():
+                if not row_name in set(df['alg'].unique()):
                     row_id = len(df)
                     df.loc[row_id] = [None] * len(df.columns)
                     df['alg'][row_id] = alg
