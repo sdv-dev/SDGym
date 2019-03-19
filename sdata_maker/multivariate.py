@@ -4,7 +4,12 @@ import os
 import pandas as pd
 import numpy as np
 
-from pomegranate import *
+from pomegranate import DiscreteDistribution, ConditionalProbabilityTable, Node, BayesianNetwork
+import utils
+
+def map_col(index2str, values):
+    mapper = dict([(k, v) for v, k in enumerate(index2str)])
+    return [mapper[item] for item in values]
 
 class MultivariateMaker(object):
     """base class for simulated bayesian network"""
@@ -48,7 +53,10 @@ class MultivariateMaker(object):
                         values[parents[i]] = data[_id, parents_map[i]]
                     data[_id, current] = distribution.sample(parent_values=values)
 
-        return data
+        data_t = np.zeros(data.shape)
+        for col_id in range(data.shape[1]):
+            data_t[:, col_id] = map_col(self.meta[col_id]['i2s'], data[:, col_id])
+        return data_t
 
 
 
@@ -94,8 +102,8 @@ class ChainMaker(MultivariateMaker):
         meta = []
         for i in range(self.model.node_count()):
             meta.append({
-                "name": None,
-                "type": "Categorical",
+                "name": chr(ord('A') + i),
+                "type": "categorical",
                 "size": 3,
                 "i2s": ['1', '2', '3']
         })
@@ -142,14 +150,14 @@ class TreeMaker(MultivariateMaker):
         meta = []
         for i in range(self.model.node_count()-1):
             meta.append({
-                "name": None,
-                "type": "Categorical",
+                "name": chr(ord('A') + i),
+                "type": "categorical",
                 "size": 3,
                 "i2s": ['1', '2', '3']
         })
         meta.append({
-                "name": None,
-                "type": "Categorical",
+                "name": "C",
+                "type": "categorical",
                 "size": 3,
                 "i2s": ['4', '5', '6']
         })
@@ -191,10 +199,13 @@ class FCMaker(MultivariateMaker):
         for i in range(self.model.node_count()):
             meta.append({
                 "name": None,
-                "type": "Categorical",
+                "type": "categorical",
                 "size": 2,
                 "i2s": ['T', 'F']
         })
+        meta[0]['name'] = 'Rain'
+        meta[1]['name'] = 'Sprinkler'
+        meta[2]['name'] = 'Wet'
         self.meta = meta
 
 
@@ -244,7 +255,7 @@ class GeneralMaker(MultivariateMaker):
         for i in range(self.model.node_count()):
             meta.append({
                 "name": name_mapper[i],
-                "type": "Categorical",
+                "type": "categorical",
                 "size": 2,
                 "i2s": ['T', 'F']
         })
@@ -278,3 +289,6 @@ if __name__ == "__main__":
     with open("{}/{}_structure.json".format(output_dir, dist), 'w') as f:
         f.write(maker.model.to_json())
     np.savez("{}/{}.npz".format(output_dir, dist), train=samples[:len(samples)//2], test=samples[len(samples)//2:])
+
+    utils.verify("{}/{}.npz".format(output_dir, dist),
+        "{}/{}.json".format(output_dir, dist))

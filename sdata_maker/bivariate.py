@@ -69,10 +69,13 @@ if __name__ == "__main__":
         meta.append({
                 "name": str(i),
                 "type": "continuous",
-                "min": np.min(samples[:,i].astype('float')),
-                "max": np.max(samples[:,i].astype('float'))
+                "min": int(np.min(samples[:,i].astype('float'))) - 1,
+                "max": int(np.max(samples[:,i].astype('float'))) + 1
         })
     # Store simulated data
     with open("{}/{}.json".format(output_dir, dist), 'w') as f:
         json.dump(meta, f, sort_keys=True, indent=4, separators=(',', ': '))
     np.savez("{}/{}.npz".format(output_dir, dist), train=samples[:len(samples)//2], test=samples[len(samples)//2:])
+
+    utils.verify("{}/{}.npz".format(output_dir, dist),
+        "{}/{}.json".format(output_dir, dist))
