@@ -13,11 +13,11 @@ import utils
 np.random.seed(0)
 
 def create_distribution(dist_type, num_samples):
-    if dist_type == "gaussian_grid":
+    if dist_type == "grid":
         return make_gaussian_mixture(dist_type, num_samples)
-    elif dist_type == "gaussian_ring":
+    elif dist_type == "ring":
         return make_gaussian_mixture(dist_type, num_samples, num_components = 8)
-    elif dist_type == "two_rings":
+    elif dist_type == "2rings":
         return make_two_rings(num_samples)
 
 def make_gaussian_mixture(dist_type, num_samples, num_components = 25, s = 0.05, n_dim = 2):
@@ -28,10 +28,10 @@ def make_gaussian_mixture(dist_type, num_samples, num_components = 25, s = 0.05,
     samples = np.empty([num_samples,n_dim])
     bsize = int(np.round(num_samples/num_components))
 
-    if dist_type == "gaussian_grid":
+    if dist_type == "grid":
         mus = np.array([np.array([i, j]) for i, j in itertools.product(range(-4, 5, 2),
                                                         range(-4, 5, 2))],dtype=np.float32)
-    elif dist_type == "gaussian_ring":
+    elif dist_type == "ring":
         mus = np.array([[-1,0],[1,0],[0,-1],[0,1],[-math.sqrt(1/2),-math.sqrt(1/2)],[math.sqrt(1/2),math.sqrt(1/2)],[-math.sqrt(1/2),math.sqrt(1/2)],[math.sqrt(1/2),-math.sqrt(1/2)]])
 
     for i in range(num_components):
@@ -54,7 +54,8 @@ if __name__ == "__main__":
     dist = args.distribution
     num_sample = args.sample
     samples = create_distribution(dist, num_sample*2)
-
+    np.random.shuffle(samples)
+    
     output_dir = "data/simulated"
     try:
         os.mkdir(output_dir)

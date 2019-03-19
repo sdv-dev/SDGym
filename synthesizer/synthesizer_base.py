@@ -26,7 +26,10 @@ class SynthesizerBase(object):
     """docstring for Synthesizer."""
 
     supported_datasets = ['mnist12', 'mnist28', 'credit', 'census', 'adult',
-                        'news', 'covtype', 'intrusion']
+                        'news', 'covtype', 'intrusion'] + [
+                            'chain', 'fc', 'tree', 'general',
+                            'grid', 'ring'
+                        ]
 
     def train(self, train_data):
         pass
