@@ -4,11 +4,16 @@ import os
 import pandas as pd
 import numpy as np
 
-from pomegranate import *
+from pomegranate import DiscreteDistribution, ConditionalProbabilityTable, Node, BayesianNetwork
+import utils
+
+def map_col(index2str, values):
+    mapper = dict([(k, v) for v, k in enumerate(index2str)])
+    return [mapper[item] for item in values]
 
 class MultivariateMaker(object):
-    """base class for synthetic bayesian network"""
-    
+    """base class for simulated bayesian network"""
+
     def __init__(self, dist_type):
         self.model = None
 
@@ -48,7 +53,10 @@ class MultivariateMaker(object):
                         values[parents[i]] = data[_id, parents_map[i]]
                     data[_id, current] = distribution.sample(parent_values=values)
 
-        return data
+        data_t = np.zeros(data.shape)
+        for col_id in range(data.shape[1]):
+            data_t[:, col_id] = map_col(self.meta[col_id]['i2s'], data[:, col_id])
+        return data_t
 
 
 
@@ -94,8 +102,8 @@ class ChainMaker(MultivariateMaker):
         meta = []
         for i in range(self.model.node_count()):
             meta.append({
-                "name": None,
-                "type": "Categorical",
+                "name": chr(ord('A') + i),
+                "type": "categorical",
                 "size": 3,
                 "i2s": ['1', '2', '3']
         })
@@ -142,14 +150,14 @@ class TreeMaker(MultivariateMaker):
         meta = []
         for i in range(self.model.node_count()-1):
             meta.append({
-                "name": None,
-                "type": "Categorical",
+                "name": chr(ord('A') + i),
+                "type": "categorical",
                 "size": 3,
                 "i2s": ['1', '2', '3']
         })
         meta.append({
-                "name": None,
-                "type": "Categorical",
+                "name": "C",
+                "type": "categorical",
                 "size": 3,
                 "i2s": ['4', '5', '6']
         })
@@ -191,12 +199,15 @@ class FCMaker(MultivariateMaker):
         for i in range(self.model.node_count()):
             meta.append({
                 "name": None,
-                "type": "Categorical",
+                "type": "categorical",
                 "size": 2,
                 "i2s": ['T', 'F']
         })
+        meta[0]['name'] = 'Rain'
+        meta[1]['name'] = 'Sprinkler'
+        meta[2]['name'] = 'Wet'
         self.meta = meta
-        
+
 
 class GeneralMaker(MultivariateMaker):
     def __init__(self):
@@ -244,20 +255,20 @@ class GeneralMaker(MultivariateMaker):
         for i in range(self.model.node_count()):
             meta.append({
                 "name": name_mapper[i],
-                "type": "Categorical",
+                "type": "categorical",
                 "size": 2,
                 "i2s": ['T', 'F']
         })
         self.meta = meta
 
-        
+
 if __name__ == "__main__":
     supported_distributions = {'chain': ChainMaker, 'tree': TreeMaker,'fc':FCMaker,'general': GeneralMaker}
 
-    parser = argparse.ArgumentParser(description='Generate Synthetic Data for a distribution')
+    parser = argparse.ArgumentParser(description='Generate simulated Data for a distribution')
     parser.add_argument('distribution', type = str, help = 'specify type of distributions to sample from')
     parser.add_argument('--sample', type=int, default=20000,
-                    help='maximum samples in the synthetic data.')
+                    help='maximum samples in the simulated data.')
 
     args = parser.parse_args()
     dist = args.distribution
@@ -266,19 +277,18 @@ if __name__ == "__main__":
         maker = supported_distributions[dist]()
         samples = maker.sample(num_sample)
 
-    output_dir = "data/synthetic"
+    output_dir = "data/simulated"
     if not os.path.exists(output_dir):
         try:
             os.mkdir(output_dir)
         except:
             pass
-    # Store synthetic data
+    # Store simulated data
     with open("{}/{}.json".format(output_dir, dist), 'w') as f:
         json.dump(maker.meta, f, sort_keys=True, indent=4, separators=(',', ': '))
     with open("{}/{}_structure.json".format(output_dir, dist), 'w') as f:
-        json.dump(maker.model.to_json(), f)
+        f.write(maker.model.to_json())
     np.savez("{}/{}.npz".format(output_dir, dist), train=samples[:len(samples)//2], test=samples[len(samples)//2:])
 
-    
-
-    
+    utils.verify("{}/{}.npz".format(output_dir, dist),
+        "{}/{}.json".format(output_dir, dist))

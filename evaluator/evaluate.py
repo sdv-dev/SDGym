@@ -16,10 +16,17 @@ from sklearn.linear_model import LinearRegression as LRR
 from sklearn.neural_network import MLPClassifier as MLPC
 from sklearn.neural_network import MLPRegressor as MLPR
 
+from sklearn.mixture import GaussianMixture as GMM
+
 from sklearn.metrics import accuracy_score, f1_score, r2_score
 from sklearn.utils import shuffle
 
 from utils import CATEGORICAL, CONTINUOUS, ORDINAL
+
+from scipy.stats import multivariate_normal
+import itertools
+
+from pomegranate import BayesianNetwork
 
 logging.basicConfig(level=logging.INFO)
 
@@ -183,6 +190,48 @@ def get_models(dataset):
 
     assert 0
 
+def default_gmm_likelihood(trainset, testset, n):
+    gmm = GMM(n, covariance_type='diag')
+    gmm.fit(testset)
+    l1 = gmm.score(trainset)
+
+    gmm.fit(trainset)
+    l2 = gmm.score(testset)
+
+    return [{
+        "name": "default",
+        "syn_likelihood": l1,
+        "test_likelihood": l2,
+    }]
+
+def mapper(data, meta):
+    data_t = []
+    for row in data:
+        row_t = []
+        for id_, info in enumerate(meta):
+            row_t.append(info['i2s'][int(row[id_])])
+        data_t.append(row_t)
+    return data_t
+
+def default_bayesian_likelihood(dataset, trainset, testset, meta):
+    struct = glob.glob("data/*/{}_structure.json".format(dataset))
+    assert len(struct) == 1
+    bn1 = BayesianNetwork.from_json(struct[0])
+
+    trainset_mapped = mapper(trainset, meta)
+    testset_mapped = mapper(testset, meta)
+
+    l1 = np.mean(np.log(np.asarray(bn1.probability(trainset_mapped)) + 1e-8))
+
+    bn2 = BayesianNetwork.from_structure(trainset_mapped, bn1.structure)
+    l2 = np.mean(np.log(np.asarray(bn2.probability(testset_mapped)) + 1e-8))
+
+    return [{
+        "name": "default",
+        "syn_likelihood": l1,
+        "test_likelihood": l2,
+    }]
+
 def evalute_dataset(dataset, trainset, testset, meta):
     if dataset in ["mnist12", "mnist28", "covtype", "intrusion"]:
         x_train, y_train = make_features(trainset, meta)
@@ -199,6 +248,14 @@ def evalute_dataset(dataset, trainset, testset, meta):
         x_test, y_test = make_features(testset, meta)
         return news_regression(x_train, y_train, x_test, y_test, get_models(dataset))
 
+    elif dataset in ['grid']:
+        return default_gmm_likelihood(trainset, testset, 25)
+
+    elif dataset in ['ring']:
+        return default_gmm_likelihood(trainset, testset, 8)
+
+    elif dataset in ['chain', 'fc', 'tree', 'general']:
+        return default_bayesian_likelihood(dataset, trainset, testset, meta)
     else:
         logging.warning("{} evaluation not defined.".format(dataset))
         assert 0

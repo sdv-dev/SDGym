@@ -31,6 +31,7 @@ class IndependentSynthesizer(SynthesizerBase):
         for i, info in enumerate(self.meta):
             if info['type'] == 'continuous':
                 x, _ = self.models[i].sample(n)
+                rng.shuffle(x)
                 data[:, i] = x.reshape([n])
                 data[:, i] = data[:, i].clip(info['min'], info['max'])
             else:
