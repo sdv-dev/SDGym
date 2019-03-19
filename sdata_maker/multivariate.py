@@ -7,8 +7,8 @@ import numpy as np
 from pomegranate import *
 
 class MultivariateMaker(object):
-    """base class for synthetic bayesian network"""
-    
+    """base class for simulated bayesian network"""
+
     def __init__(self, dist_type):
         self.model = None
 
@@ -196,7 +196,7 @@ class FCMaker(MultivariateMaker):
                 "i2s": ['T', 'F']
         })
         self.meta = meta
-        
+
 
 class GeneralMaker(MultivariateMaker):
     def __init__(self):
@@ -250,14 +250,14 @@ class GeneralMaker(MultivariateMaker):
         })
         self.meta = meta
 
-        
+
 if __name__ == "__main__":
     supported_distributions = {'chain': ChainMaker, 'tree': TreeMaker,'fc':FCMaker,'general': GeneralMaker}
 
-    parser = argparse.ArgumentParser(description='Generate Synthetic Data for a distribution')
+    parser = argparse.ArgumentParser(description='Generate simulated Data for a distribution')
     parser.add_argument('distribution', type = str, help = 'specify type of distributions to sample from')
     parser.add_argument('--sample', type=int, default=20000,
-                    help='maximum samples in the synthetic data.')
+                    help='maximum samples in the simulated data.')
 
     args = parser.parse_args()
     dist = args.distribution
@@ -266,19 +266,15 @@ if __name__ == "__main__":
         maker = supported_distributions[dist]()
         samples = maker.sample(num_sample)
 
-    output_dir = "data/synthetic"
+    output_dir = "data/simulated"
     if not os.path.exists(output_dir):
         try:
             os.mkdir(output_dir)
         except:
             pass
-    # Store synthetic data
+    # Store simulated data
     with open("{}/{}.json".format(output_dir, dist), 'w') as f:
         json.dump(maker.meta, f, sort_keys=True, indent=4, separators=(',', ': '))
     with open("{}/{}_structure.json".format(output_dir, dist), 'w') as f:
-        json.dump(maker.model.to_json(), f)
+        f.write(maker.model.to_json())
     np.savez("{}/{}.npz".format(output_dir, dist), train=samples[:len(samples)//2], test=samples[len(samples)//2:])
-
-    
-
-    

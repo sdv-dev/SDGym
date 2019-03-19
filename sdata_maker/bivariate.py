@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.datasets import make_circles
 
 import utils
- 
+
 np.random.seed(0)
 
 def create_distribution(dist_type, num_samples):
@@ -46,22 +46,22 @@ def make_two_rings(num_samples):
     return samples
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Generate Synthetic Data for a distribution')
+    parser = argparse.ArgumentParser(description='Generate simulated Data for a distribution')
     parser.add_argument('distribution', type = str, help = 'specify type of distributions to sample from')
     parser.add_argument('--sample', type=int, default=10000,
-                    help='maximum samples in the synthetic data.')
+                    help='maximum samples in the simulated data.')
     args = parser.parse_args()
     dist = args.distribution
     num_sample = args.sample
     samples = create_distribution(dist, num_sample*2)
 
-    output_dir = "data/synthetic"
+    output_dir = "data/simulated"
     try:
         os.mkdir(output_dir)
     except:
         pass
 
-    
+
 
     # Store Meta Files
     meta = []
@@ -72,15 +72,7 @@ if __name__ == "__main__":
                 "min": np.min(samples[:,i].astype('float')),
                 "max": np.max(samples[:,i].astype('float'))
         })
-    # Store synthetic data
+    # Store simulated data
     with open("{}/{}.json".format(output_dir, dist), 'w') as f:
         json.dump(meta, f, sort_keys=True, indent=4, separators=(',', ': '))
     np.savez("{}/{}.npz".format(output_dir, dist), train=samples[:len(samples)//2], test=samples[len(samples)//2:])
-
-
-
-    
-    
-
-
-
