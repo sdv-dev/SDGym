@@ -221,10 +221,22 @@ def default_bayesian_likelihood(dataset, trainset, testset, meta):
     trainset_mapped = mapper(trainset, meta)
     testset_mapped = mapper(testset, meta)
 
-    l1 = np.mean(np.log(np.asarray(bn1.probability(trainset_mapped)) + 1e-8))
+    prob = []
+    for item in trainset_mapped:
+        try:
+            prob += bn1.probability([item])
+        except:
+            prob += [1e-8]
+    l1 = np.mean(np.log(np.asarray(prob) + 1e-8))
 
     bn2 = BayesianNetwork.from_structure(trainset_mapped, bn1.structure)
-    l2 = np.mean(np.log(np.asarray(bn2.probability(testset_mapped)) + 1e-8))
+    prob = []
+    for item in testset_mapped:
+        try:
+            prob += bn2.probability([item])
+        except:
+            prob += [1e-8]
+    l2 = np.mean(np.log(np.asarray(prob) + 1e-8))
 
     return [{
         "name": "default",
