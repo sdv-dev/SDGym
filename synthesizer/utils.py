@@ -48,18 +48,22 @@ class GeneralTransformer(object):
 
     def transform(self, data):
         data_t = []
+        self.output_info = []
         for id_, info in enumerate(self.meta):
             col = data[:, id_]
             if info['type'] == CONTINUOUS:
                 col = (col - (info['min'])) / (info['max'] - info['min'])
                 data_t.append(col.reshape([-1, 1]))
+                self.output_info.append((1, 'sigmoid'))
             elif info['type'] == ORDINAL:
                 col = col / info['size']
                 data_t.append(col.reshape([-1, 1]))
+                self.output_info.append((1, 'sigmoid'))
             else:
                 col_t = np.zeros([len(data), info['size']])
                 col_t[np.arange(len(data)), col.astype('int32')] = 1
                 data_t.append(col_t)
+                self.output_info.append((info['size'], 'softmax'))
         return np.concatenate(data_t, axis=1)
 
     def inverse_transform(self, data):
