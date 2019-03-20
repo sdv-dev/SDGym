@@ -19,7 +19,7 @@ class Discretizer(object):
 
     def transform(self, data):
         if self.c_index == []:
-            return data
+            return data.astype('int')
 
         data_t = data.copy()
         data_t[:, self.c_index] = self.kbin_discretizer.transform(data[:, self.c_index])
