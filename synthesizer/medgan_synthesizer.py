@@ -151,7 +151,7 @@ class MedganSynthesizer(SynthesizerBase):
 
         generator = Generator(self.randomDim, self.generatorDims, self.bnDecay).to(self.device)
         discriminator = Discriminator(data_dim, self.discriminatorDims).to(self.device)
-        optimizerG = optim.Adam(generator.parameters(), weight_decay=self.l2scale)
+        optimizerG = optim.Adam(list(generator.parameters()) + list(decoder.parameters()), weight_decay=self.l2scale)
         optimizerD = optim.Adam(discriminator.parameters(), weight_decay=self.l2scale)
 
         mean = torch.zeros(self.batch_size, self.randomDim, device=self.device)
