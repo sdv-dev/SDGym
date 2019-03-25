@@ -145,8 +145,8 @@ class Discriminator(nn.Module):
 class TganGMMLPSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
-    supported_datasets = ['credit', 'census', 'adult',
-                        'news', 'covtype', 'intrusion']
+    # supported_datasets = ['credit', 'census', 'adult',
+    #                     'news', 'covtype', 'intrusion']
 
     def __init__(self,
                  randomDim=128,
@@ -154,7 +154,7 @@ class TganGMMLPSynthesizer(SynthesizerBase):
                  discriminatorDims=(256, 256, 1),   # datadim -> 256 -> 256 -> 1
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[10, 20, 50]):
+                 store_epoch=[20, 50, 100]):
 
         self.randomDim = randomDim
         self.generatorDims = generatorDims

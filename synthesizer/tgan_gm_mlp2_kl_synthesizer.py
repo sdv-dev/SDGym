@@ -140,7 +140,7 @@ class Discriminator(nn.Module):
         return self.seq(input_concat)
 
 
-class TganGMMLPSynthesizer2(SynthesizerBase):
+class TganGMMLPKLSynthesizer2(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
     # supported_datasets = ['credit', 'census', 'adult',
@@ -175,6 +175,15 @@ class TganGMMLPSynthesizer2(SynthesizerBase):
 
         generator = Generator(self.randomDim, self.generatorDims, output_info).to(self.device)
         discriminator = Discriminator(data_dim, self.discriminatorDims).to(self.device)
+
+        kl_loss = nn.KLDivLoss(reduction='batchmean').to(self.device)
+        def compute_kl(fake, real):
+            kl = []
+            for u, v, info in zip(fake, real, output_info):
+                if info[1] == 'softmax':
+                    kl.append(kl_loss(torch.log(u.mean(dim=0, keepdim=True) + 1e-6), v.mean(dim=0, keepdim=True)))
+            return sum(kl) if len(kl) > 0 else 0.
+
         optimizerG = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
         optimizerD = optim.Adam(discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
 
@@ -203,7 +212,7 @@ class TganGMMLPSynthesizer2(SynthesizerBase):
                         fake = generator(noise)
                         optimizerG.zero_grad()
                         y_fake = discriminator(fake)
-                        loss_g = -(torch.log(y_fake + 1e-4).mean())
+                        loss_g = -(torch.log(y_fake + 1e-4).mean()) + compute_kl(real, fake)
                         loss_g.backward()
                         optimizerG.step()
 
@@ -252,4 +261,4 @@ class TganGMMLPSynthesizer2(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(TganGMMLPSynthesizer2())
+    run(TganGMMLPKLSynthesizer2())
