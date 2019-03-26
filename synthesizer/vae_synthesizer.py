@@ -48,7 +48,7 @@ class Decoder(nn.Module):
         return self.seq(input)
 
 
-def loss_function(recon_x, x, mu, logvar, output_info):
+def loss_function(recon_x, x, mu, logvar, output_info, mu):
     st = 0
     loss = []
     for item in output_info:
@@ -64,7 +64,7 @@ def loss_function(recon_x, x, mu, logvar, output_info):
             assert 0
 
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    return (sum(loss) + KLD) / x.size()[0]
+    return (sum(loss) * mu + KLD) / x.size()[0]
 
 
 class VAESynthesizer(SynthesizerBase):
@@ -75,7 +75,7 @@ class VAESynthesizer(SynthesizerBase):
                  decompressDims=(64, 128),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[20, 50, 100]):
+                 store_epoch=[100, 200]):
 
         self.embeddingDim = embeddingDim
         self.compressDims = compressDims
@@ -84,6 +84,7 @@ class VAESynthesizer(SynthesizerBase):
         self.l2scale = l2scale
         self.batch_size = batch_size
         self.store_epoch = store_epoch
+        self.loss_mu = 5
 
     def train(self, train_data):
         self.transformer = GeneralTransformer(self.meta)
@@ -106,7 +107,7 @@ class VAESynthesizer(SynthesizerBase):
                 eps = torch.randn_like(std)
                 emb = eps * std + mu
                 rec = decoder(emb)
-                loss = loss_function(rec, real, mu, logvar, self.transformer.output_info)
+                loss = loss_function(rec, real, mu, logvar, self.transformer.output_info, self.loss_mu)
                 loss.backward()
                 optimizerAE.step()
             print(loss)
@@ -144,6 +145,13 @@ class VAESynthesizer(SynthesizerBase):
     def init(self, meta, working_dir):
         self.meta = meta
         self.working_dir = working_dir
+
+        if len(self.meta) < 5:
+            self.embeddingDim = 4
+            self.compressDims = (16, 8)
+            self.decompressDims = (8, 16)
+            self.loss_mu = 100
+
         try:
             os.mkdir(working_dir)
         except:
