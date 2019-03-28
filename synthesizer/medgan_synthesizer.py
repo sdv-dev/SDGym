@@ -109,7 +109,7 @@ def aeloss(fake, real, output_info):
             st = ed
         else:
             assert 0
-    return sum(loss)
+    return sum(loss) / fake.size()[0]
 
 
 class MedganSynthesizer(SynthesizerBase):
@@ -235,7 +235,7 @@ class MedganSynthesizer(SynthesizerBase):
                 std = mean + 1
                 noise = torch.normal(mean=mean, std=std).to(self.device)
                 emb = generator(noise)
-                fake = decoder(emb)
+                fake = decoder(emb, self.transformer.output_info)
                 fake = torch.sigmoid(fake)
                 data.append(fake.detach().cpu().numpy())
             data = np.concatenate(data, axis=0)
