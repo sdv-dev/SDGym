@@ -75,7 +75,7 @@ class VAESynthesizer(SynthesizerBase):
                  decompressDims=(64, 128),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[100, 200]):
+                 store_epoch=[200]):
 
         self.embeddingDim = embeddingDim
         self.compressDims = compressDims

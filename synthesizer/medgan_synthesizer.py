@@ -106,7 +106,7 @@ class MedganSynthesizer(SynthesizerBase):
                  l2scale=0.001,
                  pretrain_epoch=200,
                  batch_size=1000,
-                 store_epoch=[100, 200, 500]):
+                 store_epoch=[200]):
 
         self.embeddingDim = embeddingDim
         self.randomDim = randomDim
