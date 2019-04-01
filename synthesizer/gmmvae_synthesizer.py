@@ -1,5 +1,5 @@
 from synthesizer_base import SynthesizerBase, run
-from utils import MeanStdTransformer
+from utils import GMMTransformer
 import numpy as np
 import torch
 import torch.nn as nn
@@ -55,8 +55,8 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
         if item[1] == 'mix':
             ed = st + item[0]
             std = sigmas[st]
-            loss.append(((x[:, st] - torch.sigmoid(recon_x[:, st])) ** 2 / 2 / (std ** 2)).sum())
-            loss.append(torch.log(std) * x.size()[0])
+            # loss.append(((x[:, st] - torch.tanh(recon_x[:, st])) ** 2 / 2 / (std ** 2)).sum())
+            # loss.append(torch.log(std) * x.size()[0])
             st = ed
         elif item[1] == 'softmax':
             ed = st + item[0]
@@ -69,7 +69,7 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
     return (sum(loss) * factor + KLD) / x.size()[0]
 
 
-class STDVAESynthesizer(SynthesizerBase):
+class GMMVAESynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=32,
@@ -86,10 +86,10 @@ class STDVAESynthesizer(SynthesizerBase):
         self.l2scale = l2scale
         self.batch_size = batch_size
         self.store_epoch = store_epoch
-        self.loss_factor = 1
+        self.loss_factor = 3
 
     def train(self, train_data):
-        self.transformer = MeanStdTransformer(self.meta)
+        self.transformer = GMMTransformer(self.meta, 5)
         self.transformer.fit(train_data)
         train_data = self.transformer.transform(train_data)
         dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
@@ -138,23 +138,17 @@ class STDVAESynthesizer(SynthesizerBase):
                 std = mean + 1
                 noise = torch.normal(mean=mean, std=std).to(self.device)
                 fake, sigmas = decoder(noise)
-                fake = torch.sigmoid(fake)
+                fake = torch.tanh(fake)
                 data.append(fake.detach().cpu().numpy())
             data = np.concatenate(data, axis=0)
             data = data[:n]
-            data = self.transformer.inverse_transform(data, sigmas.detach().cpu().numpy())
+            data = self.transformer.inverse_transform(data)
             ret.append((epoch, data))
         return ret
 
     def init(self, meta, working_dir):
         self.meta = meta
         self.working_dir = working_dir
-
-        if len(self.meta) <= 5:
-            self.embeddingDim = 4
-            self.compressDims = (16, 8)
-            self.decompressDims = (8, 16)
-            self.loss_factor = 1
 
         try:
             os.mkdir(working_dir)
@@ -164,4 +158,4 @@ class STDVAESynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(STDVAESynthesizer())
+    run(GMMVAESynthesizer())

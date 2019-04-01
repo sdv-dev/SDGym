@@ -161,74 +161,74 @@ class MeanStdTransformer(object):
 
         return data_t
 
-# class GMMTransformer(object):
-#     def __init__(self, meta, n_clusters=5):
-#         self.meta = meta
-#         self.n_clusters = n_clusters
-#
-#     def fit(self, data):
-#         model = []
-#
-#         self.output_info = []
-#         self.output_dim = 0
-#         for id_, info in enumerate(self.meta):
-#             if info['type'] == CONTINUOUS:
-#                 gm = GaussianMixture(self.n_clusters)
-#                 gm.fit(data[:, id_].reshape([-1, 1]))
-#                 model.append(gm)
-#                 self.output_info += [(1, 'tanh'), (self.n_clusters, 'softmax')]
-#                 self.output_dim += 1 + self.n_clusters
-#             else:
-#                 model.append(None)
-#                 self.output_info += [(info['size'], 'softmax')]
-#                 self.output_dim += info['size']
-#
-#         self.model = model
-#
-#     def transform(self, data):
-#         values = []
-#         for id_, info in enumerate(self.meta):
-#             current = data[:, id_]
-#             if info['type'] == CONTINUOUS:
-#                 current = current.reshape([-1, 1])
-#
-#                 means = self.model[id_].means_.reshape((1, self.n_clusters))
-#                 stds = np.sqrt(self.model[id_].covariances_).reshape((1, self.n_clusters))
-#                 features = (current - means) / (2 * stds)
-#
-#                 probs = self.model[id_].predict_proba(current.reshape([-1, 1]))
-#                 argmax = np.argmax(probs, axis=1)
-#                 idx = np.arange((len(features)))
-#                 features = features[idx, argmax].reshape([-1, 1])
-#
-#                 features = np.clip(features, -.99, .99)
-#
-#                 values += [features, probs]
-#             else:
-#                 col_t = np.zeros([len(data), info['size']])
-#                 col_t[np.arange(len(data)), current.astype('int32')] = 1
-#                 values.append(col_t)
-#
-#         return np.concatenate(values, axis=1)
-#
-#     def inverse_transform(self, data):
-#         data_t = np.zeros([len(data), len(self.meta)])
-#
-#         st = 0
-#         for id_, info in enumerate(self.meta):
-#             if info['type'] == CONTINUOUS:
-#                 u = data[:, st]
-#                 v = data[:, st+1:st+1+self.n_clusters]
-#                 st += 1 + self.n_clusters
-#                 means = self.model[id_].means_.reshape([-1])
-#                 stds = np.sqrt(self.model[id_].covariances_).reshape([-1])
-#                 p_argmax = np.argmax(v, axis=1)
-#                 std_t = stds[p_argmax]
-#                 mean_t = means[p_argmax]
-#                 tmp = u * 2 * std_t  + mean_t
-#                 data_t[:, id_] = tmp
-#             else:
-#                 current = data[:, st:st+info['size']]
-#                 st += info['size']
-#                 data_t[:, id_] = np.argmax(current, axis=1)
-#         return data_t
+class GMMTransformer(object):
+    def __init__(self, meta, n_clusters=5):
+        self.meta = meta
+        self.n_clusters = n_clusters
+
+    def fit(self, data):
+        model = []
+
+        self.output_info = []
+        self.output_dim = 0
+        for id_, info in enumerate(self.meta):
+            if info['type'] == CONTINUOUS:
+                gm = GaussianMixture(self.n_clusters)
+                gm.fit(data[:, id_].reshape([-1, 1]))
+                model.append(gm)
+                self.output_info += [(1, 'mix'), (self.n_clusters, 'softmax')]
+                self.output_dim += 1 + self.n_clusters
+            else:
+                model.append(None)
+                self.output_info += [(info['size'], 'softmax')]
+                self.output_dim += info['size']
+
+        self.model = model
+
+    def transform(self, data):
+        values = []
+        for id_, info in enumerate(self.meta):
+            current = data[:, id_]
+            if info['type'] == CONTINUOUS:
+                current = current.reshape([-1, 1])
+
+                means = self.model[id_].means_.reshape((1, self.n_clusters))
+                stds = np.sqrt(self.model[id_].covariances_).reshape((1, self.n_clusters))
+                features = (current - means) / (2 * stds)
+
+                probs = self.model[id_].predict_proba(current.reshape([-1, 1]))
+                argmax = np.argmax(probs, axis=1)
+                idx = np.arange((len(features)))
+                features = features[idx, argmax].reshape([-1, 1])
+
+                features = np.clip(features, -.99, .99)
+
+                values += [features, probs]
+            else:
+                col_t = np.zeros([len(data), info['size']])
+                col_t[np.arange(len(data)), current.astype('int32')] = 1
+                values.append(col_t)
+
+        return np.concatenate(values, axis=1)
+
+    def inverse_transform(self, data):
+        data_t = np.zeros([len(data), len(self.meta)])
+
+        st = 0
+        for id_, info in enumerate(self.meta):
+            if info['type'] == CONTINUOUS:
+                u = data[:, st]
+                v = data[:, st+1:st+1+self.n_clusters]
+                st += 1 + self.n_clusters
+                means = self.model[id_].means_.reshape([-1])
+                stds = np.sqrt(self.model[id_].covariances_).reshape([-1])
+                p_argmax = np.argmax(v, axis=1)
+                std_t = stds[p_argmax]
+                mean_t = means[p_argmax]
+                tmp = u * 2 * std_t  + mean_t
+                data_t[:, id_] = tmp
+            else:
+                current = data[:, st:st+info['size']]
+                st += info['size']
+                data_t[:, id_] = np.argmax(current, axis=1)
+        return data_t
