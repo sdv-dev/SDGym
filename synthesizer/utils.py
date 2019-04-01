@@ -138,7 +138,6 @@ class MeanStdTransformer(object):
                 data = data[:, 1:]
                 sigmas = sigmas[1:]
                 current = np.random.normal(mu, sig)
-                current = mu
                 current = np.clip(current, 0, 1)
                 data_t[:, id_] = current * (info['max'] - info['min']) + info['min']
 
@@ -148,7 +147,6 @@ class MeanStdTransformer(object):
                 data = data[:, 1:]
                 sigmas = sigmas[1:]
                 current = np.random.normal(mu, sig)
-                current = mu
                 current = np.clip(current, 0, 1)
                 current = current * info['size']
                 current = np.round(current).clip(0, info['size'] - 1)
@@ -211,7 +209,7 @@ class GMMTransformer(object):
 
         return np.concatenate(values, axis=1)
 
-    def inverse_transform(self, data):
+    def inverse_transform(self, data, sigmas):
         data_t = np.zeros([len(data), len(self.meta)])
 
         st = 0
@@ -219,6 +217,9 @@ class GMMTransformer(object):
             if info['type'] == CONTINUOUS:
                 u = data[:, st]
                 v = data[:, st+1:st+1+self.n_clusters]
+                sig = sigmas[st]
+                u = np.random.normal(u, sig)
+                u = np.clip(u, -1, 1)
                 st += 1 + self.n_clusters
                 means = self.model[id_].means_.reshape([-1])
                 stds = np.sqrt(self.model[id_].covariances_).reshape([-1])

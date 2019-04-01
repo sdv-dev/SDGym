@@ -55,8 +55,8 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
         if item[1] == 'mix':
             ed = st + item[0]
             std = sigmas[st]
-            # loss.append(((x[:, st] - torch.tanh(recon_x[:, st])) ** 2 / 2 / (std ** 2)).sum())
-            # loss.append(torch.log(std) * x.size()[0])
+            loss.append(((x[:, st] - torch.tanh(recon_x[:, st])) ** 2 / 2 / (std ** 2)).sum())
+            loss.append(torch.log(std) * x.size()[0])
             st = ed
         elif item[1] == 'softmax':
             ed = st + item[0]
@@ -66,15 +66,16 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
             assert 0
     assert st == recon_x.size()[1]
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    print(loss, KLD)
     return (sum(loss) * factor + KLD) / x.size()[0]
 
 
 class GMMVAESynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
-                 embeddingDim=32,
-                 compressDims=(128, 64),
-                 decompressDims=(64, 128),
+                 embeddingDim=128,
+                 compressDims=(128, 128),
+                 decompressDims=(128, 128),
                  l2scale=1e-5,
                  batch_size=500,
                  store_epoch=[100, 200, 300]):
@@ -86,7 +87,7 @@ class GMMVAESynthesizer(SynthesizerBase):
         self.l2scale = l2scale
         self.batch_size = batch_size
         self.store_epoch = store_epoch
-        self.loss_factor = 3
+        self.loss_factor = 2
 
     def train(self, train_data):
         self.transformer = GMMTransformer(self.meta, 5)
@@ -142,7 +143,7 @@ class GMMVAESynthesizer(SynthesizerBase):
                 data.append(fake.detach().cpu().numpy())
             data = np.concatenate(data, axis=0)
             data = data[:n]
-            data = self.transformer.inverse_transform(data)
+            data = self.transformer.inverse_transform(data, sigmas.detach().cpu().numpy())
             ret.append((epoch, data))
         return ret
 
