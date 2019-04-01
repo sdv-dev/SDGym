@@ -135,7 +135,6 @@ class MeanStdTransformer(object):
             if info['type'] == CONTINUOUS:
                 mu = data[:, 0]
                 sig = sigmas[0]
-                print("---", sig)
                 data = data[:, 1:]
                 sigmas = sigmas[1:]
                 current = np.random.normal(mu, sig)
