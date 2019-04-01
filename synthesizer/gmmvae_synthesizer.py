@@ -66,7 +66,7 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
             assert 0
     assert st == recon_x.size()[1]
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    return (sum(loss) * factor + KLD) / x.size()[0]
+    return sum(loss) * factor / x.size()[0], KLD / x.size()[0]
 
 
 class GMMVAESynthesizer(SynthesizerBase):
@@ -77,7 +77,7 @@ class GMMVAESynthesizer(SynthesizerBase):
                  decompressDims=(128, 128),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[100, 200, 300]):
+                 store_epoch=[300]):
 
         self.embeddingDim = embeddingDim
         self.compressDims = compressDims
@@ -109,11 +109,12 @@ class GMMVAESynthesizer(SynthesizerBase):
                 eps = torch.randn_like(std)
                 emb = eps * std + mu
                 rec, sigmas = decoder(emb)
-                loss = loss_function(rec, real, sigmas, mu, logvar, self.transformer.output_info, self.loss_factor)
+                loss_1, loss_2 = loss_function(rec, real, sigmas, mu, logvar, self.transformer.output_info, self.loss_factor)
+                loss = loss_1 + loss_2
                 loss.backward()
                 optimizerAE.step()
                 decoder.sigma.data.clamp_(0.01, 1.)
-            print(loss)
+            print(i+1, loss_1, loss_2)
             if i+1 in self.store_epoch:
                 torch.save({
                     "encoder": encoder.state_dict(),

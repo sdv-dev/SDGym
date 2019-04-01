@@ -77,7 +77,7 @@ class STDVAESynthesizer(SynthesizerBase):
                  decompressDims=(64, 128),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[100, 200, 300]):
+                 store_epoch=[300]):
 
         self.embeddingDim = embeddingDim
         self.compressDims = compressDims
@@ -113,7 +113,7 @@ class STDVAESynthesizer(SynthesizerBase):
                 loss.backward()
                 optimizerAE.step()
                 decoder.sigma.data.clamp_(0.01, 1.)
-            print(loss)
+            print(i+1, loss)
             if i+1 in self.store_epoch:
                 torch.save({
                     "encoder": encoder.state_dict(),
