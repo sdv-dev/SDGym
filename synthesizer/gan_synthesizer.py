@@ -118,6 +118,11 @@ class Cond(object):
 
     def generate_zero(self, batch):
         vec = np.zeros((batch, self.n_opt), dtype='float32')
+        idx = np.random.choice(np.arange(self.n_col), batch, p=self.p_col)
+        for i in range(batch):
+            col = idx[i]
+            pick = int(np.random.choice(self.model[col]))
+            vec[i, pick + self.interval[col, 0]] = 1
         return vec
 
 def cond_loss(data, output_info, c, m):
@@ -157,7 +162,7 @@ class GANSynthesizer(SynthesizerBase):
                  recDim=(128, ),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[100, 200]):
+                 store_epoch=[200]):
 
         self.embeddingDim = embeddingDim
         self.genDim = genDim
@@ -169,7 +174,7 @@ class GANSynthesizer(SynthesizerBase):
         self.store_epoch = store_epoch
 
     def train(self, train_data):
-        train_data = monkey_with_train_data(train_data)
+        # train_data = monkey_with_train_data(train_data)
         self.transformer = GeneralTransformer(self.meta)
         self.transformer.fit(train_data)
         train_data = self.transformer.transform(train_data)
@@ -182,8 +187,8 @@ class GANSynthesizer(SynthesizerBase):
         generator= Generator(self.embeddingDim + self.cond_generator.n_opt, self.genDim, data_dim).to(self.device)
         discriminator = Discriminator(data_dim, self.disDim).to(self.device)
 
-        optimizerG = optim.Adam(generator.parameters(), betas=(0.5, 0.9), weight_decay=self.l2scale)
-        optimizerD = optim.Adam(discriminator.parameters(), betas=(0.5, 0.9), weight_decay=self.l2scale)
+        optimizerG = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.9), weight_decay=self.l2scale)
+        optimizerD = optim.Adam(discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9), weight_decay=self.l2scale)
 
         max_epoch = max(self.store_epoch)
         assert self.batch_size % 2 == 0
@@ -243,7 +248,7 @@ class GANSynthesizer(SynthesizerBase):
                 mean = torch.zeros(self.batch_size, self.embeddingDim)
                 std = mean + 1
                 fakez = torch.normal(mean=mean, std=std).to(self.device)
-                c1, m1 = self.cond_generator.generate(self.batch_size)
+                c1 = self.cond_generator.generate_zero(self.batch_size)
                 c1 = torch.from_numpy(c1).to(self.device)
                 fake = generator(torch.cat([fakez, c1], dim=1))
                 fakeact = apply_activate(fake, output_info)
