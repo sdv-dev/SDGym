@@ -182,9 +182,10 @@ class Sampler(object):
             elif item[1] == 'softmax':
                 ed = st + item[0]
                 w += np.sum(data[:, st:ed] / (np.sum(data[:, st:ed], axis=0) + 1e-8), axis=1)
+                st = ed
             else:
                 assert 0
-
+        assert st == data.shape[1]
         self.weight = w
         self.weight /= np.sum(self.weight)
 
