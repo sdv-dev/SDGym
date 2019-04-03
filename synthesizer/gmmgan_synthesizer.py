@@ -163,9 +163,8 @@ class GMMGANSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
-                 genDim=(128, 128),
-                 disDim=(128, 128),
-                 recDim=(128, 128),
+                 genDim=(128, ),
+                 disDim=(128, ),
                  l2scale=1e-5,
                  batch_size=500,
                  store_epoch=[100, 200]):
@@ -173,7 +172,6 @@ class GMMGANSynthesizer(SynthesizerBase):
         self.embeddingDim = embeddingDim
         self.genDim = genDim
         self.disDim = disDim
-        self.recDim = recDim
 
         self.l2scale = l2scale
         self.batch_size = batch_size
