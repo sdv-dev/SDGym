@@ -93,8 +93,8 @@ def default_binary_classification(x_train, y_train, x_test, y_test, classifiers)
 
 def news_regression(x_train, y_train, x_test, y_test, regressors):
     performance = []
-    y_train = np.log(np.clip(y_train, 0, 20000))
-    y_test = np.log(np.clip(y_test, 0, 20000))
+    y_train = np.log(np.clip(y_train, 1, 20000))
+    y_test = np.log(np.clip(y_test, 1, 20000))
     for clf, name in regressors:
         clf.fit(x_train, y_train)
         pred = clf.predict(x_test)
