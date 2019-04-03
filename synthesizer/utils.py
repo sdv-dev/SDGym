@@ -217,8 +217,9 @@ class GMMTransformer(object):
             if info['type'] == CONTINUOUS:
                 u = data[:, st]
                 v = data[:, st+1:st+1+self.n_clusters]
-                sig = sigmas[st]
-                u = np.random.normal(u, sig)
+                if sigmas is not None:
+                    sig = sigmas[st]
+                    u = np.random.normal(u, sig)
                 u = np.clip(u, -1, 1)
                 st += 1 + self.n_clusters
                 means = self.model[id_].means_.reshape([-1])
