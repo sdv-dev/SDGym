@@ -159,6 +159,41 @@ def monkey_with_train_data(data):
     np.random.shuffle(over_sample)
     return over_sample
 
+class Sampler(object):
+    """docstring for Sampler."""
+
+    def __init__(self, data, output_info):
+        super(Sampler, self).__init__()
+        self.data = data
+        self.weight = []
+
+        st = 0
+        skip = False
+        w = np.zeros(len(self.data))
+        for item in output_info:
+            if skip:
+                assert item[1] == 'softmax'
+                skip = False
+                st += item[0]
+                continue
+            if item[1] == 'mix':
+                st += item[0]
+                skip = True
+            elif item[1] == 'softmax':
+                ed = st + item[0]
+                w += np.sum(data[:, st:ed] / (np.sum(data[:, st:ed], axis=0) + 1e-8), axis=1)
+            else:
+                assert 0
+
+        self.weight = w
+        self.weight /= np.sum(self.weight)
+
+    def sample(self, n):
+        idx = np.random.choice(np.arange(len(self.data)), n, p=self.weight)
+        return self.data[idx]
+
+
+
 class GMMGANSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
@@ -167,7 +202,7 @@ class GMMGANSynthesizer(SynthesizerBase):
                  disDim=(128, ),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[100, 200]):
+                 store_epoch=[200]):
 
         self.embeddingDim = embeddingDim
         self.genDim = genDim
@@ -182,8 +217,9 @@ class GMMGANSynthesizer(SynthesizerBase):
         self.transformer = GMMTransformer(self.meta, 5)
         self.transformer.fit(train_data)
         train_data = self.transformer.transform(train_data)
-        dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
-        loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
+        # dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
+        # loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
+        data_sampler = Sampler(train_data, self.transformer.output_info)
 
         data_dim = self.transformer.output_dim
         self.cond_generator = Cond(self.meta, train_data)
@@ -200,10 +236,11 @@ class GMMGANSynthesizer(SynthesizerBase):
         std = mean + 1
 
 
-
+        steps_per_epoch = len(train_data) // self.batch_size
         for i in range(max_epoch):
-            for id_, data in enumerate(loader):
-                real = data[0].to(self.device)
+            for id_ in range(steps_per_epoch):
+                real = data_sampler.sample(self.batch_size)
+                real = torch.from_numpy(real.astype('float32')).to(self.device)
                 y_real = discriminator(real)
 
                 c1, m1 = self.cond_generator.generate(self.batch_size)
