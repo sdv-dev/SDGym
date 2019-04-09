@@ -9,27 +9,27 @@ All data are stored on Dropbox.
 To run this benchmark, you should first download all the data from dropbox and store them in `data` folder. So the whole working folder should look like
 
 ```
-data/
-|
-|--real/
-|  |
-|  |--rdata1.npz
-|  |
-|  |--rdata1.json
-|  |
-|  |-- ...
-|
-|--simulate/
-|  |
-|  |--sdata1.npz
-|  |
-|  |--sdata1.json
-|  |
-|  |--...
-|
-|--evaluator/
-|
-|--synthesizer/
+SyntheticDataBenchmark
+ |-data/
+ |  |
+ |  |--real/
+ |  |  |
+ |  |  |--rdata1.npz
+ |  |  |
+ |  |  |--rdata1.json
+ |  |  |
+ |  |  |-- ...
+ |  |
+ |  |--simulate/
+ |      |
+ |      |--sdata1.npz
+ |      |
+ |      |--sdata1.json
+ |      |
+ |      |--...
+ |
+ |-synthetic_data_benchmark/
+ |-output/
 ```
 
 Each dataset comes with a npz data file and a json meta data. The meta file looks like
@@ -57,17 +57,17 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 
 ## Benchmark Framework
 
-- Preprocess and get clean synthetic and real data sets. All code should goto `sdata_maker` and `rdata_maker`. (Once done, everything will be uploaded to S3, so that data are fixed for future use.
-- `synthesizer/` contains several baseline synthesizers. Each synthesizer can be easily excuted on one or more datasets multiple times by
-	-`> python3 synthesizer/xxx_synthesizer.py --repeat 3 [dataset1, dataset2, ...]`
+- Preprocess and get clean synthetic and real data sets. All code should goto `synthetic_data_benchmark /sdata_maker` and `synthetic_data_benchmark/rdata_maker`. (Once done, everything will be uploaded to S3, so that data are fixed for future use.
+- `synthetic_data_benchmark/synthesizer/` contains several baseline synthesizers. Each synthesizer can be easily excuted on one or more datasets multiple times by
+	-`> python3 -m synthetic_data_benchmark.synthesizer.xxx_synthesizer --repeat 3 [dataset1, dataset2, ...]`
 	- Excution results are stored in `output/` as several npz files. Each one is one version of synthetic data.
 - Evaluators
-	- `evaluator/evaluate.py` evaluates the output of one synthesizer on all datasets and store in a json file.
-		- `> python3 evaluator/evaluate.py --synthetic output/XxxSynthesizer`
+	- `synthetic_data_benchmark/evaluator/evaluate.py` evaluates the output of one synthesizer on all datasets and store in a json file.
+		- `> python3 -m synthetic_data_benchmark.evaluator.evaluate output/XxxSynthesizer`
 		- Results are stored as json file in `output/__result__`.
-	- `evaluator/evaluate.py` generates the summary of results in `output/__result__`.
+	- `synthetic_data_benchmark/evaluator/summary.py` generates the summary of results in `output/__result__`.
 		- `> python3 evaluator/summary.py`
-		- Outputs are stored as pdfs in `output/__summary__`.
+		- Outputs are stored as images and tables in `output/__summary__`.
 
 
 ## Summary Examples
@@ -118,17 +118,13 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 
 ### Simulated data
 
-- Bivariate 
-	- Two Rings: A simple distribution of a large circle containing a smaller circle. 
-	
+- Bivariate
+
 	- Gaussian Ring: Gaussian Mixtures arranged in a ring.
-	
+
 	- Gaussian Grid: Gaussian Mixtures arranged in a grid.
 	<table>
 	<tr>
-	<td>
-	<img src="misc/two_rings.png" width="100%">
-	</td>
 	<td>
 	<img src="misc/gaussian_ring.png" width="100%">
 	</td>
@@ -138,27 +134,43 @@ The npz file includes 2 tables `train` and `test`. Each is a numpy array of (1~8
 	</tr>
 	</table>
 
-- Multivariate Structured Data: Generate samples from some pre-specified common causal strutures. 
-
-	- Chain
+- Multivariate Structured Data: Generate samples from some pre-specified common causal strutures.
+	<table>
+	<tr> 
+	<th>Chain</th>
+	<th>Tree</th>
+	</tr>
+	<tr>
+	<td>
 	<figure>
 	<img src="misc/chain.png" width = "100" height = "200">
 	</figure>
-	
-	- Tree
+	</td>
+	<td>
 	<figure>
 	<img src="misc/tree.png" width = "170" height = "100">
 	</figure>
-	
-	- Fully Connected
+	</td>
+	</tr>
+
+	<tr> 
+	<th>Fully Connected</th>
+	<th>General</th>
+	</tr>
+
+	<tr>
+	<td>
 	<figure>
 	<img src="misc/fc.png" width = "170" height = "200">
 	</figure>
-	
-	- General
+	</td>
+	<td>
 	<figure>
 	<img src="misc/general.png" width = "170" height = "200">
 	</figure>
+	</td>
+	</tr>
+	</table>
 
 
 ### Real data
