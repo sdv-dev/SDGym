@@ -1,4 +1,4 @@
-from synthesizer_base import SynthesizerBase, run
+from .synthesizer_base import SynthesizerBase, run
 import numpy as np
 
 class IdentitySynthesizer(SynthesizerBase):

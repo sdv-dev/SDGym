@@ -8,7 +8,7 @@ import sys
 import numpy as np
 from sklearn.datasets import make_circles
 
-import utils
+from .. import utils
 
 np.random.seed(0)
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     num_sample = args.sample
     samples = create_distribution(dist, num_sample*2)
     np.random.shuffle(samples)
-    
+
     output_dir = "data/simulated"
     try:
         os.mkdir(output_dir)

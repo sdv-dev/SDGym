@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 
 from keras.datasets import mnist
-from utils import CATEGORICAL, CONTINUOUS, ORDINAL, verify
+from ..utils import CATEGORICAL, CONTINUOUS, ORDINAL, verify
 
 
 output_dir = "data/real/"
@@ -60,7 +60,7 @@ def make_data(t_train, t_test, wh, name):
 
 if __name__ == "__main__":
     try:
-        s.mkdir(output_dir)
+        os.mkdir(output_dir)
     except:
         pass
 

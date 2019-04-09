@@ -1,7 +1,7 @@
-from synthesizer_base import SynthesizerBase, run
+from .synthesizer_base import SynthesizerBase, run
 import numpy as np
 from sklearn.mixture import GaussianMixture
-from utils import CONTINUOUS, ORDINAL, CATEGORICAL
+from synthetic_data_benchmark.utils import CONTINUOUS, ORDINAL, CATEGORICAL
 rng = np.random
 
 class IndependentSynthesizer(SynthesizerBase):

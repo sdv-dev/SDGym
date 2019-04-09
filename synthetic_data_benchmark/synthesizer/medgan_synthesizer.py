@@ -1,8 +1,9 @@
-from synthesizer_base import SynthesizerBase, run
-from utils import GeneralTransformer
+from .synthesizer_base import SynthesizerBase, run
+from .synthesizer_utils import GeneralTransformer
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.utils.data
 import torch.optim as optim
 import os
@@ -81,16 +82,34 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         dim = embeddingDim
         seq = []
-        for item in list(decompressDims) + [dataDim]:
+        for item in list(decompressDims):
             seq += [
                 nn.Linear(dim, item),
                 nn.ReLU()
             ]
             dim = item
+        seq.append(nn.Linear(dim, dataDim))
         self.seq = nn.Sequential(*seq)
 
-    def forward(self, input):
+    def forward(self, input, output_info):
         return self.seq(input)
+
+
+def aeloss(fake, real, output_info):
+    st = 0
+    loss = []
+    for item in output_info:
+        if item[1] == 'sigmoid':
+            ed = st + item[0]
+            loss.append(F.mse_loss(F.sigmoid(fake[:, st:ed]), real[:, st:ed], reduction='sum'))
+            st = ed
+        elif item[1] == 'softmax':
+            ed = st + item[0]
+            loss.append(F.cross_entropy(fake[:, st:ed], torch.argmax(real[:, st:ed], dim=-1), reduction='sum'))
+            st = ed
+        else:
+            assert 0
+    return sum(loss) / fake.size()[0]
 
 
 class MedganSynthesizer(SynthesizerBase):
@@ -106,7 +125,7 @@ class MedganSynthesizer(SynthesizerBase):
                  l2scale=0.001,
                  pretrain_epoch=200,
                  batch_size=1000,
-                 store_epoch=[100, 200, 500]):
+                 store_epoch=[200]):
 
         self.embeddingDim = embeddingDim
         self.randomDim = randomDim
@@ -129,15 +148,11 @@ class MedganSynthesizer(SynthesizerBase):
         dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
 
-
-        n_batch = len(train_data) // self.batch_size
-
         data_dim = self.transformer.output_dim
         # print(train_data.shape, data_dim)
         # assert 0
         encoder = Encoder(data_dim, self.compressDims, self.embeddingDim).to(self.device)
         decoder = Decoder(self.embeddingDim, self.compressDims, data_dim).to(self.device)
-        mseloss = nn.MSELoss().to(self.device)
         optimizerAE = optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), weight_decay=self.l2scale)
 
 
@@ -146,15 +161,15 @@ class MedganSynthesizer(SynthesizerBase):
                 optimizerAE.zero_grad()
                 real = data[0].to(self.device)
                 emb = encoder(real)
-                rec = decoder(emb)
-                loss = mseloss(rec, real)
+                rec = decoder(emb, self.transformer.output_info)
+                loss = aeloss(rec, real, self.transformer.output_info)
                 loss.backward()
                 optimizerAE.step()
             print(loss)
 
         generator = Generator(self.randomDim, self.generatorDims, self.bnDecay).to(self.device)
         discriminator = Discriminator(data_dim, self.discriminatorDims).to(self.device)
-        optimizerG = optim.Adam(generator.parameters(), weight_decay=self.l2scale)
+        optimizerG = optim.Adam(list(generator.parameters()) + list(decoder.parameters()), weight_decay=self.l2scale)
         optimizerD = optim.Adam(discriminator.parameters(), weight_decay=self.l2scale)
 
         mean = torch.zeros(self.batch_size, self.randomDim, device=self.device)
@@ -167,7 +182,7 @@ class MedganSynthesizer(SynthesizerBase):
                 real = data[0].to(self.device)
                 noise = torch.normal(mean=mean, std=std)
                 emb = generator(noise)
-                fake = decoder(emb)
+                fake = decoder(emb, self.transformer.output_info)
 
                 optimizerD.zero_grad()
                 y_real = discriminator(real)
@@ -177,10 +192,10 @@ class MedganSynthesizer(SynthesizerBase):
                 optimizerD.step()
 
                 if i % n_d == 0:
-                    for i in range(n_g):
+                    for _ in range(n_g):
                         noise = torch.normal(mean=mean, std=std)
                         emb = generator(noise)
-                        fake = decoder(emb)
+                        fake = decoder(emb, self.transformer.output_info)
                         optimizerG.zero_grad()
                         y_fake = discriminator(fake)
                         loss_g = -(torch.log(y_fake + 1e-4).mean())
@@ -220,7 +235,8 @@ class MedganSynthesizer(SynthesizerBase):
                 std = mean + 1
                 noise = torch.normal(mean=mean, std=std).to(self.device)
                 emb = generator(noise)
-                fake = decoder(emb)
+                fake = decoder(emb, self.transformer.output_info)
+                fake = torch.sigmoid(fake)
                 data.append(fake.detach().cpu().numpy())
             data = np.concatenate(data, axis=0)
             data = data[:n]

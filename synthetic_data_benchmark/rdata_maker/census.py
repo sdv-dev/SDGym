@@ -6,7 +6,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from utils import CATEGORICAL, CONTINUOUS, ORDINAL, verify
+from ..utils import CATEGORICAL, CONTINUOUS, ORDINAL, verify
 
 
 output_dir = "data/real/"
@@ -29,7 +29,7 @@ def project_table(data, meta):
 
 if __name__ == "__main__":
     try:
-        s.mkdir(output_dir)
+        os.mkdir(output_dir)
     except:
         pass
 

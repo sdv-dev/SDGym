@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 from pomegranate import DiscreteDistribution, ConditionalProbabilityTable, Node, BayesianNetwork
-import utils
+from .. import utils
 
 def map_col(index2str, values):
     mapper = dict([(k, v) for v, k in enumerate(index2str)])

@@ -30,6 +30,7 @@ def coverage(datasets, results):
 
     plt.cla()
     plt.bar(list(range(len(values))), values, tick_label=ticks)
+    plt.xticks(rotation=-45)
     plt.title("coverage")
     plt.ylim(0, 1)
 
@@ -73,13 +74,15 @@ def dataset_performance(dataset, results):
             v_t = np.mean(v)
             if k == 'r2':
                 v_t = v_t.clip(-1, 1)
+            if 'likelihood' in k:
+                v_t = v_t.clip(-10, 0)
             barchart.append((synthesizer, k, v_t))
 
     barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
     barchart.pivot("metric", "synthesizer", "val").plot(kind='bar')
     plt.title(dataset)
     plt.xlabel(None)
-    plt.legend(title=None)
+    plt.legend(title=None, loc=(1.04,0))
     plt.savefig("{}/{}.jpg".format(summary_dir, dataset), bbox_inches='tight')
 
     return synthesizer_metric_perform

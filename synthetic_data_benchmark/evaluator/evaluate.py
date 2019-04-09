@@ -21,7 +21,7 @@ from sklearn.mixture import GaussianMixture as GMM
 from sklearn.metrics import accuracy_score, f1_score, r2_score
 from sklearn.utils import shuffle
 
-from utils import CATEGORICAL, CONTINUOUS, ORDINAL
+from ..utils import CATEGORICAL, CONTINUOUS, ORDINAL
 
 from scipy.stats import multivariate_normal
 import itertools
@@ -93,8 +93,8 @@ def default_binary_classification(x_train, y_train, x_test, y_test, classifiers)
 
 def news_regression(x_train, y_train, x_test, y_test, regressors):
     performance = []
-    y_train = np.log(np.clip(y_train, 0, 20000))
-    y_test = np.log(np.clip(y_test, 0, 20000))
+    y_train = np.log(np.clip(y_train, 1, 20000))
+    y_test = np.log(np.clip(y_test, 1, 20000))
     for clf, name in regressors:
         clf.fit(x_train, y_train)
         pred = clf.predict(x_test)
@@ -220,11 +220,22 @@ def default_bayesian_likelihood(dataset, trainset, testset, meta):
 
     trainset_mapped = mapper(trainset, meta)
     testset_mapped = mapper(testset, meta)
-
-    l1 = np.mean(np.log(np.asarray(bn1.probability(trainset_mapped)) + 1e-8))
+    prob = []
+    for item in trainset_mapped:
+        try:
+            prob.append(bn1.probability(item))
+        except:
+            prob.append(1e-8)
+    l1 = np.mean(np.log(np.asarray(prob) + 1e-8))
 
     bn2 = BayesianNetwork.from_structure(trainset_mapped, bn1.structure)
-    l2 = np.mean(np.log(np.asarray(bn2.probability(testset_mapped)) + 1e-8))
+    prob = []
+    for item in testset_mapped:
+        try:
+            prob.append(bn2.probability(item))
+        except:
+            prob.append(1e-8)
+    l2 = np.mean(np.log(np.asarray(prob) + 1e-8))
 
     return [{
         "name": "default",
