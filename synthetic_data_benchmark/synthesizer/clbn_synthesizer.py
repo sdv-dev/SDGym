@@ -1,6 +1,6 @@
 from .synthesizer_base import SynthesizerBase, run
 from pomegranate import BayesianNetwork, DiscreteDistribution, ConditionalProbabilityTable
-from .synthesizer_utils import Discretizer
+from .synthesizer_utils import DiscretizeTransformer
 import json
 import numpy as np
 
@@ -64,7 +64,7 @@ class CLBNSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
     def train(self, train_data):
-        self.discretizer = Discretizer(self.meta, 8)
+        self.discretizer = DiscretizeTransformer(self.meta, 8)
         self.discretizer.fit(train_data)
         train_data_d = self.discretizer.transform(train_data)
         self.model = BayesianNetwork.from_samples(train_data_d, algorithm='chow-liu')

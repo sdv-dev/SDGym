@@ -4,8 +4,9 @@ import numpy as np
 
 from ..utils import CATEGORICAL, ORDINAL, CONTINUOUS
 
-class Discretizer(object):
-    """docstring for Discretizer."""
+class DiscretizeTransformer(object):
+    """Discretize continuous columns into several bins.
+    Transformation result is a int array."""
     def __init__(self, meta, n_bins):
         self.meta = meta
         self.c_index = [id for id, info in enumerate(meta) if info['type'] == CONTINUOUS]
@@ -33,6 +34,10 @@ class Discretizer(object):
         return data_t
 
 class GeneralTransformer(object):
+    """
+    Continuous and ordinal columns are normalized to [0, 1].
+    Discrete columns are converted to a one-hot vector.
+    """
     def __init__(self, meta):
         self.meta = meta
         self.output_dim = 0
@@ -90,74 +95,14 @@ class GeneralTransformer(object):
 
         return data_t
 
-class MeanStdTransformer(object):
-    def __init__(self, meta):
-        self.meta = meta
-        self.output_dim = 0
-        for info in self.meta:
-            if info['type'] in [CONTINUOUS, ORDINAL]:
-                self.output_dim += 1
-            else:
-                self.output_dim += info['size']
-
-    def fit(self, data):
-        pass
-
-    def transform(self, data):
-        data_t = []
-        self.output_info = []
-        for id_, info in enumerate(self.meta):
-            col = data[:, id_]
-            if info['type'] == CONTINUOUS:
-                col = (col - (info['min'])) / (info['max'] - info['min'])
-                col = col.reshape([-1, 1])
-                data_t.append(col)
-                self.output_info.append((1, 'mix'))
-            elif info['type'] == ORDINAL:
-                col = col / info['size']
-                col = col.reshape([-1, 1])
-                data_t.append(col)
-                self.output_info.append((1, 'mix'))
-            else:
-                col_t = np.zeros([len(data), info['size']])
-                col_t[np.arange(len(data)), col.astype('int32')] = 1
-                data_t.append(col_t)
-                self.output_info.append((info['size'], 'softmax'))
-        return np.concatenate(data_t, axis=1)
-
-    def inverse_transform(self, data, sigmas):
-        data_t = np.zeros([len(data), len(self.meta)])
-
-        data = data.copy()
-        for id_, info in enumerate(self.meta):
-            if info['type'] == CONTINUOUS:
-                mu = data[:, 0]
-                sig = sigmas[0]
-                data = data[:, 1:]
-                sigmas = sigmas[1:]
-                current = np.random.normal(mu, sig)
-                current = np.clip(current, 0, 1)
-                data_t[:, id_] = current * (info['max'] - info['min']) + info['min']
-
-            elif info['type'] == ORDINAL:
-                mu = data[:, 0]
-                sig = sigmas[0]
-                data = data[:, 1:]
-                sigmas = sigmas[1:]
-                current = np.random.normal(mu, sig)
-                current = np.clip(current, 0, 1)
-                current = current * info['size']
-                current = np.round(current).clip(0, info['size'] - 1)
-                data_t[:, id_] = current
-            else:
-                current = data[:, :info['size']]
-                data = data[:, info['size']:]
-                sigmas = sigmas[info['size']:]
-                data_t[:, id_] = np.argmax(current, axis=1)
-
-        return data_t
-
 class GMMTransformer(object):
+    """
+    Continuous and ordinal columns are modeled with a GMM.
+        and then normalized to a scalor [0, 1] and a n_cluster dimensional vector.
+
+    Discrete and ordinal columns are converted to a one-hot vector.
+    """
+
     def __init__(self, meta, n_clusters=5):
         self.meta = meta
         self.n_clusters = n_clusters
