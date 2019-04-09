@@ -21,7 +21,7 @@ from sklearn.mixture import GaussianMixture as GMM
 from sklearn.metrics import accuracy_score, f1_score, r2_score
 from sklearn.utils import shuffle
 
-from utils import CATEGORICAL, CONTINUOUS, ORDINAL
+from ..utils import CATEGORICAL, CONTINUOUS, ORDINAL
 
 from scipy.stats import multivariate_normal
 import itertools
