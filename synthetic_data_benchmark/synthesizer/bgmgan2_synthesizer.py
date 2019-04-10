@@ -63,32 +63,37 @@ def apply_activate(data, output_info):
 
 
 class Cond(object):
-    def __init__(self, meta, data):
-        ratio = []
+    def __init__(self, data, output_info):
         self.model = []
 
-        for id_, info in enumerate(meta):
-            if info['type'] in [CONTINUOUS]:
-                ratio.append(None)
+        st = 0
+        for item in output_info:
+            if item[1] == 'tanh':
+                st += item[0]
+                continue
+            elif item[1] == 'softmax':
+                ed = st + item[0]
+                self.model.append(np.argmax(data[:, st:ed], axis=-1))
+                st = ed
             else:
-                values, counts = np.unique(data[:, id_], return_counts=True)
-                maxx = np.max(counts)
-                minn = np.min(counts)
-                ratio.append((info['size'], 1.))
-                self.model.append(data[:, id_])
-
+                assert 0
+        assert st == data.shape[1]
         self.interval = []
         self.n_col = 0
 
         self.n_opt = 0
 
 
-        for item in ratio:
-            if item is None:
+        for item in output_info:
+            if item[1] == 'tanh':
                 continue
-            self.interval.append((self.n_opt, item[0]))
-            self.n_opt += item[0]
-            self.n_col += 1
+            elif item[1] == 'softmax':
+                self.interval.append((self.n_opt, item[0]))
+                self.n_opt += item[0]
+                self.n_col += 1
+            else:
+                assert 0
+
         self.interval = np.asarray(self.interval)
 
 
@@ -125,16 +130,9 @@ def cond_loss(data, output_info, c, m):
     loss = []
     st = 0
     st_c = 0
-    skip = False
     for item in output_info:
-        if skip:
-            st += item[0]
-            assert item[1] == 'softmax'
-            skip = False
-            continue
         if item[1] == 'tanh':
             st += item[0]
-            skip = True
         elif item[1] == 'softmax':
             ed = st + item[0]
             ed_c = st_c + item[0]
@@ -148,13 +146,6 @@ def cond_loss(data, output_info, c, m):
 
     return (loss * m).sum() / data.size()[0]
 
-def monkey_with_train_data(data):
-    index = (data[:, -1] == 1)
-    over_sample = data[index]
-    over_sample = np.concatenate([data] + [over_sample] * 100, axis=0)
-    np.random.shuffle(over_sample)
-    return over_sample
-
 class Sampler(object):
     """docstring for Sampler."""
 
@@ -164,17 +155,10 @@ class Sampler(object):
         self.weight = []
 
         st = 0
-        skip = False
         w = np.zeros(len(self.data))
         for item in output_info:
-            if skip:
-                assert item[1] == 'softmax'
-                skip = False
-                st += item[0]
-                continue
             if item[1] == 'tanh':
                 st += item[0]
-                skip = True
             elif item[1] == 'softmax':
                 ed = st + item[0]
                 w += np.sum(data[:, st:ed] / (np.sum(data[:, st:ed], axis=0) + 1e-8), axis=1)
@@ -191,7 +175,7 @@ class Sampler(object):
 
 
 
-class BGMGANSynthesizer(SynthesizerBase):
+class BGMGAN2Synthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
@@ -219,7 +203,7 @@ class BGMGANSynthesizer(SynthesizerBase):
         data_sampler = Sampler(train_data, self.transformer.output_info)
 
         data_dim = self.transformer.output_dim
-        self.cond_generator = Cond(self.meta, train_data)
+        self.cond_generator = Cond(train_data, self.transformer.output_info)
 
         generator= Generator(self.embeddingDim + self.cond_generator.n_opt, self.genDim, data_dim).to(self.device)
         discriminator = Discriminator(data_dim, self.disDim).to(self.device)
@@ -309,4 +293,4 @@ class BGMGANSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(BGMGANSynthesizer())
+    run(BGMGAN2Synthesizer())
