@@ -271,6 +271,30 @@ def evalute_dataset(dataset, trainset, testset, meta):
         logging.warning("{} evaluation not defined.".format(dataset))
         assert 0
 
+def compute_distance(trainset, syn, meta, sample=300):
+    mask_d = np.zeros(len(meta))
+
+    for id_, info in enumerate(meta):
+        if info['type'] in [CATEGORICAL, ORDINAL]:
+            mask_d[id_] = 1
+        else:
+            mask_d[id_] = 0
+
+    std = np.std(trainset, axis=0) + 1e-6
+
+    dis_all = []
+    for i in range(sample):
+        current = syn[i]
+        distance_d = (trainset - current) * mask_d > 0
+        distance_d = np.sum(distance_d, axis=1)
+
+        distance_c = (trainset - current) * (1 - mask_d) / 2 / std
+        distance_c = np.sum(distance_c ** 2, axis=1)
+        distance = np.sqrt(np.min(distance_c + distance_d))
+        dis_all.append(distance)
+
+    return np.mean(dis_all)
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -320,17 +344,20 @@ if __name__ == "__main__":
             continue
 
         data = np.load(data_filename[0])['test']
+        data_train = np.load(data_filename[0])['train']
         with open(meta_filename[0]) as f:
             meta = json.load(f)
 
         logging.info("Evaluating {}".format(synthetic_file))
         performance = evalute_dataset(dataset, syn, data, meta)
 
+        distance = compute_distance(data_train, syn, meta)
         res = {
             "dataset": dataset,
             "iter": iter,
             "step": step,
-            "performance": performance
+            "performance": performance,
+            "distance": distance
         }
 
         results.append(res)

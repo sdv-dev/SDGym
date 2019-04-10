@@ -45,19 +45,24 @@ def dataset_performance(dataset, results):
             if one_result['dataset'] != dataset:
                 continue
 
+            if one_result['step'] == 0:
+                synthesizer_name = synthesizer
+            else:
+                synthesizer_name = synthesizer + "_" + str(one_result['step'])
+
+
+            if not synthesizer_name in synthesizer_metric_perform:
+                synthesizer_metric_perform[synthesizer_name] = {}
+            try:
+                synthesizer_metric_perform[synthesizer_name]['_distance'] = [one_result['distance']]
+            except:
+                synthesizer_metric_perform[synthesizer_name]['_distance'] = [0]
+
             for model_metric_score in one_result['performance']:
                 for metric, v in model_metric_score.items():
                     if metric == "name":
                         continue
                     else:
-                        if one_result['step'] == 0:
-                            synthesizer_name = synthesizer
-                        else:
-                            synthesizer_name = synthesizer + "_" + str(one_result['step'])
-
-                        if not synthesizer_name in synthesizer_metric_perform:
-                            synthesizer_metric_perform[synthesizer_name] = {}
-
                         if not metric in synthesizer_metric_perform[synthesizer_name]:
                             synthesizer_metric_perform[synthesizer_name][metric] = []
 
