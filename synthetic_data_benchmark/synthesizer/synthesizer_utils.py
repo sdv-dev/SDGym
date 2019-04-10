@@ -117,7 +117,7 @@ class GMMTransformer(object):
                 gm = GaussianMixture(self.n_clusters)
                 gm.fit(data[:, id_].reshape([-1, 1]))
                 model.append(gm)
-                self.output_info += [(1, 'mix'), (self.n_clusters, 'softmax')]
+                self.output_info += [(1, 'tanh'), (self.n_clusters, 'softmax')]
                 self.output_dim += 1 + self.n_clusters
             else:
                 model.append(None)

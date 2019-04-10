@@ -49,7 +49,7 @@ def apply_activate(data, output_info):
     data_t = []
     st = 0
     for item in output_info:
-        if item[1] == 'mix':
+        if item[1] == 'tanh':
             ed = st + item[0]
             data_t.append(F.tanh(data[:, st:ed]))
             st = ed
@@ -136,7 +136,7 @@ def cond_loss(data, output_info, c, m):
             assert item[1] == 'softmax'
             skip = False
             continue
-        if item[1] == 'mix':
+        if item[1] == 'tanh':
             st += item[0]
             skip = True
         elif item[1] == 'softmax':
@@ -176,7 +176,7 @@ class Sampler(object):
                 skip = False
                 st += item[0]
                 continue
-            if item[1] == 'mix':
+            if item[1] == 'tanh':
                 st += item[0]
                 skip = True
             elif item[1] == 'softmax':

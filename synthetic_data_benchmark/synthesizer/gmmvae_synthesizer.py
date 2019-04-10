@@ -52,7 +52,7 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
     st = 0
     loss = []
     for item in output_info:
-        if item[1] == 'mix':
+        if item[1] == 'tanh':
             ed = st + item[0]
             std = sigmas[st]
             loss.append(((x[:, st] - torch.tanh(recon_x[:, st])) ** 2 / 2 / (std ** 2)).sum())
