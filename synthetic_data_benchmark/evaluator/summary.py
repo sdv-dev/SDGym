@@ -36,6 +36,13 @@ def coverage(datasets, results):
 
     plt.savefig("{}/coverage.jpg".format(summary_dir), bbox_inches='tight')
 
+def save_barchart(barchart, filename):
+    barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
+    barchart.pivot("metric", "synthesizer", "val").plot(kind='bar')
+    plt.title(dataset)
+    plt.xlabel(None)
+    plt.legend(title=None, loc=(1.04,0))
+    plt.savefig(filename, bbox_inches='tight')
 
 def dataset_performance(dataset, results):
     synthesizer_metric_perform = {}
@@ -74,6 +81,7 @@ def dataset_performance(dataset, results):
     plt.cla()
 
     barchart = []
+    barchart_d = []
     for synthesizer, metric_perform in synthesizer_metric_perform.items():
         for k, v in metric_perform.items():
             v_t = np.mean(v)
@@ -81,14 +89,13 @@ def dataset_performance(dataset, results):
                 v_t = v_t.clip(-1, 1)
             if 'likelihood' in k:
                 v_t = v_t.clip(-10, 0)
-            barchart.append((synthesizer, k, v_t))
+            if k == '_distance':
+                barchart_d.append((synthesizer, k, v_t))
+            else:
+                barchart.append((synthesizer, k, v_t))
 
-    barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
-    barchart.pivot("metric", "synthesizer", "val").plot(kind='bar')
-    plt.title(dataset)
-    plt.xlabel(None)
-    plt.legend(title=None, loc=(1.04,0))
-    plt.savefig("{}/{}.jpg".format(summary_dir, dataset), bbox_inches='tight')
+    save_barchart(barchart, "{}/{}.jpg".format(summary_dir, dataset))
+    save_barchart(barchart_d, "{}/{}_d.jpg".format(summary_dir, dataset))
 
     return synthesizer_metric_perform
 
