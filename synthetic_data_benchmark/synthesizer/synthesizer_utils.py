@@ -229,17 +229,27 @@ class BGMTransformer(object):
 
                 means = self.model[id_].means_.reshape((1, self.n_clusters))
                 stds = np.sqrt(self.model[id_].covariances_).reshape((1, self.n_clusters))
-                features = (current - means) / (2 * stds)
+                features = (current - means) / (3 * stds)
 
                 probs = self.model[id_].predict_proba(current.reshape([-1, 1]))
 
-                argmax = np.argmax(probs, axis=1)
-                idx = np.arange((len(features)))
-                features = features[idx, argmax].reshape([-1, 1])
+                n_opts = sum(self.components[id_])
+                features = features[:, self.components[id_]]
+                probs = probs[:, self.components[id_]]
 
+                opt_sel = np.zeros(len(data), dtype='int')
+                for i in range(len(data)):
+                    pp = probs[i]
+                    pp = pp / sum(pp)
+                    opt_sel[i] = np.random.choice(np.arange(n_opts), p=pp)
+
+                idx = np.arange((len(features)))
+                features = features[idx, opt_sel].reshape([-1, 1])
                 features = np.clip(features, -.99, .99)
 
-                values += [features, probs[:, self.components[id_]]]
+                probs_onehot = np.zeros_like(probs)
+                probs_onehot[np.arange(len(probs)), opt_sel] = 1
+                values += [features, probs_onehot]
             else:
                 col_t = np.zeros([len(data), info['size']])
                 col_t[np.arange(len(data)), current.astype('int32')] = 1
@@ -268,7 +278,7 @@ class BGMTransformer(object):
                 p_argmax = np.argmax(v, axis=1)
                 std_t = stds[p_argmax]
                 mean_t = means[p_argmax]
-                tmp = u * 2 * std_t  + mean_t
+                tmp = u * 3 * std_t  + mean_t
                 data_t[:, id_] = tmp
             else:
                 current = data[:, st:st+info['size']]
