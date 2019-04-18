@@ -9,9 +9,11 @@ import torch.optim as optim
 import os
 
 class Discriminator(nn.Module):
-    def __init__(self, inputDim, disDims):
+    def __init__(self, inputDim, disDims, pack=4):
         super(Discriminator, self).__init__()
-        dim = inputDim
+        dim = inputDim * pack
+        self.pack = pack
+        self.packdim = dim
         seq = []
         for item in list(disDims):
             seq += [
@@ -23,9 +25,8 @@ class Discriminator(nn.Module):
         self.seq = nn.Sequential(*seq)
 
     def forward(self, input):
-        return self.seq(input)
-
-
+        assert input.size()[0] % self.pack == 0
+        return self.seq(input.view(-1, self.packdim))
 
 class Generator(nn.Module):
     def __init__(self, embeddingDim, genDims, dataDim):
@@ -52,10 +53,11 @@ def apply_activate(data, output_info):
         if item[1] == 'tanh':
             ed = st + item[0]
             data_t.append(F.tanh(data[:, st:ed]))
+            # data_t.append(data[:, st:ed])
             st = ed
         elif item[1] == 'softmax':
             ed = st + item[0]
-            data_t.append(F.softmax(data[:, st:ed], dim=1))
+            data_t.append(F.gumbel_softmax(data[:, st:ed], tau=0.1))
             st = ed
         else:
             assert 0
@@ -179,11 +181,11 @@ class BGMGAN2Synthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
-                 genDim=(128, ),
-                 disDim=(128, ),
+                 genDim=(128, 128),
+                 disDim=(128, 128),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[200]):
+                 store_epoch=[300]):
 
         self.embeddingDim = embeddingDim
         self.genDim = genDim
@@ -198,6 +200,22 @@ class BGMGAN2Synthesizer(SynthesizerBase):
         self.transformer = BGMTransformer(self.meta)
         self.transformer.fit(train_data)
         train_data = self.transformer.transform(train_data)
+
+        # ncp1 = sum(self.transformer.components[0])
+        # ncp2 = sum(self.transformer.components[1])
+        # for i in range(ncp1):
+        #     for j in range(ncp2):
+        #         cond1 = train_data[:, 1 + i] > 0
+        #         cond2 = train_data[:, 2 + ncp1 + j]
+        #         cond = np.logical_and(cond1, cond2)
+        #
+        #         mean1 = train_data[cond, 0].mean()
+        #         mean2 = train_data[cond, 1 + ncp1].mean()
+        #
+        #         std1 = train_data[cond, 0].std()
+        #         std2 = train_data[cond, 1 + ncp1].std()
+        #         print(i, j, np.sum(cond), mean1, std1, mean2, std2, sep='\t')
+
         # dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
         # loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
         data_sampler = Sampler(train_data, self.transformer.output_info)
@@ -245,6 +263,9 @@ class BGMGAN2Synthesizer(SynthesizerBase):
                 loss_g.backward(retain_graph=True)
                 optimizerG.step()
 
+            # print("---")
+            # print(fakeact[:, 0].mean(), fakeact[:, 0].std())
+            # print(fakeact[:, 1 + ncp1].mean(), fakeact[:, 1 + ncp1].std())
             print(i+1, loss_d, loss_g, cross_entropy)
             if i+1 in self.store_epoch:
                 torch.save({
