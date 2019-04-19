@@ -182,7 +182,7 @@ class BGMGAN2Synthesizer(SynthesizerBase):
     def __init__(self,
                  embeddingDim=128,
                  genDim=(128, 128),
-                 disDim=(128, 128),
+                 disDim=(128, ),
                  l2scale=1e-5,
                  batch_size=500,
                  store_epoch=[300]):
