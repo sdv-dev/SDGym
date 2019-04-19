@@ -15,9 +15,19 @@ parser.add_argument('--summary', type=str, default='output/__summary__',
                     help='result dir')
 
 
+def method_name_order(name):
+    if 'identity' in name.lower():
+        return 0
+    if 'clbn' in name.lower():
+        return 1
+    return 2
+
 def coverage(datasets, results):
     ticks = []
     values = []
+
+    results = list(results)
+    results = sorted(results, key=lambda x: method_name_order(x[0]))
 
     for model, result in results:
         covered = set()
@@ -30,7 +40,7 @@ def coverage(datasets, results):
 
     plt.cla()
     plt.bar(list(range(len(values))), values, tick_label=ticks)
-    plt.xticks(rotation=-45)
+    plt.xticks(rotation=-90)
     plt.title("coverage")
     plt.ylim(0, 1)
 
@@ -38,7 +48,14 @@ def coverage(datasets, results):
 
 def save_barchart(barchart, filename):
     barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
-    barchart.pivot("metric", "synthesizer", "val").plot(kind='bar')
+
+    methods = set()
+    for item in barchart['synthesizer']:
+        methods.add(item)
+    methods = list(methods)
+    methods = sorted(methods, key=method_name_order)
+
+    barchart.pivot("metric", "synthesizer", "val")[methods].plot(kind='bar')
     plt.title(dataset)
     plt.xlabel(None)
     plt.legend(title=None, loc=(1.04,0))
