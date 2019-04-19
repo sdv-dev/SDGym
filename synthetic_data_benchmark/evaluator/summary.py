@@ -20,7 +20,11 @@ def method_name_order(name):
         return 0
     if 'clbn' in name.lower():
         return 1
-    return 2
+    if 'vae' in name.lower():
+        return 2
+    if 'gan' in name.lower():
+        return 3
+    return 4
 
 def coverage(datasets, results):
     ticks = []

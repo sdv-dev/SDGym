@@ -260,10 +260,10 @@ def evalute_dataset(dataset, trainset, testset, meta):
         return news_regression(x_train, y_train, x_test, y_test, get_models(dataset))
 
     elif dataset in ['grid']:
-        return default_gmm_likelihood(trainset, testset, 25)
+        return default_gmm_likelihood(trainset, testset, 30)
 
     elif dataset in ['ring']:
-        return default_gmm_likelihood(trainset, testset, 8)
+        return default_gmm_likelihood(trainset, testset, 10)
 
     elif dataset in ['chain', 'fc', 'tree', 'general']:
         return default_bayesian_likelihood(dataset, trainset, testset, meta)
