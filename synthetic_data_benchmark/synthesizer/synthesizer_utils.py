@@ -186,7 +186,7 @@ class BGMTransformer(object):
     Discrete and ordinal columns are converted to a one-hot vector.
     """
 
-    def __init__(self, meta, n_clusters=20, eps=0.005):
+    def __init__(self, meta, n_clusters=10, eps=0.005):
         """n_cluster is the upper bound of modes
         """
         self.meta = meta
