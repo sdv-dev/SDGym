@@ -28,6 +28,17 @@ class Discriminator(nn.Module):
         assert input.size()[0] % self.pack == 0
         return self.seq(input.view(-1, self.packdim))
 
+class Residual(nn.Module):
+    def __init__(self, i, o):
+        super(Residual, self).__init__()
+        self.fc = nn.Linear(i, o)
+        self.relu = nn.ReLU()
+
+    def forward(self, input):
+        out = self.fc(input)
+        out = self.relu(out)
+        return torch.cat([out, input], dim=1)
+
 class Generator(nn.Module):
     def __init__(self, embeddingDim, genDims, dataDim):
         super(Generator, self).__init__()
@@ -35,10 +46,9 @@ class Generator(nn.Module):
         seq = []
         for item in list(genDims):
             seq += [
-                nn.Linear(dim, item),
-                nn.ReLU()
+                Residual(dim, item)
             ]
-            dim = item
+            dim += item
         seq.append(nn.Linear(dim, dataDim))
         self.seq = nn.Sequential(*seq)
 
@@ -69,11 +79,18 @@ class Cond(object):
         self.model = []
 
         st = 0
+        skip = False
         for item in output_info:
             if item[1] == 'tanh':
                 st += item[0]
+                skip = True
                 continue
             elif item[1] == 'softmax':
+                if skip:
+                    skip = False
+                    st += item[0]
+                    continue
+
                 ed = st + item[0]
                 self.model.append(np.argmax(data[:, st:ed], axis=-1))
                 st = ed
@@ -85,11 +102,15 @@ class Cond(object):
 
         self.n_opt = 0
 
-
+        skip = False
         for item in output_info:
             if item[1] == 'tanh':
+                skip = True
                 continue
             elif item[1] == 'softmax':
+                if skip:
+                    skip = False
+                    continue
                 self.interval.append((self.n_opt, item[0]))
                 self.n_opt += item[0]
                 self.n_col += 1
@@ -101,6 +122,8 @@ class Cond(object):
 
 
     def generate(self, batch):
+        if self.n_col == 0:
+            return None
         batch = batch // 2
         idx = np.random.choice(np.arange(self.n_col), batch)
 
@@ -120,6 +143,8 @@ class Cond(object):
         return np.concatenate([vec1, vec2], axis=0), np.concatenate([mask1, mask2], axis=0)
 
     def generate_zero(self, batch):
+        if self.n_col == 0:
+            return None
         vec = np.zeros((batch, self.n_opt), dtype='float32')
         idx = np.random.choice(np.arange(self.n_col), batch)
         for i in range(batch):
@@ -132,10 +157,16 @@ def cond_loss(data, output_info, c, m):
     loss = []
     st = 0
     st_c = 0
+    skip = False
     for item in output_info:
         if item[1] == 'tanh':
             st += item[0]
+            skip = True
         elif item[1] == 'softmax':
+            if skip:
+                skip = False
+                st += item [0]
+                continue
             ed = st + item[0]
             ed_c = st_c + item[0]
             tmp = F.cross_entropy(data[:, st:ed], torch.argmax(c[:, st_c:ed_c], dim=1), reduction='none')
@@ -157,13 +188,19 @@ class Sampler(object):
         self.weight = []
 
         st = 0
-        w = np.zeros(len(self.data))
+        w = np.zeros(len(self.data)) + 1 / len(data)
+        skip = False
         for item in output_info:
             if item[1] == 'tanh':
                 st += item[0]
+                skip = True
             elif item[1] == 'softmax':
+                if skip:
+                    skip = False
+                    st += item[0]
+                    continue
                 ed = st + item[0]
-                w += np.sum(data[:, st:ed] / (np.sum(data[:, st:ed], axis=0) + 1e-8), axis=1)
+                w += np.sum(data[:, st:ed] / (np.sum(data[:, st:ed], axis=0) + 1e-8), axis=1) / (ed - st)
                 st = ed
             else:
                 assert 0
@@ -182,7 +219,7 @@ class BGMGAN2Synthesizer(SynthesizerBase):
     def __init__(self,
                  embeddingDim=128,
                  genDim=(128, 128),
-                 disDim=(128, ),
+                 disDim=(128, 128),
                  l2scale=1e-5,
                  batch_size=500,
                  store_epoch=[300]):
@@ -242,17 +279,27 @@ class BGMGAN2Synthesizer(SynthesizerBase):
                 real = torch.from_numpy(real.astype('float32')).to(self.device)
                 y_real = discriminator(real)
 
-                c1, m1 = self.cond_generator.generate(self.batch_size)
-                c1 = torch.from_numpy(c1).to(self.device)
-                m1 = torch.from_numpy(m1).to(self.device)
                 fakez = torch.normal(mean=mean, std=std)
                 fakez = torch.cat([fakez, fakez], dim=0)
-                fake = generator(torch.cat([fakez, c1], dim=1))
+
+                condvec = self.cond_generator.generate(self.batch_size)
+                if condvec is None:
+                    pass
+                else:
+                    c1, m1 = condvec
+                    c1 = torch.from_numpy(c1).to(self.device)
+                    m1 = torch.from_numpy(m1).to(self.device)
+                    fakez = torch.cat([fakez, c1], dim=1)
+                fake = generator(fakez)
                 fakeact = apply_activate(fake, self.transformer.output_info)
                 y_fake = discriminator(fakeact)
 
                 loss_d = -(torch.log(torch.sigmoid(y_real) + 1e-4).mean()) - (torch.log(1. - torch.sigmoid(y_fake) + 1e-4).mean())
-                cross_entropy = cond_loss(fake, self.transformer.output_info, c1, m1)
+
+                if condvec is None:
+                    cross_entropy = 0
+                else:
+                    cross_entropy = cond_loss(fake, self.transformer.output_info, c1, m1)
                 loss_g = -y_fake.mean() + cross_entropy
 
                 optimizerD.zero_grad()
@@ -291,9 +338,16 @@ class BGMGAN2Synthesizer(SynthesizerBase):
                 mean = torch.zeros(self.batch_size, self.embeddingDim)
                 std = mean + 1
                 fakez = torch.normal(mean=mean, std=std).to(self.device)
-                c1 = self.cond_generator.generate_zero(self.batch_size)
-                c1 = torch.from_numpy(c1).to(self.device)
-                fake = generator(torch.cat([fakez, c1], dim=1))
+
+                condvec = self.cond_generator.generate_zero(self.batch_size)
+                if condvec is None:
+                    pass
+                else:
+                    c1 = condvec
+                    c1 = torch.from_numpy(c1).to(self.device)
+                    fakez = torch.cat([fakez, c1], dim=1)
+
+                fake = generator(fakez)
                 fakeact = apply_activate(fake, output_info)
                 data.append(fakeact.detach().cpu().numpy())
             data = np.concatenate(data, axis=0)
