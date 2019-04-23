@@ -41,9 +41,9 @@ class PrivBNSynthesizer(SynthesizerBase):
                 else:
                     minn = info['min']
                     maxx = info['max']
-                    d = (maxx - minn）* 0.03
-                    minn -= d
-                    maxx += d
+                    d = (maxx - minn) * 0.03
+                    minn = minn - d
+                    maxx = maxx + d
                     print("C", minn, maxx, file=f)
 
         with open("__privbn_tmp/data/real.dat", "w") as f:
