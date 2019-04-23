@@ -39,7 +39,12 @@ class PrivBNSynthesizer(SynthesizerBase):
                     print(" }" * counter, file=f)
                     d_cols.append(id_)
                 else:
-                    print("C", info['min'], info['max'], file=f)
+                    minn = info['min']
+                    maxx = info['max']
+                    d = (maxx - minn）* 0.03
+                    minn -= d
+                    maxx += d
+                    print("C", minn, maxx, file=f)
 
         with open("__privbn_tmp/data/real.dat", "w") as f:
             for raw in self.train_data:
