@@ -25,11 +25,10 @@ parser.add_argument('--sample', type=int, default=50000,
 class SynthesizerBase(object):
     """docstring for Synthesizer."""
 
-    supported_datasets = ['mnist12', 'mnist28', 'credit', 'census', 'adult',
-                        'news', 'covtype', 'intrusion'] + [
-                            'chain', 'fc', 'tree', 'general',
-                            'grid', 'ring'
-                        ]
+    supported_datasets = [
+        'chain', 'fc', 'tree', 'general', 'grid', 'ring'
+    ] + ['adult', 'credit', 'census', 
+        'news', 'covtype', 'intrusion', 'mnist12', 'mnist28']
 
     def train(self, train_data):
         pass
