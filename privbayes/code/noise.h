@@ -3,7 +3,7 @@
 #include <random>
 using namespace std;
 
-#include "tools.h";
+#include "tools.h"
 
 typedef default_random_engine engine;
 
@@ -43,4 +43,3 @@ public:
 	static int sample(engine&, const vector<double>&);
 	static vector<int> sample(engine&, const vector<double>&, int);
 };
-

@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -184,4 +185,3 @@ public:
 		return lower_bound(vec.begin(), vec.end(), key) - vec.begin();
 	}
 };
-

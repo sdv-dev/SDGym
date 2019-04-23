@@ -1,3 +1,4 @@
+#include <cmath>
 #include "methods.h"
 
 base::base(engine& eng1, table& tbl1) : eng(eng1), tbl(tbl1) {
@@ -26,7 +27,6 @@ bayesian::bayesian(engine& eng1, table& tbl1, double ep, double theta) : base(en
 
 	model = greedy(0.5 * ep);
 	addnoise(0.5 * ep);
-	sampling(tbl.size());
 }
 
 bayesian::~bayesian() {
@@ -40,16 +40,16 @@ vector<dependence> bayesian::greedy(double ep) {
 	set<int> V = tools::setize(dim);
 
 	for (int t = 0; t < dim; t++) {
-		vector<dependence> deps = S2V(S, V);		
+		vector<dependence> deps = S2V(S, V);
 		cout << deps.size() << "\t";
-		
+
 		vector<double> quality;
 		for (const auto& dep : deps) quality.push_back(tbl.getScore(dep));
 
 		dependence picked = t ? deps[noise::EM(eng, quality, ep / (dim - 1), sens)] : deps[noise::EM(eng, quality, 1000.0, sens)];
 		// first selection is free: all scores are zero.
 
-		S.insert(picked.x.first);								
+		S.insert(picked.x.first);
 		V.erase(picked.x.first);
 		model.push_back(picked);
 		cout << to_string(picked) << endl;				// debug
@@ -124,8 +124,8 @@ void bayesian::sampling(int num) {
 		vector<int> tuple(dim, 0);
 		for (const dependence& dep : model) {
 			vector<int> pre = tbl.generalize(
-				tools::projection(tuple, dep.cols), 
-				dep.cols, 
+				tools::projection(tuple, dep.cols),
+				dep.cols,
 				dep.lvls);
 
 			vector<double> conditional = syn.getConditional(dep, pre);

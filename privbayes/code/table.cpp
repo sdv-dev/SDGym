@@ -1,3 +1,4 @@
+#include <cmath>
 #include "table.h"
 
 table::table(const string& dataset, bool func1) : func(func1) {
@@ -6,7 +7,7 @@ table::table(const string& dataset, bool func1) : func(func1) {
 
 	string s;
 	while (getline(fdomain, s)) {
-		if (s[0] == 'D') 
+		if (s[0] == 'D')
 			translators.push_back(make_shared<dtranslator>(s.substr(2)));
 		else {
 			size_t spos;
@@ -39,7 +40,7 @@ table::table(const string& dataset, bool func1) : func(func1) {
 	sens = func ? 6 / num
 		: 2 / num * log2((num + 1) / 2) + (num - 1) / num * log2((num + 1) / (num - 1));
 
-	//sens = binary ? 1 / num 
+	//sens = binary ? 1 / num
 	//	: 2 / num * log2((num + 1) / 2) + (num - 1) / num * log2((num + 1) / (num - 1));
 }
 
@@ -76,7 +77,7 @@ vector<int> table::getWidth(const vector<int>& cols) {
 
 vector<int> table::getWidth(const vector<int>& cols, const vector<int>& lvls) {
 	vector<int> widths;
-	for (int t = 0; t < cols.size(); t++) 
+	for (int t = 0; t < cols.size(); t++)
 		widths.push_back(translators[cols[t]]->size(lvls[t]));
 	return widths;
 }
@@ -209,7 +210,7 @@ vector<double> table::getConditional(const dependence& dep, const vector<int>& p
 //void table::materialize(const vector<int>& cols) {		// materialize the base of a margin
 //	if (margins.find(cols) != margins.end()) return;
 //	marginal& margin = margins[cols];
-//	
+//
 //	// counts
 //	const vector<int> widths = getWidth(cols);
 //	int total = accumulate(widths.begin(), widths.end(), 1, multiplies<int>());
@@ -324,6 +325,22 @@ void table::printo_libsvm(const string& filename, int col, const set<int>& posit
 				else output = "-1" + output;
 			}
 			else output += " " + translators[t]->int2libsvm(tuple[t], index);
+		}
+		fsvm << output << endl;
+	}
+	fsvm.close();
+}
+
+void table::printo_file(const string& filename) {
+	ofstream fsvm(filename);
+	for (const auto& tuple : data) {
+		string output;
+
+		for (int t = 0; t < dim; t++) {
+			if (t) {
+				output += "\t";
+			}
+			output += translators[t]->int2str(tuple[t]);
 		}
 		fsvm << output << endl;
 	}

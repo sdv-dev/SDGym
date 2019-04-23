@@ -22,7 +22,7 @@ struct marginal	{
 // mutual: lvls -> mutual info
 
 
-typedef pair<int, int> attribute;	
+typedef pair<int, int> attribute;
 // <col, lvl>
 
 
@@ -37,7 +37,7 @@ public:
 	int ptr;
 
 	dependence(const vector<attribute>& p1, const attribute& x1) : p(p1), x(x1) {
-		ptr = tools::position(x, p);		
+		ptr = tools::position(x, p);
 		for (const attribute& a : p) {
 			cols.push_back(a.first);
 			lvls.push_back(a.second);
@@ -83,6 +83,7 @@ public:
 	vector<pair<int, int>> specialize(const vector<int>&, const vector<int>&, const vector<int>&);			// val, col, from_lvl (to 0);
 
 	void printo_libsvm(const string&, int, const set<int>&);
+	void printo_file(const string&);
 
 
 	bool func;								// binary model

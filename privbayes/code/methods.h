@@ -36,7 +36,7 @@ public:
 
 	// tools
 	void printo_libsvm(const string&, const int&, const set<int>&);
-	string to_string(const dependence&); 
+	string to_string(const dependence&);
 	string to_string(const attribute&);
 	double evaluate();
 
