@@ -18,7 +18,7 @@ class PrivBNSynthesizer(SynthesizerBase):
         assert os.path.exists("privbayes/privBayes.bin")
 
     def train(self, train_data):
-        self.train_data = train_data
+        self.train_data = train_data.copy()
 
     def generate(self, n):
         try_mkdirs("__privbn_tmp/data")
@@ -47,8 +47,12 @@ class PrivBNSynthesizer(SynthesizerBase):
                     print("C", minn, maxx, file=f)
 
         with open("__privbn_tmp/data/real.dat", "w") as f:
-            for raw in self.train_data:
-                for id_, col in enumerate(raw):
+            n = len(self.train_data)
+            np.random.shuffle(self.train_data)
+            n = min(n, 50000)
+            for i in range(n):
+                row = self.train_data[i]
+                for id_, col in enumerate(row):
                     if id_ in d_cols:
                         print(int(col), end=' ', file=f)
                     else:
