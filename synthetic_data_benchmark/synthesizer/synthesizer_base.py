@@ -25,11 +25,10 @@ parser.add_argument('--sample', type=int, default=50000,
 class SynthesizerBase(object):
     """docstring for Synthesizer."""
 
-    supported_datasets = ['mnist12', 'mnist28', 'credit', 'census', 'adult',
-                        'news', 'covtype', 'intrusion'] + [
-                            'chain', 'fc', 'tree', 'general',
-                            'grid', 'ring'
-                        ]
+    supported_datasets = [
+        'chain', 'fc', 'tree', 'general', 'grid', 'ring'
+    ] + ['adult', 'credit', 'census', 
+        'news', 'covtype', 'intrusion', 'mnist12', 'mnist28']
 
     def train(self, train_data):
         pass
@@ -68,10 +67,6 @@ def run(synthesizer):
 
 
     for dataset in datasets:
-        if glob.glob("{}/{}*.npz".format(output, dataset)):
-            logging.warning("Skip. {} results on {} exists.".format(name, dataset))
-            continue
-
 
         data_filename = glob.glob("data/*/{}.npz".format(dataset))
         meta_filename = glob.glob("data/*/{}.json".format(dataset))
@@ -90,6 +85,10 @@ def run(synthesizer):
 
 
         for i in range(repeat):
+            if glob.glob("{}/{}_{}_*.npz".format(output, dataset, i)):
+                logging.warning("Skip. {} results on {}_{} exists.".format(name, dataset, i))
+                continue
+
             logging.info("Generating {} iter {}".format(dataset, i))
             working_dir = "{}/ckpt_{}_{}".format(output, dataset, i)
             synthesizer.init(meta, working_dir)

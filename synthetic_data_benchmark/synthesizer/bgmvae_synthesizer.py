@@ -1,5 +1,5 @@
 from .synthesizer_base import SynthesizerBase, run
-from .synthesizer_utils import GMMTransformer
+from .synthesizer_utils import BGMTransformer
 import numpy as np
 import torch
 import torch.nn as nn
@@ -69,7 +69,7 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
     return sum(loss) * factor / x.size()[0], KLD / x.size()[0]
 
 
-class GMMVAESynthesizer(SynthesizerBase):
+class BGMVAESynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
@@ -89,7 +89,7 @@ class GMMVAESynthesizer(SynthesizerBase):
         self.loss_factor = 2
 
     def train(self, train_data):
-        self.transformer = GMMTransformer(self.meta, 5)
+        self.transformer = BGMTransformer(self.meta)
         self.transformer.fit(train_data)
         train_data = self.transformer.transform(train_data)
         dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
@@ -159,4 +159,4 @@ class GMMVAESynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(GMMVAESynthesizer())
+    run(BGMVAESynthesizer())

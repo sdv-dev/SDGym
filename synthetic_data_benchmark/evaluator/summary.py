@@ -15,9 +15,23 @@ parser.add_argument('--summary', type=str, default='output/__summary__',
                     help='result dir')
 
 
+def method_name_order(name):
+    if 'identity' in name.lower():
+        return 0
+    if 'clbn' in name.lower():
+        return 1
+    if 'vae' in name.lower():
+        return 2
+    if 'gan' in name.lower():
+        return 3
+    return 4
+
 def coverage(datasets, results):
     ticks = []
     values = []
+
+    results = list(results)
+    results = sorted(results, key=lambda x: method_name_order(x[0]))
 
     for model, result in results:
         covered = set()
@@ -30,12 +44,26 @@ def coverage(datasets, results):
 
     plt.cla()
     plt.bar(list(range(len(values))), values, tick_label=ticks)
-    plt.xticks(rotation=-45)
+    plt.xticks(rotation=-90)
     plt.title("coverage")
     plt.ylim(0, 1)
 
     plt.savefig("{}/coverage.jpg".format(summary_dir), bbox_inches='tight')
 
+def save_barchart(barchart, filename):
+    barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
+
+    methods = set()
+    for item in barchart['synthesizer']:
+        methods.add(item)
+    methods = list(methods)
+    methods = sorted(methods, key=method_name_order)
+
+    barchart.pivot("metric", "synthesizer", "val")[methods].plot(kind='bar')
+    plt.title(dataset)
+    plt.xlabel(None)
+    plt.legend(title=None, loc=(1.04,0))
+    plt.savefig(filename, bbox_inches='tight')
 
 def dataset_performance(dataset, results):
     synthesizer_metric_perform = {}
@@ -45,19 +73,24 @@ def dataset_performance(dataset, results):
             if one_result['dataset'] != dataset:
                 continue
 
+            if one_result['step'] == 0:
+                synthesizer_name = synthesizer
+            else:
+                synthesizer_name = synthesizer + "_" + str(one_result['step'])
+
+
+            if not synthesizer_name in synthesizer_metric_perform:
+                synthesizer_metric_perform[synthesizer_name] = {}
+            try:
+                synthesizer_metric_perform[synthesizer_name]['_distance'] = [one_result['distance']]
+            except:
+                synthesizer_metric_perform[synthesizer_name]['_distance'] = [0]
+
             for model_metric_score in one_result['performance']:
                 for metric, v in model_metric_score.items():
                     if metric == "name":
                         continue
                     else:
-                        if one_result['step'] == 0:
-                            synthesizer_name = synthesizer
-                        else:
-                            synthesizer_name = synthesizer + "_" + str(one_result['step'])
-
-                        if not synthesizer_name in synthesizer_metric_perform:
-                            synthesizer_metric_perform[synthesizer_name] = {}
-
                         if not metric in synthesizer_metric_perform[synthesizer_name]:
                             synthesizer_metric_perform[synthesizer_name][metric] = []
 
@@ -69,6 +102,7 @@ def dataset_performance(dataset, results):
     plt.cla()
 
     barchart = []
+    barchart_d = []
     for synthesizer, metric_perform in synthesizer_metric_perform.items():
         for k, v in metric_perform.items():
             v_t = np.mean(v)
@@ -76,14 +110,13 @@ def dataset_performance(dataset, results):
                 v_t = v_t.clip(-1, 1)
             if 'likelihood' in k:
                 v_t = v_t.clip(-10, 0)
-            barchart.append((synthesizer, k, v_t))
+            if k == '_distance':
+                barchart_d.append((synthesizer, k, v_t))
+            else:
+                barchart.append((synthesizer, k, v_t))
 
-    barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
-    barchart.pivot("metric", "synthesizer", "val").plot(kind='bar')
-    plt.title(dataset)
-    plt.xlabel(None)
-    plt.legend(title=None, loc=(1.04,0))
-    plt.savefig("{}/{}.jpg".format(summary_dir, dataset), bbox_inches='tight')
+    save_barchart(barchart, "{}/{}.jpg".format(summary_dir, dataset))
+    save_barchart(barchart_d, "{}/{}_d.jpg".format(summary_dir, dataset))
 
     return synthesizer_metric_perform
 
