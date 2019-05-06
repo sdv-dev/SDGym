@@ -67,19 +67,27 @@ def apply_activate(data, output_info):
             st = ed
         elif item[1] == 'softmax':
             ed = st + item[0]
-            data_t.append(F.gumbel_softmax(data[:, st:ed], tau=0.1))
+            data_t.append(F.gumbel_softmax(data[:, st:ed], tau=0.2))
             st = ed
         else:
             assert 0
     return torch.cat(data_t, dim=1)
 
+def random_choice_prob_index(a, axis=1):
+    r = np.expand_dims(np.random.rand(a.shape[1-axis]), axis=axis)
+    return (a.cumsum(axis=axis) > r).argmax(axis=axis)
+
 
 class Cond(object):
     def __init__(self, data, output_info):
+        # self.n_col = self.n_opt = 0
+        # return
         self.model = []
 
         st = 0
         skip = False
+        max_interval = 0
+        counter = 0
         for item in output_info:
             if item[1] == 'tanh':
                 st += item[0]
@@ -92,33 +100,43 @@ class Cond(object):
                     continue
 
                 ed = st + item[0]
+                max_interval = max(max_interval, ed - st)
+                counter += 1
                 self.model.append(np.argmax(data[:, st:ed], axis=-1))
                 st = ed
             else:
                 assert 0
         assert st == data.shape[1]
+
+
         self.interval = []
         self.n_col = 0
-
         self.n_opt = 0
-
         skip = False
+        st = 0
+        self.p = np.zeros((counter, max_interval))
         for item in output_info:
             if item[1] == 'tanh':
                 skip = True
+                st += item[0]
                 continue
             elif item[1] == 'softmax':
                 if skip:
+                    st += item[0]
                     skip = False
                     continue
+                ed = st + item[0]
+                tmp = np.sum(data[:, st:ed], axis=0)
+                tmp = np.log(tmp + 1)
+                tmp = tmp / np.sum(tmp)
+                self.p[self.n_col, :item[0]] = tmp
                 self.interval.append((self.n_opt, item[0]))
                 self.n_opt += item[0]
                 self.n_col += 1
+                st = ed
             else:
                 assert 0
-
         self.interval = np.asarray(self.interval)
-
 
 
     def generate(self, batch):
@@ -130,14 +148,14 @@ class Cond(object):
         vec1 = np.zeros((batch, self.n_opt), dtype='float32')
         mask1 = np.zeros((batch, self.n_col), dtype='float32')
         mask1[np.arange(batch), idx] = 1
-        opt1 = self.interval[idx, 0] + np.random.randint(1000000, size=batch) % (self.interval[idx, 1])
+        opt1 = self.interval[idx, 0] + random_choice_prob_index(self.p[idx])
         vec1[np.arange(batch), opt1] = 1
 
 
         vec2 = np.zeros((batch, self.n_opt), dtype='float32')
         mask2 = np.zeros((batch, self.n_col), dtype='float32')
         mask2[np.arange(batch), idx] = 1
-        opt2 = self.interval[idx, 0] + np.random.randint(1000000, size=batch) % (self.interval[idx, 1])
+        opt2 = self.interval[idx, 0] + random_choice_prob_index(self.p[idx])
         vec2[np.arange(batch), opt2] = 1
 
         return np.concatenate([vec1, vec2], axis=0), np.concatenate([mask1, mask2], axis=0)
@@ -200,7 +218,11 @@ class Sampler(object):
                     st += item[0]
                     continue
                 ed = st + item[0]
-                w += np.sum(data[:, st:ed] / (np.sum(data[:, st:ed], axis=0) + 1e-8), axis=1) / (ed - st)
+                tot = np.sum(data[:, st:ed], axis=0)
+                tmp = data[:, st:ed] / (tot + 1e-8) * np.log(tot + 1)
+                tmp = np.sum(tmp, axis=1)
+                tmp = tmp / np.sum(tmp)
+                w += tmp
                 st = ed
             else:
                 assert 0
@@ -210,14 +232,15 @@ class Sampler(object):
 
     def sample(self, n):
         idx = np.random.choice(np.arange(len(self.data)), n, p=self.weight)
+        # idx = np.random.choice(np.arange(len(self.data)), n)
         return self.data[idx]
 
 LAMBDA = 10
 
 def calc_gradient_penalty(netD, real_data, fake_data, device='cpu', pac=10):
-    #print real_data.size()
-    alpha = torch.rand(real_data.size(0), 1, device=device)
-    alpha = alpha.expand(real_data.size())
+    alpha = torch.rand(real_data.size(0) // pac, 1, 1, device=device)
+    alpha = alpha.repeat(1, pac, real_data.size(1))
+    alpha = alpha.view(-1, real_data.size(1))
 
     interpolates = alpha * real_data + ((1 - alpha) * fake_data)
 
@@ -234,7 +257,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, device='cpu', pac=10):
 
 
 
-class BGMWGANSynthesizer(SynthesizerBase):
+class BGMWGAN3Synthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
@@ -242,7 +265,7 @@ class BGMWGANSynthesizer(SynthesizerBase):
                  disDim=(256, 256),
                  l2scale=1e-6,
                  batch_size=500,
-                 store_epoch=[100, 200]):
+                 store_epoch=[100, 200, 300]):
 
         self.embeddingDim = embeddingDim
         self.genDim = genDim
@@ -283,8 +306,8 @@ class BGMWGANSynthesizer(SynthesizerBase):
         generator= Generator(self.embeddingDim + self.cond_generator.n_opt, self.genDim, data_dim).to(self.device)
         discriminator = Discriminator(data_dim, self.disDim).to(self.device)
 
-        optimizerG = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.9), weight_decay=self.l2scale)
-        optimizerD = optim.Adam(discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9))#, weight_decay=self.l2scale)
+        optimizerG = optim.Adam(generator.parameters(), lr=2e-4, betas=(0.5, 0.9), weight_decay=self.l2scale)
+        optimizerD = optim.Adam(discriminator.parameters(), lr=2e-4, betas=(0.5, 0.9))#, weight_decay=self.l2scale)
 
         max_epoch = max(self.store_epoch)
         assert self.batch_size % 2 == 0
@@ -413,4 +436,4 @@ class BGMWGANSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(BGMWGANSynthesizer())
+    run(BGMWGAN3Synthesizer())
