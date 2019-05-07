@@ -257,7 +257,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, device='cpu', pac=10):
 
 
 
-class BGMWGAN3Synthesizer(SynthesizerBase):
+class BGMWGANSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
@@ -265,7 +265,7 @@ class BGMWGAN3Synthesizer(SynthesizerBase):
                  disDim=(256, 256),
                  l2scale=1e-6,
                  batch_size=500,
-                 store_epoch=[100, 200, 300]):
+                 store_epoch=[300]):
 
         self.embeddingDim = embeddingDim
         self.genDim = genDim
@@ -436,4 +436,4 @@ class BGMWGAN3Synthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(BGMWGAN3Synthesizer())
+    run(BGMWGANSynthesizer())

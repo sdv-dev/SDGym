@@ -265,7 +265,7 @@ def evalute_dataset(dataset, trainset, testset, meta):
     elif dataset in ['ring']:
         return default_gmm_likelihood(trainset, testset, 10)
 
-    elif dataset in ['chain', 'fc', 'tree', 'general']:
+    elif dataset in ['asia', 'alarm', 'child', 'insurance']:
         return default_bayesian_likelihood(dataset, trainset, testset, meta)
     else:
         logging.warning("{} evaluation not defined.".format(dataset))

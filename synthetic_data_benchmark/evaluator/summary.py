@@ -109,7 +109,7 @@ def dataset_performance(dataset, results):
             if k == 'r2':
                 v_t = v_t.clip(-1, 1)
             if 'likelihood' in k:
-                v_t = v_t.clip(-10, 0)
+                v_t = v_t.clip(-20, 0)
             if k == '_distance':
                 barchart_d.append((synthesizer, k, v_t))
             else:
