@@ -26,7 +26,7 @@ class SynthesizerBase(object):
     """docstring for Synthesizer."""
 
     supported_datasets = [
-        'asia', 'alarm', 'child', 'insurance', 'grid', 'ring',
+        'asia', 'alarm', 'child', 'insurance', 'grid', 'gridr', 'ring',
         'adult', 'credit', 'census',
         'news', 'covtype', 'intrusion', 'mnist12', 'mnist28']
 

@@ -259,7 +259,7 @@ def evalute_dataset(dataset, trainset, testset, meta):
         x_test, y_test = make_features(testset, meta)
         return news_regression(x_train, y_train, x_test, y_test, get_models(dataset))
 
-    elif dataset in ['grid']:
+    elif dataset in ['grid', 'gridr']:
         return default_gmm_likelihood(trainset, testset, 30)
 
     elif dataset in ['ring']:
