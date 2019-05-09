@@ -13,7 +13,7 @@ from .. import utils
 np.random.seed(0)
 
 def create_distribution(dist_type, num_samples):
-    if dist_type == "grid":
+    if dist_type in ["grid", "gridr"]:
         return make_gaussian_mixture(dist_type, num_samples)
     elif dist_type == "ring":
         return make_gaussian_mixture(dist_type, num_samples, num_components = 8)
@@ -31,6 +31,10 @@ def make_gaussian_mixture(dist_type, num_samples, num_components = 25, s = 0.05,
     if dist_type == "grid":
         mus = np.array([np.array([i, j]) for i, j in itertools.product(range(-4, 5, 2),
                                                         range(-4, 5, 2))],dtype=np.float32)
+    elif dist_type =="gridr":
+        mus = np.array([np.array([i, j]) + (np.random.rand(2) - 0.5)
+                        for i, j in itertools.product(range(-4, 5, 2),
+                            range(-4, 5, 2))],dtype=np.float32)
     elif dist_type == "ring":
         mus = np.array([[-1,0],[1,0],[0,-1],[0,1],[-math.sqrt(1/2),-math.sqrt(1/2)],[math.sqrt(1/2),math.sqrt(1/2)],[-math.sqrt(1/2),math.sqrt(1/2)],[math.sqrt(1/2),-math.sqrt(1/2)]])
 
