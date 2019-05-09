@@ -149,7 +149,7 @@ class TableganSynthesizer(SynthesizerBase):
     def __init__(self,
                  randomDim=100,
                  numChannels=64,
-                 l2scale=0,
+                 l2scale=1e-6,
                  batch_size=64,
                  store_epoch=[100]):
 
@@ -163,6 +163,8 @@ class TableganSynthesizer(SynthesizerBase):
     def train(self, train_data):
         self.transformer = TableganTransformer(self.meta, self.side)
         train_data = self.transformer.transform(train_data)
+        # print(train_data[:3, 0, 0, :])
+        # assert 0
         train_data = torch.from_numpy(train_data.astype('float32')).to(self.device)
         dataset = torch.utils.data.TensorDataset(train_data)
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
@@ -187,7 +189,7 @@ class TableganSynthesizer(SynthesizerBase):
                 optimizerD.zero_grad()
                 y_real = discriminator(real)
                 y_fake = discriminator(fake)
-                loss_d = -(torch.log(y_real + 1e-12).mean()) - (torch.log(1. - y_fake + 1e-12).mean())
+                loss_d = -(torch.log(y_real + 1e-6).mean()) - (torch.log(1. - y_fake + 1e-6).mean())
                 loss_d.backward()
                 optimizerD.step()
 
@@ -198,7 +200,7 @@ class TableganSynthesizer(SynthesizerBase):
                 fake = generator(noise)
                 optimizerG.zero_grad()
                 y_fake = discriminator(fake)
-                loss_g = -(torch.log(y_fake + 1e-12).mean())
+                loss_g = -(torch.log(y_fake + 1e-6).mean())
                 loss_g.backward(retain_graph=True)
                 loss_mean = torch.norm(torch.mean(fake, dim=0) - torch.mean(real, dim=0), 2)
                 loss_std = torch.norm(torch.std(fake, dim=0) - torch.std(real, dim=0), 2)
