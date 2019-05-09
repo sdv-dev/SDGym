@@ -16,41 +16,43 @@ import torch.optim as optim
 import os
 
 
-# In[17]:
-
-
 class TableganTransformer(object):
-    def __init__(self, meta):
+    def __init__(self, meta, side):
         self.meta = meta
+        self.minn = np.zeros(len(meta))
+        self.maxx = np.zeros(len(meta))
+        for i in range(len(meta)):
+            if meta[i]['type'] == CONTINUOUS:
+                self.minn[i] = meta[i]['min'] - 1e-3
+                self.maxx[i] = meta[i]['max'] + 1e-3
+            else:
+                self.minn[i] = -1e-3
+                self.maxx[i] = meta[i]['size'] - 1 + 1e-3
+
+        self.height = side
+
+    def fit(self, data):
+        pass
 
     def transform(self, data):
-        values = []
-        count = 0
-        for id_, info in enumerate(self.meta):
-            current = data[:, id_]
-            if info['type'] == CONTINUOUS:
-                values.append(current.reshape([-1, 1]))
-                count += 1
-            else:
-                col_t = np.zeros([len(data), info['size']])
-                col_t[np.arange(len(data)), current.astype('int32')] = 1
-                values.append(col_t)
-                count += info['size']
-
-        self.variable_count = count
-        return values
+        data = data.copy().astype('float32')
+        data = (data - self.minn) / (self.maxx - self.minn) * 2 - 1
+        if self.height * self.height > len(data[0]):
+            padding = np.zeros((len(data), self.height * self.height - len(data[0])))
+            data = np.concatenate([data, padding], axis=1)
+        return data.reshape(-1, 1, self.height, self.height)
 
     def inverse_transform(self, data):
-        data_t = np.zeros([len(data[0]), len(self.meta)])
+        data = data.reshape(-1, self.height * self.height)
+
+        data_t = np.zeros([len(data), len(self.meta)])
 
         for id_, info in enumerate(self.meta):
-            if info['type'] == CONTINUOUS:
-                data_t[:, id_] = data[id_].reshape([-1])
-            else:
-                data_t[:, id_] = np.argmax(data[id_], axis=1)
+            data_t[:, id_] = (data[:, id_].reshape([-1]) + 1) / 2 * (self.maxx[id_] - self.minn[id_]) + self.minn[id_]
+            if info['type'] in [CATEGORICAL, ORDINAL]:
+                data_t[:, id_] = np.round(data_t[:, id_])
 
         return data_t
-
 
 # In[18]:
 
@@ -61,15 +63,18 @@ class Discriminator(nn.Module):
         self.meta = meta
         self.side = side
         self.seq = nn.Sequential(*layers)
+        # self.layers = layers
 
-    def forward(self, input_):
-        input_concat = torch.cat(input_, dim=1)
-        input_padded = F.pad(input_concat, (0, self.side * self.side - input_concat.shape[1]))
-        input_square = input_padded.reshape((input_padded.shape[0], 1, self.side, self.side))
-        return self.seq(input_square)
-
-
-# In[19]:
+    def forward(self, input):
+        # print("----")
+        # t = input
+        # print(t.shape)
+        # for item in self.layers:
+        #     t = item(t)
+        #     print(item)
+        #     print(t.shape)
+        # assert 0
+        return self.seq(input)
 
 
 class Generator(nn.Module):
@@ -78,54 +83,52 @@ class Generator(nn.Module):
         self.meta = meta
         self.side = side
         self.seq = nn.Sequential(*layers)
+        # self.layers = layers
 
     def forward(self, input_):
-        output_square = self.seq(input_)
-        output_padded = output_square.reshape((output_square.shape[0], -1))
-
-        output = []
-        st = 0
-        for id_, info in enumerate(self.meta):
-            if info['type'] == CONTINUOUS:
-                output.append(output_padded[:, st:st+1])
-                st += 1
-            else:
-                col_t = output_padded[:, st:st+info['size']];
-                output.append(nn.Softmax(dim=1)(col_t))
-                st += info['size']
-        return output
-
-
-# In[20]:
+        # print("----")
+        # t = input_
+        # print(t.shape)
+        # for item in self.layers:
+        #     t = item(t)
+        #     print(item)
+        #     print(t.shape)
+        # assert 0
+        return self.seq(input_)
 
 
 def determine_layers(side, randomDim, numChannels):
     assert side >= 4 and side <= 31
 
     layer_dims = [(1, side), (numChannels, side // 2)]
-    while layer_dims[-1][1] > 3:
+
+    while layer_dims[-1][1] > 3 and len(layer_dims) < 4:
         layer_dims.append((layer_dims[-1][0] * 2, layer_dims[-1][1] // 2))
+
+    # print(layer_dims)
 
     layers_D = []
     for prev, curr in zip(layer_dims, layer_dims[1:]):
         layers_D += [nn.Conv2d(prev[0], curr[0], 4, 2, 1, bias=False),
                      nn.BatchNorm2d(curr[0]),
                      nn.LeakyReLU(0.2, inplace=True)]
-    layers_D += [nn.Conv2d(layer_dims[-1][0], 1, 4, 2, 1, bias=False),
+    layers_D += [nn.Conv2d(layer_dims[-1][0], 1, layer_dims[-1][1], 1, 0),
                  nn.Sigmoid()]
 
-    layers_G = [nn.ConvTranspose2d(randomDim, layer_dims[-1][0], 4, 2, 1,
-                                   output_padding=(layer_dims[-1][1] - 2), bias=False)]
+    layers_G = [nn.ConvTranspose2d(randomDim, layer_dims[-1][0], layer_dims[-1][1], 1, 0,
+                                   output_padding=0, bias=False)]
+
     for prev, curr in zip(reversed(layer_dims), reversed(layer_dims[:-1])):
         layers_G += [nn.BatchNorm2d(prev[0]),
                      nn.ReLU(True),
                      nn.ConvTranspose2d(prev[0], curr[0], 4, 2, 1,
-                                        output_padding=(curr[1] - prev[1]*2), bias=False)]
+                                        output_padding=0, bias=True)]
+    layers_G += [nn.Tanh()]
+
+    # print(layers_D)
+    # print(layers_G)
 
     return layers_D, layers_G
-
-
-# In[21]:
 
 
 def weights_init(m):
@@ -137,8 +140,6 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-# In[22]:
-
 
 class TableganSynthesizer(SynthesizerBase):
     """docstring for TableganSynthesizer??"""
@@ -148,9 +149,9 @@ class TableganSynthesizer(SynthesizerBase):
     def __init__(self,
                  randomDim=100,
                  numChannels=64,
-                 l2scale=1e-5,
-                 batch_size=500,
-                 store_epoch=[10, 20, 50]):
+                 l2scale=0,
+                 batch_size=64,
+                 store_epoch=[100]):
 
         self.randomDim = randomDim
         self.numChannels = numChannels
@@ -160,21 +161,18 @@ class TableganSynthesizer(SynthesizerBase):
         self.store_epoch = store_epoch
 
     def train(self, train_data):
-        self.transformer = TableganTransformer(self.meta)
+        self.transformer = TableganTransformer(self.meta, self.side)
         train_data = self.transformer.transform(train_data)
-        train_data = [torch.from_numpy(item.astype('float32')).to(self.device) for item in train_data]
-        dataset = torch.utils.data.TensorDataset(*train_data)
+        train_data = torch.from_numpy(train_data.astype('float32')).to(self.device)
+        dataset = torch.utils.data.TensorDataset(train_data)
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
-
-        variable_count = self.transformer.variable_count
-        self.side = int((variable_count - 1) ** 0.5) + 1  # ceil(sqrt(variable_count))
 
         layers_D, layers_G = determine_layers(self.side, self.randomDim, self.numChannels)
 
         generator = Generator(self.meta, self.side, layers_G).to(self.device)
         discriminator = Discriminator(self.meta, self.side, layers_D).to(self.device)
-        optimizerG = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
-        optimizerD = optim.Adam(discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
+        optimizerG = optim.Adam(generator.parameters(), lr=2e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
+        optimizerD = optim.Adam(discriminator.parameters(), lr=2e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
         generator.apply(weights_init)
         discriminator.apply(weights_init)
 
@@ -182,7 +180,7 @@ class TableganSynthesizer(SynthesizerBase):
 
         for i in range(max_epoch):
             for id_, data in enumerate(loader):
-                real = [item.to(self.device) for item in data]
+                real = data[0].to(self.device)
                 noise = torch.randn(self.batch_size, self.randomDim, 1, 1, device=self.device)
                 fake = generator(noise)
 
@@ -193,18 +191,24 @@ class TableganSynthesizer(SynthesizerBase):
                 loss_d.backward()
                 optimizerD.step()
 
+                # print(real.size())
+                # print(fake.size())
+
                 noise = torch.randn(self.batch_size, self.randomDim, 1, 1, device=self.device)
                 fake = generator(noise)
                 optimizerG.zero_grad()
                 y_fake = discriminator(fake)
                 loss_g = -(torch.log(y_fake + 1e-12).mean())
-                loss_g.backward()
+                loss_g.backward(retain_graph=True)
+                loss_mean = torch.norm(torch.mean(fake, dim=0) - torch.mean(real, dim=0), 2)
+                loss_std = torch.norm(torch.std(fake, dim=0) - torch.std(real, dim=0), 2)
+                loss_info = loss_mean + loss_std
+                loss_info.backward()
                 optimizerG.step()
 
                 if((id_+1) % 50 == 0):
-                    print(i+1, id_+1, loss_d, loss_g)
+                    print("epoch", i+1, "step", id_+1, loss_d, loss_g)
 
-            print(i+1, loss_d, loss_g)
             if i+1 in self.store_epoch:
                 torch.save({
                     "generator": generator.state_dict(),
@@ -224,15 +228,16 @@ class TableganSynthesizer(SynthesizerBase):
             generator.to(self.device)
 
             steps = n // self.batch_size + 1
-            data = [[] for i in range(len(self.meta))]
+            data = []
             for i in range(steps):
                 noise = torch.randn(self.batch_size, self.randomDim, 1, 1, device=self.device)
                 fake = generator(noise)
-                for id_, item in enumerate(fake):
-                    data[id_].append(item.detach().cpu().numpy())
-
-            data = [np.concatenate(item, axis=0)[:n] for item in data]
-            data = self.transformer.inverse_transform(data)
+                # print(fake.size())
+                data.append(fake.detach().cpu().numpy())
+            # print(data)
+            data = np.concatenate(data, axis=0)
+            data = self.transformer.inverse_transform(data[:n])
+            # print(data.shape)
             ret.append((epoch, data))
         return ret
 
@@ -245,24 +250,14 @@ class TableganSynthesizer(SynthesizerBase):
             pass
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+        sides = [4, 8, 16, 24, 32]
+        for i in sides:
+            if i * i >= len(self.meta):
+                self.side = i
+                break
+        # figure out image size
 
-# In[23]:
 
 
 if __name__ == "__main__":
     run(TableganSynthesizer())
-
-
-# In[25]:
-
-
-#get_ipython().system('jupyter nbconvert --to script tablegan_synthesizer.ipynb')
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
