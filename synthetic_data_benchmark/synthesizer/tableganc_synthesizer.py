@@ -178,8 +178,6 @@ def weights_init(m):
 class TableganCSynthesizer(SynthesizerBase):
     """docstring for TableganSynthesizer??"""
 
-    supported_datasets = ['credit']
-
     def __init__(self,
                  randomDim=100,
                  numChannels=64,
