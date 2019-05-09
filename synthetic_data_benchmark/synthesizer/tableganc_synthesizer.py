@@ -175,7 +175,7 @@ def weights_init(m):
 
 
 
-class TableganSynthesizer(SynthesizerBase):
+class TableganCSynthesizer(SynthesizerBase):
     """docstring for TableganSynthesizer??"""
 
     supported_datasets = ['credit']
@@ -324,4 +324,4 @@ class TableganSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(TableganSynthesizer())
+    run(TableganCSynthesizer())
