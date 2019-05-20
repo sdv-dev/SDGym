@@ -1,6 +1,6 @@
-# Synthetic Data Generator Benchmark
+# SDGym Synthetic Data Generation Gym
 
-This benchmark focuses on evaluating the performance of synthetic data generators on generating tabular non-series data.
+This is a benchmark focusing on evaluating the performance of synthetic data generators on generating tabular non-series data.
 
 All data are stored on Dropbox.
 
