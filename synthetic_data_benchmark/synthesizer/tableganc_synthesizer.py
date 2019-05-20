@@ -124,7 +124,7 @@ class Classifier(nn.Module):
 
 
 def determine_layers(side, randomDim, numChannels):
-    assert side >= 4 and side <= 31
+    assert side >= 4 and side <= 32
 
     layer_dims = [(1, side), (numChannels, side // 2)]
 
@@ -181,7 +181,7 @@ class TableganCSynthesizer(SynthesizerBase):
     def __init__(self,
                  randomDim=100,
                  numChannels=64,
-                 l2scale=1e-6,
+                 l2scale=1e-5,
                  batch_size=64,
                  store_epoch=[100]):
 
@@ -226,7 +226,7 @@ class TableganCSynthesizer(SynthesizerBase):
                 optimizerD.zero_grad()
                 y_real = discriminator(real)
                 y_fake = discriminator(fake)
-                loss_d = -(torch.log(y_real + 1e-6).mean()) - (torch.log(1. - y_fake + 1e-6).mean())
+                loss_d = -(torch.log(y_real + 1e-4).mean()) - (torch.log(1. - y_fake + 1e-4).mean())
                 loss_d.backward()
                 optimizerD.step()
 
@@ -237,10 +237,10 @@ class TableganCSynthesizer(SynthesizerBase):
                 fake = generator(noise)
                 optimizerG.zero_grad()
                 y_fake = discriminator(fake)
-                loss_g = -(torch.log(y_fake + 1e-6).mean())
+                loss_g = -(torch.log(y_fake + 1e-4).mean())
                 loss_g.backward(retain_graph=True)
-                loss_mean = torch.norm(torch.mean(fake, dim=0) - torch.mean(real, dim=0), 2)
-                loss_std = torch.norm(torch.std(fake, dim=0) - torch.std(real, dim=0), 2)
+                loss_mean = torch.norm(torch.mean(fake, dim=0) - torch.mean(real, dim=0), 1)
+                loss_std = torch.norm(torch.std(fake, dim=0) - torch.std(real, dim=0), 1)
                 loss_info = loss_mean + loss_std
                 loss_info.backward()
                 optimizerG.step()
