@@ -60,13 +60,13 @@ class PrivBNSynthesizer(SynthesizerBase):
                 print(file=f)
 
         privbayes = os.path.realpath("__privbn_tmp/privBayes.bin")
-        subprocess.call([privbayes, "real", str(n), "1", "5"], cwd="__privbn_tmp")
+        # subprocess.call([privbayes, "real", str(n), "1", "5"], cwd="__privbn_tmp")
         subprocess.call([privbayes, "real", str(n), "1", "10"], cwd="__privbn_tmp")
 
-        d1 = np.loadtxt("__privbn_tmp/output/syn_real_eps10_theta5_iter0.dat")
+        # d1 = np.loadtxt("__privbn_tmp/output/syn_real_eps10_theta5_iter0.dat")
         d2 = np.loadtxt("__privbn_tmp/output/syn_real_eps10_theta10_iter0.dat")
 
-        return [(5, d1), (10, d2)]
+        return [(10, d2)]
 
     def init(self, meta, working_dir):
         self.meta = meta
