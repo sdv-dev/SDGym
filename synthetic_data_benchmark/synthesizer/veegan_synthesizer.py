@@ -84,7 +84,7 @@ class VEEGANSynthesizer(SynthesizerBase):
                  recDim=(128, ),
                  l2scale=1e-5,
                  batch_size=500,
-                 store_epoch=[100, 200, 500]):
+                 store_epoch=[300]):
 
         self.embeddingDim = embeddingDim
         self.genDim = genDim

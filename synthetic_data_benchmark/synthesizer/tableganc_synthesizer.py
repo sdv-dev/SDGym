@@ -99,7 +99,7 @@ class Generator(nn.Module):
 
 
 class Classifier(nn.Module):
-    def __init__(self, meta, side, layers):
+    def __init__(self, meta, side, layers, device):
         super(Classifier, self).__init__()
         self.meta = meta
         self.side = side
@@ -108,7 +108,7 @@ class Classifier(nn.Module):
         if meta[-1]['name'] != 'label' or meta[-1]['type'] != CATEGORICAL or meta[-1]['size'] != 2:
             self.valid = False
 
-        masking = np.ones((1, 1, side, side), dtype='float32')
+        masking = np.ones((1, 1, side, side), dtype='float32').to(device)
         index = len(self.meta) - 1
         self.r = index // side
         self.c = index % side
@@ -182,8 +182,8 @@ class TableganCSynthesizer(SynthesizerBase):
                  randomDim=100,
                  numChannels=64,
                  l2scale=1e-5,
-                 batch_size=64,
-                 store_epoch=[100]):
+                 batch_size=500,
+                 store_epoch=[300]):
 
         self.randomDim = randomDim
         self.numChannels = numChannels
@@ -205,7 +205,7 @@ class TableganCSynthesizer(SynthesizerBase):
 
         generator = Generator(self.meta, self.side, layers_G).to(self.device)
         discriminator = Discriminator(self.meta, self.side, layers_D).to(self.device)
-        classifier = Classifier(self.meta, self.side, layers_C).to(self.device)
+        classifier = Classifier(self.meta, self.side, layers_C, self.device).to(self.device)
 
         optimizerG = optim.Adam(generator.parameters(), lr=2e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
         optimizerD = optim.Adam(discriminator.parameters(), lr=2e-4, betas=(0.5, 0.9), eps=1e-3, weight_decay=self.l2scale)
@@ -270,7 +270,7 @@ class TableganCSynthesizer(SynthesizerBase):
 
                 if((id_+1) % 50 == 0):
                     print("epoch", i+1, "step", id_+1, loss_d, loss_g, loss_c)
-
+            print("epoch", i+1, "step", id_+1, loss_d, loss_g, loss_c)
             if i+1 in self.store_epoch:
                 torch.save({
                     "generator": generator.state_dict(),
@@ -278,7 +278,7 @@ class TableganCSynthesizer(SynthesizerBase):
                 }, "{}/model_{}.tar".format(self.working_dir, i+1))
 
     def generate(self, n):
-        _, self.layers_G = determine_layers(self.side, self.randomDim, self.numChannels)
+        _, self.layers_G, _ = determine_layers(self.side, self.randomDim, self.numChannels)
         generator = Generator(self.meta, self.side, self.layers_G).to(self.device)
 
         ret = []
