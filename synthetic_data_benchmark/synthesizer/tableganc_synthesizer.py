@@ -108,14 +108,14 @@ class Classifier(nn.Module):
         if meta[-1]['name'] != 'label' or meta[-1]['type'] != CATEGORICAL or meta[-1]['size'] != 2:
             self.valid = False
 
-        masking = np.ones((1, 1, side, side), dtype='float32').to(device)
+        masking = np.ones((1, 1, side, side), dtype='float32')
         index = len(self.meta) - 1
         self.r = index // side
         self.c = index % side
         # print(side, index, self.r, self.c)
         # assert 0
         masking[0, 0, self.r, self.c] = 0
-        self.masking = torch.from_numpy(masking)
+        self.masking = torch.from_numpy(masking).to(device)
 
     def forward(self, input):
         label = (input[:, :, self.r, self.c].view(-1) + 1) / 2
