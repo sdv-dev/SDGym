@@ -126,8 +126,8 @@ class VEEGANSynthesizer(SynthesizerBase):
                 y_fake = discriminator(torch.cat([fake, fakez], dim=1))
 
                 loss_d = -(torch.log(torch.sigmoid(y_real) + 1e-4).mean()) - (torch.log(1. - torch.sigmoid(y_fake) + 1e-4).mean())
-                loss_g = -y_fake.mean() + F.mse_loss(fakezrec, fakez, reduction='mean')
-                loss_r = -y_real.mean() + F.mse_loss(fakezrec, fakez, reduction='mean')
+                loss_g = -torch.log(torch.sigmoid(y_fake) + 1e-4).mean() + F.mse_loss(fakezrec, fakez, reduction='mean')
+                loss_r = -torch.log(torch.sigmoid(y_real) + 1e-4).mean() + F.mse_loss(fakezrec, fakez, reduction='mean')
                 optimizerD.zero_grad()
                 loss_d.backward(retain_graph=True)
                 optimizerD.step()
