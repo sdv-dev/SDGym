@@ -1,4 +1,4 @@
-# SDGym Synthetic Data Generation Gym
+# SDGym: Synthetic Data Generation Gym
 
 This is a benchmark focusing on evaluating the performance of synthetic data generators on generating tabular non-series data.
 
