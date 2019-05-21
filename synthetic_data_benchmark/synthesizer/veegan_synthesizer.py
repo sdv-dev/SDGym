@@ -70,7 +70,6 @@ class Generator(nn.Module):
                 data_t.append(torch.tanh(data[:, st:ed]))
                 st = ed
             elif item[1] == 'softmax':
-                assert 0
                 ed = st + item[0]
                 data_t.append(F.softmax(data[:, st:ed], dim=1))
                 st = ed
