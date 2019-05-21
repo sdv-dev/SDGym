@@ -7,7 +7,7 @@ from torch.nn import functional as F
 import torch.utils.data
 import torch.optim as optim
 import os
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 class Reconstructor(nn.Module):
     def __init__(self, dataDim, recDims, embeddingDim):
@@ -81,7 +81,7 @@ class Generator(nn.Module):
 class VEEGANSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
-                 embeddingDim=4,
+                 embeddingDim=32,
                  genDim=(128, 128),
                  disDim=(128, ),
                  recDim=(128, 128),
@@ -143,10 +143,10 @@ class VEEGANSynthesizer(SynthesizerBase):
             print(i, loss_d, loss_g, loss_r)
             tmp = fake.detach().numpy()
             tmp2 = real.detach().numpy()
-            plt.clf()
-            plt.plot(tmp2[:, 0], tmp2[:, 1], '.')
-            plt.plot(tmp[:, 0], tmp[:, 1], '.')
-            plt.savefig('out/%d.png'%i)
+            # plt.clf()
+            # plt.plot(tmp2[:, 0], tmp2[:, 1], '.')
+            # plt.plot(tmp[:, 0], tmp[:, 1], '.')
+            # plt.savefig('out/%d.png'%i)
             if i+1 in self.store_epoch:
                 torch.save({
                     "generator": generator.state_dict(),
@@ -184,6 +184,7 @@ class VEEGANSynthesizer(SynthesizerBase):
         self.meta = meta
         self.working_dir = working_dir
 
+        self.embeddingDim = min(self.embeddingDim, len(self.meta))
         try:
             os.mkdir(working_dir)
         except:
