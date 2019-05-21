@@ -323,6 +323,8 @@ if __name__ == "__main__":
         # iter is the iteration of experiment
         # step is the learning steps of some synthesizer, 0 if no learning
         syn = np.load(synthetic_file)['syn']
+        if np.any(np.isnan(syn)):
+            continue
 
         dataset_iter_step = synthetic_file.split('/')[-1]
         assert dataset_iter_step[-4:] == '.npz'
