@@ -7,6 +7,7 @@ from torch.nn import functional as F
 import torch.utils.data
 import torch.optim as optim
 import os
+import matplotlib.pyplot as plt
 
 class Reconstructor(nn.Module):
     def __init__(self, dataDim, recDims, embeddingDim):
@@ -33,7 +34,8 @@ class Discriminator(nn.Module):
         for item in list(disDims):
             seq += [
                 nn.Linear(dim, item),
-                nn.ReLU()
+                nn.ReLU(),
+                nn.Dropout(0.5)
             ]
             dim = item
         seq += [nn.Linear(dim, 1)]
@@ -63,11 +65,12 @@ class Generator(nn.Module):
         data_t = []
         st = 0
         for item in output_info:
-            if item[1] == 'sigmoid':
+            if item[1] == 'tanh':
                 ed = st + item[0]
-                data_t.append(F.sigmoid(data[:, st:ed]))
+                data_t.append(torch.tanh(data[:, st:ed]))
                 st = ed
             elif item[1] == 'softmax':
+                assert 0
                 ed = st + item[0]
                 data_t.append(F.softmax(data[:, st:ed], dim=1))
                 st = ed
@@ -78,11 +81,11 @@ class Generator(nn.Module):
 class VEEGANSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
-                 embeddingDim=128,
-                 genDim=(128, ),
+                 embeddingDim=4,
+                 genDim=(128, 128),
                  disDim=(128, ),
-                 recDim=(128, ),
-                 l2scale=1e-5,
+                 recDim=(128, 128),
+                 l2scale=1e-6,
                  batch_size=500,
                  store_epoch=[300]):
 
@@ -96,7 +99,7 @@ class VEEGANSynthesizer(SynthesizerBase):
         self.store_epoch = store_epoch
 
     def train(self, train_data):
-        self.transformer = GeneralTransformer(self.meta)
+        self.transformer = GeneralTransformer(self.meta, act='tanh')
         self.transformer.fit(train_data)
         train_data = self.transformer.transform(train_data)
         dataset = torch.utils.data.TensorDataset(torch.from_numpy(train_data.astype('float32')).to(self.device))
@@ -107,9 +110,9 @@ class VEEGANSynthesizer(SynthesizerBase):
         discriminator = Discriminator(self.embeddingDim + data_dim, self.disDim).to(self.device)
         reconstructor = Reconstructor(data_dim, self.recDim, self.embeddingDim).to(self.device)
 
-        optimizerG = optim.Adam(generator.parameters(), betas=(0.5, 0.9), weight_decay=self.l2scale)
-        optimizerD = optim.Adam(discriminator.parameters(), betas=(0.5, 0.9), weight_decay=self.l2scale)
-        optimizerR = optim.Adam(reconstructor.parameters(), betas=(0.5, 0.9), weight_decay=self.l2scale)
+        optimizerG = optim.Adam(generator.parameters(), lr=1e-3, betas=(0.5, 0.9), weight_decay=self.l2scale)
+        optimizerD = optim.Adam(discriminator.parameters(), lr=1e-3, betas=(0.5, 0.9), weight_decay=self.l2scale)
+        optimizerR = optim.Adam(reconstructor.parameters(), lr=1e-3, betas=(0.5, 0.9), weight_decay=self.l2scale)
 
         max_epoch = max(self.store_epoch)
         mean = torch.zeros(self.batch_size, self.embeddingDim, device=self.device)
@@ -126,8 +129,8 @@ class VEEGANSynthesizer(SynthesizerBase):
                 y_fake = discriminator(torch.cat([fake, fakez], dim=1))
 
                 loss_d = -(torch.log(torch.sigmoid(y_real) + 1e-4).mean()) - (torch.log(1. - torch.sigmoid(y_fake) + 1e-4).mean())
-                loss_g = -torch.log(torch.sigmoid(y_fake) + 1e-4).mean() + F.mse_loss(fakezrec, fakez, reduction='mean')
-                loss_r = -torch.log(torch.sigmoid(y_real) + 1e-4).mean() + F.mse_loss(fakezrec, fakez, reduction='mean')
+                loss_g = -y_fake.mean() + F.mse_loss(fakezrec, fakez, reduction='mean') / self.embeddingDim
+                loss_r = -y_fake.mean() + F.mse_loss(fakezrec, fakez, reduction='mean') / self.embeddingDim
                 optimizerD.zero_grad()
                 loss_d.backward(retain_graph=True)
                 optimizerD.step()
@@ -137,7 +140,13 @@ class VEEGANSynthesizer(SynthesizerBase):
                 optimizerR.zero_grad()
                 loss_r.backward()
                 optimizerR.step()
-            print(loss_d, loss_g, loss_r)
+            print(i, loss_d, loss_g, loss_r)
+            tmp = fake.detach().numpy()
+            tmp2 = real.detach().numpy()
+            plt.clf()
+            plt.plot(tmp2[:, 0], tmp2[:, 1], '.')
+            plt.plot(tmp[:, 0], tmp[:, 1], '.')
+            plt.savefig('out/%d.png'%i)
             if i+1 in self.store_epoch:
                 torch.save({
                     "generator": generator.state_dict(),
