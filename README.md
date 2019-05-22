@@ -164,10 +164,10 @@ After installing the requirements and preparing the datasets, you only need to r
 commands to evaluate a synthesizer:
 
 ```
-python3 -m launcher $SYNTHESIZER
+python3 -m launcher SYNTHESIZER
 ```
 
-* $SYNTHESIZER: Name of the synthesizer you want to evaluate.
+* `SYNTHESIZER`: Name of the synthesizer you want to evaluate.
 
   Available synthesizers: [bgmvae, bgmwgan, clbn, identity, independent, medgan, privbn, uniform, veegan]
 
