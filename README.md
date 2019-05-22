@@ -71,8 +71,9 @@ output
 have been preprocessed to be ready to use with `SDGym`, following the requirements specified in
 the [Input Format](#input-format) section.
 
-These datasets can be downloaded [here](https://s3.amazonaws.com/sdgym/SDGymBenchmarkData.zip).
-After download, you just need to unzip its contents the `data` folder at the root of `SDGYm`.
+These datasets can be downloaded from [here](https://s3.amazonaws.com/sdgym/SDGymBenchmarkData.zip).
+After downloading them, you just need to unzip their contents into a folder named `data` at the
+root of `SDGym`.
 
 You can also execute the following commands from the root of the repository:
 ```
