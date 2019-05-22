@@ -142,7 +142,7 @@ class Cond(object):
     def generate(self, batch):
         if self.n_col == 0:
             return None
-        batch = batch // 2
+        batch = batch
         idx = np.random.choice(np.arange(self.n_col), batch)
 
         vec1 = np.zeros((batch, self.n_opt), dtype='float32')
@@ -152,15 +152,7 @@ class Cond(object):
         opt1 = self.interval[idx, 0] + opt1prime
         vec1[np.arange(batch), opt1] = 1
 
-
-        vec2 = np.zeros((batch, self.n_opt), dtype='float32')
-        mask2 = np.zeros((batch, self.n_col), dtype='float32')
-        mask2[np.arange(batch), idx] = 1
-        opt2prime = random_choice_prob_index(self.p[idx])
-        opt2 = self.interval[idx, 0] + opt2prime
-        vec2[np.arange(batch), opt2] = 1
-
-        return np.concatenate([vec1, vec2], axis=0), np.concatenate([mask1, mask2], axis=0), np.concatenate([idx, idx]), np.concatenate([opt1prime, opt2prime])
+        return vec1, mask1, idx, opt1prime
 
     def generate_zero(self, batch):
         if self.n_col == 0:
@@ -314,7 +306,7 @@ class BGMWGAN3Synthesizer(SynthesizerBase):
 
         max_epoch = max(self.store_epoch)
         assert self.batch_size % 2 == 0
-        mean = torch.zeros(self.batch_size//2, self.embeddingDim, device=self.device)
+        mean = torch.zeros(self.batch_size, self.embeddingDim, device=self.device)
         std = mean + 1
 
 
@@ -322,28 +314,39 @@ class BGMWGAN3Synthesizer(SynthesizerBase):
         for i in range(max_epoch):
             for id_ in range(steps_per_epoch):
                 fakez = torch.normal(mean=mean, std=std)
-                fakez = torch.cat([fakez, fakez], dim=0)
 
                 condvec = self.cond_generator.generate(self.batch_size)
                 if condvec is None:
                     c1, m1, col, opt = None, None, None, None
+                    real = data_sampler.sample(self.batch_size, col, opt)
                 else:
                     c1, m1, col, opt = condvec
                     c1 = torch.from_numpy(c1).to(self.device)
                     m1 = torch.from_numpy(m1).to(self.device)
                     fakez = torch.cat([fakez, c1], dim=1)
+
+                    perm = np.arange(self.batch_size)
+                    np.random.shuffle(perm)
+                    real = data_sampler.sample(self.batch_size, col[perm], opt[perm])
+                    c2 = c1[perm]
+
                 fake = generator(fakez)
                 fakeact = apply_activate(fake, self.transformer.output_info)
 
-                real = data_sampler.sample(self.batch_size, col, opt)
+
                 real = torch.from_numpy(real.astype('float32')).to(self.device)
 
                 if c1 is not None:
                     fake_cat = torch.cat([fakeact, c1], dim=1)
-                    real_cat = torch.cat([real, c1], dim=1)
+                    real_cat = torch.cat([real, c2], dim=1)
                 else:
                     real_cat = real
                     fake_cat = fake
+
+
+                # print(real_cat[0])
+                # print(fake_cat[0])
+                # assert 0
 
                 y_fake = discriminator(fake_cat)
                 y_real = discriminator(real_cat)
@@ -355,14 +358,13 @@ class BGMWGAN3Synthesizer(SynthesizerBase):
 
                 optimizerD.zero_grad()
                 pen.backward(retain_graph=True)
-                loss_d.backward(retain_graph=True)
+                loss_d.backward()
                 optimizerD.step()
 
                 # for p in discriminator.parameters():
                     # p.data.clamp_(-0.05, 0.05)
 
                 fakez = torch.normal(mean=mean, std=std)
-                fakez = torch.cat([fakez, fakez], dim=0)
 
                 condvec = self.cond_generator.generate(self.batch_size)
                 if condvec is None:
@@ -388,7 +390,7 @@ class BGMWGAN3Synthesizer(SynthesizerBase):
                 loss_g = -torch.mean(y_fake) + cross_entropy
 
                 optimizerG.zero_grad()
-                loss_g.backward(retain_graph=True)
+                loss_g.backward()
                 optimizerG.step()
 
 
