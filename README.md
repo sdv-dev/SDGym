@@ -112,10 +112,10 @@ Have below the list of included datasets and their original source:
 	<table>
 	<tr>
 	<td>
-	<img src="misc/gaussian_ring.png" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/gaussian_ring.png" width="100%">
 	</td>
 	<td>
-	<img src="misc/gaussian_grid.png" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/gaussian_grid.png" width="100%">
 	</td>
 	</tr>
 	</table>
@@ -129,12 +129,12 @@ Have below the list of included datasets and their original source:
 	<tr>
 	<td>
 	<figure>
-	<img src="misc/chain.png" width = "100" height = "200">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/chain.png" width = "100" height = "200">
 	</figure>
 	</td>
 	<td>
 	<figure>
-	<img src="misc/tree.png" width = "170" height = "100">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/tree.png" width = "170" height = "100">
 	</figure>
 	</td>
 	</tr>
@@ -147,12 +147,12 @@ Have below the list of included datasets and their original source:
 	<tr>
 	<td>
 	<figure>
-	<img src="misc/fc.png" width = "170" height = "200">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/fc.png" width = "170" height = "200">
 	</figure>
 	</td>
 	<td>
 	<figure>
-	<img src="misc/general.png" width = "170" height = "200">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/general.png" width = "170" height = "200">
 	</figure>
 	</td>
 	</tr>
@@ -188,39 +188,39 @@ insurance, grid, gridr, ring, adult, credit, census, news, covtype, intrusion, m
 <table>
 <tr>
 <td>
-<img src="misc/coverage.jpg" width="100%">
+<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/coverage.jpg" width="100%">
 </td>
 <tr>
 	<td>
-	<img src="misc/mnist12.jpg" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/mnist12.jpg" width="100%">
 	</td>
 	<td>
-	<img src="misc/mnist28.jpg" width="100%">
-	</td>
-</tr>
-<tr>
-	<td>
-	<img src="misc/adult.jpg" width="100%">
-	</td>
-	<td>
-	<img src="misc/census.jpg" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/mnist28.jpg" width="100%">
 	</td>
 </tr>
 <tr>
 	<td>
-	<img src="misc/credit.jpg" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/adult.jpg" width="100%">
 	</td>
 	<td>
-	<img src="misc/covtype.jpg" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/census.jpg" width="100%">
+	</td>
+</tr>
+<tr>
+	<td>
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/credit.jpg" width="100%">
+	</td>
+	<td>
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/covtype.jpg" width="100%">
 	</td>
 </tr>
 
 <tr>
 	<td>
-	<img src="misc/intrusion.jpg" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/intrusion.jpg" width="100%">
 	</td>
 	<td>
-	<img src="misc/news.jpg" width="100%">
+	<img src="https://raw.githubusercontent.com/DAI-Lab/SDGym/master/misc/news.jpg" width="100%">
 	</td>
 </tr>
 
