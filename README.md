@@ -1,6 +1,7 @@
 # SDGym
 
-Synthetic Data Gym: A framework to benchmark the performance of synthetic data generators for non-temporal tabular data.
+Synthetic Data Gym: A framework to benchmark the performance of synthetic data generators for
+non-temporal tabular data.
 
 # Getting started
 
@@ -20,9 +21,13 @@ pip install -r requirements.txt
 
 The input for all the synthesizers includecd in `SDGym` is a couple of files:
 
-- A `npz` file containing two tables, `train` and `test`, where each is a `numpy.ndarray`. All continous columns are stored as is, while categorical and ordinal columns are stored using integers, altought the dtype will be float because numpy does not support mixed types.
+- A `npz` file containing two tables, `train` and `test`, where each is a `numpy.ndarray`.
+All continous columns are stored as is, while categorical and ordinal columns are stored
+using integers, altought the dtype will be float because numpy does not support mixed types.
 
-- A `json` file containing the metadata for the dataset, that is, information about the columns, like the max and minimum values on continous columns or the mapping from integer to string in categorical columns.
+- A `json` file containing the metadata for the dataset, that is, information about the columns,
+like the max and minimum values on continous columns or the mapping from integer to string in
+categorical columns.
 
 ```
 [
@@ -62,60 +67,21 @@ output
 
 ### Demo Datasets
 
-`SDGym` includes a few datasets to use for development or demonstration purposes. These datasets have been preprocessed to be ready to use with `SDGym`, following the requirements specified in the [Input Format](#input-format) section.
+`SDGym` includes a few datasets to use for development or demonstration purposes. These datasets
+have been preprocessed to be ready to use with `SDGym`, following the requirements specified in
+the [Input Format](#input-format) section.
 
 These datasets can be downloaded [here](https://s3.amazonaws.com/sdgym/SDGymBenchmarkData.zip).
-After downloaded
+After download, you just need to unzip its contents the `data` folder at the root of `SDGYm`.
 
-
-To run this benchmark, you should first download all the data from dropbox and store them in `data` folder. So the whole working folder should look like
-
+You can also execute the following commands from the root of the repository:
 ```
-SDGym
- |-data/
- |  |
- |  |--real/
- |  |  |
- |  |  |--rdata1.npz
- |  |  |
- |  |  |--rdata1.json
- |  |  |
- |  |  |-- ...
- |  |
- |  |--simulate/
- |      |
- |      |--sdata1.npz
- |      |
- |      |--sdata1.json
- |      |
- |      |--...
- |
- |-synthetic_data_benchmark/
- |-output/
+curl https://s3.amazonaws.com/sdgym/SDGymBenchmarkData.zip -o data.zip
+mkdir data
+unzip data.zip -d data/
 ```
 
-
-## Quickstart
-
-In the following steps we will show how to run SDGym to evaluate 
-
-# Benchmark Framework
-
-- Preprocess and get clean synthetic and real data sets. All code should goto `synthetic_data_benchmark /sdata_maker` and `synthetic_data_benchmark/rdata_maker`. (Once done, everything will be uploaded to S3, so that data are fixed for future use.
-- `synthetic_data_benchmark/synthesizer/` contains several baseline synthesizers. Each synthesizer can be easily excuted on one or more datasets multiple times by
-	-`> python3 -m synthetic_data_benchmark.synthesizer.xxx_synthesizer --repeat 3 [dataset1, dataset2, ...]`
-	- Excution results are stored in `output/` as several npz files. Each one is one version of synthetic data.
-- Evaluators
-	- `synthetic_data_benchmark/evaluator/evaluate.py` evaluates the output of one synthesizer on all datasets and store in a json file.
-		- `> python3 -m synthetic_data_benchmark.evaluator.evaluate output/XxxSynthesizer`
-		- Results are stored as json file in `output/__result__`.
-	- `synthetic_data_benchmark/evaluator/summary.py` generates the summary of results in `output/__result__`.
-		- `> python3 evaluator/summary.py`
-		- Outputs are stored as images and tables in `output/__summary__`.
-
-## List of datasets and metric
-
-### Datasets
+Have below the list of included datasets and their original source:
 
 - MINIST28: Use flatten 28\*28 pixels into 784 binary columns with an extra label column.
 - MINIST12: Reshape 28\*28 pixels into 12\*12 binary columns with an extra label column.
@@ -125,8 +91,6 @@ In the following steps we will show how to run SDGym to evaluate
 - News: Online News Popularity Dataset (Regression) https://archive.ics.uci.edu/ml/datasets/online+news+popularity
 - Covertype: Covertype Dataset (8 continuous + 40 binary + 1 multi) https://archive.ics.uci.edu/ml/datasets/Covertype
 - Intrusion: network intrusion detector kdd99 https://archive.ics.uci.edu/ml/datasets/kdd+cup+1999+data
-
-
 
 ### Simulated data
 
@@ -149,7 +113,7 @@ In the following steps we will show how to run SDGym to evaluate
 
 - Multivariate Structured Data: Generate samples from some pre-specified common causal strutures.
 	<table>
-	<tr> 
+	<tr>
 	<th>Chain</th>
 	<th>Tree</th>
 	</tr>
@@ -166,7 +130,7 @@ In the following steps we will show how to run SDGym to evaluate
 	</td>
 	</tr>
 
-	<tr> 
+	<tr>
 	<th>Fully Connected</th>
 	<th>General</th>
 	</tr>
@@ -184,6 +148,30 @@ In the following steps we will show how to run SDGym to evaluate
 	</td>
 	</tr>
 	</table>
+
+## Quickstart
+
+After installing the requirements and preparing the datasets, you only need to run the following
+commands to evaluate a synthesizer:
+
+```
+python3 -m launcher $SYNTHESIZER
+```
+
+* $SYNTHESIZER: Name of the synthesizer you want to evaluate.
+
+  Available synthesizers: [bgmvae, bgmwgan, clbn, identity, independent, medgan, privbn, uniform, veegan]
+
+Optional arguments:
+
+* `--datasets`: A list of datasets to evaluate the synthesizer with.
+  If the argument is not present or the datasets are not specified it defaults to all datasets.
+
+  Available datasets: [ asia, alarm, child,
+insurance, grid, gridr, ring, adult, credit, census, news, covtype, intrusion, mnist12, mnist28]
+
+* `--force`: Wheter or no overwritte results.
+* `--repeat`(int): Number of copies to generate for each dataset.
 
 
 ## Summary Examples
