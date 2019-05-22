@@ -15,6 +15,14 @@ cd SDGym/
 pip install -r requirements.txt
 ```
 
+After installing the requirements, we just need to build the models that are not in python
+
+```
+sudo apt install build-essential
+cd privbayes
+make
+```
+
 ## Data requirements
 
 ### Input Format
