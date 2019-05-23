@@ -7,9 +7,10 @@ from torch.nn import functional as F
 import torch.utils.data
 import torch.optim as optim
 import os
-# import matplotlib.pyplot as plt
+
 
 class Reconstructor(nn.Module):
+
     def __init__(self, dataDim, recDims, embeddingDim):
         super(Reconstructor, self).__init__()
         dim = dataDim
@@ -26,7 +27,9 @@ class Reconstructor(nn.Module):
     def forward(self, input):
         return self.seq(input)
 
+
 class Discriminator(nn.Module):
+
     def __init__(self, inputDim, disDims):
         super(Discriminator, self).__init__()
         dim = inputDim
@@ -45,8 +48,8 @@ class Discriminator(nn.Module):
         return self.seq(input)
 
 
-
 class Generator(nn.Module):
+
     def __init__(self, embeddingDim, genDims, dataDim):
         super(Generator, self).__init__()
         dim = embeddingDim
@@ -77,8 +80,10 @@ class Generator(nn.Module):
                 assert 0
         return torch.cat(data_t, dim=1)
 
+
 class VEEGANSynthesizer(SynthesizerBase):
-    """docstring for IdentitySynthesizer."""
+    """docstring for VEEGANSynthesizer."""
+
     def __init__(self,
                  embeddingDim=32,
                  genDim=(128, 128),
@@ -105,7 +110,7 @@ class VEEGANSynthesizer(SynthesizerBase):
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
 
         data_dim = self.transformer.output_dim
-        generator= Generator(self.embeddingDim, self.genDim, data_dim).to(self.device)
+        generator = Generator(self.embeddingDim, self.genDim, data_dim).to(self.device)
         discriminator = Discriminator(self.embeddingDim + data_dim, self.disDim).to(self.device)
         reconstructor = Reconstructor(data_dim, self.recDim, self.embeddingDim).to(self.device)
 
@@ -140,12 +145,6 @@ class VEEGANSynthesizer(SynthesizerBase):
                 loss_r.backward()
                 optimizerR.step()
             print(i, loss_d, loss_g, loss_r)
-            # tmp = fake.detach().numpy()
-            # tmp2 = real.detach().numpy()
-            # plt.clf()
-            # plt.plot(tmp2[:, 0], tmp2[:, 1], '.')
-            # plt.plot(tmp[:, 0], tmp[:, 1], '.')
-            # plt.savefig('out/%d.png'%i)
             if i+1 in self.store_epoch:
                 torch.save({
                     "generator": generator.state_dict(),
@@ -156,7 +155,7 @@ class VEEGANSynthesizer(SynthesizerBase):
     def generate(self, n):
         data_dim = self.transformer.output_dim
         output_info = self.transformer.output_info
-        generator= Generator(self.embeddingDim, self.genDim, data_dim).to(self.device)
+        generator = Generator(self.embeddingDim, self.genDim, data_dim).to(self.device)
 
         ret = []
         for epoch in self.store_epoch:
@@ -186,8 +185,9 @@ class VEEGANSynthesizer(SynthesizerBase):
         self.embeddingDim = min(self.embeddingDim, len(self.meta))
         try:
             os.mkdir(working_dir)
-        except:
+        except FileExistsError:
             pass
+
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 

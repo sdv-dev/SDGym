@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[16]:
-
-
 from .synthesizer_base import SynthesizerBase, run
 from .synthesizer_utils import CATEGORICAL, ORDINAL, CONTINUOUS
 from sklearn.mixture import GaussianMixture
@@ -54,8 +51,6 @@ class TableganTransformer(object):
 
         return data_t
 
-# In[18]:
-
 
 class Discriminator(nn.Module):
     def __init__(self, meta, side, layers):
@@ -66,14 +61,6 @@ class Discriminator(nn.Module):
         # self.layers = layers
 
     def forward(self, input):
-        # print("----")
-        # t = input
-        # print(t.shape)
-        # for item in self.layers:
-        #     t = item(t)
-        #     print(item)
-        #     print(t.shape)
-        # assert 0
         return self.seq(input)
 
 
@@ -86,14 +73,6 @@ class Generator(nn.Module):
         # self.layers = layers
 
     def forward(self, input_):
-        # print("----")
-        # t = input_
-        # print(t.shape)
-        # for item in self.layers:
-        #     t = item(t)
-        #     print(item)
-        #     print(t.shape)
-        # assert 0
         return self.seq(input_)
 
 
@@ -151,16 +130,12 @@ def determine_layers(side, randomDim, numChannels):
                                         output_padding=0, bias=True)]
     layers_G += [nn.Tanh()]
 
-
     layers_C = []
     for prev, curr in zip(layer_dims, layer_dims[1:]):
         layers_C += [nn.Conv2d(prev[0], curr[0], 4, 2, 1, bias=False),
                      nn.BatchNorm2d(curr[0]),
                      nn.LeakyReLU(0.2, inplace=True)]
     layers_C += [nn.Conv2d(layer_dims[-1][0], 1, layer_dims[-1][1], 1, 0)]
-
-    # print(layers_D)
-    # print(layers_G)
 
     return layers_D, layers_G, layers_C
 
@@ -172,7 +147,6 @@ def weights_init(m):
     elif classname.find('BatchNorm') != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant_(m.bias.data, 0)
-
 
 
 class TableganSynthesizer(SynthesizerBase):
@@ -270,7 +244,6 @@ class TableganSynthesizer(SynthesizerBase):
 
                 if((id_+1) % 50 == 0):
                     print("epoch", i+1, "step", id_+1, loss_d, loss_g, loss_c)
-            print("epoch", i+1, "step", id_+1, loss_d, loss_g, loss_c)
             if i+1 in self.store_epoch:
                 torch.save({
                     "generator": generator.state_dict(),
@@ -318,7 +291,6 @@ class TableganSynthesizer(SynthesizerBase):
                 self.side = i
                 break
         # figure out image size
-
 
 
 if __name__ == "__main__":

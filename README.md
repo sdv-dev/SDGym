@@ -81,7 +81,7 @@ the [Input Format](#input-format) section.
 
 These datasets can be downloaded from [here](https://s3.amazonaws.com/sdgym/SDGymBenchmarkData.zip).
 After downloading them, you just need to unzip their contents into a folder named `data` at the
-the root of `SDGym`.
+root of `SDGym`.
 
 You can also execute the following commands from the root of the repository:
 ```

@@ -58,6 +58,7 @@ def coverage(datasets, results):
 
     plt.savefig("{}/coverage.jpg".format(summary_dir), bbox_inches='tight')
 
+
 def save_barchart(barchart, filename):
     barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
 
@@ -72,6 +73,7 @@ def save_barchart(barchart, filename):
     plt.xlabel(None)
     plt.legend(title=None, loc=(1.04,0))
     plt.savefig(filename, bbox_inches='tight')
+
 
 def dataset_performance(dataset, results):
     synthesizer_metric_perform = {}
