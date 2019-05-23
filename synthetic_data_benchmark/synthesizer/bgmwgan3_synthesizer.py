@@ -18,7 +18,8 @@ class Discriminator(nn.Module):
         for item in list(disDims):
             seq += [
                 nn.Linear(dim, item),
-                nn.LeakyReLU(0.2)
+                nn.LeakyReLU(0.2),
+                nn.Dropout(0.5)
             ]
             dim = item
         seq += [nn.Linear(dim, 1)]
@@ -32,10 +33,12 @@ class Residual(nn.Module):
     def __init__(self, i, o):
         super(Residual, self).__init__()
         self.fc = nn.Linear(i, o)
+        self.bn = nn.BatchNorm1d(o)
         self.relu = nn.ReLU()
 
     def forward(self, input):
         out = self.fc(input)
+        out = self.bn(out)
         out = self.relu(out)
         return torch.cat([out, input], dim=1)
 
