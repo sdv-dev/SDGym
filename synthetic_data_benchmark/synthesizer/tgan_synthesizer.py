@@ -18,7 +18,8 @@ class Discriminator(nn.Module):
         for item in list(disDims):
             seq += [
                 nn.Linear(dim, item),
-                nn.LeakyReLU(0.2)
+                nn.LeakyReLU(0.2),
+                nn.Dropout(0.5)
             ]
             dim = item
         seq += [nn.Linear(dim, 1)]
@@ -32,10 +33,12 @@ class Residual(nn.Module):
     def __init__(self, i, o):
         super(Residual, self).__init__()
         self.fc = nn.Linear(i, o)
+        self.bn = nn.BatchNorm1d(o)
         self.relu = nn.ReLU()
 
     def forward(self, input):
         out = self.fc(input)
+        out = self.bn(out)
         out = self.relu(out)
         return torch.cat([out, input], dim=1)
 
@@ -142,23 +145,17 @@ class Cond(object):
     def generate(self, batch):
         if self.n_col == 0:
             return None
-        batch = batch // 2
+        batch = batch
         idx = np.random.choice(np.arange(self.n_col), batch)
 
         vec1 = np.zeros((batch, self.n_opt), dtype='float32')
         mask1 = np.zeros((batch, self.n_col), dtype='float32')
         mask1[np.arange(batch), idx] = 1
-        opt1 = self.interval[idx, 0] + random_choice_prob_index(self.p[idx])
+        opt1prime = random_choice_prob_index(self.p[idx])
+        opt1 = self.interval[idx, 0] + opt1prime
         vec1[np.arange(batch), opt1] = 1
 
-
-        vec2 = np.zeros((batch, self.n_opt), dtype='float32')
-        mask2 = np.zeros((batch, self.n_col), dtype='float32')
-        mask2[np.arange(batch), idx] = 1
-        opt2 = self.interval[idx, 0] + random_choice_prob_index(self.p[idx])
-        vec2[np.arange(batch), opt2] = 1
-
-        return np.concatenate([vec1, vec2], axis=0), np.concatenate([mask1, mask2], axis=0)
+        return vec1, mask1, idx, opt1prime
 
     def generate_zero(self, batch):
         if self.n_col == 0:
@@ -203,10 +200,10 @@ class Sampler(object):
     def __init__(self, data, output_info):
         super(Sampler, self).__init__()
         self.data = data
-        self.weight = []
+        self.model = []
+        self.n = len(data)
 
         st = 0
-        w = np.zeros(len(self.data)) + 1 / len(data)
         skip = False
         for item in output_info:
             if item[1] == 'tanh':
@@ -218,21 +215,22 @@ class Sampler(object):
                     st += item[0]
                     continue
                 ed = st + item[0]
-                tot = np.sum(data[:, st:ed], axis=0)
-                tmp = data[:, st:ed] / (tot + 1e-8) * np.log(tot + 1)
-                tmp = np.sum(tmp, axis=1)
-                tmp = tmp / np.sum(tmp)
-                w += tmp
+                tmp = []
+                for j in range(item[0]):
+                    tmp.append(np.nonzero(data[:, st + j])[0])
+                self.model.append(tmp)
                 st = ed
             else:
                 assert 0
         assert st == data.shape[1]
-        self.weight = w
-        self.weight /= np.sum(self.weight)
 
-    def sample(self, n):
-        idx = np.random.choice(np.arange(len(self.data)), n, p=self.weight)
-        # idx = np.random.choice(np.arange(len(self.data)), n)
+    def sample(self, n, col, opt):
+        if col is None:
+            idx = np.random.choice(np.arange(self.n), n)
+            return self.data[idx]
+        idx = []
+        for c, o in zip(col, opt):
+            idx.append(np.random.choice(self.model[c][o]))
         return self.data[idx]
 
 LAMBDA = 10
@@ -257,7 +255,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, device='cpu', pac=10):
 
 
 
-class BGMWGANSynthesizer(SynthesizerBase):
+class TGANSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
@@ -304,67 +302,88 @@ class BGMWGANSynthesizer(SynthesizerBase):
         self.cond_generator = Cond(train_data, self.transformer.output_info)
 
         generator= Generator(self.embeddingDim + self.cond_generator.n_opt, self.genDim, data_dim).to(self.device)
-        discriminator = Discriminator(data_dim, self.disDim).to(self.device)
+        discriminator = Discriminator(data_dim + self.cond_generator.n_opt, self.disDim).to(self.device)
 
         optimizerG = optim.Adam(generator.parameters(), lr=2e-4, betas=(0.5, 0.9), weight_decay=self.l2scale)
         optimizerD = optim.Adam(discriminator.parameters(), lr=2e-4, betas=(0.5, 0.9))#, weight_decay=self.l2scale)
 
         max_epoch = max(self.store_epoch)
         assert self.batch_size % 2 == 0
-        mean = torch.zeros(self.batch_size//2, self.embeddingDim, device=self.device)
+        mean = torch.zeros(self.batch_size, self.embeddingDim, device=self.device)
         std = mean + 1
 
 
         steps_per_epoch = len(train_data) // self.batch_size
         for i in range(max_epoch):
             for id_ in range(steps_per_epoch):
-                real = data_sampler.sample(self.batch_size)
-                real = torch.from_numpy(real.astype('float32')).to(self.device)
-                y_real = discriminator(real)
-
                 fakez = torch.normal(mean=mean, std=std)
-                fakez = torch.cat([fakez, fakez], dim=0)
 
                 condvec = self.cond_generator.generate(self.batch_size)
                 if condvec is None:
-                    pass
+                    c1, m1, col, opt = None, None, None, None
+                    real = data_sampler.sample(self.batch_size, col, opt)
                 else:
-                    c1, m1 = condvec
+                    c1, m1, col, opt = condvec
                     c1 = torch.from_numpy(c1).to(self.device)
                     m1 = torch.from_numpy(m1).to(self.device)
                     fakez = torch.cat([fakez, c1], dim=1)
-                fake = generator(fakez)
 
+                    perm = np.arange(self.batch_size)
+                    np.random.shuffle(perm)
+                    real = data_sampler.sample(self.batch_size, col[perm], opt[perm])
+                    c2 = c1[perm]
+
+                fake = generator(fakez)
                 fakeact = apply_activate(fake, self.transformer.output_info)
-                y_fake = discriminator(fakeact)
+
+
+                real = torch.from_numpy(real.astype('float32')).to(self.device)
+
+                if c1 is not None:
+                    fake_cat = torch.cat([fakeact, c1], dim=1)
+                    real_cat = torch.cat([real, c2], dim=1)
+                else:
+                    real_cat = real
+                    fake_cat = fake
+
+
+                # print(real_cat[0])
+                # print(fake_cat[0])
+                # assert 0
+
+                y_fake = discriminator(fake_cat)
+                y_real = discriminator(real_cat)
+
 
                 # loss_d = -(torch.log(torch.sigmoid(y_real) + 1e-4).mean()) - (torch.log(1. - torch.sigmoid(y_fake) + 1e-4).mean())
                 loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
-                pen = calc_gradient_penalty(discriminator, real, fakeact, self.device)
+                pen = calc_gradient_penalty(discriminator, real_cat, fake_cat, self.device)
 
                 optimizerD.zero_grad()
                 pen.backward(retain_graph=True)
-                loss_d.backward(retain_graph=True)
+                loss_d.backward()
                 optimizerD.step()
 
                 # for p in discriminator.parameters():
                     # p.data.clamp_(-0.05, 0.05)
 
                 fakez = torch.normal(mean=mean, std=std)
-                fakez = torch.cat([fakez, fakez], dim=0)
 
                 condvec = self.cond_generator.generate(self.batch_size)
                 if condvec is None:
-                    pass
+                    c1, m1, col, opt = None, None, None, None
                 else:
-                    c1, m1 = condvec
+                    c1, m1, col, opt = condvec
                     c1 = torch.from_numpy(c1).to(self.device)
                     m1 = torch.from_numpy(m1).to(self.device)
                     fakez = torch.cat([fakez, c1], dim=1)
                 fake = generator(fakez)
 
                 fakeact = apply_activate(fake, self.transformer.output_info)
-                y_fake = discriminator(fakeact)
+                if c1 is not None:
+                    y_fake = discriminator(torch.cat([fakeact, c1], dim=1))
+                else:
+                    y_fake = discriminator(fakeact)
 
                 if condvec is None:
                     cross_entropy = 0
@@ -374,7 +393,7 @@ class BGMWGANSynthesizer(SynthesizerBase):
                 loss_g = -torch.mean(y_fake) + cross_entropy
 
                 optimizerG.zero_grad()
-                loss_g.backward(retain_graph=True)
+                loss_g.backward()
                 optimizerG.step()
 
 
@@ -436,4 +455,4 @@ class BGMWGANSynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(BGMWGANSynthesizer())
+    run(TGANSynthesizer())

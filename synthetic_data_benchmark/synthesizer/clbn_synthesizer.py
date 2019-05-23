@@ -64,7 +64,7 @@ class CLBNSynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
 
     def train(self, train_data):
-        self.discretizer = DiscretizeTransformer(self.meta, 8)
+        self.discretizer = DiscretizeTransformer(self.meta, 15)
         self.discretizer.fit(train_data)
         train_data_d = self.discretizer.transform(train_data)
         self.model = BayesianNetwork.from_samples(train_data_d, algorithm='chow-liu')

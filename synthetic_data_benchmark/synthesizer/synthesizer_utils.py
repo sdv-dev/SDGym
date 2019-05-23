@@ -38,7 +38,8 @@ class GeneralTransformer(object):
     Continuous and ordinal columns are normalized to [0, 1].
     Discrete columns are converted to a one-hot vector.
     """
-    def __init__(self, meta):
+    def __init__(self, meta, act='sigmoid'):
+        self.act = act
         self.meta = meta
         self.output_dim = 0
         for info in self.meta:
@@ -57,12 +58,16 @@ class GeneralTransformer(object):
             col = data[:, id_]
             if info['type'] == CONTINUOUS:
                 col = (col - (info['min'])) / (info['max'] - info['min'])
+                if self.act == 'tanh':
+                    col = col * 2 - 1
                 data_t.append(col.reshape([-1, 1]))
-                self.output_info.append((1, 'sigmoid'))
+                self.output_info.append((1, self.act))
             elif info['type'] == ORDINAL:
                 col = col / info['size']
+                if self.act == 'tanh':
+                    col = col * 2 - 1
                 data_t.append(col.reshape([-1, 1]))
-                self.output_info.append((1, 'sigmoid'))
+                self.output_info.append((1, self.act))
             else:
                 col_t = np.zeros([len(data), info['size']])
                 col_t[np.arange(len(data)), col.astype('int32')] = 1
@@ -79,12 +84,17 @@ class GeneralTransformer(object):
                 current = data[:, 0]
                 data = data[:, 1:]
 
+
+                if self.act == 'tanh':
+                    current = (current + 1) / 2
                 current = np.clip(current, 0, 1)
                 data_t[:, id_] = current * (info['max'] - info['min']) + info['min']
 
             elif info['type'] == ORDINAL:
                 current = data[:, 0]
                 data = data[:, 1:]
+                if self.act == 'tanh':
+                    current = (current + 1) / 2
                 current = current * info['size']
                 current = np.round(current).clip(0, info['size'] - 1)
                 data_t[:, id_] = current

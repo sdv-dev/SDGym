@@ -20,11 +20,19 @@ def method_name_order(name):
         return 0
     if 'clbn' in name.lower():
         return 1
-    if 'vae' in name.lower():
+    if 'privbn' in name.lower():
         return 2
-    if 'gan' in name.lower():
+    if 'medgan' in name.lower():
         return 3
-    return 4
+    if 'veegan' in name.lower():
+        return 4
+    if 'tablegan' in name.lower():
+        return 5
+    if 'tvae' in name.lower():
+        return 8
+    if 'tgan' in name.lower():
+        return 9
+    return 6
 
 def coverage(datasets, results):
     ticks = []
@@ -50,6 +58,7 @@ def coverage(datasets, results):
 
     plt.savefig("{}/coverage.jpg".format(summary_dir), bbox_inches='tight')
 
+
 def save_barchart(barchart, filename):
     barchart = pd.DataFrame(barchart, columns=['synthesizer', 'metric', 'val'])
 
@@ -64,6 +73,7 @@ def save_barchart(barchart, filename):
     plt.xlabel(None)
     plt.legend(title=None, loc=(1.04,0))
     plt.savefig(filename, bbox_inches='tight')
+
 
 def dataset_performance(dataset, results):
     synthesizer_metric_perform = {}
