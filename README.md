@@ -115,13 +115,13 @@ Have below the list of included datasets and their original source:
     <table>
     <tr>
     <td>
-    <img src="misc/grid.jpg" width="100%">
+    <img src="https://i.imgur.com/BLe701k.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/gridr.jpg" width="100%">
+    <img src="https://i.imgur.com/3UkHCUp.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/ring.jpg" width="100%">
+    <img src="https://i.imgur.com/rPwzsiz.jpg" width="100%">
     </td>
     </tr>
     </table>
@@ -135,12 +135,12 @@ Have below the list of included datasets and their original source:
     <tr>
     <td>
     <figure>
-    <img src="misc/asia.png" width = "200" height = "200">
+    <img src="https://i.imgur.com/iu7s4Jl.png" width="200" height="200">
     </figure>
     </td>
     <td>
     <figure>
-    <img src="misc/alarm.png" width = "200" height = "200">
+    <img src="https://i.imgur.com/2iPs87b.png" width="200" height="200">
     </figure>
     </td>
     </tr>
@@ -153,12 +153,12 @@ Have below the list of included datasets and their original source:
     <tr>
     <td>
     <figure>
-    <img src="misc/child.png" width = "200" height = "200">
+    <img src="https://i.imgur.com/Bj9jH9N.png" width="200" height="200">
     </figure>
     </td>
     <td>
     <figure>
-    <img src="misc/insurance.png" width = "200" height = "200">
+    <img src="https://i.imgur.com/a6pc8OC.png" width="200" height="200">
     </figure>
     </td>
     </tr>
@@ -200,63 +200,63 @@ insurance, grid, gridr, ring, adult, credit, census, news, covtype, intrusion, m
 <table>
 <tr>
 <td>
-<img src="misc/res/c.jpg" width="100%">
+<img src="https://i.imgur.com/9BT1pzE.jpg" width="100%">
 </td>
 <tr>
     <td>
-    <img src="misc/res/1.jpg" width="100%">
+    <img src="https://i.imgur.com/D74EDT2.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/2.jpg" width="100%">
+    <img src="https://i.imgur.com/UBAP7CP.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/3.jpg" width="100%">
-    </td>
-</tr>
-<tr>
-    <td>
-    <img src="misc/res/4.jpg" width="100%">
-    </td>
-    <td>
-    <img src="misc/res/5.jpg" width="100%">
-    </td>
-    <td>
-    <img src="misc/res/6.jpg" width="100%">
+    <img src="https://i.imgur.com/1ClIq3I.jpg" width="100%">
     </td>
 </tr>
 <tr>
     <td>
-    <img src="misc/res/7.jpg" width="100%">
+    <img src="https://i.imgur.com/CIIgD9s.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/8.jpg" width="100%">
+    <img src="https://i.imgur.com/TuRqkeN.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/9.jpg" width="100%">
+    <img src="https://i.imgur.com/wJnA8Jo.jpg" width="100%">
     </td>
 </tr>
-
 <tr>
     <td>
-    <img src="misc/res/10.jpg" width="100%">
+    <img src="https://i.imgur.com/eq2hIgI.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/11.jpg" width="100%">
+    <img src="https://i.imgur.com/DkLLgE8.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/12.jpg" width="100%">
+    <img src="https://i.imgur.com/Vuzpe3o.jpg" width="100%">
     </td>
 </tr>
 
 <tr>
     <td>
-    <img src="misc/res/13.jpg" width="100%">
+    <img src="https://i.imgur.com/fJnwI4f.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/14.jpg" width="100%">
+    <img src="https://i.imgur.com/ZqFJWVH.jpg" width="100%">
     </td>
     <td>
-    <img src="misc/res/15.jpg" width="100%">
+    <img src="https://i.imgur.com/kAI6lHD.jpg" width="100%">
+    </td>
+</tr>
+
+<tr>
+    <td>
+    <img src="https://i.imgur.com/v5EESVL.jpg" width="100%">
+    </td>
+    <td>
+    <img src="https://i.imgur.com/DEjIJ8u.jpg" width="100%">
+    </td>
+    <td>
+    <img src="https://i.imgur.com/CZ5JJ47.jpg" width="100%">
     </td>
 </tr>
 
