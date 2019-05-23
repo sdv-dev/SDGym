@@ -27,31 +27,31 @@ make
 
 ### Input Format
 
-The input for all the synthesizers includecd in `SDGym` is a couple of files:
+The input for all the synthesizers included in `SDGym` is a couple of files:
 
-- A `npz` file containing two tables, `train` and `test`, where each is a `numpy.ndarray`.
-All continous columns are stored as is, while categorical and ordinal columns are stored
-using integers, altought the dtype will be float because numpy does not support mixed types.
+- An `npz` file containing two tables, `train` and `test`, where each is a `numpy.ndarray`.
+All continuous columns are stored as is, while categorical and ordinal columns are stored
+using integers, although the dtype will be float because numpy does not support mixed types.
 
 - A `json` file containing the metadata for the dataset, that is, information about the columns,
-like the max and minimum values on continous columns or the mapping from integer to string in
+like the max and minimum values on continuous columns or the mapping from integer to string in
 categorical columns.
 
 ```
 [
-	{
-		'name': None or str
-		'type': 'Ordinal' or 'Categorical' or 'Continuous'
+    {
+        'name': None or str
+        'type': 'Ordinal' or 'Categorical' or 'Continuous'
 
-		# if Ordinal or Categorical
-		'size': integer
-		'i2s': list of str
+        # if Ordinal or Categorical
+        'size': integer
+        'i2s': list of str
 
-		# if Continuous
-		'min': float
-		'max': float
-	},
-	...
+        # if Continuous
+        'min': float
+        'max': float
+    },
+    ...
 ]
 
 ```
@@ -63,12 +63,12 @@ The results from `SDGym` are stored in the `output` folder with the following st
 ```
 output
    __results__
-       $MODEL.json	# Raw scores for model $MODEL
+       $MODEL.json    # Raw scores for model $MODEL
        ...
 
    __summaries__
-      result.csv	# Table summary of the results
-      barchart_$MODEL	# Bar chart for model $MODEL
+      result.csv    # Table summary of the results
+      barchart_$MODEL    # Bar chart for model $MODEL
       ...
 ```
 
@@ -81,7 +81,7 @@ the [Input Format](#input-format) section.
 
 These datasets can be downloaded from [here](https://s3.amazonaws.com/sdgym/SDGymBenchmarkData.zip).
 After downloading them, you just need to unzip their contents into a folder named `data` at the
-root of `SDGym`.
+the root of `SDGym`.
 
 You can also execute the following commands from the root of the repository:
 ```
@@ -105,58 +105,64 @@ Have below the list of included datasets and their original source:
 
 - Bivariate
 
-	- Gaussian Ring: Gaussian Mixtures arranged in a ring.
+    - Gaussian Grid (Grid): Gaussian Mixtures arranged in a grid.
 
-	- Gaussian Grid: Gaussian Mixtures arranged in a grid.
+    - Gaussian Grid Random (Gridr): Gaussian Mixtures arranged in a grid plus random offset.
 
-	<table>
-	<tr>
-	<td>
-	<img src="https://i.imgur.com/oiGdICB.png" width="100%">
-	</td>
-	<td>
-	<img src="https://i.imgur.com/EaAm2SO.png" width="100%">
-	</td>
-	</tr>
-	</table>
+    - Gaussian Ring (Ring): Gaussian Mixtures arranged in a ring.
 
-- Multivariate Structured Data: Generate samples from some pre-specified common causal strutures.
-	<table>
-	<tr>
-	<th>Chain</th>
-	<th>Tree</th>
-	</tr>
-	<tr>
-	<td>
-	<figure>
-	<img src="https://i.imgur.com/5fmjxOA.png" width = "100" height = "200">
-	</figure>
-	</td>
-	<td>
-	<figure>
-	<img src="https://imgur.com/oXSV8AK.png" width = "170" height = "100">
-	</figure>
-	</td>
-	</tr>
 
-	<tr>
-	<th>Fully Connected</th>
-	<th>General</th>
-	</tr>
+    <table>
+    <tr>
+    <td>
+    <img src="misc/grid.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/gridr.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/ring.jpg" width="100%">
+    </td>
+    </tr>
+    </table>
 
-	<tr>
-	<td>
-	<figure>
-	<img src="https://imgur.com/nN3Ouzj.png" width = "170" height = "200">
-	</figure>
-	</td>
-	<td>
-	<figure>
-	<img src="https://imgur.com/5RzIFsh.png" width = "170" height = "200">
-	</figure>
-	</td>
-	</tr>
-	</table>
+- Multivariate Structured Data: Generate samples from some pre-specified common causal structures. The Bayesian networks are from [bnlearn](http://www.bnlearn.com/bnrepository/).
+    <table>
+    <tr>
+    <th>Asia</th>
+    <th>Alarm</th>
+    </tr>
+    <tr>
+    <td>
+    <figure>
+    <img src="misc/asia.png" width = "200" height = "200">
+    </figure>
+    </td>
+    <td>
+    <figure>
+    <img src="misc/alarm.png" width = "200" height = "200">
+    </figure>
+    </td>
+    </tr>
+
+    <tr>
+    <th>Child</th>
+    <th>Insurance</th>
+    </tr>
+
+    <tr>
+    <td>
+    <figure>
+    <img src="misc/child.png" width = "200" height = "200">
+    </figure>
+    </td>
+    <td>
+    <figure>
+    <img src="misc/insurance.png" width = "200" height = "200">
+    </figure>
+    </td>
+    </tr>
+    </table>
 
 ## Quickstart
 
@@ -169,7 +175,13 @@ python3 -m launcher SYNTHESIZER
 
 * `SYNTHESIZER`: Name of the synthesizer you want to evaluate.
 
-  Available synthesizers: [bgmvae, bgmwgan, clbn, identity, independent, medgan, privbn, uniform, veegan]
+  Available synthesizers: 
+
+  - identity
+  - uniform, independent
+  - clbn, privbn
+  - medgan, veegan, tablegan
+  - tvae, tgan
 
 Optional arguments:
 
@@ -179,49 +191,73 @@ Optional arguments:
   Available datasets: [ asia, alarm, child,
 insurance, grid, gridr, ring, adult, credit, census, news, covtype, intrusion, mnist12, mnist28]
 
-* `--force`: Wheter or no overwritte results.
+* `--force`: Whether or not overwrite results.
 * `--repeat`(int): Number of copies to generate for each dataset.
 
 
-## Summary Examples
+## Results
 
 <table>
 <tr>
 <td>
-<img src="https://i.imgur.com/2m4FSQ4.jpg" width="100%">
+<img src="misc/res/c.jpg" width="100%">
 </td>
 <tr>
-	<td>
-	<img src="https://i.imgur.com/1plUKXZ.jpg" width="100%">
-	</td>
-	<td>
-	<img src="https://imgur.com/s1Xgu3g.jpg" width="100%">
-	</td>
+    <td>
+    <img src="misc/res/1.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/2.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/3.jpg" width="100%">
+    </td>
 </tr>
 <tr>
-	<td>
-	<img src="https://i.imgur.com/vdRCO77.jpg" width="100%">
-	</td>
-	<td>
-	<img src="https://imgur.com/bCG8NCs.jpg" width="100%">
-	</td>
+    <td>
+    <img src="misc/res/4.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/5.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/6.jpg" width="100%">
+    </td>
 </tr>
 <tr>
-	<td>
-	<img src="https://imgur.com/Sa5fUTs.jpg" width="100%">
-	</td>
-	<td>
-	<img src="https://imgur.com/vgri2hd.jpg" width="100%">
-	</td>
+    <td>
+    <img src="misc/res/7.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/8.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/9.jpg" width="100%">
+    </td>
 </tr>
 
 <tr>
-	<td>
-	<img src="https://i.imgur.com/3k7X6VW.jpg" width="100%">
-	</td>
-	<td>
-	<img src="https://imgur.com/mGC4f8h.jpg" width="100%">
-	</td>
+    <td>
+    <img src="misc/res/10.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/11.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/12.jpg" width="100%">
+    </td>
+</tr>
+
+<tr>
+    <td>
+    <img src="misc/res/13.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/14.jpg" width="100%">
+    </td>
+    <td>
+    <img src="misc/res/15.jpg" width="100%">
+    </td>
 </tr>
 
 </table>

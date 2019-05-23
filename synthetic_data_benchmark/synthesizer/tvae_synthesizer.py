@@ -69,7 +69,7 @@ def loss_function(recon_x, x, sigmas, mu, logvar, output_info, factor):
     return sum(loss) * factor / x.size()[0], KLD / x.size()[0]
 
 
-class BGMVAESynthesizer(SynthesizerBase):
+class TVAESynthesizer(SynthesizerBase):
     """docstring for IdentitySynthesizer."""
     def __init__(self,
                  embeddingDim=128,
@@ -159,4 +159,4 @@ class BGMVAESynthesizer(SynthesizerBase):
 
 
 if __name__ == "__main__":
-    run(BGMVAESynthesizer())
+    run(TVAESynthesizer())
