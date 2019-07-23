@@ -102,7 +102,7 @@ make install-develop
 Make sure to use them regularly while developing by running the commands `make lint` and
 `make test`.
 
-## How to benchmark your synthesizer?
+## What is a synthesizer function?
 
 In order to use **SDGym** you will need a synthesizer function.
 This is a function that takes as input a numpy matrix with real data and outputs another numpy
@@ -164,19 +164,19 @@ The output of the `benchmark` function will be a `pd.DataFrame` containing all t
 computed by the different evaluators:
 
 ```
-   accuracy  distance        f1                          name  step dataset  iter
-0    0.7980       0.0  0.658206  Decision Tree (max_depth=20)     0   adult     0
-1    0.8588       0.0  0.673601       Adaboost (estimator=50)     0   adult     0
-2    0.7949       0.0  0.661048           Logistic Regression     0   adult     0
-3    0.8453       0.0  0.668949                      MLP (50)     0   adult     0
-0    0.7982       0.0  0.645343  Decision Tree (max_depth=20)     0   adult     1
-1    0.8573       0.0  0.675313       Adaboost (estimator=50)     0   adult     1
-2    0.8020       0.0  0.666891           Logistic Regression     0   adult     1
-3    0.8540       0.0  0.680245                      MLP (50)     0   adult     1
-0    0.7988       0.0  0.653820  Decision Tree (max_depth=20)     0   adult     2
-1    0.8604       0.0  0.679817       Adaboost (estimator=50)     0   adult     2
-2    0.7936       0.0  0.658956           Logistic Regression     0   adult     2
-3    0.8445       0.0  0.675704                      MLP (50)     0   adult     2
+   accuracy        f1                                               name  distance dataset  iter
+0    0.7985  0.658301  DecisionTreeClassifier(class_weight='balanced'...       0.0   adult     0
+1    0.8607  0.680285  AdaBoostClassifier(algorithm='SAMME.R', base_e...       0.0   adult     0
+2    0.7948  0.660040  LogisticRegression(C=1.0, class_weight='balanc...       0.0   adult     0
+3    0.8489  0.678716  MLPClassifier(activation='relu', alpha=0.0001,...       0.0   adult     0
+0    0.7968  0.655943  DecisionTreeClassifier(class_weight='balanced'...       0.0   adult     1
+1    0.8607  0.680285  AdaBoostClassifier(algorithm='SAMME.R', base_e...       0.0   adult     1
+2    0.7948  0.660040  LogisticRegression(C=1.0, class_weight='balanc...       0.0   adult     1
+3    0.8472  0.683775  MLPClassifier(activation='relu', alpha=0.0001,...       0.0   adult     1
+0    0.7963  0.655272  DecisionTreeClassifier(class_weight='balanced'...       0.0   adult     2
+1    0.8607  0.680285  AdaBoostClassifier(algorithm='SAMME.R', base_e...       0.0   adult     2
+2    0.7948  0.660040  LogisticRegression(C=1.0, class_weight='balanc...       0.0   adult     2
+3    0.8511  0.684467  MLPClassifier(activation='relu', alpha=0.0001,...       0.0   adult     2
 ```
 
 # What's next?
