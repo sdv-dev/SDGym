@@ -17,4 +17,4 @@ class BaseSynthesizer:
         self.fit(data, categoricals, ordinals)
 
         LOGGER.info("Sampling %s", self.__class__.__name__)
-        return [self.sample(data.shape[0])]
+        return self.sample(data.shape[0])

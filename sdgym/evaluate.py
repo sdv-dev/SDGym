@@ -37,6 +37,22 @@ _MODELS = {
         (MLPRegressor((100, ), max_iter=50), "MLP (100)")
     ]
 }
+_MODELS = {
+    'binary_classification': [
+        DecisionTreeClassifier(max_depth=15, class_weight='balanced'),
+        AdaBoostClassifier(),
+        LogisticRegression(solver='lbfgs', n_jobs=2, class_weight='balanced', max_iter=50),
+        MLPClassifier((50, ), max_iter=50),
+    ],
+    'multiclass_classification': [
+        DecisionTreeClassifier(max_depth=30, class_weight='balanced'),
+        MLPClassifier((100, ), max_iter=50),
+    ],
+    'regression': [
+        LinearRegression(),
+        MLPRegressor((100, ), max_iter=50),
+    ]
+}
 
 
 class FeatureMaker:
@@ -119,21 +135,19 @@ def _evaluate_multi_classification(train, test, metadata):
         classifiers(list):
 
     Returns:
-        list[dict]:
-
-
+        pandas.DataFrame
     """
     x_train, y_train, x_test, y_test, classifiers = _prepare_ml_problem(train, test, metadata)
 
     performance = []
-    for clf, name in classifiers:
-        LOGGER.info('Evaluating using multiclass classifier %s', name)
+    for model in classifiers:
+        LOGGER.info('Evaluating using multiclass classifier %s', model.__class__.__name__)
         unique_labels = np.unique(y_train)
         if len(unique_labels) == 1:
             pred = [unique_labels[0]] * len(x_test)
         else:
-            clf.fit(x_train, y_train)
-            pred = clf.predict(x_test)
+            model.fit(x_train, y_train)
+            pred = model.predict(x_test)
 
         acc = accuracy_score(y_test, pred)
         macro_f1 = f1_score(y_test, pred, average='macro')
@@ -141,41 +155,41 @@ def _evaluate_multi_classification(train, test, metadata):
 
         performance.append(
             {
-                "name": name,
+                "name": repr(model),
                 "accuracy": acc,
                 "macro_f1": macro_f1,
                 "micro_f1": micro_f1
             }
         )
 
-    return performance
+    return pd.DataFrame(performance)
 
 
 def _evaluate_binary_classification(train, test, metadata):
     x_train, y_train, x_test, y_test, classifiers = _prepare_ml_problem(train, test, metadata)
 
     performance = []
-    for clf, name in classifiers:
-        LOGGER.info('Evaluating using binary classifier %s', name)
+    for model in classifiers:
+        LOGGER.info('Evaluating using binary classifier %s', model.__class__.__name__)
         unique_labels = np.unique(y_train)
         if len(unique_labels) == 1:
             pred = [unique_labels[0]] * len(x_test)
         else:
-            clf.fit(x_train, y_train)
-            pred = clf.predict(x_test)
+            model.fit(x_train, y_train)
+            pred = model.predict(x_test)
 
         acc = accuracy_score(y_test, pred)
         f1 = f1_score(y_test, pred, average='binary')
 
         performance.append(
             {
-                "name": name,
+                "name": repr(model),
                 "accuracy": acc,
                 "f1": f1
             }
         )
 
-    return performance
+    return pd.DataFrame(performance)
 
 
 def _evaluate_regression(train, test, metadata):
@@ -185,44 +199,39 @@ def _evaluate_regression(train, test, metadata):
     performance = []
     y_train = np.log(np.clip(y_train, 1, 20000))
     y_test = np.log(np.clip(y_test, 1, 20000))
-    for clf, name in regressors:
-        clf.fit(x_train, y_train)
-        pred = clf.predict(x_test)
+    for model in regressors:
+        model.fit(x_train, y_train)
+        pred = model.predict(x_test)
 
         r2 = r2_score(y_test, pred)
 
         performance.append(
             {
-                "name": name,
+                "name": repr(model),
                 "r2": r2,
             }
         )
 
-    return performance
+    return pd.DataFrame(performance)
 
 
-BAYESIAN_PARAMETER = {
-    'grid': 30,
-    'gridr': 30,
-    'ring': 10,
-}
+def _evaluate_gmm_likelihood(train, test, metadata, components=[10, 30]):
+    results = list()
+    for n_components in components:
+        gmm = GaussianMixture(n_components, covariance_type='diag')
+        gmm.fit(test)
+        l1 = gmm.score(train)
 
+        gmm.fit(train)
+        l2 = gmm.score(test)
 
-def _evaluate_gmm_likelihood(train, test, metadata):
-    n = BAYESIAN_PARAMETER.get(metadata['problem_type'])
+        results.append({
+            "name": repr(gmm),
+            "syn_likelihood": l1,
+            "test_likelihood": l2,
+        })
 
-    gmm = GaussianMixture(n, covariance_type='diag')
-    gmm.fit(test)
-    l1 = gmm.score(train)
-
-    gmm.fit(train)
-    l2 = gmm.score(test)
-
-    return [{
-        "name": "default",
-        "syn_likelihood": l1,
-        "test_likelihood": l2,
-    }]
+    return pd.DataFrame(results)
 
 
 def _mapper(data, metadata):
@@ -265,11 +274,11 @@ def _evaluate_bayesian_likelihood(dataset, train, test, metadata):
 
     l2 = np.mean(np.log(np.asarray(prob) + 1e-8))
 
-    return [{
-        "name": "default",
+    return pd.DataFrame([{
+        "name": "Bayesian Likelihood",
         "syn_likelihood": l1,
         "test_likelihood": l2,
-    }]
+    }])
 
 
 def _compute_distance(train, syn, metadata, sample=300):
@@ -309,14 +318,7 @@ _EVALUATORS = {
 def evaluate(train, test, synthesized_data, metadata):
     evaluator = _EVALUATORS[metadata['problem_type']]
 
-    results = []
-    for step, synth_data in enumerate(synthesized_data):
-        performances = evaluator(synth_data, test, metadata)
-        distance = _compute_distance(train, synth_data, metadata)
+    performance = evaluator(synthesized_data, test, metadata)
+    performance['distance'] = _compute_distance(train, synthesized_data, metadata)
 
-        for performance in performances:
-            performance['step'] = step
-            performance['distance'] = distance
-            results.append(performance)
-
-    return pd.DataFrame(results)
+    return performance
