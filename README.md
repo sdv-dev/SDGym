@@ -120,31 +120,34 @@ def my_synthesizer_function(
 ) -> syntehtesized_data: numpy.ndarray
 ```
 
-If your synthesizer implements a different interface, you can wrap in a function like this:
+If your synthesizer implements a different interface, you can wrap it in a function like this:
 
 ```python
 def my_synthesizer_function(real_data):
     # do all necessary steps here
-    ...
-
     return synthesized_data
 ```
 
-This function should contain all parameters and arguments to instantiate, fit and sample using
-your model.
+This function should contain inside it all the parameters and arguments needed to use your
+synthesizer and call it to generate the new synthesized data based on the real data that is
+being passed.
 
-## What data shall accept your synthesizer?
+## What data should you synthesizer work with?
 
 As we mentioned in the section before, the main input of **SDGym** is a synthesizer to be
 benchmarked, which is expected to be a function that has as unique input and output a table of
 data.
 
-Both the input and the output tables of your synthesizer must be a `pandas.DataFrame` whose
-categorical columns are encoded using the
-[categorical dtype](https://pandas.pydata.org/pandas-docs/stable/user_guide/categorical.html).
+The inputs for your synthesizer funciton should be:
 
-It's also expected that the sizes, index and column names of both the input and the output will
-be the same.
+* `real_data`: a 2D `numpy.ndarray` with the real data the your synthesizer will attempt to imitate.
+* `categorical_columns`: a `list` with the indexes of any columns that should be considered
+  categorical independently on their type.
+* `ordinal_columns`: a `list` with the indexes of any integer columns that should be treated as
+  ordinal values.
+
+And the output should be a single 2D `numpy.ndarray` with the exact same shape as the `real_data`
+matrix.
 
 # Quickstart
 
@@ -166,7 +169,26 @@ Now we can run the `benchmark` function to test our model:
 ```python
 from sdgym import benchmark
 
-score = benchmark(my_synthesizer_function)
+scores = benchmark(my_synthesizer_function)
+```
+
+The output of the `benchmark` function will be a `pd.DataFrame` containing all the scores
+computed by the different evaluators:
+
+```
+   accuracy  distance        f1                          name  step dataset  iter
+0    0.7980       0.0  0.658206  Decision Tree (max_depth=20)     0   adult     0
+1    0.8588       0.0  0.673601       Adaboost (estimator=50)     0   adult     0
+2    0.7949       0.0  0.661048           Logistic Regression     0   adult     0
+3    0.8453       0.0  0.668949                      MLP (50)     0   adult     0
+0    0.7982       0.0  0.645343  Decision Tree (max_depth=20)     0   adult     1
+1    0.8573       0.0  0.675313       Adaboost (estimator=50)     0   adult     1
+2    0.8020       0.0  0.666891           Logistic Regression     0   adult     1
+3    0.8540       0.0  0.680245                      MLP (50)     0   adult     1
+0    0.7988       0.0  0.653820  Decision Tree (max_depth=20)     0   adult     2
+1    0.8604       0.0  0.679817       Adaboost (estimator=50)     0   adult     2
+2    0.7936       0.0  0.658956           Logistic Regression     0   adult     2
+3    0.8445       0.0  0.675704                      MLP (50)     0   adult     2
 ```
 
 # What's next?
@@ -186,6 +208,7 @@ over the years by the following team:
 - Lei Xu <leonard.xu.thu@gmail.com>
 - Kalyan Veeramachaneni <kalyan@csail.mit.edu>
 - Manuel Alvarez <manuel@pythiac.com>
+- Carles Sala <csala@csail.mit.edut>
 
 ## Citing SDGym
 
