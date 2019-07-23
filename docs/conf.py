@@ -68,7 +68,6 @@ user = 'DAI-Lab'
 # the built documents.
 #
 # The short X.Y version.
-import ipdb; ipdb.set_trace()
 version = sdgym.__version__
 # The full version, including alpha/beta/rc tags.
 release = sdgym.__version__
