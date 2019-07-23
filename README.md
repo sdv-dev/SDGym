@@ -149,22 +149,10 @@ The inputs for your synthesizer funciton should be:
 And the output should be a single 2D `numpy.ndarray` with the exact same shape as the `real_data`
 matrix.
 
-# Quickstart
+# Usage
 
-In this short tutorial we will guide you through a series of steps that will help you getting
-started with **SDGym** by exploring its Python API.
-
-## 1. Load the synthesizer
-
-The first step is loading our synthesizer function.
-
-```python
-from my_package.my_module import my_synthesizer_function
-```
-
-## 2. Run
-
-Now we can run the `benchmark` function to test our model:
+All you need to do in order to use the SDGym Benchmark, is to import and call the `sdgym.benchmark`
+function passing it your synthesizer function:
 
 ```python
 from sdgym import benchmark
