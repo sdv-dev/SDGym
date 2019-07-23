@@ -266,7 +266,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, device='cpu', pac=10, lamb
     return gradient_penalty
 
 
-class TGANSynthesizer(BaseSynthesizer):
+class CTGANSynthesizer(BaseSynthesizer):
     """docstring for IdentitySynthesizer."""
 
     def __init__(self,
