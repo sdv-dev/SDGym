@@ -124,7 +124,7 @@ If your synthesizer implements a different interface, you can wrap it in a funct
 
 ```python
 def my_synthesizer_function(real_data):
-    # do all necessary steps here
+    # ...do all necessary steps here...
     return synthesized_data
 ```
 
@@ -188,21 +188,9 @@ There you can learn more about
 [how to contribute to SDGym](https://HDI-Project.github.io/SDGym/community/contributing.html)
 in order to help us developing new features or cool ideas.
 
-# Credits
+# Related Projects
 
-SDGym is an open source project from the Data to AI Lab at MIT which has been built and maintained
-over the years by the following team:
-
-- Lei Xu <leonard.xu.thu@gmail.com>
-- Kalyan Veeramachaneni <kalyan@csail.mit.edu>
-- Manuel Alvarez <manuel@pythiac.com>
-- Carles Sala <csala@csail.mit.edut>
-
-## Citing SDGym
-
-## Related Projects
-
-### SDV
+## SDV
 
 [SDV](https://github.com/HDI-Project/SDV), for Synthetic Data Vault, is the end-user library for
 synthesizing data in development under the [HDI Project](https://hdi-dai.lids.mit.edu/).
@@ -210,7 +198,7 @@ SDV allows you to easily model and sample relational datasets using Copulas thou
 Other features include anonymization of Personal Identifiable Information (PII) and preserving
 relational integrity on sampled records.
 
-### TGAN
+## TGAN
 
 [TGAN](https://github.com/DAI-Lab/TGAN) is a GAN based model for synthesizing tabular data.
 It's also developed by the [MIT's Data to AI Lab](https://dai-lab.github.io/) and is under
