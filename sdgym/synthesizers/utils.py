@@ -9,7 +9,7 @@ from sdgym.constants import CATEGORICAL, CONTINUOUS, ORDINAL
 class Transformer:
 
     @staticmethod
-    def get_metadata(data, categoricals, ordinals):
+    def get_metadata(data, categoricals=tuple(), ordinals=tuple()):
         meta = []
 
         df = pd.DataFrame(data)
@@ -44,7 +44,7 @@ class Transformer:
 
         return meta
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         raise NotImplementedError
 
     def transform(self, data):
@@ -72,7 +72,7 @@ class DiscretizeTransformer(Transformer):
         self.column_index = None
         self.discretizer = None
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.meta = self.get_metadata(data, categoricals, ordinals)
         self.column_index = [
             index for index, info in enumerate(self.meta) if info['type'] == CONTINUOUS]
@@ -120,7 +120,7 @@ class GeneralTransformer(Transformer):
         self.meta = None
         self.output_dim = None
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.meta = self.get_metadata(data, categoricals, ordinals)
         self.output_dim = 0
         for info in self.meta:
@@ -201,7 +201,7 @@ class GMMTransformer(Transformer):
         self.meta = None
         self.n_clusters = n_clusters
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.meta = self.get_metadata(data, categoricals, ordinals)
         model = []
 
@@ -289,7 +289,7 @@ class BGMTransformer(Transformer):
         self.n_clusters = n_clusters
         self.eps = eps
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.meta = self.get_metadata(data, categoricals, ordinals)
         model = []
 
@@ -394,7 +394,7 @@ class TableganTransformer(Transformer):
     def __init__(self, side):
         self.height = side
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.meta = self.get_metadata(data, categoricals, ordinals)
         self.minn = np.zeros(len(self.meta))
         self.maxx = np.zeros(len(self.meta))
@@ -412,6 +412,7 @@ class TableganTransformer(Transformer):
         if self.height * self.height > len(data[0]):
             padding = np.zeros((len(data), self.height * self.height - len(data[0])))
             data = np.concatenate([data, padding], axis=1)
+
         return data.reshape(-1, 1, self.height, self.height)
 
     def inverse_transform(self, data):

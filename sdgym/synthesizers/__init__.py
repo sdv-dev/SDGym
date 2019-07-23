@@ -5,7 +5,7 @@ from sdgym.synthesizers.independent import IndependentSynthesizer
 from sdgym.synthesizers.medgan import MedganSynthesizer
 from sdgym.synthesizers.privbn import PrivBNSynthesizer
 from sdgym.synthesizers.tablegan import TableganSynthesizer
-from sdgym.synthesizers.tgan import CTGANSynthesizer
+from sdgym.synthesizers.ctgan import CTGANSynthesizer
 from sdgym.synthesizers.tvae import TVAESynthesizer
 from sdgym.synthesizers.uniform import UniformSynthesizer
 from sdgym.synthesizers.veegan import VEEGANSynthesizer

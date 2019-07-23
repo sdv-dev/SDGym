@@ -15,26 +15,28 @@ class TestTransformer(TestCase):
         data = pd.DataFrame({
             'numerical': [0, 1, 2, 3, 4, 5],
             'categorical': list('AAABBC')
-        })
-        data['categorical'] = data.categorical.astype('category')
+        }).values
 
         expected_result = [
             {
-                'name': 'numerical',
+                'name': 0,
                 'type': 'continuous',
                 'min': 0,
                 'max': 5
             },
             {
-                "name": 'categorical',
+                "name": 1,
                 "type": 'categorical',
                 "size": 3,
                 "i2s": ['A', 'B', 'C']
             }
         ]
 
+        categorical_columns = [1]
+        ordinal_columns = []
+
         # Run
-        result = Transformer.get_metadata(data)
+        result = Transformer.get_metadata(data, categorical_columns, ordinal_columns)
 
         # Check
         assert result == expected_result
@@ -64,25 +66,24 @@ class TestDiscretizeTransformer(TestCase):
         data = pd.DataFrame({
             'A': [1 / (x + 1) for x in range(10)],
             'B': [x for x in range(10)]
-        })
+        }).values
         kbins_instance = kbins_mock.return_value
 
         # Run
-        instance.fit(data)
+        instance.fit(data, [], [])
 
         # Check
-        assert instance.columns == ['A', 'B']
         assert instance.column_index == [0, 1]
         assert instance.discretizer == kbins_instance
         assert instance.meta == [
             {
-                'name': 'A',
+                'name': 0,
                 'type': 'continuous',
                 'min': 0.1,
                 'max': 1.0
             },
             {
-                'name': 'B',
+                'name': 1,
                 'type': 'continuous',
                 'min': 0.0,
                 'max': 9.0
@@ -95,7 +96,7 @@ class TestDiscretizeTransformer(TestCase):
         call_args, call_kwargs = call_list[0]
         assert call_kwargs == {}
         assert len(call_args) == 1
-        np.testing.assert_equal(call_args[0], data.values)
+        np.testing.assert_equal(call_args[0], data)
 
     def test_transform(self):
         """transform continous columns into discrete bins."""
@@ -104,7 +105,7 @@ class TestDiscretizeTransformer(TestCase):
         data = pd.DataFrame({
             'A': [x for x in range(10)],
             'B': [2 * x for x in range(10)]
-        })
+        }).values
         expected_result = np.array([
             [0, 0],
             [0, 0],
@@ -133,7 +134,7 @@ class TestDiscretizeTransformer(TestCase):
         data = pd.DataFrame({
             'A': [1 / (x + 1) for x in range(10)],
             'B': [x for x in range(10)]
-        })
+        }).values
         instance.fit(data)
         transformed_data = instance.transform(data)
         expected_result = pd.DataFrame({
