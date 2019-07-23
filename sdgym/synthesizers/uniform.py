@@ -1,28 +1,25 @@
-from .synthesizer_base import SynthesizerBase, run
 import numpy as np
-rng = np.random
 
-class UniformSynthesizer(SynthesizerBase):
-    """docstring for IdentitySynthesizer."""
+from sdgym.constants import CONTINUOUS
+from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.utils import Transformer
 
-    def train(self, train_data):
-        self.dtype = train_data.dtype
-        self.shape = train_data.shape
 
-    def generate(self, n):
-        data = rng.uniform(0, 1, (n, self.shape[1]))
+class UniformSynthesizer(BaseSynthesizer):
+    """UniformSynthesizer."""
+
+    def fit(self, data, categoricals, ordinals):
+        self.dtype = data.dtype
+        self.shape = data.shape
+        self.meta = Transformer.get_metadata(data, categoricals, ordinals)
+
+    def sample(self, samples):
+        data = np.random.uniform(0, 1, (samples, self.shape[1]))
 
         for i, c in enumerate(self.meta):
-            if c['type'] == 'continuous':
+            if c['type'] == CONTINUOUS:
                 data[:, i] = data[:, i] * (c['max'] - c['min']) + c['min']
             else:
-                data[:, i] = (data[:, i] * (1-1e-8) * c['size']).astype('int32')
+                data[:, i] = (data[:, i] * (1 - 1e-8) * c['size']).astype('int32')
 
-        return [(0, data.astype(self.dtype))]
-
-    def init(self, meta, working_dir):
-        self.meta = meta
-
-
-if __name__ == "__main__":
-    run(UniformSynthesizer())
+        return data.astype(self.dtype)

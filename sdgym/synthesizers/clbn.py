@@ -1,83 +1,83 @@
-from .synthesizer_base import SynthesizerBase, run
-from pomegranate import BayesianNetwork, DiscreteDistribution, ConditionalProbabilityTable
-from .synthesizer_utils import DiscretizeTransformer
 import json
+
 import numpy as np
+from pomegranate import BayesianNetwork, ConditionalProbabilityTable, DiscreteDistribution
 
-def bnsample(model, n):
-    nodes_parents = model.structure
-    processing_order = []
-
-    while len(processing_order) != len(nodes_parents):
-        update = False
-
-        for id_, parents in enumerate(nodes_parents):
-            if id_ in processing_order:
-                continue
-
-            flag = True
-            for parent in parents:
-                if not parent in processing_order:
-                    flag = False
-
-            if flag:
-                processing_order.append(id_)
-                update = True
-        assert update
+from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.utils import DiscretizeTransformer
 
 
-    data = np.zeros((n, len(nodes_parents)), dtype='int32')
-    for current in processing_order:
-        distribution = model.states[current].distribution
-        if type(distribution) == DiscreteDistribution:
-            data[:, current] = distribution.sample(n)
-        else:
-            assert type(distribution) == ConditionalProbabilityTable
-            output_size = list(distribution.keys())
-            output_size = max([int(x) for x in output_size]) + 1
+class CLBNSynthesizer(BaseSynthesizer):
+    """CLBNSynthesizer."""
 
-            distribution = json.loads(distribution.to_json())
-            distribution = distribution['table']
+    def fit(self, data, categoricals, ordinals):
+        self.discretizer = DiscretizeTransformer(n_bins=15)
+        self.discretizer.fit(data, categoricals, ordinals)
+        discretized_data = self.discretizer.transform(data)
+        self.model = BayesianNetwork.from_samples(discretized_data, algorithm='chow-liu')
 
-            distribution_dict = {}
+    def bn_sample(self, num_samples):
+        """Sample from the bayesian network.
 
-            for row in distribution:
-                key = tuple(np.asarray(row[:-2], dtype='int'))
-                output = int(row[-2])
-                p = float(row[-1])
+        Args:
+            num_samples(int): Number of samples to generate.
+        """
+        nodes_parents = self.model.structure
+        processing_order = []
 
-                if not key in distribution_dict:
-                    distribution_dict[key] = np.zeros(output_size)
-                distribution_dict[key][int(output)] = p
+        while len(processing_order) != len(nodes_parents):
+            update = False
 
-            parents = nodes_parents[current]
-            conds = data[:, parents]
-            for _id, cond in enumerate(conds):
-                data[_id, current] = np.random.choice(np.arange(output_size), p = distribution_dict[tuple(cond)])
+            for id_, parents in enumerate(nodes_parents):
+                if id_ in processing_order:
+                    continue
 
-    return data
+                flag = True
+                for parent in parents:
+                    if parent not in processing_order:
+                        flag = False
 
+                if flag:
+                    processing_order.append(id_)
+                    update = True
 
+            assert update
 
+        data = np.zeros((num_samples, len(nodes_parents)), dtype='int32')
+        for current in processing_order:
+            distribution = self.model.states[current].distribution
+            if isinstance(distribution, DiscreteDistribution):
+                data[:, current] = distribution.sample(num_samples)
+            else:
+                assert isinstance(distribution, ConditionalProbabilityTable)
+                output_size = list(distribution.keys())
+                output_size = max([int(x) for x in output_size]) + 1
 
-class CLBNSynthesizer(SynthesizerBase):
-    """docstring for IdentitySynthesizer."""
+                distribution = json.loads(distribution.to_json())
+                distribution = distribution['table']
 
-    def train(self, train_data):
-        self.discretizer = DiscretizeTransformer(self.meta, 15)
-        self.discretizer.fit(train_data)
-        train_data_d = self.discretizer.transform(train_data)
-        self.model = BayesianNetwork.from_samples(train_data_d, algorithm='chow-liu')
+                distribution_dict = {}
 
-    def generate(self, n):
-        data = bnsample(self.model, n)
-        data = self.discretizer.inverse_transform(data)
+                for row in distribution:
+                    key = tuple(np.asarray(row[:-2], dtype='int'))
+                    output = int(row[-2])
+                    p = float(row[-1])
 
-        return [(0, data)]
+                    if key not in distribution_dict:
+                        distribution_dict[key] = np.zeros(output_size)
 
-    def init(self, meta, working_dir):
-        self.meta = meta
+                    distribution_dict[key][int(output)] = p
 
+                parents = nodes_parents[current]
+                conds = data[:, parents]
+                for _id, cond in enumerate(conds):
+                    data[_id, current] = np.random.choice(
+                        np.arange(output_size),
+                        p=distribution_dict[tuple(cond)]
+                    )
 
-if __name__ == "__main__":
-    run(CLBNSynthesizer())
+        return data
+
+    def sample(self, num_samples):
+        data = self.bn_sample(num_samples)
+        return self.discretizer.inverse_transform(data)

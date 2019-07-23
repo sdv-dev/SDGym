@@ -103,4 +103,5 @@ ENV/
 
 # SDGym specifics
 sdgym/data
-old
+old/
+tmp/

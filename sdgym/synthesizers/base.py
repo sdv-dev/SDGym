@@ -1,19 +1,20 @@
+import logging
+
+LOGGER = logging.getLogger(__name__)
+
 
 class BaseSynthesizer:
     """Base class for all default synthesizers of ``SDGym``."""
 
-    def fit(self, train_data):
+    def fit(self, data, categoricals, ordinals):
         pass
 
-    def sample(self, n):
+    def sample(self, samples):
         pass
 
-    def __init__(self, categoricals, ordinals, *args, **kwargs):
-        self.categoricals = categoricals
-        self.ordinals = ordinals
+    def fit_sample(self, data, categoricals, ordinals):
+        LOGGER.info("Fitting %s", self.__class__.__name__)
+        self.fit(data, categoricals, ordinals)
 
-    @classmethod
-    def run(cls, data, categoricals, ordinals):
-        synthesizer = cls(categoricals, ordinals)
-        synthesizer.fit(data)
-        return synthesizer.sample(data.shape[0])
+        LOGGER.info("Sampling %s", self.__class__.__name__)
+        return [self.sample(data.shape[0])]
