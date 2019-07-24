@@ -71,6 +71,10 @@ clean: clean-build clean-pyc clean-test clean-coverage clean-docs ## remove all 
 
 # INSTALL TARGETS
 
+.PHONY: compile
+compile: ## Compile Priv Bayes
+	$(MAKE) -C privbayes
+
 .PHONY: install
 install: clean-build clean-pyc ## install the package to the active Python's site-packages
 	pip install .
