@@ -1,4 +1,5 @@
 import glob
+import json
 import logging
 
 import numpy as np
@@ -19,38 +20,60 @@ LOGGER = logging.getLogger(__name__)
 
 _MODELS = {
     'binary_classification': [
-        (DecisionTreeClassifier(max_depth=15, class_weight='balanced'),
-            "Decision Tree (max_depth=20)"),
-        (AdaBoostClassifier(), "Adaboost (estimator=50)"),
-        (LogisticRegression(
-            solver='lbfgs', n_jobs=2, class_weight='balanced', max_iter=50),
-            "Logistic Regression"),
-        (MLPClassifier((50, ), max_iter=50), "MLP (50)")
+        {
+            'class': DecisionTreeClassifier,
+            'kwargs': {
+                'max_depth': 15,
+                'class_weight': 'balanced',
+            }
+        },
+        {
+            'class': AdaBoostClassifier,
+        },
+        {
+            'class': LogisticRegression,
+            'kwargs': {
+                'solver': 'lbfgs',
+                'n_jobs': 2,
+                'class_weight': 'balanced',
+                'max_iter': 50
+            }
+        },
+        {
+            'class': MLPClassifier,
+            'kwargs': {
+                'hidden_layer_sizes': (50, ),
+                'max_iter': 50
+            },
+        }
     ],
     'multiclass_classification': [
-        (DecisionTreeClassifier(max_depth=30, class_weight='balanced'),
-            "Decision Tree (max_depth=30)"),
-        (MLPClassifier((100, ), max_iter=50), "MLP (100)"),
+        {
+            'class': DecisionTreeClassifier,
+            'kwargs': {
+                'max_depth': 30,
+                'class_weight': 'balanced',
+            }
+        },
+        {
+            'class': MLPClassifier,
+            'kwargs': {
+                'hidden_layer_sizes': (100, ),
+                'max_iter': 50
+            },
+        }
     ],
     'regression': [
-        (LinearRegression(), "Linear Regression"),
-        (MLPRegressor((100, ), max_iter=50), "MLP (100)")
-    ]
-}
-_MODELS = {
-    'binary_classification': [
-        DecisionTreeClassifier(max_depth=15, class_weight='balanced'),
-        AdaBoostClassifier(),
-        LogisticRegression(solver='lbfgs', n_jobs=2, class_weight='balanced', max_iter=50),
-        MLPClassifier((50, ), max_iter=50),
-    ],
-    'multiclass_classification': [
-        DecisionTreeClassifier(max_depth=30, class_weight='balanced'),
-        MLPClassifier((100, ), max_iter=50),
-    ],
-    'regression': [
-        LinearRegression(),
-        MLPRegressor((100, ), max_iter=50),
+        {
+            'class': LinearRegression,
+        },
+        {
+            'class': MLPRegressor,
+            'kwargs': {
+                'hidden_layer_sizes': (100, ),
+                'max_iter': 50
+            },
+        }
     ]
 }
 
@@ -124,6 +147,14 @@ def _prepare_ml_problem(train, test, metadata):
     return x_train, y_train, x_test, y_test, _MODELS[metadata['problem_type']]
 
 
+def _model_repr(model_class, model_kwargs):
+    model_kwargs = ', '.join(
+        '{}={}'.format(key, value)
+        for key, value in model_kwargs.items()
+    )
+    return '{}({})'.format(model_class.__name__, model_kwargs)
+
+
 def _evaluate_multi_classification(train, test, metadata):
     """Score classifiers using f1 score and the given train and test data.
 
@@ -140,8 +171,13 @@ def _evaluate_multi_classification(train, test, metadata):
     x_train, y_train, x_test, y_test, classifiers = _prepare_ml_problem(train, test, metadata)
 
     performance = []
-    for model in classifiers:
-        LOGGER.info('Evaluating using multiclass classifier %s', model.__class__.__name__)
+    for model_spec in classifiers:
+        model_class = model_spec['class']
+        model_kwargs = model_spec.get('kwargs', dict())
+        model_repr = _model_repr(model_class, model_kwargs)
+        model = model_class(**model_kwargs)
+
+        LOGGER.info('Evaluating using multiclass classifier %s', model_repr)
         unique_labels = np.unique(y_train)
         if len(unique_labels) == 1:
             pred = [unique_labels[0]] * len(x_test)
@@ -155,7 +191,7 @@ def _evaluate_multi_classification(train, test, metadata):
 
         performance.append(
             {
-                "name": repr(model),
+                "name": model_repr,
                 "accuracy": acc,
                 "macro_f1": macro_f1,
                 "micro_f1": micro_f1
@@ -169,8 +205,13 @@ def _evaluate_binary_classification(train, test, metadata):
     x_train, y_train, x_test, y_test, classifiers = _prepare_ml_problem(train, test, metadata)
 
     performance = []
-    for model in classifiers:
-        LOGGER.info('Evaluating using binary classifier %s', model.__class__.__name__)
+    for model_spec in classifiers:
+        model_class = model_spec['class']
+        model_kwargs = model_spec.get('kwargs', dict())
+        model_repr = _model_repr(model_class, model_kwargs)
+        model = model_class(**model_kwargs)
+
+        LOGGER.info('Evaluating using binary classifier %s', model_repr)
         unique_labels = np.unique(y_train)
         if len(unique_labels) == 1:
             pred = [unique_labels[0]] * len(x_test)
@@ -183,7 +224,7 @@ def _evaluate_binary_classification(train, test, metadata):
 
         performance.append(
             {
-                "name": repr(model),
+                "name": model_repr,
                 "accuracy": acc,
                 "f1": f1
             }
@@ -195,11 +236,16 @@ def _evaluate_binary_classification(train, test, metadata):
 def _evaluate_regression(train, test, metadata):
     x_train, y_train, x_test, y_test, regressors = _prepare_ml_problem(train, test, metadata)
 
-    LOGGER.info('Evaluating using regression.')
     performance = []
     y_train = np.log(np.clip(y_train, 1, 20000))
     y_test = np.log(np.clip(y_test, 1, 20000))
-    for model in regressors:
+    for model_spec in regressors:
+        model_class = model_spec['class']
+        model_kwargs = model_spec.get('kwargs', dict())
+        model_repr = _model_repr(model_class, model_kwargs)
+        model = model_class(**model_kwargs)
+
+        LOGGER.info('Evaluating using regressor %s', model_repr)
         model.fit(x_train, y_train)
         pred = model.predict(x_test)
 
@@ -207,7 +253,7 @@ def _evaluate_regression(train, test, metadata):
 
         performance.append(
             {
-                "name": repr(model),
+                "name": model_repr,
                 "r2": r2,
             }
         )
@@ -219,6 +265,7 @@ def _evaluate_gmm_likelihood(train, test, metadata, components=[10, 30]):
     results = list()
     for n_components in components:
         gmm = GaussianMixture(n_components, covariance_type='diag')
+        LOGGER.info('Evaluating using %s', gmm)
         gmm.fit(test)
         l1 = gmm.score(train)
 
@@ -246,11 +293,10 @@ def _mapper(data, metadata):
     return data_t
 
 
-def _evaluate_bayesian_likelihood(dataset, train, test, metadata):
-    LOGGER.info('Evaluating using bayesian likehood.')
-    struct = glob.glob("data/*/{}_structure.json".format(dataset))
-    assert len(struct) == 1
-    bn1 = BayesianNetwork.from_json(struct[0])
+def _evaluate_bayesian_likelihood(train, test, metadata):
+    LOGGER.info('Evaluating using Bayesian Likelihood.')
+    structure_json = json.dumps(metadata['structure'])
+    bn1 = BayesianNetwork.from_json(structure_json)
 
     train_mapped = _mapper(train, metadata)
     test_mapped = _mapper(test, metadata)
