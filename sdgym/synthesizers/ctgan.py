@@ -286,10 +286,10 @@ class CTGANSynthesizer(BaseSynthesizer):
         self.epochs = epochs
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def fit(self, train_data, categoricals=tuple(), ordinals=tuple()):
+    def fit(self, train_data, categorical_columns=tuple(), ordinal_columns=tuple()):
 
         self.transformer = BGMTransformer()
-        self.transformer.fit(train_data, categoricals, ordinals)
+        self.transformer.fit(train_data, categorical_columns, ordinal_columns)
         train_data = self.transformer.transform(train_data)
 
         data_sampler = Sampler(train_data, self.transformer.output_info)

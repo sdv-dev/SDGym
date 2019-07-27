@@ -82,8 +82,8 @@ the following methods:
 
 * `fit`: Fits the synthesizer on the data. Expects the following arguments:
     * `data (numpy.ndarray)`: 2 dimensional Numpy matrix with the real data to learn from.
-    * `categoricals (list or tuple)`: List of indexes of the columns that are categorical within the dataset.
-    * `ordinals (list or tuple)`: List of indexes of the columns that are ordinal within the dataset.
+    * `categorical_columns (list or tuple)`: List of indexes of the columns that are categorical within the dataset.
+    * `ordinal_columns (list or tuple)`: List of indexes of the columns that are ordinal within the dataset.
 * `sample`: Generates new data resembling the original dataset. Expects the following arguments:
     * `n_samples (int)`: Number of samples to generate.
 * `fit_sample`: Fits the synthesizer on the dataset and then samples as many rows as there were in

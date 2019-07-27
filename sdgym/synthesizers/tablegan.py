@@ -135,7 +135,7 @@ class TableganSynthesizer(BaseSynthesizer):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         sides = [4, 8, 16, 24, 32]
         for i in sides:
             if i * i >= data.shape[1]:
@@ -143,7 +143,7 @@ class TableganSynthesizer(BaseSynthesizer):
                 break
 
         self.transformer = TableganTransformer(self.side)
-        self.transformer.fit(data, categoricals, ordinals)
+        self.transformer.fit(data, categorical_columns, ordinal_columns)
         data = self.transformer.transform(data)
         data = torch.from_numpy(data.astype('float32')).to(self.device)
         dataset = TensorDataset(data)

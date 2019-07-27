@@ -151,9 +151,9 @@ class MedganSynthesizer(BaseSynthesizer):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.transformer = None
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         self.transformer = GeneralTransformer()
-        self.transformer.fit(data, categoricals, ordinals)
+        self.transformer.fit(data, categorical_columns, ordinal_columns)
         data = self.transformer.transform(data)
         dataset = TensorDataset(torch.from_numpy(data.astype('float32')).to(self.device))
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)

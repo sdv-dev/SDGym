@@ -8,10 +8,10 @@ from sdgym.synthesizers.utils import Transformer
 class UniformSynthesizer(BaseSynthesizer):
     """UniformSynthesizer."""
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         self.dtype = data.dtype
         self.shape = data.shape
-        self.meta = Transformer.get_metadata(data, categoricals, ordinals)
+        self.meta = Transformer.get_metadata(data, categorical_columns, ordinal_columns)
 
     def sample(self, samples):
         data = np.random.uniform(0, 1, (samples, self.shape[1]))

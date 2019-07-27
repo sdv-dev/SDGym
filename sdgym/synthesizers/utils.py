@@ -9,14 +9,14 @@ from sdgym.constants import CATEGORICAL, CONTINUOUS, ORDINAL
 class Transformer:
 
     @staticmethod
-    def get_metadata(data, categoricals=tuple(), ordinals=tuple()):
+    def get_metadata(data, categorical_columns=tuple(), ordinal_columns=tuple()):
         meta = []
 
         df = pd.DataFrame(data)
         for index in df:
             column = df[index]
 
-            if index in categoricals:
+            if index in categorical_columns:
                 mapper = column.value_counts().index.tolist()
                 meta.append({
                     "name": index,
@@ -24,7 +24,7 @@ class Transformer:
                     "size": len(mapper),
                     "i2s": mapper
                 })
-            elif index in ordinals:
+            elif index in ordinal_columns:
                 value_count = list(dict(column.value_counts()).items())
                 value_count = sorted(value_count, key=lambda x: -x[1])
                 mapper = list(map(lambda x: x[0], value_count))
@@ -44,7 +44,7 @@ class Transformer:
 
         return meta
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         raise NotImplementedError
 
     def transform(self, data):
@@ -72,8 +72,8 @@ class DiscretizeTransformer(Transformer):
         self.column_index = None
         self.discretizer = None
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
-        self.meta = self.get_metadata(data, categoricals, ordinals)
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
+        self.meta = self.get_metadata(data, categorical_columns, ordinal_columns)
         self.column_index = [
             index for index, info in enumerate(self.meta) if info['type'] == CONTINUOUS]
 
@@ -120,8 +120,8 @@ class GeneralTransformer(Transformer):
         self.meta = None
         self.output_dim = None
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
-        self.meta = self.get_metadata(data, categoricals, ordinals)
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
+        self.meta = self.get_metadata(data, categorical_columns, ordinal_columns)
         self.output_dim = 0
         for info in self.meta:
             if info['type'] in [CONTINUOUS, ORDINAL]:
@@ -201,8 +201,8 @@ class GMMTransformer(Transformer):
         self.meta = None
         self.n_clusters = n_clusters
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
-        self.meta = self.get_metadata(data, categoricals, ordinals)
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
+        self.meta = self.get_metadata(data, categorical_columns, ordinal_columns)
         model = []
 
         self.output_info = []
@@ -289,8 +289,8 @@ class BGMTransformer(Transformer):
         self.n_clusters = n_clusters
         self.eps = eps
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
-        self.meta = self.get_metadata(data, categoricals, ordinals)
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
+        self.meta = self.get_metadata(data, categorical_columns, ordinal_columns)
         model = []
 
         self.output_info = []
@@ -394,8 +394,8 @@ class TableganTransformer(Transformer):
     def __init__(self, side):
         self.height = side
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
-        self.meta = self.get_metadata(data, categoricals, ordinals)
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
+        self.meta = self.get_metadata(data, categorical_columns, ordinal_columns)
         self.minn = np.zeros(len(self.meta))
         self.maxx = np.zeros(len(self.meta))
         for i in range(len(self.meta)):

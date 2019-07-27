@@ -10,9 +10,9 @@ from sdgym.synthesizers.utils import DiscretizeTransformer
 class CLBNSynthesizer(BaseSynthesizer):
     """CLBNSynthesizer."""
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         self.discretizer = DiscretizeTransformer(n_bins=15)
-        self.discretizer.fit(data, categoricals, ordinals)
+        self.discretizer.fit(data, categorical_columns, ordinal_columns)
         discretized_data = self.discretizer.transform(data)
         self.model = BayesianNetwork.from_samples(discretized_data, algorithm='chow-liu')
 

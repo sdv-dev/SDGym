@@ -20,9 +20,9 @@ class PrivBNSynthesizer(BaseSynthesizer):
     def __init__(self):
         assert os.path.exists("privbayes/privBayes.bin")
 
-    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         self.data = data.copy()
-        self.meta = Transformer.get_metadata(data, categoricals, ordinals)
+        self.meta = Transformer.get_metadata(data, categorical_columns, ordinal_columns)
 
     def sample(self, n):
         try_mkdirs("__privbn_tmp/data")
