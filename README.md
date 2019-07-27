@@ -89,11 +89,6 @@ the following methods:
 * `fit_sample`: Fits the synthesizer on the dataset and then samples as many rows as there were in
   the original dataset.
 
-```python
-from sdgym.synthesizers import IdentitySynthresizer
-
-synthresizer = IdentitySynthesizer()
-```
 
 # Install
 
