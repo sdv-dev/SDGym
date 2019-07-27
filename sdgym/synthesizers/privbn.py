@@ -18,10 +18,9 @@ class PrivBNSynthesizer(BaseSynthesizer):
     """docstring for IdentitySynthesizer."""
 
     def __init__(self):
-        # TODO
-        assert os.path.exists("sdgym/synthesizers/privbayes/privBayes.bin")
+        assert os.path.exists("privbayes/privBayes.bin")
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.data = data.copy()
         self.meta = Transformer.get_metadata(data, categoricals, ordinals)
 
@@ -29,7 +28,7 @@ class PrivBNSynthesizer(BaseSynthesizer):
         try_mkdirs("__privbn_tmp/data")
         try_mkdirs("__privbn_tmp/log")
         try_mkdirs("__privbn_tmp/output")
-        shutil.copy("sdgym/synthesizers/privbayes/privBayes.bin", "__privbn_tmp/privBayes.bin")
+        shutil.copy("privbayes/privBayes.bin", "__privbn_tmp/privBayes.bin")
         d_cols = []
         with open("__privbn_tmp/data/real.domain", "w") as f:
             for id_, info in enumerate(self.meta):

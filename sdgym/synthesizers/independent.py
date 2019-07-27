@@ -12,7 +12,7 @@ class IndependentSynthesizer(BaseSynthesizer):
     def __init__(self, gmm_n=5):
         self.gmm_n = gmm_n
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.dtype = data.dtype
         self.meta = Transformer.get_metadata(data, categoricals, ordinals)
 

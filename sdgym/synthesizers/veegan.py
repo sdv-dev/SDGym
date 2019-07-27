@@ -102,7 +102,7 @@ class VEEGANSynthesizer(BaseSynthesizer):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def fit(self, train_data, categoricals, ordinals):
+    def fit(self, train_data, categoricals=tuple(), ordinals=tuple()):
         self.transformer = GeneralTransformer(act='tanh')
         self.transformer.fit(train_data, categoricals, ordinals)
         train_data = self.transformer.transform(train_data)
@@ -164,4 +164,4 @@ class VEEGANSynthesizer(BaseSynthesizer):
 
         data = np.concatenate(data, axis=0)
         data = data[:n]
-        return [self.transformer.inverse_transform(data)]
+        return self.transformer.inverse_transform(data)

@@ -1,4 +1,3 @@
-from sdgym.synthesizers.base import BaseSynthesizer
 from sdgym.synthesizers.clbn import CLBNSynthesizer
 from sdgym.synthesizers.ctgan import CTGANSynthesizer
 from sdgym.synthesizers.identity import IdentitySynthesizer
@@ -11,7 +10,6 @@ from sdgym.synthesizers.uniform import UniformSynthesizer
 from sdgym.synthesizers.veegan import VEEGANSynthesizer
 
 __all__ = (
-    'BaseSynthesizer',
     'CLBNSynthesizer',
     'IdentitySynthesizer',
     'IndependentSynthesizer',

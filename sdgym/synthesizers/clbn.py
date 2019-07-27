@@ -10,7 +10,7 @@ from sdgym.synthesizers.utils import DiscretizeTransformer
 class CLBNSynthesizer(BaseSynthesizer):
     """CLBNSynthesizer."""
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.discretizer = DiscretizeTransformer(n_bins=15)
         self.discretizer.fit(data, categoricals, ordinals)
         discretized_data = self.discretizer.transform(data)

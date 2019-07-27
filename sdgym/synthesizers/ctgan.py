@@ -286,7 +286,7 @@ class CTGANSynthesizer(BaseSynthesizer):
         self.epochs = epochs
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def fit(self, train_data, categoricals, ordinals):
+    def fit(self, train_data, categoricals=tuple(), ordinals=tuple()):
 
         self.transformer = BGMTransformer()
         self.transformer.fit(train_data, categoricals, ordinals)

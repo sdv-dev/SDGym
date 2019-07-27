@@ -8,7 +8,7 @@ from sdgym.synthesizers.utils import Transformer
 class UniformSynthesizer(BaseSynthesizer):
     """UniformSynthesizer."""
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.dtype = data.dtype
         self.shape = data.shape
         self.meta = Transformer.get_metadata(data, categoricals, ordinals)

@@ -151,7 +151,7 @@ class MedganSynthesizer(BaseSynthesizer):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.transformer = None
 
-    def fit(self, data, categoricals, ordinals):
+    def fit(self, data, categoricals=tuple(), ordinals=tuple()):
         self.transformer = GeneralTransformer()
         self.transformer.fit(data, categoricals, ordinals)
         data = self.transformer.transform(data)
