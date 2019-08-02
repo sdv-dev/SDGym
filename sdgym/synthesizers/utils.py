@@ -422,9 +422,7 @@ class TableganTransformer(Transformer):
 
         for id_, info in enumerate(self.meta):
             numerator = (data[:, id_].reshape([-1]) + 1)
-            denominator = 2 * (self.maxx[id_] - self.minn[id_]) + self.minn[id_]
-
-            data_t[:, id_] = numerator / denominator
+            data_t[:, id_] = (numerator / 2) * (self.maxx[id_] - self.minn[id_]) + self.minn[id_]
             if info['type'] in [CATEGORICAL, ORDINAL]:
                 data_t[:, id_] = np.round(data_t[:, id_])
 
