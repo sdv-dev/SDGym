@@ -46,7 +46,7 @@ def my_synthesizer_function(
 If your synthesizer implements a different interface, you can wrap it in a function like this:
 
 ```python
-def my_synthesizer_function(real_data):
+def my_synthesizer_function(real_data, categorical_columns, ordinal_columns):
     # ...do all necessary steps here...
     return synthesized_data
 ```
@@ -72,12 +72,53 @@ The inputs for your synthesizer funciton should be:
 And the output should be a single 2D `numpy.ndarray` with the exact same shape as the `real_data`
 matrix.
 
+## Benchmark datasets
+
+All the datasets used for the benchmarking can be found inside the [sgdym S3 bucket](http://sdgym.s3.amazonaws.com/index.html)
+in the form of an `.npz` numpy matrix archive and a `.json` metadata file that contains information
+about the dataset structure and their columns.
+
+In order to load these datasets in the same format as they will be passed to your synthesizer function
+you can use the `sdgym.load_dataset` function passing the name of the dataset to load.
+
+In this example, we will load the `adult` dataset:
+
+```python
+from sdgym import load_dataset
+
+data, categorical_columns, ordinal_columns = load_dataset('adult')
+```
+
+This will return a numpy matrix with the data that will be passed to your synthesizer function,
+as well as the list of indexes for the categorical and ordinal columns:
+
+```python
+>>> data
+array([[2.70000e+01, 0.00000e+00, 1.77119e+05, ..., 4.40000e+01,
+        0.00000e+00, 0.00000e+00],
+       [2.70000e+01, 0.00000e+00, 2.16481e+05, ..., 4.00000e+01,
+        0.00000e+00, 0.00000e+00],
+       [2.50000e+01, 0.00000e+00, 2.56263e+05, ..., 4.00000e+01,
+        0.00000e+00, 0.00000e+00],
+       ...,
+       [4.50000e+01, 0.00000e+00, 2.07540e+05, ..., 4.00000e+01,
+        0.00000e+00, 1.00000e+00],
+       [5.10000e+01, 0.00000e+00, 1.80807e+05, ..., 4.00000e+01,
+        0.00000e+00, 0.00000e+00],
+       [6.10000e+01, 4.00000e+00, 1.86451e+05, ..., 4.00000e+01,
+        0.00000e+00, 1.00000e+00]], dtype=float32)
+>>> categorical_columns
+[1, 5, 6, 7, 8, 9, 13, 14]
+>>> ordinal_columns
+[3]
+```
+
 ## Demo Synthesizers
 
 In order to get started using the benchmarking tool, some demo Synthesizers have been included
 in the library.
 
-These synthesizers can be imported from the `sdgym.synthesizers` module and are classes that have
+These synthesizers are classes that can be imported from the `sdgym.synthesizers` module and have
 the following methods:
 
 * `fit`: Fits the synthesizer on the data. Expects the following arguments:
@@ -87,8 +128,10 @@ the following methods:
 * `sample`: Generates new data resembling the original dataset. Expects the following arguments:
     * `n_samples (int)`: Number of samples to generate.
 * `fit_sample`: Fits the synthesizer on the dataset and then samples as many rows as there were in
-  the original dataset.
+  the original dataset. It expects the same arguments as the `fit` method, and is ready to be directly
+  passed to the `benchmark` function in order to evaluate the synthesizer performance.
 
+A complete example about how to use them can be found below in the [Usage](#usage) section.
 
 # Install
 
@@ -219,24 +262,74 @@ computed by the different evaluators:
 3    0.8511  0.684467  MLPClassifier(activation='relu', alpha=0.0001,...       0.0   adult     2
 ```
 
-## Testing the Demo Synthesizers
+## Using the Demo Synthesizers
 
-In order to test the demo synthesizers using the benchmark function, follow the next steps:
+In order to use the synthesizer classes included in **SDGym**, you need to follow these steps:
 
 1. Import the synthesizer class from `sdgym.synthesizers`:
 
 ```python
-from sdgym.synthesizers import IdentitySynthesizer
+from sdgym.synthesizers import IndependentSynthesizer
 ```
 
-2. Create an instance of the synthesizers passing any needed arguments. In this case,
-the `IdentitySynthesizer` expects no initialization arguments, so we will not pass any.
+2. Create an instance of the synthesizers passing any needed arguments. In this case we will use
+the `IndependentSynthesizer`, which can be instantiated with no initialization arguments:
 
 ```python
-synthesizer = IdentitySynthesizer()
+synthesizer = IndependentSynthesizer()
 ```
 
-3. Pass the method `fit_sample` from the synthesizer instance to the `benchmark` function:
+3. Load some data to fit your synthesizer with. In this case, we will be loading the `adult`
+dataset:
+
+```python
+from sdgym import load_dataset
+
+data, categorical_columns, ordinal_columns = load_dataset('adult')
+```
+
+3. Call its `fit` method passing the data as well as the lists of categorical and ordinal columns:
+
+```python
+synthesizer.fit(data, categorical_columns, ordinal_columns)
+```
+
+4. Call its `sample` method passing the number of rows that we want to sample:
+
+```python
+sampled = synthesizer.sample(3)
+```
+
+This will return a numpy matrix of sampeld data with the same columns as the original data and
+as many rows as we have requested:
+
+```
+array([[5.1774925e+01, 0.0000000e+00, 5.3538445e+04, 6.0000000e+00,
+        8.9999313e+00, 2.0000000e+00, 1.0000000e+00, 3.0000000e+00,
+        2.0000000e+00, 1.0000000e+00, 3.7152294e-04, 1.9912617e-04,
+        1.0767025e+01, 0.0000000e+00, 0.0000000e+00],
+       [6.4843109e+01, 0.0000000e+00, 2.6462553e+05, 1.2000000e+01,
+        8.9993210e+00, 1.0000000e+00, 0.0000000e+00, 1.0000000e+00,
+        0.0000000e+00, 0.0000000e+00, 5.3685449e-06, 1.9797031e-03,
+        2.2253288e+01, 0.0000000e+00, 0.0000000e+00],
+       [6.5659584e+01, 5.0000000e+00, 3.6158912e+05, 8.0000000e+00,
+        9.0010223e+00, 0.0000000e+00, 1.2000000e+01, 3.0000000e+00,
+        0.0000000e+00, 0.0000000e+00, 1.0562389e-03, 0.0000000e+00,
+        3.9998917e+01, 0.0000000e+00, 0.0000000e+00]], dtype=float32)
+```
+
+## Benchmarking the Demo Synthesizers
+
+Evaluating the performance of any of the Demo synthesizers as as simple as:
+
+1. Creaeting an instance of the synthesizer:
+
+```python
+synthesizer = IndependentSynthesizer()
+```
+
+2. Passing the `fit_sample` method of the instance to the `benchmark` function as your
+synthesizer function:
 
 ```python
 benchmark(synthesizer.fit_sample)
