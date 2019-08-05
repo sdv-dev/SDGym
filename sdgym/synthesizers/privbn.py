@@ -1,26 +1,30 @@
-from .synthesizer_base import SynthesizerBase, run
-import json
-import numpy as np
 import os
-import subprocess
 import shutil
-from .synthesizer_utils import CONTINUOUS, ORDINAL, CATEGORICAL
+import subprocess
+
+import numpy as np
+
+from sdgym.constants import CATEGORICAL, ORDINAL
+from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.utils import Transformer
+
 
 def try_mkdirs(dir):
-    try:
+    if not os.path.isdir(dir):
         os.makedirs(dir)
-    except:
-        pass
 
-class PrivBNSynthesizer(SynthesizerBase):
+
+class PrivBNSynthesizer(BaseSynthesizer):
     """docstring for IdentitySynthesizer."""
+
     def __init__(self):
         assert os.path.exists("privbayes/privBayes.bin")
 
-    def train(self, train_data):
-        self.train_data = train_data.copy()
+    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
+        self.data = data.copy()
+        self.meta = Transformer.get_metadata(data, categorical_columns, ordinal_columns)
 
-    def generate(self, n):
+    def sample(self, n):
         try_mkdirs("__privbn_tmp/data")
         try_mkdirs("__privbn_tmp/log")
         try_mkdirs("__privbn_tmp/output")
@@ -47,30 +51,22 @@ class PrivBNSynthesizer(SynthesizerBase):
                     print("C", minn, maxx, file=f)
 
         with open("__privbn_tmp/data/real.dat", "w") as f:
-            n = len(self.train_data)
-            np.random.shuffle(self.train_data)
+            n = len(self.data)
+            np.random.shuffle(self.data)
             n = min(n, 50000)
             for i in range(n):
-                row = self.train_data[i]
+                row = self.data[i]
                 for id_, col in enumerate(row):
                     if id_ in d_cols:
                         print(int(col), end=' ', file=f)
+
                     else:
                         print(col, end=' ', file=f)
+
                 print(file=f)
 
         privbayes = os.path.realpath("__privbn_tmp/privBayes.bin")
         # subprocess.call([privbayes, "real", str(n), "1", "5"], cwd="__privbn_tmp")
         subprocess.call([privbayes, "real", str(n), "1", "10"], cwd="__privbn_tmp")
 
-        # d1 = np.loadtxt("__privbn_tmp/output/syn_real_eps10_theta5_iter0.dat")
-        d2 = np.loadtxt("__privbn_tmp/output/syn_real_eps10_theta10_iter0.dat")
-
-        return [(10, d2)]
-
-    def init(self, meta, working_dir):
-        self.meta = meta
-
-
-if __name__ == "__main__":
-    run(PrivBNSynthesizer())
+        return np.loadtxt("__privbn_tmp/output/syn_real_eps10_theta10_iter0.dat")
