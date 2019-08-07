@@ -65,8 +65,12 @@ clean-test: ## remove test artifacts
 	rm -fr .tox/
 	rm -fr .pytest_cache
 
+.PHONY: clean-compile
+clean-compile: ## remove compile artifacts
+	rm -fr __privbn_tmp/
+
 .PHONY: clean
-clean: clean-build clean-pyc clean-test clean-coverage clean-docs ## remove all build, test, coverage, docs and Python artifacts
+clean: clean-build clean-compile clean-pyc clean-test clean-coverage clean-docs ## remove all build, test, coverage, docs and Python artifacts
 
 
 # INSTALL TARGETS
@@ -76,15 +80,15 @@ compile: ## Compile Priv Bayes
 	$(MAKE) -C privbayes
 
 .PHONY: install
-install: clean-build clean-pyc ## install the package to the active Python's site-packages
+install: clean-build clean-compile clean-pyc compile ## install the package to the active Python's site-packages
 	pip install .
 
 .PHONY: install-test
-install-test: clean-build clean-pyc ## install the package and test dependencies
+install-test: clean-build clean-compile clean-pyc compile ## install the package and test dependencies
 	pip install .[test]
 
 .PHONY: install-develop
-install-develop: clean-build clean-pyc ## install the package in editable mode and dependencies for development
+install-develop: clean-build clean-pyc clean-pyc compile ## install the package in editable mode and dependencies for development
 	pip install -e .[dev]
 
 
@@ -114,7 +118,7 @@ test: ## run tests quickly with the default Python
 
 .PHONY: test-all
 test-all: ## run tests on every Python version with tox
-	tox
+	tox -r
 
 .PHONY: coverage
 coverage: ## check code coverage quickly with the default Python

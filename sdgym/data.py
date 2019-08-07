@@ -6,7 +6,6 @@ import numpy as np
 
 from sdgym.constants import CATEGORICAL, ORDINAL
 
-
 BASE_URL = 'http://sdgym.s3.amazonaws.com/datasets/'
 DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
 
