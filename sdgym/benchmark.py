@@ -34,7 +34,8 @@ def benchmark(synthesizer, datasets=DEFAULT_DATASETS, repeat=3):
         train, test, meta, categoricals, ordinals = load_dataset(name, benchmark=True)
 
         for iteration in range(repeat):
-            synthesized = synthesizer(train, categoricals, ordinals)
+            synthesizer.fit(train, categoricals, ordinals)
+            synthesized = synthesizer.sample(train.shape[0])
             scores = evaluate(train, test, synthesized, meta)
             scores['dataset'] = name
             scores['iter'] = iteration
