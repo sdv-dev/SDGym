@@ -4,16 +4,16 @@
 </p>
 
 
-[![Travis](https://travis-ci.org/DAI-Lab/SDGym.svg?branch=master)](https://travis-ci.org/DAI-Lab/SDGym)
+[![Travis](https://travis-ci.org/sdv-dev/SDGym.svg?branch=master)](https://travis-ci.org/sdv-dev/SDGym)
 [![PyPi Shield](https://img.shields.io/pypi/v/sdgym.svg)](https://pypi.python.org/pypi/sdgym)
-<!--[![Coverage Status](https://codecov.io/gh/DAI-Lab/SDGym/branch/master/graph/badge.svg)](https://codecov.io/gh/DAI-Lab/SDGym)-->
+<!--[![Coverage Status](https://codecov.io/gh/sdv-dev/SDGym/branch/master/graph/badge.svg)](https://codecov.io/gh/sdv-dev/SDGym)-->
 <!--[![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)-->
 
 # SDGym - Synthetic Data Gym
 
 - License: MIT
-- Documentation: https://DAI-Lab.github.io/SDGym/
-- Homepage: https://github.com/DAI-Lab/SDGym
+- Documentation: https://sdv-dev.github.io/SDGym/
+- Homepage: https://github.com/sdv-dev/SDGym
 
 # Overview
 
@@ -175,7 +175,7 @@ Alternatively, with your virtualenv activated, you can clone the repository and 
 source by running `make install` on the `stable` branch:
 
 ```bash
-git clone git@github.com:DAI-Lab/SDGym.git
+git clone git@github.com:sdv-dev/SDGym.git
 cd SDGym
 git checkout stable
 make install
@@ -186,7 +186,7 @@ make install
 If you want to contribute to the project, a few more steps are required to make the project ready
 for development.
 
-First, please head to [the GitHub page of the project](https://github.com/DAI-Lab/SDGym)
+First, please head to [the GitHub page of the project](https://github.com/sdv-dev/SDGym)
 and make a fork of the project under you own username by clicking on the **fork** button on the
 upper right corner of the page.
 
@@ -338,7 +338,7 @@ benchmark(synthesizer.fit_sample)
 # What's next?
 
 For more details about **SDGym** and all its possibilities and features, please check the
-[documentation site](https://DAI-Lab.github.io/SDGym/).
+[documentation site](https://sdv-dev.github.io/SDGym/).
 
 There you can learn more about
 [how to contribute to SDGym](https://HDI-Project.github.io/SDGym/community/contributing.html)
@@ -356,6 +356,6 @@ relational integrity on sampled records.
 
 ## TGAN
 
-[TGAN](https://github.com/DAI-Lab/TGAN) is a GAN based model for synthesizing tabular data.
+[TGAN](https://github.com/sdv-dev/TGAN) is a GAN based model for synthesizing tabular data.
 It's also developed by the [MIT's Data to AI Lab](https://dai-lab.github.io/) and is under
 active development.

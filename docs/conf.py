@@ -61,7 +61,7 @@ description = (
     'Synthetic Data Gym: A framework to benchmark the performance of synthetic data generators '
     'for non-temporal tabular data.'
 )
-user = 'DAI-Lab'
+user = 'sdv-dev'
 
 # The version info for the project you're documenting, acts as replacement
 # for |version| and |release|, also used in various other places throughout

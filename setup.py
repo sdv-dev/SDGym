@@ -91,7 +91,7 @@ setup(
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
-    url='https://github.com/DAI-Lab/SDGym',
+    url='https://github.com/sdv-dev/SDGym',
     version='0.1.1-dev',
     zip_safe=False,
 )
