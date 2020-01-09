@@ -11,9 +11,9 @@
 
 # SDGym - Synthetic Data Gym
 
-- License: MIT
-- Documentation: https://sdv-dev.github.io/SDGym/
-- Homepage: https://github.com/sdv-dev/SDGym
+* License: [MIT](https://github.com/sdv-dev/SDGym/blob/master/LICENSE)
+* Documentation: https://sdv-dev.github.io/SDGym/
+* Homepage: https://github.com/sdv-dev/SDGym
 
 # Overview
 
