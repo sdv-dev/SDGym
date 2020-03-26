@@ -37,6 +37,7 @@ class IndependentSynthesizer(BaseSynthesizer):
                 data[:, i] = x.reshape([samples])
                 data[:, i] = data[:, i].clip(info['min'], info['max'])
             else:
-                data[:, i] = np.random.choice(np.arange(info['size']), samples, p=self.models[i])
+                size = len(self.models[i])
+                data[:, i] = np.random.choice(np.arange(size), samples, p=self.models[i])
 
         return data
