@@ -359,8 +359,3 @@ def compute_scores(train, test, synthesized_data, metadata):
     scores['distance'] = _compute_distance(train, synthesized_data, metadata)
 
     return scores
-
-
-def evaluate_synthesizer(synthesizer, train, test, meta, categoricals, ordinals):
-    synthesized = synthesizer(train, categoricals, ordinals)
-    return compute_scores(train, test, synthesized, meta)
