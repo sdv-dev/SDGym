@@ -336,6 +336,22 @@ synthesizer function:
 benchmark(synthesizer.fit_sample)
 ```
 
+## List of Demo Synthesizers
+Here we list all implemented synthesizers and corresponding publications. 
+
+|Name|Description|Reference|
+|:--|:--|:--|
+|`IdentitySynthesizer`|The synthetic data is the same as training data.||
+|`UniformSynthesizer`|Each column in the synthetic data is sampled independently and uniformly.||
+|`IndependentSynthesizer`|Each column in the synthetic data is sampled independently. Continuous columns are modeled by Gaussian mixture model. Discrete columns are sampled from the PMF of training data.||
+|`CLBNSynthesizer`||[2]|
+|`PrivBNSynthesizer`||[3]|
+|`TableganSynthesizer`||[4]|
+|`VEEGANSynthesizer`||[5]|
+|`TVAESynthesizer`||[1]|
+|`CTGANSynthesizer`||[1]|
+
+
 # What's next?
 
 For more details about **SDGym** and all its possibilities and features, please check the
@@ -360,3 +376,15 @@ relational integrity on sampled records.
 [TGAN](https://github.com/sdv-dev/TGAN) is a GAN based model for synthesizing tabular data.
 It's also developed by the [MIT's Data to AI Lab](https://dai-lab.github.io/) and is under
 active development.
+
+
+# References
+[1] Lei Xu, Maria Skoularidou, Alfredo Cuesta-Infante, Kalyan Veeramachaneni. "Modeling tabular data using conditional gan." (2019) [(pdf)](https://papers.nips.cc/paper/8953-modeling-tabular-data-using-conditional-gan.pdf)
+
+[2] C. Chow, Cong Liu. "Approximating discrete probability distributions with dependence trees." (1968) [(pdf)](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.133.9772&rep=rep1&type=pdf)
+
+[3] Jun  Zhang, Graham Cormode, Cecilia M. Procopiuc, Divesh Srivastava, and Xiaokui Xiao. "Privbayes: Private data release via bayesian networks." (2017) [(pdf)](https://dl.acm.org/doi/pdf/10.1145/3134428)
+
+[4] Noseong Park, Mahmoud Mohammadi, Kshitij Gorde, Sushil Jajodia, Hongkyu Park, Youngmin Kim. "Data synthesis based on generative adversarial networks." (2018) [(pdf)](https://dl.acm.org/ft_gateway.cfm?id=3242929&type=pdf)
+
+[5] Akash Srivastava, Lazar Valkov, Chris Russell, Michael U. Gutmann, Charles Sutton. "Veegan: Reducing mode collapse in gans using implicit variational learning." (2017) [(pdf)](https://papers.nips.cc/paper/6923-veegan-reducing-mode-collapse-in-gans-using-implicit-variational-learning.pdf)
