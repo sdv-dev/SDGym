@@ -32,31 +32,31 @@ setup_requires = [
 
 development_requires = [
     # general
-    'bumpversion>=0.5.3',
+    'bumpversion>=0.5.3,<0.6',
     'pip>=9.0.1',
-    'watchdog>=0.8.3',
+    'watchdog>=0.8.3,<0.11',
 
     # docs
-    'm2r>=0.2.0',
-    'Sphinx>=1.7.1',
-    'sphinx_rtd_theme>=0.2.4',
-    'autodocsumm>=0.1.10',
+    'm2r>=0.2.0,<0.3',
+    'Sphinx>=1.7.1,<3',
+    'sphinx_rtd_theme>=0.2.4,<0.5',
+    'autodocsumm>=0.1.10,<0.2',
 
     # style check
-    'flake8>=3.7.7',
-    'isort>=4.3.4',
+    'flake8>=3.7.7,<4',
+    'isort>=4.3.4,<5',
 
     # fix style issues
-    'autoflake>=1.1',
-    'autopep8>=1.4.3',
+    'autoflake>=1.1,<2',
+    'autopep8>=1.4.3,<2',
 
     # distribute on PyPI
-    'twine>=1.10.0',
+    'twine>=1.10.0,<4',
     'wheel>=0.30.0',
 
     # Advanced testing
-    'coverage>=4.5.1',
-    'tox>=2.9.1',
+    'coverage>=4.5.1,<6',
+    'tox>=2.9.1,<4',
 ]
 
 setup(
