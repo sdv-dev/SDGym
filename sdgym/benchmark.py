@@ -66,11 +66,15 @@ def compute_benchmark(synthesizer, datasets=DEFAULT_DATASETS, iterations=3):
         train, test, meta, categoricals, ordinals = load_dataset(dataset_name, benchmark=True)
 
         for iteration in range(iterations):
-            synthesized = synthesizer(train, categoricals, ordinals)
-            scores = compute_scores(train, test, synthesized, meta)
-            scores['dataset'] = dataset_name
-            scores['iteration'] = iteration
-            results.append(scores)
+            try:
+                synthesized = synthesizer(train, categoricals, ordinals)
+                scores = compute_scores(train, test, synthesized, meta)
+                scores['dataset'] = dataset_name
+                scores['iteration'] = iteration
+                results.append(scores)
+            except Exception:
+                LOGGER.exception('Error computing scores for %s on dataset %s - iteration %s',
+                                 _get_synthesizer_name(synthesizer), dataset_name, iteration)
 
     return pd.concat(results, sort=False)
 
