@@ -31,12 +31,10 @@ synthesizer. Then, each couple of real and synthetic data is evaluated with mult
 **SDGym** evaluates the performance of **Synthesizer functions**.
 
 These are python functions that take as input a numpy matrix with real data and output another
-numpy matrix with the same shape filled with synthesized data.
+numpy matrix with the same shape, filled with synthic data that has similar mathematical properties
+as the input data.
 
-Also, alongside the real data, some additional variables informing about the column contents
-will be passed.
-
-The complete list of inputs is:
+The complete list of inputs of the synthesizer functions are:
 
 * `real_data`: a 2D `numpy.ndarray` with the real data the your synthesizer will attempt to imitate.
 * `categorical_columns`: a `list` with the indexes of any columns that should be considered
@@ -44,7 +42,7 @@ The complete list of inputs is:
 * `ordinal_columns`: a `list` with the indexes of any integer columns that should be treated as
   ordinal values.
 
-And the output should be a single 2D `numpy.ndarray` with the exact same shape as the `real_data`
+And the output is a single 2D `numpy.ndarray` with the exact same shape as the `real_data`
 matrix.
 
 ```python
