@@ -127,6 +127,8 @@ class TVAESynthesizer(BaseSynthesizer):
                 self.decoder.sigma.data.clamp_(0.01, 1.0)
 
     def sample(self, samples):
+        self.decoder.eval()
+
         steps = samples // self.batch_size + 1
         data = []
         for _ in range(steps):
