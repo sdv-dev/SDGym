@@ -216,6 +216,7 @@ class TableganSynthesizer(BaseSynthesizer):
                     print("epoch", i + 1, "step", id_ + 1, loss_d, loss_g, loss_c)
 
     def sample(self, n):
+        self.generator.eval()
 
         steps = n // self.batch_size + 1
         data = []
