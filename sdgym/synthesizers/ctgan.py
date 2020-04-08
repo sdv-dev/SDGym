@@ -389,7 +389,7 @@ class CTGANSynthesizer(BaseSynthesizer):
 
     def sample(self, n):
         self.generator.eval()
-        
+
         output_info = self.transformer.output_info
         steps = n // self.batch_size + 1
         data = []

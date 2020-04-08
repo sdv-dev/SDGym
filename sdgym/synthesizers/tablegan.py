@@ -217,7 +217,7 @@ class TableganSynthesizer(BaseSynthesizer):
 
     def sample(self, n):
         self.generator.eval()
-        
+
         steps = n // self.batch_size + 1
         data = []
         for i in range(steps):
