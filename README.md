@@ -6,15 +6,15 @@
 [![Development Status](https://img.shields.io/badge/Development%20Status-2%20--%20Pre--Alpha-yellow)](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
 [![Travis](https://travis-ci.org/sdv-dev/SDGym.svg?branch=master)](https://travis-ci.org/sdv-dev/SDGym)
 [![PyPi Shield](https://img.shields.io/pypi/v/sdgym.svg)](https://pypi.python.org/pypi/sdgym)
-<!--[![Coverage Status](https://codecov.io/gh/sdv-dev/SDGym/branch/master/graph/badge.svg)](https://codecov.io/gh/sdv-dev/SDGym)-->
 [![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
+<!--[![Coverage Status](https://codecov.io/gh/sdv-dev/SDGym/branch/master/graph/badge.svg)](https://codecov.io/gh/sdv-dev/SDGym)-->
 
 # SDGym - Synthetic Data Gym
 
 * License: [MIT](https://github.com/sdv-dev/SDGym/blob/master/LICENSE)
 * Development Status: [Pre-Alpha](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
-<!--* Documentation: https://sdv-dev.github.io/SDGym/-->
 * Homepage: https://github.com/sdv-dev/SDGym
+<!--* Documentation: https://sdv-dev.github.io/SDGym/-->
 
 # Overview
 
