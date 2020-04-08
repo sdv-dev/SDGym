@@ -28,35 +28,15 @@ synthesizer. Then, each couple of real and synthetic data is evaluated with mult
 
 ## What is a synthesizer function?
 
-In order to use **SDGym** you will need a synthesizer function.
-This is a function that takes as input a numpy matrix with real data and outputs another numpy
-matrix with the same shape filled with synthesized data.
+**SDGym** evaluates the performance of **Synthesizer functions**.
+
+These are python functions that take as input a numpy matrix with real data and output another
+numpy matrix with the same shape filled with synthesized data.
 
 Also, alongside the real data, some additional variables informing about the column contents
-will be passed, which means that the exact signature of the function will be like this:
+will be passed.
 
-```python
-def my_synthesizer_function(
-    real_data: numpy.ndarray,
-    categorical_columns: list,
-    ordinal_columns: list
-) -> syntehtesized_data: numpy.ndarray
-```
-
-If your synthesizer implements a different interface, please wrap it inside a function
-that follows the signature shown above.
-
-This function should contain inside it all the parameters and arguments needed to use your
-synthesizer and call it to generate the new synthesized data based on the real data that is
-being passed. The shape of the output data should be exactly the same as the one from the input.
-
-## What data should your synthesizer work with?
-
-As we mentioned in the section before, the main input of **SDGym** is a synthesizer to be
-benchmarked, which is expected to be a function that has as unique input and output a table of
-data.
-
-The inputs for your synthesizer function should be:
+The complete list of inputs is:
 
 * `real_data`: a 2D `numpy.ndarray` with the real data the your synthesizer will attempt to imitate.
 * `categorical_columns`: a `list` with the indexes of any columns that should be considered
@@ -66,6 +46,14 @@ The inputs for your synthesizer function should be:
 
 And the output should be a single 2D `numpy.ndarray` with the exact same shape as the `real_data`
 matrix.
+
+```python
+def my_synthesizer_function(
+    real_data: numpy.ndarray,
+    categorical_columns: list,
+    ordinal_columns: list
+) -> syntehtesized_data: numpy.ndarray
+```
 
 ## Benchmark datasets
 
