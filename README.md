@@ -77,7 +77,7 @@ The datasets used for the SDGym benchmarking process are grouped in three famili
     * news
 
 Further details about how these datasets were generated can be found in the paper, and the code
-that generated the simulated ones can be found inside the `sdgym/utils` folder of this repository.
+that generated the simulated ones can be found inside the [sdgym/utils](sdgym/utils) folder of this repository.
 
 All the datasets can also be found for download inside the [sgdym S3 bucket](
 http://sdgym.s3.amazonaws.com/index.html) in the form of an `.npz` numpy matrix archive and
@@ -99,7 +99,7 @@ as well as the list of indexes for the categorical and ordinal columns.
 
 ## SDGym Synthesizers
 
-A part from the benchmark functionality, SDGym implements a collection of Synthesizers which are
+Apart from the benchmark functionality, SDGym implements a collection of Synthesizers which are
 either custom demo synthesizers or re-implementations of synthesizers that have been presented
 in third party publications.
 
