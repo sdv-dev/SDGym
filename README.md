@@ -7,13 +7,13 @@
 [![Travis](https://travis-ci.org/sdv-dev/SDGym.svg?branch=master)](https://travis-ci.org/sdv-dev/SDGym)
 [![PyPi Shield](https://img.shields.io/pypi/v/sdgym.svg)](https://pypi.python.org/pypi/sdgym)
 <!--[![Coverage Status](https://codecov.io/gh/sdv-dev/SDGym/branch/master/graph/badge.svg)](https://codecov.io/gh/sdv-dev/SDGym)-->
-<!--[![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)-->
+[![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
 
 # SDGym - Synthetic Data Gym
 
 * License: [MIT](https://github.com/sdv-dev/SDGym/blob/master/LICENSE)
 * Development Status: [Pre-Alpha](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
-* Documentation: https://sdv-dev.github.io/SDGym/
+<!--* Documentation: https://sdv-dev.github.io/SDGym/-->
 * Homepage: https://github.com/sdv-dev/SDGym
 
 # Overview
@@ -35,7 +35,6 @@ matrix with the same shape filled with synthesized data.
 Also, alongside the real data, some additional variables informing about the column contents
 will be passed, which means that the exact signature of the function will be like this:
 
-
 ```python
 def my_synthesizer_function(
     real_data: numpy.ndarray,
@@ -44,17 +43,12 @@ def my_synthesizer_function(
 ) -> syntehtesized_data: numpy.ndarray
 ```
 
-If your synthesizer implements a different interface, you can wrap it in a function like this:
-
-```python
-def my_synthesizer_function(real_data, categorical_columns, ordinal_columns):
-    # ...do all necessary steps here...
-    return synthesized_data
-```
+If your synthesizer implements a different interface, please wrap it inside a function
+that follows the signature shown above.
 
 This function should contain inside it all the parameters and arguments needed to use your
 synthesizer and call it to generate the new synthesized data based on the real data that is
-being passed.
+being passed. The shape of the output data should be exactly the same as the one from the input.
 
 ## What data should your synthesizer work with?
 
@@ -62,7 +56,7 @@ As we mentioned in the section before, the main input of **SDGym** is a synthesi
 benchmarked, which is expected to be a function that has as unique input and output a table of
 data.
 
-The inputs for your synthesizer funciton should be:
+The inputs for your synthesizer function should be:
 
 * `real_data`: a 2D `numpy.ndarray` with the real data the your synthesizer will attempt to imitate.
 * `categorical_columns`: a `list` with the indexes of any columns that should be considered
@@ -75,64 +69,128 @@ matrix.
 
 ## Benchmark datasets
 
-All the datasets used for the benchmarking can be found inside the [sgdym S3 bucket](http://sdgym.s3.amazonaws.com/index.html)
-in the form of an `.npz` numpy matrix archive and a `.json` metadata file that contains information
-about the dataset structure and their columns.
+The datasets used for the SDGym benchmarking process are grouped in three families:
+
+* Simulated data generated using Gaussian Mixtures
+    * grid
+    * gridr
+    * ring
+* Simulated data generated using Bayesian Networks
+    * asia
+    * alarm
+    * child
+    * insurance
+* Real world datasets
+    * adult
+    * census
+    * covtype
+    * credit
+    * intrusion
+    * mnist12
+    * mnist28
+    * news
+
+Further details about how these datasets were generated can be found in the paper, and the code
+that generated the simulated ones can be found inside the `sdgym/utils` folder of this repository.
+
+All the datasets can also be found for download inside the [sgdym S3 bucket](
+http://sdgym.s3.amazonaws.com/index.html) in the form of an `.npz` numpy matrix archive and
+a `.json` metadata file that contains information about the dataset structure and their columns.
 
 In order to load these datasets in the same format as they will be passed to your synthesizer function
 you can use the `sdgym.load_dataset` function passing the name of the dataset to load.
 
 In this example, we will load the `adult` dataset:
 
-```python
+```python3
 from sdgym import load_dataset
 
 data, categorical_columns, ordinal_columns = load_dataset('adult')
 ```
 
 This will return a numpy matrix with the data that will be passed to your synthesizer function,
-as well as the list of indexes for the categorical and ordinal columns:
+as well as the list of indexes for the categorical and ordinal columns.
 
-```python
->>> data
-array([[2.70000e+01, 0.00000e+00, 1.77119e+05, ..., 4.40000e+01,
-        0.00000e+00, 0.00000e+00],
-       [2.70000e+01, 0.00000e+00, 2.16481e+05, ..., 4.00000e+01,
-        0.00000e+00, 0.00000e+00],
-       [2.50000e+01, 0.00000e+00, 2.56263e+05, ..., 4.00000e+01,
-        0.00000e+00, 0.00000e+00],
-       ...,
-       [4.50000e+01, 0.00000e+00, 2.07540e+05, ..., 4.00000e+01,
-        0.00000e+00, 1.00000e+00],
-       [5.10000e+01, 0.00000e+00, 1.80807e+05, ..., 4.00000e+01,
-        0.00000e+00, 0.00000e+00],
-       [6.10000e+01, 4.00000e+00, 1.86451e+05, ..., 4.00000e+01,
-        0.00000e+00, 1.00000e+00]], dtype=float32)
->>> categorical_columns
-[1, 5, 6, 7, 8, 9, 13, 14]
->>> ordinal_columns
-[3]
-```
+## SDGym Synthesizers
 
-## Demo Synthesizers
+A part from the benchmark functionality, SDGym implements a collection of Synthesizers which are
+either custom demo synthesizers or re-implementations of synthesizers that have been presented
+in third party publications.
 
-In order to get started using the benchmarking tool, some demo Synthesizers have been included
-in the library.
-
-These synthesizers are classes that can be imported from the `sdgym.synthesizers` module and have
-the following methods:
+These Synthesizers are written as Python classes that can be imported from the `sdgym.synthesizers`
+module and have the following methods:
 
 * `fit`: Fits the synthesizer on the data. Expects the following arguments:
     * `data (numpy.ndarray)`: 2 dimensional Numpy matrix with the real data to learn from.
-    * `categorical_columns (list or tuple)`: List of indexes of the columns that are categorical within the dataset.
-    * `ordinal_columns (list or tuple)`: List of indexes of the columns that are ordinal within the dataset.
+    * `categorical_columns (list or tuple)`: List of indexes of the columns that are categorical
+      within the dataset.
+    * `ordinal_columns (list or tuple)`: List of indexes of the columns that are ordinal within
+      the dataset.
 * `sample`: Generates new data resembling the original dataset. Expects the following arguments:
     * `n_samples (int)`: Number of samples to generate.
 * `fit_sample`: Fits the synthesizer on the dataset and then samples as many rows as there were in
-  the original dataset. It expects the same arguments as the `fit` method, and is ready to be directly
-  passed to the `benchmark` function in order to evaluate the synthesizer performance.
+  the original dataset. It expects the same arguments as the `fit` method, and is ready to be
+  directly passed to the `benchmark` function in order to evaluate the synthesizer performance.
 
-A complete example about how to use them can be found below in the [Usage](#usage) section.
+This is the list of all the Synthesizers currently implemented, with references to the
+corresponding publications when applicable.
+
+|Name|Description|Reference|
+|:--|:--|:--|
+|`IdentitySynthesizer`|The synthetic data is the same as training data.||
+|`UniformSynthesizer`|Each column in the synthetic data is sampled independently and uniformly.||
+|`IndependentSynthesizer`|Each column in the synthetic data is sampled independently. Continuous columns are modeled by Gaussian mixture model. Discrete columns are sampled from the PMF of training data.||
+|`CLBNSynthesizer`||[2]|
+|`PrivBNSynthesizer`||[3]|
+|`TableganSynthesizer`||[4]|
+|`VEEGANSynthesizer`||[5]|
+|`TVAESynthesizer`||[1]|
+|`CTGANSynthesizer`||[1]|
+
+## SDGym Leaderboard
+
+This is the leaderboard with the scores that the SDGym Synthesizer obtained on the Benchmark
+Datasets.
+
+### Gaussian Mixture Simulated Data
+
+|grid/syn_likelihood|grid/test_likelihood|gridr/syn_likelihood|gridr/test_likelihood|ring/syn_likelihood|ring/test_likelihood|
+|-------------------|--------------------|--------------------|---------------------|-------------------|--------------------|
+|              -3.06|               -3.06|               -3.06|                -3.07|              -1.7 |               -1.7 |
+|              -3.68|               -8.62|               -3.76|               -11.6 |              -1.75|               -1.7 |
+|              -4.33|              -21.67|               -3.98|               -13.88|              -1.82|               -1.71|
+|             -10.04|              -62.93|               -9.45|               -72   |              -2.32|              -45.16|
+|              -9.81|               -4.79|              -12.51|                -4.94|              -7.85|               -2.92|
+|              -8.7 |               -4.99|               -9.64|                -4.7 |              -6.38|               -2.66|
+|              -2.86|              -11.26|               -3.41|                -3.2 |              -1.68|               -1.79|
+|              -5.63|               -3.69|               -8.11|                -4.31|              -3.43|               -2.19|
+
+### Bayesian Networks Simulated Data
+
+|asia/syn_likelihood|asia/test_likelihood|alarm/syn_likelihood|alarm/test_likelihood|child/syn_likelihood|child/test_likelihood|insurance/syn_likelihood|insurance/test_likelihood|
+|-------------------|--------------------|--------------------|---------------------|--------------------|---------------------|------------------------|-------------------------|
+|              -2.23|               -2.24|               -10.3|                -10.3|               -12  |                -12  |                   -12.8|                    -12.9|
+|              -2.44|               -2.27|               -12.4|                -11.2|               -12.6|                -12.3|                   -15.2|                    -13.9|
+|              -2.28|               -2.24|               -11.9|                -10.9|               -12.3|                -12.2|                   -14.7|                    -13.6|
+|              -2.81|               -2.59|               -10.9|                -14.2|               -14.2|                -15.4|                   -16.4|                    -16.4|
+|              -8.11|               -4.63|               -17.7|                -14.9|               -17.6|                -17.8|                   -18.2|                    -18.1|
+|              -3.64|               -2.77|               -12.7|                -11.5|               -15  |                -13.3|                   -16  |                    -14.3|
+|              -2.31|               -2.27|               -11.2|                -10.7|               -12.3|                -12.3|                   -14.7|                    -14.2|
+|              -2.56|               -2.31|               -14.2|                -12.6|               -13.4|                -12.7|                   -16.5|                    -14.8|
+
+### Real World Datasets
+
+|adult/f1|census/f1|credit/f1|covtype/macro_f1|intrusion/macro_f1|mnist12/accuracy|mnist28/accuracy| news/r2|
+|--------|---------|---------|----------------|------------------|----------------|----------------|--------|
+|   0.669|    0.494|    0.72 |           0.652|             0.862|           0.886|           0.916| 0.14   |
+|   0.334|    0.31 |    0.409|           0.319|             0.384|           0.741|           0.176|-6.28   |
+|   0.414|    0.121|    0.185|           0.27 |             0.384|           0.117|           0.081|-4.49   |
+|   0.375|    0    |    0    |           0.093|             0.299|           0.091|           0.104|-8.8    |
+|   0.235|    0.094|    0    |           0.082|             0.261|           0.194|           0.136|-6.5e+06|
+|   0.492|    0.358|    0.182|           0    |             0    |           0.1  |           0    |-3.09   |
+|   0.626|    0.377|    0.098|           0.433|             0.511|           0.793|           0.794|-0.2    |
+|   0.601|    0.391|    0.672|           0.324|             0.528|           0.394|           0.371|-0.43   |
+
 
 # Install
 
@@ -144,25 +202,9 @@ Also, although it is not strictly required, the usage of a [virtualenv](https://
 is highly recommended in order to avoid interfering with other software installed in the system
 where **SDGym** is run.
 
-These are the minimum commands needed to create a virtualenv using python3.6 for **SDGym**:
-
-```bash
-pip install virtualenv
-virtualenv -p $(which python3.6) sdgym-venv
-```
-
-Afterwards, you have to execute this command to have the virtualenv activated:
-
-```bash
-source sdgym-venv/bin/activate
-```
-
-Remember about executing it every time you start a new console to work on **SDGym**!
-
 ## Install with pip
 
-After creating the virtualenv and activating it, we recommend using
-[pip](https://pip.pypa.io/en/stable/) in order to install **SDGym**:
+The easiest and recommended way to install **SDGym** is using [pip](https://pip.pypa.io/en/stable/):
 
 ```bash
 pip install sdgym
@@ -170,62 +212,32 @@ pip install sdgym
 
 This will pull and install the latest stable release from [PyPi](https://pypi.org/).
 
-## Install from source
+If you want to install it from source or contribute to the project please read the
+[Contributing Guide](https://sdv-dev.github.io/SDGym/contributing.html#get-started) for
+more details about how to do it.
 
-Alternatively, with your virtualenv activated, you can clone the repository and install it from
-source by running `make install` on the `stable` branch:
+## Compile C++ dependencies
+
+Some of the third party synthesizers that SDGym offers, like the PrivBNSynthesizer, require
+dependencies written in C++ need to be compiled.
+
+In order to be able to use them, please do:
+
+1. Clone or download the SDGym repository to your local machine:
 
 ```bash
 git clone git@github.com:sdv-dev/SDGym.git
 cd SDGym
-git checkout stable
-make install
 ```
 
-## Install for Development
-
-If you want to contribute to the project, a few more steps are required to make the project ready
-for development.
-
-First, please head to [the GitHub page of the project](https://github.com/sdv-dev/SDGym)
-and make a fork of the project under you own username by clicking on the **fork** button on the
-upper right corner of the page.
-
-Afterwards, clone your fork and create a branch from master with a descriptive name that includes
-the number of the issue that you are going to work on:
-
-```bash
-git clone git@github.com:{your username}/SDGym.git
-cd SDGym
-git branch issue-xx-cool-new-feature master
-git checkout issue-xx-cool-new-feature
-```
-
-Finally, install the project with the following command, which will install some additional
-dependencies for code linting and testing.
-
-```bash
-make install-develop
-```
-
-Make sure to use them regularly while developing by running the commands `make lint` and
-`make test`.
-
-## Compile C++ dependencies
-
-In order to be able to use all the features from SDGym, some dependencies written in C++ need to
-be compiled.
-
-In order to do this:
-
-1. make sure to have installed all the necessary dependencies to compile C++. In Linux distributions
-based on Ubuntu, this can be done with the following command:
+2. make sure to have installed all the necessary dependencies to compile C++. In Linux
+distributions based on Ubuntu, this can be done with the following command:
 
 ```bash
 sudo apt-get install build-essential
 ```
 
-2. Execute:
+3. Trigger the C++ compilation:
 
 ```bash
 make compile
@@ -238,66 +250,43 @@ make compile
 All you need to do in order to use the SDGym Benchmark, is to import and call the `sdgym.benchmark`
 function passing it your synthesizer function:
 
-```python
+```python3
 from sdgym import benchmark
 
 scores = benchmark(my_synthesizer_function)
 ```
 
-The output of the `benchmark` function will be a `pd.DataFrame` containing all the scores
-computed by the different evaluators:
+The output of the `benchmark` function will be a `pd.DataFrame` containing the results obtained
+by your synthesizer on each dataset, as well as the results obtained previously by the SDGym
+synthesizers:
 
 ```
-   accuracy        f1                                               name  distance dataset  iter
-0    0.7985  0.658301  DecisionTreeClassifier(class_weight='balanced'...       0.0   adult     0
-1    0.8607  0.680285  AdaBoostClassifier(algorithm='SAMME.R', base_e...       0.0   adult     0
-2    0.7948  0.660040  LogisticRegression(C=1.0, class_weight='balanc...       0.0   adult     0
-3    0.8489  0.678716  MLPClassifier(activation='relu', alpha=0.0001,...       0.0   adult     0
-0    0.7968  0.655943  DecisionTreeClassifier(class_weight='balanced'...       0.0   adult     1
-1    0.8607  0.680285  AdaBoostClassifier(algorithm='SAMME.R', base_e...       0.0   adult     1
-2    0.7948  0.660040  LogisticRegression(C=1.0, class_weight='balanc...       0.0   adult     1
-3    0.8472  0.683775  MLPClassifier(activation='relu', alpha=0.0001,...       0.0   adult     1
-0    0.7963  0.655272  DecisionTreeClassifier(class_weight='balanced'...       0.0   adult     2
-1    0.8607  0.680285  AdaBoostClassifier(algorithm='SAMME.R', base_e...       0.0   adult     2
-2    0.7948  0.660040  LogisticRegression(C=1.0, class_weight='balanc...       0.0   adult     2
-3    0.8511  0.684467  MLPClassifier(activation='relu', alpha=0.0001,...       0.0   adult     2
+                        adult/accuracy  adult/f1  ...  ring/test_likelihood
+IndependentSynthesizer         0.56530  0.134593  ...             -1.958888
+UniformSynthesizer             0.39695  0.273753  ...             -2.519416
+IdentitySynthesizer            0.82440  0.659250  ...             -1.705487
+...                                ...       ...  ...                   ...
+my_synthesizer_function        0.64865  0.210103  ...             -1.964966
 ```
 
-## Using the Demo Synthesizers
+## Using the SDGym Synthesizers
 
-In order to use the synthesizer classes included in **SDGym**, you need to follow these steps:
+In order to use the synthesizer classes included in **SDGym**, you need to create an instance
+of them, pass the real data to their `fit` method, and then generate new data using its
+`sample` method.
 
-1. Import the synthesizer class from `sdgym.synthesizers`:
+Here's an example about how to use the `IdentitySynthesizer` to model and sample the `adult`
+dataset.
 
-```python
-from sdgym.synthesizers import IndependentSynthesizer
-```
-
-2. Create an instance of the synthesizers passing any needed arguments. In this case we will use
-the `IndependentSynthesizer`, which can be instantiated with no initialization arguments:
-
-```python
-synthesizer = IndependentSynthesizer()
-```
-
-3. Load some data to fit your synthesizer with. In this case, we will be loading the `adult`
-dataset:
-
-```python
+```python3
 from sdgym import load_dataset
+from sdgym.synthesizers import IndependentSynthesizer
 
 data, categorical_columns, ordinal_columns = load_dataset('adult')
-```
 
-3. Call its `fit` method passing the data as well as the lists of categorical and ordinal columns:
-
-```python
+synthesizer = IndependentSynthesizer()
 synthesizer.fit(data, categorical_columns, ordinal_columns)
-```
 
-4. Call its `sample` method passing the number of rows that we want to sample:
-
-```python
 sampled = synthesizer.sample(3)
 ```
 
@@ -319,47 +308,22 @@ array([[5.1774925e+01, 0.0000000e+00, 5.3538445e+04, 6.0000000e+00,
         3.9998917e+01, 0.0000000e+00, 0.0000000e+00]], dtype=float32)
 ```
 
-## Benchmarking the Demo Synthesizers
+## Benchmarking the SDGym Synthesizers
 
-Evaluating the performance of any of the Demo synthesizers as as simple as:
+If you want to re-evaluate the performance of any of the SDGym synthesizers, all you need to
+do is to create an instance of the synthesizer and pass its `fit_sample` method to the
+`benchmark` function.
 
-1. Creaeting an instance of the synthesizer:
+```python3
+from sdgym import benchmark
+from sdgym.synthesizers import IndependentSynthesizer
 
-```python
 synthesizer = IndependentSynthesizer()
+
+leaderboard = benchmark(synthesizer.fit_sample)
 ```
 
-2. Passing the `fit_sample` method of the instance to the `benchmark` function as your
-synthesizer function:
-
-```python
-benchmark(synthesizer.fit_sample)
-```
-
-## List of Demo Synthesizers
-Here we list all implemented synthesizers and corresponding publications. 
-
-|Name|Description|Reference|
-|:--|:--|:--|
-|`IdentitySynthesizer`|The synthetic data is the same as training data.||
-|`UniformSynthesizer`|Each column in the synthetic data is sampled independently and uniformly.||
-|`IndependentSynthesizer`|Each column in the synthetic data is sampled independently. Continuous columns are modeled by Gaussian mixture model. Discrete columns are sampled from the PMF of training data.||
-|`CLBNSynthesizer`||[2]|
-|`PrivBNSynthesizer`||[3]|
-|`TableganSynthesizer`||[4]|
-|`VEEGANSynthesizer`||[5]|
-|`TVAESynthesizer`||[1]|
-|`CTGANSynthesizer`||[1]|
-
-
-# What's next?
-
-For more details about **SDGym** and all its possibilities and features, please check the
-[documentation site](https://sdv-dev.github.io/SDGym/).
-
-There you can learn more about
-[how to contribute to SDGym](https://HDI-Project.github.io/SDGym/community/contributing.html)
-in order to help us developing new features or cool ideas.
+The output will be a leaderboard like the one shown above.
 
 # Related Projects
 
@@ -379,6 +343,7 @@ active development.
 
 
 # References
+
 [1] Lei Xu, Maria Skoularidou, Alfredo Cuesta-Infante, Kalyan Veeramachaneni. "Modeling tabular data using conditional gan." (2019) [(pdf)](https://papers.nips.cc/paper/8953-modeling-tabular-data-using-conditional-gan.pdf)
 
 [2] C. Chow, Cong Liu. "Approximating discrete probability distributions with dependence trees." (1968) [(pdf)](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.133.9772&rep=rep1&type=pdf)
