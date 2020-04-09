@@ -65,7 +65,8 @@ corresponding publications when applicable.
 
 ## Leaderboard
 
-This is the leaderboard with the scores that the SDGym Synthesizer obtained on the SDGym Benchmark.
+This is the leaderboard with the scores that the SDGym Synthesizer obtained on the SDGym Benchmark,
+which is also available for download as a CSV file here: [leaderboard.csv](sdgym/leaderboard.csv).
 
 ### Gaussian Mixture Simulated Data
 
