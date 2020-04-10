@@ -3,8 +3,8 @@
 **SDGym** evaluates the performance of **Synthesizers**.
 
 A Synthesizer is a Python function (or class method) that takes as input a numpy matrix with some
-data, which call the real data, and outputs another numpy matrix with the same shape, filled with
-new synthetic data that has similar mathematical properties as the real one.
+data, which we call the *real* data, and outputs another numpy matrix with the same shape, filled
+with new *synthetic* data that has similar mathematical properties as the *real* one.
 
 The complete list of inputs of the synthesizer is:
 
@@ -14,12 +14,15 @@ The complete list of inputs of the synthesizer is:
 * `ordinal_columns`: a `list` with the indexes of any integer columns that should be treated as
   ordinal values.
 
+|**Note**: Columns that are not listed in either lists above are assumed to be numerical.|
+|:-|
+
 And the output is a single 2D `numpy.ndarray` with the exact same shape as the `real_data`
 matrix.
 
 ```python
 def synthesizer_function(real_data: numpy.ndarray, categorical_columns: list[int],
-                         ordinal_columns: list[int]): -> synthetic_data: numpy.ndarray
+                         ordinal_columns: list[int]) -> numpy.ndarray:
     ...
     # do all necessary steps to learn from the real data
     # and produce new synthetic data that resembles it
@@ -31,7 +34,7 @@ def synthesizer_function(real_data: numpy.ndarray, categorical_columns: list[int
 
 Apart from the benchmark functionality, SDGym implements a collection of Synthesizers which are
 either custom demo synthesizers or re-implementations of synthesizers that have been presented
-in third party publications.
+in other publications.
 
 These Synthesizers are written as Python classes that can be imported from the `sdgym.synthesizers`
 module and have the following methods:
@@ -177,16 +180,33 @@ array([[5.1774925e+01, 0.0000000e+00, 5.3538445e+04, 6.0000000e+00,
 ## Benchmarking the SDGym Synthesizers
 
 If you want to re-evaluate the performance of any of the SDGym synthesizers, all you need to
-do is to create an instance of the synthesizer and pass its `fit_sample` method to the
-`benchmark` function.
+do is pass its class directly to the `benchmark` function:
 
 ```python3
 from sdgym import benchmark
-from sdgym.synthesizers import IndependentSynthesizer
+from sdgym.synthesizers import CTGANSynthesizer
 
-synthesizer = IndependentSynthesizer()
+leaderboard = benchmark(synthesizers=CTGANSynthesizer)
+```
 
-leaderboard = benchmark(synthesizer.fit_sample)
+Alternatively, if you wanted to change any of the default hyperparameters, you can generate an
+instance with the desired values and pass it to the function.
+
+```python3
+synthesizer = CTGANSynthesizer(epochs=10)
+leaderboard = benchmark(synthesizers=synthesizer)
+```
+
+Finally, if you want to run the complete benchmark suite to re-evaluate all the existing
+synthesizers you can simply pass all the subclasses of the `BaseSynthesizer` to the function:
+
+> :warning: **WARNING**: This takes a lot of time to run!
+
+```python3
+from sdgym.synthesizers import BaseSynthesizer
+
+sdgym_synthesizers = BaseSynthesizers.__subclasses__()
+leaderboard = benchmark(synthesizers=sdgym_synthesizers)
 ```
 
 ## References

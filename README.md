@@ -24,12 +24,12 @@ for tabular data. SDGym is a project of the [Data to AI Laboratory](https://dai.
 ## What is a Synthetic Data Generator?
 
 A **Synthetic Data Generator** is a Python function (or class method) that takes as input some
-data, which call the *real* data, learns a model from it, and outputs new *synthetic* data that
+data, which we call the *real* data, learns a model from it, and outputs new *synthetic* data that
 has similar mathematical properties as the *real* one.
 
 Please refer to the [synthesizers documentation](SYNTHESIZERS.md) for instructions about how to
 implement your own Synthetic Data Generator and integrate with SDGym. You can also read about how
-to use the Synthesizers included in **SDGym** and see the current [leaderboard](SYNTHESIZERS.md#leaderboard).
+to use the ones included in **SDGym** and see the current [leaderboard](SYNTHESIZERS.md#leaderboard).
 
 ## Benchmark datasets
 
@@ -51,6 +51,13 @@ each Synthesizer obtained the best score.
 
 The complete scores table can be found in the [synthesizers document](SYNTHESIZERS.md#leaderboard)
 and it can also be downloaded as a CSV file form here: [sdgym/leaderboard.csv](sdgym/leaderboard.csv)
+
+Detailed leaderboard results for all the releases are available [in this Google Docs Spreadsheet](
+https://docs.google.com/spreadsheets/d/1hllKn_wDjkr_Yqq9uO5TlQNlj767FSaONC3vrtovaOQ/edit?usp=sharing).
+
+> :warning: **NOTE**: The following leaderboard and the detailed results for 0.2.0 are derived from
+> the paper. We are currently running all synthesizers with the new API and we will update the
+> leaderboard with the 0.2.1 release (coming soon!).
 
 ### Gaussian Mixture Simulated Data
 
@@ -115,7 +122,7 @@ more details about how to do it.
 
 # Usage
 
-## Benchmarking your Synthesizer
+## Benchmarking your own synthesizer
 
 All you need to do in order to use the SDGym Benchmark, is to import and call the `sdgym.benchmark`
 function passing it your synthesizer function:
@@ -125,6 +132,9 @@ from sdgym import benchmark
 
 scores = benchmark(synthesizers=my_synthesizer_function)
 ```
+
+* You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).
+* You can learn about different arguments for benchmark function [here](BENCHMARK.md).
 
 The output of the `benchmark` function will be a `pd.DataFrame` containing the results obtained
 by your synthesizer on each dataset, as well as the results obtained previously by the SDGym
@@ -157,18 +167,33 @@ scores = benchmark(synthesizers=sdgym_synthesizers)
 For further details about all the arguments and possibilities that the `benchmark` function offers
 please refer to the [benchmark documentation](BENCHMARK.md)
 
+# Additional References
+
+* Datasets used in SDGym are detailed [here](DATASETS.md).
+* How to write a synthesizer is detailed [here](SYNTHESIZERS.md).
+* How to use benchmark function is detailed [here](BENCHMARK.md).
+* Detailed leaderboard results for all the releases are available [here](
+https://docs.google.com/spreadsheets/d/1hllKn_wDjkr_Yqq9uO5TlQNlj767FSaONC3vrtovaOQ/edit?usp=sharing).
+
 # Related Projects
 
 ## SDV
 
 [SDV](https://github.com/HDI-Project/SDV), for Synthetic Data Vault, is the end-user library for
 synthesizing data in development under the [HDI Project](https://hdi-dai.lids.mit.edu/).
-SDV allows you to easily model and sample relational datasets using Copulas thought a simple API.
+SDV allows you to easily model and sample relational datasets using Copulas through a simple API.
 Other features include anonymization of Personal Identifiable Information (PII) and preserving
 relational integrity on sampled records.
 
+## CTGAN
+
+[CTGAN](https://github.com/sdv-dev/CTGAN) is the GAN based model for synthesizing tabular data
+presented in the [Modeling Tabular data using Conditional GAN](https://arxiv.org/abs/1907.00503)
+paper. It's also developed by the [MIT's Data to AI Lab](https://dai-lab.github.io/) and is under
+active development.
+
 ## TGAN
 
-[TGAN](https://github.com/sdv-dev/TGAN) is a GAN based model for synthesizing tabular data.
+[TGAN](https://github.com/sdv-dev/TGAN) is another GAN based model for synthesizing tabular data.
 It's also developed by the [MIT's Data to AI Lab](https://dai-lab.github.io/) and is under
 active development.

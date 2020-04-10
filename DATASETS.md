@@ -45,3 +45,7 @@ data, categorical_columns, ordinal_columns = load_dataset('adult')
 
 This will return a numpy matrix with the data that will be passed to your synthesizer function,
 as well as the list of indexes for the categorical and ordinal columns.
+
+## How to add your own dataset to SDGym?
+
+Coming soon!

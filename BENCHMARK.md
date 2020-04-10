@@ -2,16 +2,16 @@
 
 The main component of the **SDGym** project is the `sdgym.benchmark` function.
 
-As shown in the [README](README.md) quickstart, in the most simple usage scenario a synthesizer
-function can be directly passed to it:
+As shown in the [Readme](README.md) quickstart, in the most simple usage scenario a *synthesizer
+function* can be directly passed to it:
 
 ```python3
 from sdgym import benchmark
 
-scores = benchmark(my_synthesizer_function)
+scores = benchmark(synthesizers=my_synthesizer_function)
 ```
 
-This will evaluate the synthesizer function on all the datasets, produce one or more scores
+This will evaluate the *synthesizer function* on all the datasets, produce one or more scores
 for each one of them, and present them in a table alongside the scores previously obtained
 by all the SDGym Synthesizers:
 
@@ -27,9 +27,9 @@ my_synthesizer_function        0.64865  0.210103  ...             -1.964966
 However, the `benchmark` function supports a number of additional arguments that allows us
 to configure its behavior to better adapt it to our needs.
 
-## Benchmark Arguments
+## Arguments for the benchmark function
 
-The `benchmkark` function accepts the following arguments:
+The `benchmark` function accepts the following arguments:
 
 * `synthesizers (function, class, list, tuple or dict)`:
     The synthesizer or synthesizers to evaluate. It can be a single synthesizer
