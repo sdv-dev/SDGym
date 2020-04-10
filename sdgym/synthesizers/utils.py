@@ -150,7 +150,8 @@ class GeneralTransformer(Transformer):
 
             else:
                 col_t = np.zeros([len(data), info['size']])
-                col_t[np.arange(len(data)), col.astype('int32')] = 1
+                idx = list(map(info['i2s'].index, col))
+                col_t[np.arange(len(data)), idx] = 1
                 data_t.append(col_t)
                 self.output_info.append((info['size'], 'softmax'))
 
@@ -184,7 +185,8 @@ class GeneralTransformer(Transformer):
             else:
                 current = data[:, :info['size']]
                 data = data[:, info['size']:]
-                data_t[:, id_] = np.argmax(current, axis=1)
+                idx = np.argmax(current, axis=1)
+                data_t[:, id_] = list(map(info['i2s'].__getitem__, idx))
 
         return data_t
 
@@ -242,7 +244,8 @@ class GMMTransformer(Transformer):
                 values += [features, probs]
             else:
                 col_t = np.zeros([len(data), info['size']])
-                col_t[np.arange(len(data)), current.astype('int32')] = 1
+                idx = list(map(info['i2s'].index, current))
+                col_t[np.arange(len(data)), idx] = 1
                 values.append(col_t)
 
         return np.concatenate(values, axis=1)
@@ -272,7 +275,8 @@ class GMMTransformer(Transformer):
             else:
                 current = data[:, st:st + info['size']]
                 st += info['size']
-                data_t[:, id_] = np.argmax(current, axis=1)
+                idx = np.argmax(current, axis=1)
+                data_t[:, id_] = list(map(info['i2s'].__getitem__, idx))
 
         return data_t
 
@@ -350,7 +354,8 @@ class BGMTransformer(Transformer):
                 values += [features, probs_onehot]
             else:
                 col_t = np.zeros([len(data), info['size']])
-                col_t[np.arange(len(data)), current.astype('int32')] = 1
+                idx = list(map(info['i2s'].index, current))
+                col_t[np.arange(len(data)), idx] = 1
                 values.append(col_t)
 
         return np.concatenate(values, axis=1)
@@ -384,7 +389,8 @@ class BGMTransformer(Transformer):
             else:
                 current = data[:, st:st + info['size']]
                 st += info['size']
-                data_t[:, id_] = np.argmax(current, axis=1)
+                idx = np.argmax(current, axis=1)
+                data_t[:, id_] = list(map(info['i2s'].__getitem__, idx))
 
         return data_t
 

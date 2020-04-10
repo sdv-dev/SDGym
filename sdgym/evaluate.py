@@ -146,14 +146,6 @@ def _prepare_ml_problem(train, test, metadata):
     return x_train, y_train, x_test, y_test, _MODELS[metadata['problem_type']]
 
 
-def _model_repr(model_class, model_kwargs):
-    model_kwargs = ', '.join(
-        '{}={}'.format(key, value)
-        for key, value in model_kwargs.items()
-    )
-    return '{}({})'.format(model_class.__name__, model_kwargs)
-
-
 def _evaluate_multi_classification(train, test, metadata):
     """Score classifiers using f1 score and the given train and test data.
 
@@ -173,7 +165,7 @@ def _evaluate_multi_classification(train, test, metadata):
     for model_spec in classifiers:
         model_class = model_spec['class']
         model_kwargs = model_spec.get('kwargs', dict())
-        model_repr = _model_repr(model_class, model_kwargs)
+        model_repr = model_class.__name__
         model = model_class(**model_kwargs)
 
         LOGGER.info('Evaluating using multiclass classifier %s', model_repr)
@@ -207,7 +199,7 @@ def _evaluate_binary_classification(train, test, metadata):
     for model_spec in classifiers:
         model_class = model_spec['class']
         model_kwargs = model_spec.get('kwargs', dict())
-        model_repr = _model_repr(model_class, model_kwargs)
+        model_repr = model_class.__name__
         model = model_class(**model_kwargs)
 
         LOGGER.info('Evaluating using binary classifier %s', model_repr)
@@ -241,7 +233,7 @@ def _evaluate_regression(train, test, metadata):
     for model_spec in regressors:
         model_class = model_spec['class']
         model_kwargs = model_spec.get('kwargs', dict())
-        model_repr = _model_repr(model_class, model_kwargs)
+        model_repr = model_class.__name__
         model = model_class(**model_kwargs)
 
         LOGGER.info('Evaluating using regressor %s', model_repr)
@@ -360,10 +352,10 @@ _EVALUATORS = {
 }
 
 
-def evaluate(train, test, synthesized_data, metadata):
+def compute_scores(train, test, synthesized_data, metadata):
     evaluator = _EVALUATORS[metadata['problem_type']]
 
-    performance = evaluator(synthesized_data, test, metadata)
-    performance['distance'] = _compute_distance(train, synthesized_data, metadata)
+    scores = evaluator(synthesized_data, test, metadata)
+    scores['distance'] = _compute_distance(train, synthesized_data, metadata)
 
-    return performance
+    return scores

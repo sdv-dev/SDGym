@@ -217,6 +217,8 @@ class MedganSynthesizer(BaseSynthesizer):
                         optimizerG.step()
 
     def sample(self, n):
+        self.generator.eval()
+        self.decoder.eval()
 
         steps = n // self.batch_size + 1
         data = []
