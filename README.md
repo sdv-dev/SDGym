@@ -19,19 +19,17 @@
 # Overview
 
 Synthetic Data Gym (SDGym) is a framework to benchmark the performance of synthetic data generators
-for non-temporal tabular data. SDGym is based on the paper [Modeling Tabular data using Conditional
-GAN](https://arxiv.org/abs/1907.00503), and the project is part of the [Data to AI
-Laboratory](https://dai.lids.mit.edu/) at MIT.
+for tabular data. SDGym is a project of the [Data to AI Laboratory](https://dai.lids.mit.edu/) at MIT.
 
 ## What is a Synthetic Data Generator?
 
 A **Synthetic Data Generator** is a Python function (or class method) that takes as input some
-data, which call the real data, learns from it, and outputs new synthetic data that has similar
-mathematical properties as the real one.
+data, which call the *real* data, learns a model from it, and outputs new *synthetic* data that
+has similar mathematical properties as the *real* one.
 
-Please refer to the [SYNTHESIZERS.md](SYNTHESIZERS.md) documentation for instructions about how
-to implement your own Synthetic Data Generator, as well for references about how to use the
-ones included in **SDGym** and the current [LEADERBOARD](SYNTHESIZERS.md#leaderboard)
+Please refer to the [synthesizers documentation](SYNTHESIZERS.md) for instructions about how to
+implement your own Synthetic Data Generator and integrate with SDGym. You can also read about how
+to use the Synthesizers included in **SDGym** and see the current [leaderboard](SYNTHESIZERS.md#leaderboard).
 
 ## Benchmark datasets
 
@@ -43,8 +41,53 @@ that are in three families:
 * Real world datasets
 
 Further details about how these datasets were generated can be found in the [Modeling Tabular
-data using Conditional GAN](https://arxiv.org/abs/1907.00503) paper and in the [DATASETS.md](
-DATASETS.md) document.
+data using Conditional GAN](https://arxiv.org/abs/1907.00503) paper and in the [datasets
+documentation](DATASETS.md).
+
+## Current Leaderboard
+
+This is a summary of the current SDGym leaderboard, showing the number of datasets in which
+each Synthesizer obtained the best score.
+
+The complete scores table can be found in the [synthesizers document](SYNTHESIZERS.md#leaderboard)
+and it can also be downloaded as a CSV file form here: [sdgym/leaderboard.csv](sdgym/leaderboard.csv)
+
+### Gaussian Mixture Simulated Data
+
+| Synthesizer         |   0.2.0 |
+|---------------------|---------|
+| CLBNSynthesizer     |       1 |
+| PrivBNSynthesizer   |       0 |
+| MedganSynthesizer   |       0 |
+| VEEGANSynthesizer   |       0 |
+| TableganSynthesizer |       0 |
+| TVAESynthesizer     |       4 |
+| CTGANSynthesizer    |       1 |
+
+### Bayesian Networks Simulated Data
+
+| Synthesizer         |   0.2.0 |
+|---------------------|---------|
+| CLBNSynthesizer     |       0 |
+| PrivBNSynthesizer   |       6 |
+| MedganSynthesizer   |       1 |
+| VEEGANSynthesizer   |       0 |
+| TableganSynthesizer |       0 |
+| TVAESynthesizer     |       3 |
+| CTGANSynthesizer    |       0 |
+
+### Real World Datasets
+
+| Synthesizer         |   0.2.0 |
+|---------------------|---------|
+| CLBNSynthesizer     |       0 |
+| PrivBNSynthesizer   |       0 |
+| MedganSynthesizer   |       0 |
+| VEEGANSynthesizer   |       0 |
+| TableganSynthesizer |       0 |
+| TVAESynthesizer     |       5 |
+| CTGANSynthesizer    |       3 |
+
 
 # Install
 
@@ -72,7 +115,7 @@ more details about how to do it.
 
 # Usage
 
-## Benchmark
+## Benchmarking your Synthesizer
 
 All you need to do in order to use the SDGym Benchmark, is to import and call the `sdgym.benchmark`
 function passing it your synthesizer function:
@@ -80,7 +123,7 @@ function passing it your synthesizer function:
 ```python3
 from sdgym import benchmark
 
-scores = benchmark(my_synthesizer_function)
+scores = benchmark(synthesizers=my_synthesizer_function)
 ```
 
 The output of the `benchmark` function will be a `pd.DataFrame` containing the results obtained
@@ -96,48 +139,23 @@ IdentitySynthesizer            0.82440  0.659250  ...             -1.705487
 my_synthesizer_function        0.64865  0.210103  ...             -1.964966
 ```
 
-Further details about all the arguments and possibilities that the `benchmark` function offers
-can be found in the [BENCHMARK.md](BENCHMARK.md) document.
+## Benchmarking the SDGym Synthesizers
 
-## Using the SDGym Synthesizers
+If you want to run the SDGym benchmark on the SDGym Synthesizers you can directly pass the
+corresponding class, or a list of classes, to the `benchmark` function.
 
-Apart from the benchmark functionality, **SDGym** implements a collection of **Synthesizers** which
-are either custom demo synthesizers or re-implementations of synthesizers that have been presented
-in third party publications. Further details about these **Synthesizers** and their performance
-can be found in the [SYNTHESIZERS.md](SYNTHESIZERS.md) document.
-
-Here's a short example about how to use one of them, the `IndependentSynthesizer`, to model and
-sample the `adult` dataset.
+For example, if you want to run the complete benchmark suite to evaluate all the existing
+synthesizers you can run (this will take a lot of time to run!):
 
 ```python3
-from sdgym import load_dataset
-from sdgym.synthesizers import IndependentSynthesizer
+from sdgym.synthesizers import BaseSynthesizer
 
-data, categorical_columns, ordinal_columns = load_dataset('adult')
-
-synthesizer = IndependentSynthesizer()
-synthesizer.fit(data, categorical_columns, ordinal_columns)
-
-sampled = synthesizer.sample(3)
+sdgym_synthesizers = BaseSynthesizers.__subclasses__()
+scores = benchmark(synthesizers=sdgym_synthesizers)
 ```
 
-This will return a numpy matrix of sampeld data with the same columns as the original data and
-as many rows as we have requested:
-
-```
-array([[5.1774925e+01, 0.0000000e+00, 5.3538445e+04, 6.0000000e+00,
-        8.9999313e+00, 2.0000000e+00, 1.0000000e+00, 3.0000000e+00,
-        2.0000000e+00, 1.0000000e+00, 3.7152294e-04, 1.9912617e-04,
-        1.0767025e+01, 0.0000000e+00, 0.0000000e+00],
-       [6.4843109e+01, 0.0000000e+00, 2.6462553e+05, 1.2000000e+01,
-        8.9993210e+00, 1.0000000e+00, 0.0000000e+00, 1.0000000e+00,
-        0.0000000e+00, 0.0000000e+00, 5.3685449e-06, 1.9797031e-03,
-        2.2253288e+01, 0.0000000e+00, 0.0000000e+00],
-       [6.5659584e+01, 5.0000000e+00, 3.6158912e+05, 8.0000000e+00,
-        9.0010223e+00, 0.0000000e+00, 1.2000000e+01, 3.0000000e+00,
-        0.0000000e+00, 0.0000000e+00, 1.0562389e-03, 0.0000000e+00,
-        3.9998917e+01, 0.0000000e+00, 0.0000000e+00]], dtype=float32)
-```
+For further details about all the arguments and possibilities that the `benchmark` function offers
+please refer to the [benchmark documentation](BENCHMARK.md)
 
 # Related Projects
 
