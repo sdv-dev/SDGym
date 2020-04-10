@@ -209,6 +209,10 @@ sdgym_synthesizers = BaseSynthesizers.__subclasses__()
 leaderboard = benchmark(synthesizers=sdgym_synthesizers)
 ```
 
+## How to add your own Synthesizer to SDGym?
+
+Coming soon!
+
 ## References
 
 [1] Lei Xu, Maria Skoularidou, Alfredo Cuesta-Infante, Kalyan Veeramachaneni. "Modeling tabular data using conditional gan." (2019) [(pdf)](https://papers.nips.cc/paper/8953-modeling-tabular-data-using-conditional-gan.pdf)
