@@ -198,15 +198,29 @@ leaderboard = benchmark(synthesizers=synthesizer)
 ```
 
 Finally, if you want to run the complete benchmark suite to re-evaluate all the existing
-synthesizers you can simply pass all the subclasses of the `BaseSynthesizer` to the function:
+synthesizers you can simply pass the list of them to the function:
 
 > :warning: **WARNING**: This takes a lot of time to run!
 
 ```python3
-from sdgym.synthesizers import BaseSynthesizer
+from sdgym.synthesizers import (
+    CLBNSynthesizer, CTGANSynthesizer, IdentitySynthesizer, IndependentSynthesizer,
+    MedganSynthesizer, PrivBNSynthesizer, TableganSynthesizer, TVAESynthesizer,
+    UniformSynthesizer, VEEGANSynthesizer)
 
-sdgym_synthesizers = BaseSynthesizers.__subclasses__()
-leaderboard = benchmark(synthesizers=sdgym_synthesizers)
+all_synthesizers = [
+    CLBNSynthesizer,
+    IdentitySynthesizer,
+    IndependentSynthesizer,
+    MedganSynthesizer,
+    PrivBNSynthesizer,
+    TableganSynthesizer,
+    CTGANSynthesizer,
+    TVAESynthesizer,
+    UniformSynthesizer,
+    VEEGANSynthesizer,
+]
+leaderboard = benchmark(synthesizers=all_synthesizers)
 ```
 
 ## How to add your own Synthesizer to SDGym?

@@ -68,20 +68,20 @@ https://docs.google.com/spreadsheets/d/1hllKn_wDjkr_Yqq9uO5TlQNlj767FSaONC3vrtov
 | MedganSynthesizer   |       0 |
 | VEEGANSynthesizer   |       0 |
 | TableganSynthesizer |       0 |
-| TVAESynthesizer     |       4 |
+| **TVAESynthesizer** |       4 |
 | CTGANSynthesizer    |       1 |
 
 ### Bayesian Networks Simulated Data
 
-| Synthesizer         |   0.2.0 |
-|---------------------|---------|
-| CLBNSynthesizer     |       0 |
-| PrivBNSynthesizer   |       6 |
-| MedganSynthesizer   |       1 |
-| VEEGANSynthesizer   |       0 |
-| TableganSynthesizer |       0 |
-| TVAESynthesizer     |       3 |
-| CTGANSynthesizer    |       0 |
+| Synthesizer           |   0.2.0 |
+|-----------------------|---------|
+| CLBNSynthesizer       |       0 |
+| **PrivBNSynthesizer** |       6 |
+| MedganSynthesizer     |       1 |
+| VEEGANSynthesizer     |       0 |
+| TableganSynthesizer   |       0 |
+| TVAESynthesizer       |       3 |
+| CTGANSynthesizer      |       0 |
 
 ### Real World Datasets
 
@@ -92,7 +92,7 @@ https://docs.google.com/spreadsheets/d/1hllKn_wDjkr_Yqq9uO5TlQNlj767FSaONC3vrtov
 | MedganSynthesizer   |       0 |
 | VEEGANSynthesizer   |       0 |
 | TableganSynthesizer |       0 |
-| TVAESynthesizer     |       5 |
+| **TVAESynthesizer** |       5 |
 | CTGANSynthesizer    |       3 |
 
 
@@ -158,10 +158,24 @@ For example, if you want to run the complete benchmark suite to evaluate all the
 synthesizers you can run (this will take a lot of time to run!):
 
 ```python3
-from sdgym.synthesizers import BaseSynthesizer
+from sdgym.synthesizers import (
+    CLBNSynthesizer, CTGANSynthesizer, IdentitySynthesizer, IndependentSynthesizer,
+    MedganSynthesizer, PrivBNSynthesizer, TableganSynthesizer, TVAESynthesizer,
+    UniformSynthesizer, VEEGANSynthesizer)
 
-sdgym_synthesizers = BaseSynthesizers.__subclasses__()
-scores = benchmark(synthesizers=sdgym_synthesizers)
+all_synthesizers = [
+    CLBNSynthesizer,
+    IdentitySynthesizer,
+    IndependentSynthesizer,
+    MedganSynthesizer,
+    PrivBNSynthesizer,
+    TableganSynthesizer,
+    CTGANSynthesizer,
+    TVAESynthesizer,
+    UniformSynthesizer,
+    VEEGANSynthesizer,
+]
+scores = benchmark(synthesizers=all_synthesizers)
 ```
 
 For further details about all the arguments and possibilities that the `benchmark` function offers
