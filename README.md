@@ -53,47 +53,43 @@ The complete scores table can be found in the [synthesizers document](SYNTHESIZE
 and it can also be downloaded as a CSV file form here: [sdgym/leaderboard.csv](sdgym/leaderboard.csv)
 
 Detailed leaderboard results for all the releases are available [in this Google Docs Spreadsheet](
-https://docs.google.com/spreadsheets/d/1hllKn_wDjkr_Yqq9uO5TlQNlj767FSaONC3vrtovaOQ/edit?usp=sharing).
-
-> :warning: **NOTE**: The following leaderboard and the detailed results for 0.2.0 are derived from
-> the paper. We are currently running all synthesizers with the new API and we will update the
-> leaderboard with the 0.2.1 release (coming soon!).
+https://docs.google.com/spreadsheets/d/1iNJDVG_tIobcsGUG5Gn4iLa565vVhz2U/edit).
 
 ### Gaussian Mixture Simulated Data
 
-| Synthesizer         |   0.2.0 |
-|---------------------|---------|
-| CLBNSynthesizer     |       1 |
-| PrivBNSynthesizer   |       0 |
-| MedganSynthesizer   |       0 |
-| VEEGANSynthesizer   |       0 |
-| TableganSynthesizer |       0 |
-| **TVAESynthesizer** |       4 |
-| CTGANSynthesizer    |       1 |
+| Synthesizer         |   0.2.1 |   0.2.0 |
+|---------------------|---------|---------|
+| CLBNSynthesizer     |       0 |       1 |
+| CTGANSynthesizer    |       0 |       1 |
+| MedganSynthesizer   |       0 |       0 |
+| PrivBNSynthesizer   |       0 |       0 |
+| TVAESynthesizer     |       5 |       4 |
+| TableganSynthesizer |       1 |       0 |
+| VEEGANSynthesizer   |       0 |       0 |
 
 ### Bayesian Networks Simulated Data
 
-| Synthesizer           |   0.2.0 |
-|-----------------------|---------|
-| CLBNSynthesizer       |       0 |
-| **PrivBNSynthesizer** |       6 |
-| MedganSynthesizer     |       1 |
-| VEEGANSynthesizer     |       0 |
-| TableganSynthesizer   |       0 |
-| TVAESynthesizer       |       3 |
-| CTGANSynthesizer      |       0 |
+| Synthesizer         |   0.2.1 |   0.2.0 |
+|---------------------|---------|---------|
+| CLBNSynthesizer     |       0 |       0 |
+| CTGANSynthesizer    |       0 |       0 |
+| MedganSynthesizer   |       4 |       1 |
+| PrivBNSynthesizer   |       3 |       6 |
+| TVAESynthesizer     |       1 |       3 |
+| TableganSynthesizer |       0 |       0 |
+| VEEGANSynthesizer   |       0 |       0 |
 
 ### Real World Datasets
 
-| Synthesizer         |   0.2.0 |
-|---------------------|---------|
-| CLBNSynthesizer     |       0 |
-| PrivBNSynthesizer   |       0 |
-| MedganSynthesizer   |       0 |
-| VEEGANSynthesizer   |       0 |
-| TableganSynthesizer |       0 |
-| **TVAESynthesizer** |       5 |
-| CTGANSynthesizer    |       3 |
+| Synthesizer         |   0.2.1 |   0.2.0 |
+|---------------------|---------|---------|
+| CLBNSynthesizer     |       0 |       0 |
+| CTGANSynthesizer    |       3 |       3 |
+| MedganSynthesizer   |       0 |       0 |
+| PrivBNSynthesizer   |       0 |       0 |
+| TVAESynthesizer     |       5 |       5 |
+| TableganSynthesizer |       0 |       0 |
+| VEEGANSynthesizer   |       0 |       0 |
 
 
 # Install
@@ -187,7 +183,7 @@ please refer to the [benchmark documentation](BENCHMARK.md)
 * How to write a synthesizer is detailed [here](SYNTHESIZERS.md).
 * How to use benchmark function is detailed [here](BENCHMARK.md).
 * Detailed leaderboard results for all the releases are available [here](
-https://docs.google.com/spreadsheets/d/1hllKn_wDjkr_Yqq9uO5TlQNlj767FSaONC3vrtovaOQ/edit?usp=sharing).
+https://docs.google.com/spreadsheets/d/1iNJDVG_tIobcsGUG5Gn4iLa565vVhz2U/edit).
 
 # Related Projects
 

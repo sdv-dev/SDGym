@@ -57,6 +57,10 @@ development_requires = [
     # Advanced testing
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
+
+    # Generate results summary
+    'XlsxWriter>=1.2.8,<1.3',
+    'tabulate>=0.8.3,<0.9',
 ]
 
 setup(
@@ -92,6 +96,6 @@ setup(
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.2.0',
+    version='0.2.1.dev1',
     zip_safe=False,
 )

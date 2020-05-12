@@ -1,12 +1,16 @@
+import logging
 import os
 import shutil
 import subprocess
+from datetime import datetime
 
 import numpy as np
 
 from sdgym.constants import CATEGORICAL, ORDINAL
 from sdgym.synthesizers.base import BaseSynthesizer
 from sdgym.synthesizers.utils import Transformer
+
+LOGGER = logging.getLogger(__name__)
 
 
 def try_mkdirs(dir):
@@ -17,8 +21,10 @@ def try_mkdirs(dir):
 class PrivBNSynthesizer(BaseSynthesizer):
     """docstring for IdentitySynthesizer."""
 
-    def __init__(self):
+    def __init__(self, theta=20, max_samples=25000):
         assert os.path.exists("privbayes/privBayes.bin")
+        self.theta = theta
+        self.max_samples = max_samples
 
     def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         self.data = data.copy()
@@ -53,7 +59,7 @@ class PrivBNSynthesizer(BaseSynthesizer):
         with open("__privbn_tmp/data/real.dat", "w") as f:
             n = len(self.data)
             np.random.shuffle(self.data)
-            n = min(n, 50000)
+            n = min(n, self.max_samples)
             for i in range(n):
                 row = self.data[i]
                 for id_, col in enumerate(row):
@@ -66,7 +72,11 @@ class PrivBNSynthesizer(BaseSynthesizer):
                 print(file=f)
 
         privbayes = os.path.realpath("__privbn_tmp/privBayes.bin")
-        # subprocess.call([privbayes, "real", str(n), "1", "5"], cwd="__privbn_tmp")
-        subprocess.call([privbayes, "real", str(n), "1", "10"], cwd="__privbn_tmp")
+        arguments = [privbayes, "real", str(n), "1", str(self.theta)]
+        LOGGER.info('Calling %s', ' '.join(arguments))
+        start = datetime.utcnow()
+        subprocess.call(arguments, cwd="__privbn_tmp")
+        LOGGER.info('Elapsed %s', datetime.utcnow() - start)
 
-        return np.loadtxt("__privbn_tmp/output/syn_real_eps10_theta10_iter0.dat")
+        return np.loadtxt(
+            "__privbn_tmp/output/syn_real_eps10_theta{}_iter0.dat".format(self.theta))
