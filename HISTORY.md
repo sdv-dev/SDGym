@@ -1,5 +1,13 @@
 # History
 
+## v0.2.1 - 2020-05-12
+
+New updated leaderboard and minor improvements.
+
+### New Features
+
+* Add parameters for PrivBNSynthesizer - [Issue #37](https://github.com/sdv-dev/SDGym/issues/37) by @csala
+
 ## v0.2.0 - 2020-04-10
 
 New Becnhmark API and lots of improved documentation.
