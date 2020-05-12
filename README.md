@@ -57,39 +57,39 @@ https://docs.google.com/spreadsheets/d/1iNJDVG_tIobcsGUG5Gn4iLa565vVhz2U/edit).
 
 ### Gaussian Mixture Simulated Data
 
-|                     |   0.2.1 |   0.2.0 |
-|---------------------|---------|---------|
-| CLBNSynthesizer     |       0 |       1 |
-| CTGANSynthesizer    |       0 |       1 |
-| MedganSynthesizer   |       0 |       0 |
-| PrivBNSynthesizer   |       0 |       0 |
-| TVAESynthesizer     |       5 |       4 |
-| TableganSynthesizer |       1 |       0 |
-| VEEGANSynthesizer   |       0 |       0 |
+| Synthesizer         |   0.2.1.dev0 |   0.2.0 |
+|---------------------|--------------|---------|
+| CLBNSynthesizer     |            0 |       1 |
+| CTGANSynthesizer    |            0 |       1 |
+| MedganSynthesizer   |            0 |       0 |
+| PrivBNSynthesizer   |            0 |       0 |
+| TVAESynthesizer     |            5 |       4 |
+| TableganSynthesizer |            1 |       0 |
+| VEEGANSynthesizer   |            0 |       0 |
 
 ### Bayesian Networks Simulated Data
 
-|                     |   0.2.1 |   0.2.0 |
-|---------------------|---------|---------|
-| CLBNSynthesizer     |       0 |       0 |
-| CTGANSynthesizer    |       0 |       0 |
-| MedganSynthesizer   |       4 |       1 |
-| PrivBNSynthesizer   |       3 |       6 |
-| TVAESynthesizer     |       1 |       3 |
-| TableganSynthesizer |       0 |       0 |
-| VEEGANSynthesizer   |       0 |       0 |
+| Synthesizer         |   0.2.1.dev0 |   0.2.0 |
+|---------------------|--------------|---------|
+| CLBNSynthesizer     |            0 |       0 |
+| CTGANSynthesizer    |            0 |       0 |
+| MedganSynthesizer   |            4 |       1 |
+| PrivBNSynthesizer   |            3 |       6 |
+| TVAESynthesizer     |            1 |       3 |
+| TableganSynthesizer |            0 |       0 |
+| VEEGANSynthesizer   |            0 |       0 |
 
 ### Real World Datasets
 
-|                     |   0.2.1 |   0.2.0 |
-|---------------------|---------|---------|
-| CLBNSynthesizer     |       0 |       0 |
-| CTGANSynthesizer    |       3 |       3 |
-| MedganSynthesizer   |       0 |       0 |
-| PrivBNSynthesizer   |       0 |       0 |
-| TVAESynthesizer     |       5 |       5 |
-| TableganSynthesizer |       0 |       0 |
-| VEEGANSynthesizer   |       0 |       0 |
+| Synthesizer         |   0.2.1.dev0 |   0.2.0 |
+|---------------------|--------------|---------|
+| CLBNSynthesizer     |            0 |       0 |
+| CTGANSynthesizer    |            3 |       3 |
+| MedganSynthesizer   |            0 |       0 |
+| PrivBNSynthesizer   |            0 |       0 |
+| TVAESynthesizer     |            5 |       5 |
+| TableganSynthesizer |            0 |       0 |
+| VEEGANSynthesizer   |            0 |       0 |
 
 
 # Install

@@ -28,6 +28,7 @@ def load_results(files):
     for filename in files:
         version = os.path.basename(filename).replace('.csv', '')
         version_results = pd.read_csv(filename, index_col=0)
+        version_results.index.name = 'Synthesizer'
         for synthesizer in DROP_SYNTHESIZERS:
             try:
                 version_results.drop(synthesizer, inplace=True)
@@ -56,7 +57,7 @@ def get_summary(results, summary_function):
 
     for section in [GM_TITLE, BN_TITLE, RW_TITLE]:
         section_df = pd.DataFrame(summary[section])
-        section_df.index.name = 'tuner'
+        section_df.index.name = 'Synthesizer'
         columns = section_df.columns.sort_values(ascending=False)
         summary[section] = section_df[columns]
 
@@ -144,7 +145,8 @@ if __name__ == '__main__':
     for title, section in summary.items():
         print('\n### {}\n'.format(title))
         print(tabulate.tabulate(
-            section,
+            section.reset_index(),
             tablefmt='github',
-            headers=section.columns
+            headers=['Synthesizer'] + list(section.columns),
+            showindex=False
         ))
