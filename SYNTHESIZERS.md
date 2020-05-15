@@ -114,7 +114,7 @@ which is also available for download as a CSV file here: [leaderboard.csv](sdgym
 ## Compile C++ dependencies
 
 Some of the third party synthesizers that SDGym offers, like the `PrivBNSynthesizer`, require
-dependencies written in C++ need to be compiled.
+dependencies written in C++ that need to be compiled before they can be used.
 
 In order to be able to use them, please do:
 
