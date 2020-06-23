@@ -121,12 +121,21 @@ more details about how to do it.
 ## Benchmarking your own synthesizer
 
 All you need to do in order to use the SDGym Benchmark, is to import and call the `sdgym.benchmark`
-function passing it your synthesizer function:
+function passing it your synthesizer function and the settings that you want to use for the
+evaluation.
+
+For example, if we want to evaluate a simple synthesizer function in the `census` dataset
+we can execute:
 
 ```python3
+import numpy as np
 from sdgym import benchmark
 
-scores = benchmark(synthesizers=my_synthesizer_function)
+def my_synthesizer_function(real_data, categorical_columns, ordinal_columns):
+    """dummy synthesizer that just returns a permutation of the real data."""
+    return np.random.permutation(real_data)
+
+scores = benchmark(synthesizers=my_synthesizer_function, datasets=['census'])
 ```
 
 * You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).
@@ -153,7 +162,7 @@ corresponding class, or a list of classes, to the `benchmark` function.
 For example, if you want to run the complete benchmark suite to evaluate all the existing
 synthesizers you can run (this will take a lot of time to run!):
 
-```python3
+```python
 from sdgym.synthesizers import (
     CLBNSynthesizer, CTGANSynthesizer, IdentitySynthesizer, IndependentSynthesizer,
     MedganSynthesizer, PrivBNSynthesizer, TableganSynthesizer, TVAESynthesizer,

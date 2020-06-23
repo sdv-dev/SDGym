@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""The setup script."""
+
 from setuptools import find_packages, setup
 
-with open('README.md') as readme_file:
+with open('README.md', encoding='utf-8') as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.md') as history_file:
+with open('HISTORY.md', encoding='utf-8') as history_file:
     history = history_file.read()
 
 install_requires = [
@@ -20,14 +22,15 @@ install_requires = [
     'torchvision>=0.3.0',
 ]
 
+setup_requires = [
+    'pytest-runner>=2.11.1',
+]
+
 tests_require = [
     'pytest>=3.4.2',
     'pytest-cov>=2.6.0',
-]
-
-
-setup_requires = [
-    'pytest-runner>=2.11.1',
+    'jupyter>=1.0.0,<2',
+    'rundoc>=0.4.3,<0.5',
 ]
 
 development_requires = [
@@ -64,7 +67,7 @@ development_requires = [
 ]
 
 setup(
-    author="MIT Data To AI Lab",
+    author='MIT Data To AI Lab',
     author_email='dailabmit@gmail.com',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
@@ -77,21 +80,21 @@ setup(
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     description=(
-        "A framework to benchmark the performance of synthetic data generators "
-        "for non-temporal tabular data"),
+        'A framework to benchmark the performance of synthetic data generators '
+        'for non-temporal tabular data'),
     extras_require={
         'dev': development_requires + tests_require,
         'test': tests_require,
     },
     include_package_data=True,
     install_requires=install_requires,
-    license="MIT license",
+    license='MIT license',
     long_description=readme + '\n\n' + history,
     long_description_content_type='text/markdown',
     keywords='machine learning synthetic data benchmark generative models',
     name='sdgym',
     packages=find_packages(include=['sdgym', 'sdgym.*']),
-    python_requires='>=3.6',
+    python_requires='>=3.6,<3.8',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
