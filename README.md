@@ -9,7 +9,9 @@
 [![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
 <!--[![Coverage Status](https://codecov.io/gh/sdv-dev/SDGym/branch/master/graph/badge.svg)](https://codecov.io/gh/sdv-dev/SDGym)-->
 
-# SDGym - Synthetic Data Gym
+<p style="display:none;">
+  <img width=15% src="resources/header.png">
+</p>
 
 * License: [MIT](https://github.com/sdv-dev/SDGym/blob/master/LICENSE)
 * Development Status: [Pre-Alpha](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
