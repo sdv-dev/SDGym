@@ -115,6 +115,7 @@ html_context = {
 html_theme_options = {
     'collapse_navigation': False,
     'display_version': False,
+    'logo_only': True
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -126,7 +127,7 @@ html_theme_options = {
 # pixels large.
 html_favicon = 'images/dai-logo-white.ico'
 
-html_logo = 'images/dai-logo-white-200.png'
+html_logo = '../resources/header_light.png'
 
 # -- Options for HTMLHelp output ---------------------------------------
 
