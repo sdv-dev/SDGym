@@ -74,7 +74,7 @@ def compute_benchmark(synthesizer, datasets=DEFAULT_DATASETS, iterations=3):
                 scores = compute_scores(train, test, synthesized, meta)
                 scores['dataset'] = dataset_name
                 scores['iteration'] = iteration
-                scores['fit_time'] = end - start
+                scores['time'] = end - start
                 results.append(scores)
             except Exception:
                 LOGGER.exception('Error computing scores for %s on dataset %s - iteration %s',
@@ -118,7 +118,7 @@ def _summarize_scores(scores):
         pandas.Series:
             Summarized scores series in the format described above.
     """
-    scores = scores.drop(['distance', 'iteration', 'name', 'fit_time', 'inference_time'], axis=1, errors='ignore')
+    scores = scores.drop(['distance', 'iteration', 'name', 'time'], axis=1, errors='ignore')
 
     grouped = scores.groupby('dataset').apply(_dataset_summary)
     if isinstance(grouped, pd.Series):
