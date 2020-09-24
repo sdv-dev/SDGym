@@ -6,7 +6,7 @@ import pandas as pd
 from pomegranate import BayesianNetwork
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.metrics import accuracy_score, f1_score, r2_score
+from sklearn.metrics import accuracy_score, f1_score, r2_score, roc_auc_score
 from sklearn.mixture import GaussianMixture
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.preprocessing import OneHotEncoder
@@ -180,13 +180,15 @@ def _evaluate_multi_classification(train, test, metadata):
         acc = accuracy_score(y_test, pred)
         macro_f1 = f1_score(y_test, pred, average='macro')
         micro_f1 = f1_score(y_test, pred, average='micro')
+        auc = roc_auc_score(y_test, pred, multi_class='ovo', average='macro')
 
         performance.append(
             {
                 "name": model_repr,
                 "accuracy": acc,
                 "macro_f1": macro_f1,
-                "micro_f1": micro_f1
+                "micro_f1": micro_f1,
+                "auc": auc,
             }
         )
 
@@ -213,12 +215,14 @@ def _evaluate_binary_classification(train, test, metadata):
 
         acc = accuracy_score(y_test, pred)
         f1 = f1_score(y_test, pred, average='binary')
+        auc = roc_auc_score(y_test, pred)
 
         performance.append(
             {
                 "name": model_repr,
                 "accuracy": acc,
-                "f1": f1
+                "f1": f1,
+                "auc": auc,
             }
         )
 
