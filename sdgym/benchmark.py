@@ -2,6 +2,7 @@ import logging
 import os
 import types
 from datetime import datetime
+from functools import partial
 from timeit import default_timer as timer
 
 import pandas as pd
@@ -74,7 +75,7 @@ def compute_benchmark(synthesizer, datasets=DEFAULT_DATASETS, iterations=3):
                 scores = compute_scores(train, test, synthesized, meta)
                 scores['dataset'] = dataset_name
                 scores['iteration'] = iteration
-                scores['time'] = end - start
+                scores['duration'] = end - start
                 results.append(scores)
             except Exception:
                 LOGGER.exception('Error computing scores for %s on dataset %s - iteration %s',
@@ -83,15 +84,20 @@ def compute_benchmark(synthesizer, datasets=DEFAULT_DATASETS, iterations=3):
     return pd.concat(results, sort=False)
 
 
-def _dataset_summary(grouped_df):
+def _dataset_summary(grouped_df, add_std):
     dataset = grouped_df.name
     scores = grouped_df.mean().dropna()
     scores.index = dataset + '/' + scores.index
 
+    if add_std:
+        errors = grouped_df.std().dropna()
+        errors.index = dataset + '/' + errors.index + '/std'
+        scores = pd.concat([scores, errors])
+
     return scores
 
 
-def _summarize_scores(scores):
+def _summarize_scores(scores, add_std):
     """Computes a summary of the scores obtained by a synthesizer.
 
     The raw scores returned by the ``compute_benchmark`` function are summarized
@@ -118,9 +124,9 @@ def _summarize_scores(scores):
         pandas.Series:
             Summarized scores series in the format described above.
     """
-    scores = scores.drop(['distance', 'iteration', 'name', 'time'], axis=1, errors='ignore')
+    scores = scores.drop(['distance', 'iteration', 'name'], axis=1, errors='ignore')
 
-    grouped = scores.groupby('dataset').apply(_dataset_summary)
+    grouped = scores.groupby('dataset').apply(partial(_dataset_summary, add_std=add_std))
     if isinstance(grouped, pd.Series):
         # If more than one dataset, grouped result is a series
         # with a multilevel index.
@@ -192,7 +198,7 @@ def _get_synthesizers(synthesizers):
 
 
 def benchmark(synthesizers, datasets=DEFAULT_DATASETS, iterations=3, add_leaderboard=True,
-              leaderboard_path=LEADERBOARD_PATH, replace_existing=True):
+              leaderboard_path=LEADERBOARD_PATH, replace_existing=True, add_std=False):
     """Compute the benchmark scores for the synthesizers and return a leaderboard.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -224,6 +230,8 @@ def benchmark(synthesizers, datasets=DEFAULT_DATASETS, iterations=3, add_leaderb
         replace_existing (bool):
             Whether to replace old scores or keep them in the returned leaderboard. Defaults
             to ``True``.
+        add_std (bool):
+            Whether to include the std for each dataset over the number of iterations. Defaults to False.
 
     Returns:
         pandas.DataFrame:
@@ -234,7 +242,7 @@ def benchmark(synthesizers, datasets=DEFAULT_DATASETS, iterations=3, add_leaderb
     scores = list()
     for synthesizer_name, synthesizer in synthesizers.items():
         synthesizer_scores = compute_benchmark(synthesizer, datasets, iterations)
-        summary_row = _summarize_scores(synthesizer_scores)
+        summary_row = _summarize_scores(synthesizer_scores, add_std)
         summary_row.name = synthesizer_name
         scores.append(summary_row)
 
@@ -246,7 +254,9 @@ def benchmark(synthesizers, datasets=DEFAULT_DATASETS, iterations=3, add_leaderb
             leaderboard_path,
             index_col=0,
             parse_dates=['timestamp']
-        )[leaderboard.columns]
+        )
+        columns = [col for col in leaderboard.columns if col in old_leaderboard.columns]
+        old_leaderboard = old_leaderboard[columns]
         if replace_existing:
             old_leaderboard.drop(labels=[leaderboard.index], errors='ignore', inplace=True)
 

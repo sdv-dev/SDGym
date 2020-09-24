@@ -111,8 +111,8 @@ class FeatureMaker:
                 
                 # hacky way to assume count data
                 # TODO: additional COUNT type
-                if cmin == int(cmin) and cmax == int(cmax):
-                    col = np.round(col)
+                # if cmin == int(cmin) and cmax == int(cmax):
+                #     col = np.round(col)
                 
                 if cmin >= 0 and cmax >= 1e3:
                     feature = np.log(np.maximum(col, 1e-2))
