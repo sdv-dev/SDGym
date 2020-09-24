@@ -75,7 +75,7 @@ def compute_benchmark(synthesizer, datasets=DEFAULT_DATASETS, iterations=3):
                 scores = compute_scores(train, test, synthesized, meta)
                 scores['dataset'] = dataset_name
                 scores['iteration'] = iteration
-                scores['duration'] = end - start
+                scores['exec_time (s)'] = end - start
                 results.append(scores)
             except Exception:
                 LOGGER.exception('Error computing scores for %s on dataset %s - iteration %s',
