@@ -77,6 +77,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     description=(
@@ -94,7 +95,7 @@ setup(
     keywords='machine learning synthetic data benchmark generative models',
     name='sdgym',
     packages=find_packages(include=['sdgym', 'sdgym.*']),
-    python_requires='>=3.6,<3.8',
+    python_requires='>=3.6,<3.9',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
