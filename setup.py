@@ -19,6 +19,8 @@ install_requires = [
     'scipy>=1.3.0,<2',
     'torch>=1.1.0,<2',
     'torchvision>=0.3.0',
+    'sdv>=0.4.4.dev0,<0.5',
+    'ctgan>=0.2.2.dev1,<0.3',
 ]
 
 setup_requires = [

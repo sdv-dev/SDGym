@@ -7,7 +7,7 @@ import pandas as pd
 
 from sdgym.data import load_dataset
 from sdgym.evaluate import compute_scores
-from sdgym.synthesizers import BaseSynthesizer
+from sdgym.synthesizers.base import BaseSynthesizer
 
 LOGGER = logging.getLogger(__name__)
 

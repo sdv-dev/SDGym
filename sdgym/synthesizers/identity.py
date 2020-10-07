@@ -13,4 +13,4 @@ class IdentitySynthesizer(BaseSynthesizer):
         self.data = pd.DataFrame(train_data)
 
     def sample(self, samples):
-        return self.data.sample(samples, replace=True).values
+        return self.data.sample(samples, replace=True).to_numpy().copy()
