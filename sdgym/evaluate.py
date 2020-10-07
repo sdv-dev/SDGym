@@ -286,30 +286,26 @@ def _mapper(data, metadata):
 
 def _evaluate_bayesian_likelihood(train, test, metadata):
     LOGGER.info('Evaluating using Bayesian Likelihood.')
-    structure_json = json.dumps(metadata['structure'])
-    bn1 = BayesianNetwork.from_json(structure_json)
 
     train_mapped = _mapper(train, metadata)
     test_mapped = _mapper(test, metadata)
-    prob = []
-    for item in train_mapped:
-        try:
-            prob.append(bn1.probability(item))
-        except Exception:
-            prob.append(1e-8)
 
-    l1 = np.mean(np.log(np.asarray(prob) + 1e-8))
-
+    structure_json = json.dumps(metadata['structure'])
+    bn1 = BayesianNetwork.from_json(structure_json)
     bn2 = BayesianNetwork.from_structure(train_mapped, bn1.structure)
-    prob = []
 
+    l1 = np.mean(np.log(bn1.probability(train_mapped) + 1e-8))
+
+    l2_probs = []
+    failed = 0
     for item in test_mapped:
         try:
-            prob.append(bn2.probability(item))
-        except Exception:
-            prob.append(1e-8)
+            l2_probs.append(bn2.probability([item]))
+        except ValueError:
+            failed += 1
+            l2_probs.append(0)
 
-    l2 = np.mean(np.log(np.asarray(prob) + 1e-8))
+    l2 = np.mean(np.log(np.asarray(l2_probs) + 1e-8))
 
     return pd.DataFrame([{
         "name": "Bayesian Likelihood",
