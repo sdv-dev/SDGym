@@ -1,14 +1,14 @@
 # Benchmark
 
-The main component of the **SDGym** project is the `sdgym.benchmark` function.
+The main component of the **SDGym** project is the `sdgym.run` function.
 
 As shown in the [Readme](README.md) quickstart, in the most simple usage scenario a *synthesizer
 function* can be directly passed to it:
 
 ```python3
-from sdgym import benchmark
+import sdgym
 
-scores = benchmark(synthesizers=my_synthesizer_function)
+scores = sdgym.run(synthesizers=my_synthesizer_function)
 ```
 
 This will evaluate the *synthesizer function* on all the datasets, produce one or more scores
@@ -24,12 +24,12 @@ IdentitySynthesizer            0.82440  0.659250  ...             -1.705487
 my_synthesizer_function        0.64865  0.210103  ...             -1.964966
 ```
 
-However, the `benchmark` function supports a number of additional arguments that allows us
+However, the `sdgym.run` function supports a number of additional arguments that allows us
 to configure its behavior to better adapt it to our needs.
 
-## Arguments for the benchmark function
+## Arguments for the sdgym.run function
 
-The `benchmark` function accepts the following arguments:
+The `sdgym.run` function accepts the following arguments:
 
 * `synthesizers (function, class, list, tuple or dict)`:
     The synthesizer or synthesizers to evaluate. It can be a single synthesizer
@@ -54,22 +54,22 @@ The `benchmark` function accepts the following arguments:
 
 #### Synthesizer Classes
 
-The most basic scenario is to pass a synthesizer function, but the benchmark function
+The most basic scenario is to pass a synthesizer function, but the sdgym.run function
 can also be used to evaluate any `Synthesizer` class, as far as it is a subclass of
 `sdgym.synthesizers.BaseSynthesizer`.
 
 For example, if we want to evaluate the `IndependentSynthesizer` we can do so by passing the
-class directly to the benchmark function:
+class directly to the sdgym.run function:
 
 ```python3
 from sdgym.synthesizers import IndependentSynthesizer
 
-scores = benchmark(IndependentSynthesizer)
+scores = sdgym.run(IndependentSynthesizer)
 ```
 
 #### Evaluating multiple Synthesizers
 
-The benchmark function can be used to evaluate more than one Synthesizer at a time.
+The sdgym.run function can be used to evaluate more than one Synthesizer at a time.
 
 In order to do this, all you need to do is pass a list of functions instead of a single
 object.
@@ -82,7 +82,7 @@ synthesizers = [
     my_synthesizer_function,
     IndependentSynthesizer
 ]
-scores = benchmark(synthesizers=synthesizers)
+scores = sdgym.run(synthesizers=synthesizers)
 ```
 
 Or, if we wanted to evaluate all the SDGym Synthesizers at once (note that this takes a lot of time
@@ -91,7 +91,7 @@ to run!), we could just pass all the subclasses of `BaseSynthesizer`:
 ```python3
 from sdgym.synthesizers import BaseSynthesizer
 
-scores = benchmark(BaseSynthesizers.__subclasses__())
+scores = sdgym.run(BaseSynthesizers.__subclasses__())
 ```
 
 #### Customizing the Synthesizer names.
@@ -107,12 +107,12 @@ synthesizers = {
     'My Synthesizer': my_synthesizer_function,
     'SDGym Independent': IndependentSynthesizer
 }
-scores = benchmark(synthesizers=synthesizers)
+scores = sdgym.run(synthesizers=synthesizers)
 ```
 
 ## Datasets
 
-By default, the benchmark function will run on [all the SDGym Datasets](DATASETS.md).
+By default, the sdgym.run function will run on [all the SDGym Datasets](DATASETS.md).
 
 However, this takes a lot of time to run, and sometimes we will be interested in only a few of
 them.
@@ -124,7 +124,7 @@ datasets we can do:
 
 ```python3
 datasets = ['adult', 'intrusion']
-scores = benchmark(my_synthesizer_function, datasets=datasets)
+scores = sdgym.run(my_synthesizer_function, datasets=datasets)
 ```
 
 ## Iterations
@@ -136,7 +136,7 @@ The number of evaluates performed on each synthesizer and dataset combination ca
 by passing a different value to the `iterations` argument:
 
 ```python3
-scores = benchmark(my_synthesizer_function, iterations=10)
+scores = sdgym.run(my_synthesizer_function, iterations=10)
 ```
 
 ## Leaderboard
@@ -147,14 +147,14 @@ of scores obtained by the [SDGym Synthesizers](SYNTHESIZERS.md).
 This behavior can be optionally disabled by passing `add_leaderboard=False`.
 
 ```python3
-scores = benchmark(my_synthesizer_function, add_leaderboard=False)
+scores = sdgym.run(my_synthesizer_function, add_leaderboard=False)
 ```
 
 Also, alternatively, if you want to maintain your own version of the leaderboard, you can pass
 the path to your leaderboard CSV file:
 
 ```python3
-scores = benchmark(my_synthesizer_function, leaderboard_path='path/to/my/leaderboard.csv')
+scores = sdgym.run(my_synthesizer_function, leaderboard_path='path/to/my/leaderboard.csv')
 ```
 
 Finally, if the name of the synthesizer that is being evaluated already exists in the leaderboard

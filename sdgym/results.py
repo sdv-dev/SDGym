@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 from collections import defaultdict
+from datetime import datetime
 
 import pandas as pd
 import tabulate
@@ -21,6 +22,9 @@ RW_COLUMNS = ['adult/f1', 'census/f1', 'credit/f1', 'covtype/macro_f1',
               'news/r2']
 
 DROP_SYNTHESIZERS = ['IdentitySynthesizer', 'IndependentSynthesizer', 'UniformSynthesizer']
+
+BASE_DIR = os.path.dirname(__file__)
+LEADERBOARD_PATH = os.path.join(BASE_DIR, 'leaderboard.csv')
 
 
 def load_results(files):
@@ -59,7 +63,7 @@ def get_summary(results, summary_function):
         section_df = pd.DataFrame(summary[section])
         section_df.index.name = 'Synthesizer'
         columns = section_df.columns.sort_values(ascending=False)
-        summary[section] = section_df[columns]
+        summary[section] = section_df[columns].fillna('N/E')
 
     return summary
 
@@ -71,7 +75,7 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
         dfs = {None: dfs}
 
     for df_name, df in dfs.items():
-        df = df.reset_index()
+        df = df.fillna('N/E').reset_index()
         startrow += bool(df_name)
         df.to_excel(writer, sheet_name=name, startrow=startrow + 1, index=False, header=False)
 
@@ -128,6 +132,80 @@ def summarize_results(input_paths, output_path):
     write_results(results, summary, output_path)
 
     return summary
+
+
+def _dataset_summary(grouped_df):
+    dataset = grouped_df.name[1]
+    scores = grouped_df.mean().dropna()
+    scores.index = dataset + '/' + scores.index
+
+    return scores
+
+
+def make_leaderboard(scores, add_leaderboard=True, leaderboard_path=None,
+                     replace_existing=True, output_path=None):
+    """Make a leaderboard out of individual synthesizer scores.
+
+    If ``add_leaderboard`` is ``True``, append the obtained scores to the leaderboard
+    stored in the ``lederboard_path``. By default, the leaderboard used is the one which
+    is included in the package, which contains the scores obtained by the SDGym Synthesizers.
+
+    If ``replace_existing`` is ``True`` and any of the given synthesizers already existed
+    in the leaderboard, the old rows are dropped.
+
+    Args:
+        add_leaderboard (bool):
+            Whether to append the obtained scores to the previous leaderboard or not. Defaults
+            to ``True``.
+        leaderboard_path (str):
+            Path to where the leaderboard is stored. Defaults to the leaderboard included
+            with the package, which contains the scores obtained by the SDGym synthesizers.
+        replace_existing (bool):
+            Whether to replace old scores or keep them in the returned leaderboard. Defaults
+            to ``True``.
+        output_path (str):
+            If an ``output_path`` is given, the generated leaderboard will be stored in the
+            indicated path as a CSV file. The given path must be a complete path including
+            the ``.csv`` filename.
+
+    Returns:
+        pandas.DataFrame or None:
+            If not ``output_path`` is given, a table containing one row per synthesizer and
+            one column for each dataset and metric is returned. Otherwise, there is no output.
+    """
+    if isinstance(scores, str) and os.path.isdir(scores):
+        scores = [
+            pd.read_csv(os.path.join(scores, path), index_col=0)
+            for path in os.listdir(scores)
+        ]
+
+    scores = pd.concat(scores, ignore_index=True)
+    scores = scores.drop(['distance', 'iteration', 'name'], axis=1, errors='ignore')
+
+    leaderboard = scores.groupby(['synthesizer', 'dataset']).apply(_dataset_summary)
+    if isinstance(leaderboard, pd.Series):
+        leaderboard = leaderboard.droplevel(-2).unstack(-1)
+    else:
+        leaderboard = leaderboard.droplevel(-1)
+
+    leaderboard['timestamp'] = datetime.utcnow()
+
+    if add_leaderboard:
+        old_leaderboard = pd.read_csv(
+            leaderboard_path or LEADERBOARD_PATH,
+            index_col=0,
+            parse_dates=['timestamp']
+        ).reindex(columns=leaderboard.columns)
+        if replace_existing:
+            old_leaderboard.drop(labels=[leaderboard.index], errors='ignore', inplace=True)
+
+        leaderboard = old_leaderboard.append(leaderboard, sort=False)
+
+    if output_path:
+        os.makedirs(os.path.dirname(os.path.realpath(output_path)), exist_ok=True)
+        leaderboard.to_csv(output_path)
+    else:
+        return leaderboard
 
 
 if __name__ == '__main__':

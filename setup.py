@@ -21,6 +21,8 @@ install_requires = [
     'torchvision>=0.3.0',
     'sdv>=0.4.4.dev0,<0.5',
     'ctgan>=0.2.2.dev1,<0.3',
+    'humanfriendly>=8.2,<9',
+    'psutil>=5.7,<6',
 ]
 
 setup_requires = [
@@ -61,6 +63,7 @@ development_requires = [
     # Advanced testing
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
+    'importlib-metadata<2,>=0.12',
 
     # Generate results summary
     'XlsxWriter>=1.2.8,<1.3',
@@ -85,6 +88,11 @@ setup(
         'A framework to benchmark the performance of synthetic data generators '
         'for non-temporal tabular data'
     ),
+    entry_points={
+        'console_scripts': [
+            'sdgym=sdgym.__main__:main'
+        ],
+    },
     extras_require={
         'dev': development_requires + tests_require,
         'test': tests_require,

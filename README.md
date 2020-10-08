@@ -122,28 +122,28 @@ more details about how to do it.
 
 ## Benchmarking your own synthesizer
 
-All you need to do in order to use the SDGym Benchmark, is to import and call the `sdgym.benchmark`
-function passing it your synthesizer function and the settings that you want to use for the
-evaluation.
+All you need to do in order to use the SDGym Benchmark, is to import `sdgym` and call its
+`run` function passing it your synthesizer function and the settings that you want to use
+for the evaluation.
 
-For example, if we want to evaluate a simple synthesizer function in the `census` dataset
+For example, if we want to evaluate a simple synthesizer function in the `adult` dataset
 we can execute:
 
 ```python3
 import numpy as np
-from sdgym import benchmark
+import sdgym
 
 def my_synthesizer_function(real_data, categorical_columns, ordinal_columns):
     """dummy synthesizer that just returns a permutation of the real data."""
     return np.random.permutation(real_data)
 
-scores = benchmark(synthesizers=my_synthesizer_function, datasets=['census'])
+scores = sdgym.run(synthesizers=my_synthesizer_function, datasets=['adult'])
 ```
 
 * You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).
-* You can learn about different arguments for benchmark function [here](BENCHMARK.md).
+* You can learn about different arguments for `sdgym.run` function [here](BENCHMARK.md).
 
-The output of the `benchmark` function will be a `pd.DataFrame` containing the results obtained
+The output of the `sdgym.run` function will be a `pd.DataFrame` containing the results obtained
 by your synthesizer on each dataset, as well as the results obtained previously by the SDGym
 synthesizers:
 
@@ -159,7 +159,7 @@ my_synthesizer_function        0.64865  0.210103  ...             -1.964966
 ## Benchmarking the SDGym Synthesizers
 
 If you want to run the SDGym benchmark on the SDGym Synthesizers you can directly pass the
-corresponding class, or a list of classes, to the `benchmark` function.
+corresponding class, or a list of classes, to the `sdgym.run` function.
 
 For example, if you want to run the complete benchmark suite to evaluate all the existing
 synthesizers you can run (this will take a lot of time to run!):
@@ -182,7 +182,7 @@ all_synthesizers = [
     UniformSynthesizer,
     VEEGANSynthesizer,
 ]
-scores = benchmark(synthesizers=all_synthesizers)
+scores = sdgym.run(synthesizers=all_synthesizers)
 ```
 
 For further details about all the arguments and possibilities that the `benchmark` function offers
