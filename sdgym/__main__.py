@@ -10,7 +10,10 @@ import tabulate
 import sdgym
 
 
-def logging_setup(logfile, verbose):
+def _env_setup(logfile, verbose):
+    gc.enable()
+    warnings.simplefilter('ignore')
+
     FORMAT = '%(asctime)s - %(process)d - %(levelname)s - %(name)s - %(module)s - %(message)s'
     logging.basicConfig(filename=logfile, level=logging.INFO, format=FORMAT)
     logging.getLogger().setLevel(logging.WARN)
@@ -19,12 +22,21 @@ def logging_setup(logfile, verbose):
 
 
 def _run(args):
-    logging_setup(args.logfile, args.verbose)
+    _env_setup(args.logfile, args.verbose)
 
     if args.distributed:
-        from dask.distributed import Client, LocalCluster
+        try:
+            from dask.distributed import Client, LocalCluster
+        except ImportError as ie:
+            ie.msg += (
+                '\n\nIt seems like `dask` is not installed.\n'
+                'Please install `dask` and `distributed` using:\n'
+                '\n    pip install dask distributed'
+            )
+            raise
+
         client = Client(LocalCluster(n_workers=args.workers, threads_per_worker=args.threads))
-        client.register_worker_callbacks(lambda: logging_setup(args.logfile, args.verbose))
+        client.register_worker_callbacks(lambda: _env_setup(args.logfile, args.verbose))
 
         workers = 'dask'
     else:
@@ -114,9 +126,6 @@ def _get_parser():
 def main():
     pd.set_option('max_columns', 1000)
     pd.set_option('max_rows', 1000)
-
-    gc.enable()
-    warnings.simplefilter('ignore')
 
     parser = _get_parser()
     if len(sys.argv) < 2:

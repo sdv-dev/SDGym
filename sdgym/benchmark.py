@@ -155,7 +155,8 @@ def progress(*futures):
         logger = logging.getLogger('distributed')
 
         def _draw_bar(self, remaining, all, **kwargs):   # pylint: disable=W0221,W0622
-            frac = (1 - remaining / all) if all else 0
+            done = all - remaining
+            frac = (done / all) if all else 0
 
             if frac > self.last + 0.01:
                 self.last = int(frac * 100) / 100
@@ -167,8 +168,8 @@ def progress(*futures):
                 eta = datetime.utcnow() + remaining_time
 
                 elapsed = timedelta(seconds=self.elapsed)
-                msg = "[{0:<{1}}] | {2}% Completed | {3} | {4} | {5}".format(
-                    bar, self.width, percent, elapsed, remaining_time, eta
+                msg = "[{0:<{1}}] | {2}/{3} ({4}%) Completed | {5} | {6} | {7}".format(
+                    bar, self.width, done, all, percent, elapsed, remaining_time, eta
                 )
                 self.logger.info(msg)
                 LOGGER.info(msg)
@@ -190,7 +191,7 @@ def _run_on_dask(scorer_args, verbose):
     except ImportError as ie:
         ie.msg += (
             '\n\nIt seems like `dask` is not installed.\n'
-            'Please install dask and distributed using:\n'
+            'Please install `dask` and `distributed` using:\n'
             '\n    pip install dask distributed'
         )
         raise
