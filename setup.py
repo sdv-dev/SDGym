@@ -23,6 +23,9 @@ install_requires = [
     'ctgan>=0.2.2.dev1,<0.3',
     'humanfriendly>=8.2,<9',
     'psutil>=5.7,<6',
+    'tqdm>=4,<5',
+    'XlsxWriter>=1.2.8,<1.3',
+    'tabulate>=0.8.3,<0.9',
 ]
 
 setup_requires = [
@@ -64,10 +67,6 @@ development_requires = [
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
     'importlib-metadata<2,>=0.12',
-
-    # Generate results summary
-    'XlsxWriter>=1.2.8,<1.3',
-    'tabulate>=0.8.3,<0.9',
 ]
 
 setup(
