@@ -10,10 +10,16 @@ __email__ = 'dailabmit@gmail.com'
 __license__ = 'MIT'
 __version__ = '0.2.2.dev0'
 
-from sdgym.benchmark import benchmark
+from sdgym import benchmark, results, synthesizers
+from sdgym.benchmark import run
 from sdgym.data import load_dataset
+from sdgym.synthesizers import get_all_synthesizers
 
 __all__ = [
     'benchmark',
-    'load_dataset'
+    'synthesizers',
+    'results',
+    'run',
+    'load_dataset',
+    'get_all_synthesizers',
 ]
