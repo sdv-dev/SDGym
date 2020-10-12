@@ -53,7 +53,8 @@ def _run(args):
         iterations=args.iterations,
         output_path=args.output_path,
         cache_dir=args.cache_dir,
-        workers=workers
+        workers=workers,
+        show_progress=args.progress
     )
     if lb is not None:
         print(lb)
@@ -114,6 +115,8 @@ def _get_parser():
                      help='Name of the log file.')
     run.add_argument('-v', '--verbose', action='store_true',
                      help='Be verbose.')
+    run.add_argument('-p', '--progress', action='store_true',
+                     help='Print a progress bar using tqdm.')
 
     # make-leaderboard
     make_leaderboard = action.add_parser('make-leaderboard',
