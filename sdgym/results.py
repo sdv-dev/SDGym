@@ -75,7 +75,7 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
         dfs = {None: dfs}
 
     for df_name, df in dfs.items():
-        df = df.fillna('N/E').reset_index()
+        df = df.fillna('N/E').sort_index().reset_index()
         startrow += bool(df_name)
         df.to_excel(writer, sheet_name=name, startrow=startrow + 1, index=False, header=False)
 
