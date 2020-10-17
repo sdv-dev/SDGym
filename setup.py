@@ -14,7 +14,7 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
 install_requires = [
     'numpy>=1.15.4,<2',
     'pandas>=0.23.4,<2',
-    'pomegranate>=0.13.0,<0.14',
+    'pomegranate>=0.13.0,<0.13.5',
     'scikit-learn>=0.20,<0.24',
     'scipy>=1.3.0,<2',
     'torch>=1.1.0,<2',
@@ -109,6 +109,6 @@ setup(
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.2.2.dev0',
+    version='0.2.2.dev1',
     zip_safe=False,
 )
