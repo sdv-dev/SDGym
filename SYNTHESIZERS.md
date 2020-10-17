@@ -57,14 +57,19 @@ corresponding publications when applicable.
 |Name|Description|Reference|
 |:--|:--|:--|
 |[IdentitySynthesizer](sdgym/synthesizers/identity.py)|The synthetic data is the same as training data.||
-|[UniformSynthesizer](sdgym/synthesizers/uniform.py)|Each column in the synthetic data is sampled independently and uniformly.||
 |[IndependentSynthesizer](sdgym/synthesizers/independent.py)|Each column in the synthetic data is sampled independently. Continuous columns are modeled by Gaussian mixture model. Discrete columns are sampled from the PMF of training data.||
+|[UniformSynthesizer](sdgym/synthesizers/uniform.py)|Each column in the synthetic data is sampled independently and uniformly.||
 |[CLBNSynthesizer](sdgym/synthesizers/clbn.py)||[2]|
+|[CopulaGAN](sdgym/synthesizers/sdv.py)|[sdv.tabular.CopulaGAN](https://sdv.dev/SDV/user_guides/single_table/copulagan.html)||
+|[CTGAN](sdgym/synthesizers/sdv.py)|[sdv.tabular.CTGAN](https://sdv.dev/SDV/user_guides/single_table/ctgan.html)||
+|[CTGANSynthesizer](sdgym/synthesizers/ctgan.py)||[1]|
+|[GaussianCopulaCategorical](sdgym/synthesizers/sdv.py)|[sdv.tabular.GaussianCopula](https://sdv.dev/SDV/user_guides/single_table/gaussian_copula.html) using a CategoricalTransformer||
+|[GaussianCopulaCategoricalFuzzy](sdgym/synthesizers/sdv.py)|[sdv.tabular.GaussianCopula](https://sdv.dev/SDV/user_guides/single_table/gaussian_copula.html) using a CategoricalTransformer with `fuzzy=True`||
+|[GaussianCopulaOneHot](sdgym/synthesizers/sdv.py)|[sdv.tabular.GaussianCopula](https://sdv.dev/SDV/user_guides/single_table/gaussian_copula.html) using a OneHotEncodingTransformer||
 |[PrivBNSynthesizer](sdgym/synthesizers/privbn.py)||[3]|
+|[TVAESynthesizer](sdgym/synthesizers/tvae.py)||[1]|
 |[TableganSynthesizer](sdgym/synthesizers/tablegan.py)||[4]|
 |[VEEGANSynthesizer](sdgym/synthesizers/veegan.py)||[5]|
-|[TVAESynthesizer](sdgym/synthesizers/tvae.py)||[1]|
-|[CTGANSynthesizer](sdgym/synthesizers/ctgan.py)||[1]|
 
 ## Leaderboard
 
@@ -73,48 +78,59 @@ which is also available for download as a CSV file here: [leaderboard.csv](sdgym
 
 ### Gaussian Mixture Simulated Data
 
-|                   |grid/syn_likelihood|grid/test_likelihood|gridr/syn_likelihood|gridr/test_likelihood|ring/syn_likelihood|ring/test_likelihood|
-|-------------------|-------------------|--------------------|--------------------|---------------------|-------------------|--------------------|
-|IdentitySynthesizer|              -3.06|               -3.06|               -3.06|                -3.07|              -1.7 |               -1.7 |
-|CLBNSynthesizer    |              -3.68|               -8.62|               -3.76|               -11.6 |              -1.75|               -1.7 |
-|PrivBNSynthesizer  |              -4.33|              -21.67|               -3.98|               -13.88|              -1.82|               -1.71|
-|MedganSynthesizer  |             -10.04|              -62.93|               -9.45|               -72   |              -2.32|              -45.16|
-|VEEGANSynthesizer  |              -9.81|               -4.79|              -12.51|                -4.94|              -7.85|               -2.92|
-|TableganSynthesizer|              -8.7 |               -4.99|               -9.64|                -4.7 |              -6.38|               -2.66|
-|TVAESynthesizer    |              -2.86|              -11.26|               -3.41|                -3.2 |              -1.68|               -1.79|
-|CTGANSynthesizer   |              -5.63|               -3.69|               -8.11|                -4.31|              -3.43|               -2.19|
+| Synthesizer                    |   grid/syn_likelihood |   grid/test_likelihood |   gridr/syn_likelihood |   gridr/test_likelihood | ring/syn_likelihood   | ring/test_likelihood   |
+|--------------------------------|-----------------------|------------------------|------------------------|-------------------------|-----------------------|------------------------|
+| CLBNSynthesizer                |              -3.88316 |               -9.20214 |               -4.00839 |                -7.4328  | -1.76507342195328     | -47.1579361217972      |
+| CTGAN                          |              -8.76064 |               -5.06297 |               -8.30975 |                -5.04831 | -6.59132388962251     | -2.66528147128561      |
+| CTGANSynthesizer               |              -8.91839 |               -5.08856 |               -8.32358 |                -5.02729 | -7.1305860438021      | -2.70407618202863      |
+| CopulaGAN                      |              -8.19017 |               -5.14136 |               -8.16277 |                -5.00547 | -6.20616566233844     | -2.80004284451614      |
+| GaussianCopulaCategorical      |              -7.2354  |               -4.51105 |               -7.16437 |                -4.5434  | -3.19691185753935     | -2.15092960090006      |
+| GaussianCopulaCategoricalFuzzy |              -7.34413 |               -4.56575 |               -7.14453 |                -4.55408 | -3.17900097117842     | -2.15414841923683      |
+| GaussianCopulaOneHot           |              -7.26805 |               -4.51438 |               -7.19225 |                -4.55071 | -3.20762438182436     | -2.15449339858511      |
+| MedganSynthesizer              |              -5.82946 |              -90.342   |               -7.37063 |              -141.407   | -2.77956647170292     | -149.766976540331      |
+| PrivBNSynthesizer              |              -3.9944  |               -8.30844 |               -4.07166 |                -7.12135 | N/E                   | N/E                    |
+| TVAESynthesizer                |              -3.26779 |               -5.6578  |               -3.86723 |                -3.70828 | -1.57984123031383     | -1.93999679554369      |
+| TableganSynthesizer            |              -6.99216 |               -5.33074 |               -6.99889 |                -4.82922 | -4.74019037169834     | -2.53367543172312      |
+| VEEGANSynthesizer              |              -8.64686 |             -423.573   |              -11.4585  |                -8.90848 | -16.8306340686327     | -6.35495995600412      |
 
 ### Bayesian Networks Simulated Data
 
-|                   |asia/syn_likelihood|asia/test_likelihood|alarm/syn_likelihood|alarm/test_likelihood|child/syn_likelihood|child/test_likelihood|insurance/syn_likelihood|insurance/test_likelihood|
-|-------------------|-------------------|--------------------|--------------------|---------------------|--------------------|---------------------|------------------------|-------------------------|
-|IdentitySynthesizer|              -2.23|               -2.24|               -10.3|                -10.3|               -12  |                -12  |                   -12.8|                    -12.9|
-|CLBNSynthesizer    |              -2.44|               -2.27|               -12.4|                -11.2|               -12.6|                -12.3|                   -15.2|                    -13.9|
-|PrivBNSynthesizer  |              -2.28|               -2.24|               -11.9|                -10.9|               -12.3|                -12.2|                   -14.7|                    -13.6|
-|MedganSynthesizer  |              -2.81|               -2.59|               -10.9|                -14.2|               -14.2|                -15.4|                   -16.4|                    -16.4|
-|VEEGANSynthesizer  |              -8.11|               -4.63|               -17.7|                -14.9|               -17.6|                -17.8|                   -18.2|                    -18.1|
-|TableganSynthesizer|              -3.64|               -2.77|               -12.7|                -11.5|               -15  |                -13.3|                   -16  |                    -14.3|
-|TVAESynthesizer    |              -2.31|               -2.27|               -11.2|                -10.7|               -12.3|                -12.3|                   -14.7|                    -14.2|
-|CTGANSynthesizer   |              -2.56|               -2.31|               -14.2|                -12.6|               -13.4|                -12.7|                   -16.5|                    -14.8|
+| Synthesizer                    |   asia/syn_likelihood |   asia/test_likelihood |   alarm/syn_likelihood |   alarm/test_likelihood |   child/syn_likelihood |   child/test_likelihood |   insurance/syn_likelihood |   insurance/test_likelihood |
+|--------------------------------|-----------------------|------------------------|------------------------|-------------------------|------------------------|-------------------------|----------------------------|-----------------------------|
+| CLBNSynthesizer                |              -2.40255 |               -2.2738  |              -12.4588  |                -11.1878 |               -12.6259 |                -12.3067 |                   -15.1668 |                    -13.9176 |
+| CTGAN                          |              -4.18796 |               -2.45544 |              -15.882   |                -13.0976 |               -14.3535 |                -12.8404 |                   -17.026  |                    -14.9725 |
+| CTGANSynthesizer               |              -2.69344 |               -2.31181 |              -15.2204  |                -12.928  |               -13.8082 |                -12.8125 |                   -16.5983 |                    -14.8406 |
+| CopulaGAN                      |              -3.95607 |               -2.40401 |              -15.6881  |                -13.0529 |               -14.2472 |                -12.9165 |                   -16.9585 |                    -14.9577 |
+| GaussianCopulaCategorical      |              -2.24812 |               -3.61216 |              -12.9064  |                -15.5749 |               -16.4019 |                -15.5461 |                   -17.8379 |                    -16.5784 |
+| GaussianCopulaCategoricalFuzzy |              -2.82965 |               -3.10891 |              -14.5215  |                -14.5651 |               -16.8951 |                -15.4053 |                   -18.0283 |                    -16.5174 |
+| GaussianCopulaOneHot           |              -2.31389 |               -3.22664 |              -15.4761  |                -15.6663 |               -14.4828 |                -15.3061 |                   -17.8437 |                    -17.9075 |
+| MedganSynthesizer              |              -1.57422 |               -5.96556 |               -7.83896 |                -13.2552 |               -11.1125 |                -12.987  |                   -13.8838 |                    -15.0777 |
+| PrivBNSynthesizer              |              -2.29359 |               -2.2447  |              -12.1537  |                -11.1396 |               -12.3601 |                -12.1877 |                   -14.7018 |                    -13.6371 |
+| TVAESynthesizer                |              -2.29348 |               -2.26632 |              -11.4418  |                -10.7605 |               -12.4594 |                -12.296  |                   -14.2951 |                    -14.2367 |
+| TableganSynthesizer            |              -3.40013 |               -2.72081 |              -12.6888  |                -11.5424 |               -15.0168 |                -13.3929 |                   -16.1781 |                    -14.3188 |
+| VEEGANSynthesizer              |             -11.4923  |               -5.95271 |              -18.3861  |                -18.2109 |               -17.3143 |                -17.6815 |                   -18.3258 |                    -18.1134 |
 
 ### Real World Datasets
 
-|                   |adult/f1|census/f1|credit/f1|covtype/macro_f1|intrusion/macro_f1|mnist12/accuracy|mnist28/accuracy| news/r2|
-|-------------------|--------|---------|---------|----------------|------------------|----------------|----------------|--------|
-|IdentitySynthesizer|   0.669|    0.494|    0.72 |           0.652|             0.862|           0.886|           0.916| 0.14   |
-|CLBNSynthesizer    |   0.334|    0.31 |    0.409|           0.319|             0.384|           0.741|           0.176|-6.28   |
-|PrivBNSynthesizer  |   0.414|    0.121|    0.185|           0.27 |             0.384|           0.117|           0.081|-4.49   |
-|MedganSynthesizer  |   0.375|    0    |    0    |           0.093|             0.299|           0.091|           0.104|-8.8    |
-|VEEGANSynthesizer  |   0.235|    0.094|    0    |           0.082|             0.261|           0.194|           0.136|-6.5e+06|
-|TableganSynthesizer|   0.492|    0.358|    0.182|           0    |             0    |           0.1  |           0    |-3.09   |
-|TVAESynthesizer    |   0.626|    0.377|    0.098|           0.433|             0.511|           0.793|           0.794|-0.2    |
-|CTGANSynthesizer   |   0.601|    0.391|    0.672|           0.324|             0.528|           0.394|           0.371|-0.43   |
-
+| Synthesizer                    | adult/f1          |   census/f1 |   credit/f1 |   covtype/macro_f1 | intrusion/macro_f1   | mnist12/accuracy   | mnist28/accuracy   | news/r2            |
+|--------------------------------|-------------------|-------------|-------------|--------------------|----------------------|--------------------|--------------------|--------------------|
+| CLBNSynthesizer                | 0.305082698225735 |   0.285714  |   0.440643  |          0.329636  | 0.385243072199282    | 0.7201             | 0.16315            | -6.47183249120821  |
+| CTGAN                          | 0.608178843850075 |   0.328815  |   0.659771  |          0.31662   | 0.540598170677063    | 0.122316666666667  | 0.13775            | -0.069598047933615 |
+| CTGANSynthesizer               | 0.602407290015437 |   0.378843  |   0.523338  |          0.329751  | 0.510841888605536    | 0.14675            | 0.112466666666667  | -0.512953590553904 |
+| CopulaGAN                      | 0.606637996037602 |   0.387663  |   0.717449  |          0.326941  | 0.516588482874166    | 0.159016666666667  | 0.149233333333333  | -0.055570339707436 |
+| GaussianCopulaCategorical      | N/E               |   0         |   0         |          0.14002   | 0.176792311617512    | 0.124766666666667  | N/E                | -5.02909628931276  |
+| GaussianCopulaCategoricalFuzzy | 0.257747943010586 |   0.0535276 |   0.0103442 |          0.138726  | 0.256446581500444    | 0.1684             | 0.176016666666667  | -8.65514335573062  |
+| GaussianCopulaOneHot           | 0.198041838748949 |   0.13283   |   0         |          0.182262  | 0.331105948082712    | 0.485383333333333  | 0.493066666666667  | -36.9430938013929  |
+| MedganSynthesizer              | 0.243345396168715 |   0.136471  |   0.024403  |          0.0911309 | 0.274575506845598    | 0.376666666666667  | 0.10455            | -5.6014619622007   |
+| PrivBNSynthesizer              | 0.428731508524732 |   0.244719  |   0.010973  |          0.214713  | 0.382637188907442    | N/E                | N/E                | N/E                |
+| TVAESynthesizer                | 0.618866173537051 |   0.382321  |   0         |          0.456447  | 0.432752384609416    | 0.779116666666667  | 0.769233333333333  | -0.244782783556202 |
+| TableganSynthesizer            | 0.352537209716839 |   0.27212   |   0.270299  |          0         | N/E                  | 0.0872             | 0.082916666666667  | -5.82076678008137  |
+| VEEGANSynthesizer              | 0.162141533929063 |   0.0518164 |   0.16603   |          0.0959155 | 0.180796928285852    | 0.374683333333333  | 0.155633333333333  | -319605180.253642  |
 
 ## Compile C++ dependencies
 
 Some of the third party synthesizers that SDGym offers, like the `PrivBNSynthesizer`, require
-dependencies written in C++ need to be compiled.
+dependencies written in C++ that need to be compiled before they can be used.
 
 In order to be able to use them, please do:
 

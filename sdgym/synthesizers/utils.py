@@ -1,5 +1,8 @@
+import subprocess
+
 import numpy as np
 import pandas as pd
+import torch
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
 from sklearn.preprocessing import KBinsDiscretizer
 
@@ -433,3 +436,18 @@ class TableganTransformer(Transformer):
                 data_t[:, id_] = np.round(data_t[:, id_])
 
         return data_t
+
+
+def select_device():
+    if not torch.cuda.is_available():
+        return 'cpu'
+
+    try:
+        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+        output = subprocess.run(command, stdout=subprocess.PIPE)
+        loads = np.array(output.stdout.decode().split()).astype(float)
+        device = loads.argmin()
+    except Exception:
+        device = np.random.randint(torch.cuda.device_count())
+
+    return f'cuda:{device}'

@@ -1,5 +1,24 @@
 # History
 
+## v0.2.2 - 2020-10-17
+
+This version adds a rework of the the benchmark function and a few new synthetsizers.
+
+### New Features
+
+* New CLI with `run`, `make-leaderboard` and `make-summary` commands
+* Parallel execution via Dask or Multiprocessing
+* Download datasets without executing the benchmark
+* Support for python from 3.6 to 3.8
+
+### New Synthesizers
+
+* `sdv.tabular.CTGAN`
+* `sdv.tabular.CopulaGAN`
+* `sdv.tabular.GaussianCopulaOneHot`
+* `sdv.tabular.GaussianCopulaCategorical`
+* `sdv.tabular.GaussianCopulaCategoricalFuzzy`
+
 ## v0.2.1 - 2020-05-12
 
 New updated leaderboard and minor improvements.

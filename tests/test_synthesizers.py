@@ -1,6 +1,6 @@
 import logging
 
-from sdgym.benchmark import benchmark
+from sdgym.benchmark import run
 from sdgym.synthesizers import (
     CLBNSynthesizer, CTGANSynthesizer, IdentitySynthesizer, IndependentSynthesizer,
     MedganSynthesizer, PrivBNSynthesizer, TableganSynthesizer, TVAESynthesizer, UniformSynthesizer,
@@ -36,10 +36,10 @@ if __name__ == '__main__':
 
     for synthesizer_class in EPOCHS_SYNTHS:
         synthesizer = synthesizer_class(epochs=1)
-        benchmark(synthesizer.fit_sample, datasets=['adult'], repeat=1)
+        run(synthesizer.fit_sample, datasets=['adult'], repeat=1)
 
     for synthesizer_class in NO_INIT:
         synthesizer = synthesizer_class()
-        benchmark(synthesizer.fit_sample, datasets=['adult'], repeat=1)
+        run(synthesizer.fit_sample, datasets=['adult'], repeat=1)
 
     logging.info('All the synthesizers were executed successfully')

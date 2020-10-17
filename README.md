@@ -9,7 +9,9 @@
 [![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
 <!--[![Coverage Status](https://codecov.io/gh/sdv-dev/SDGym/branch/master/graph/badge.svg)](https://codecov.io/gh/sdv-dev/SDGym)-->
 
-# SDGym - Synthetic Data Gym
+<p style="display:none;">
+  <img width=15% src="resources/header.png">
+</p>
 
 * License: [MIT](https://github.com/sdv-dev/SDGym/blob/master/LICENSE)
 * Development Status: [Pre-Alpha](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
@@ -57,46 +59,61 @@ https://docs.google.com/spreadsheets/d/1iNJDVG_tIobcsGUG5Gn4iLa565vVhz2U/edit).
 
 ### Gaussian Mixture Simulated Data
 
-| Synthesizer         |   0.2.1 |   0.2.0 |
-|---------------------|---------|---------|
-| CLBNSynthesizer     |       0 |       1 |
-| CTGANSynthesizer    |       0 |       1 |
-| MedganSynthesizer   |       0 |       0 |
-| PrivBNSynthesizer   |       0 |       0 |
-| TVAESynthesizer     |       5 |       4 |
-| TableganSynthesizer |       1 |       0 |
-| VEEGANSynthesizer   |       0 |       0 |
+| Synthesizer                    |   0.2.2 | 0.2.1   | 0.2.0   |
+|--------------------------------|---------|---------|---------|
+| CLBNSynthesizer                |       0 | 0.0     | 1.0     |
+| CTGAN                          |       0 | N/E     | N/E     |
+| CTGANSynthesizer               |       0 | 0.0     | 1.0     |
+| CopulaGAN                      |       0 | N/E     | N/E     |
+| GaussianCopulaCategorical      |       1 | N/E     | N/E     |
+| GaussianCopulaCategoricalFuzzy |       0 | N/E     | N/E     |
+| GaussianCopulaOneHot           |       0 | N/E     | N/E     |
+| MedganSynthesizer              |       0 | 0.0     | 0.0     |
+| PrivBNSynthesizer              |       0 | 0.0     | 0.0     |
+| TVAESynthesizer                |       5 | 5.0     | 4.0     |
+| TableganSynthesizer            |       0 | 1.0     | 0.0     |
+| VEEGANSynthesizer              |       0 | 0.0     | 0.0     |
 
 ### Bayesian Networks Simulated Data
 
-| Synthesizer         |   0.2.1 |   0.2.0 |
-|---------------------|---------|---------|
-| CLBNSynthesizer     |       0 |       0 |
-| CTGANSynthesizer    |       0 |       0 |
-| MedganSynthesizer   |       4 |       1 |
-| PrivBNSynthesizer   |       3 |       6 |
-| TVAESynthesizer     |       1 |       3 |
-| TableganSynthesizer |       0 |       0 |
-| VEEGANSynthesizer   |       0 |       0 |
+| Synthesizer                    |   0.2.2 | 0.2.1   | 0.2.0   |
+|--------------------------------|---------|---------|---------|
+| CLBNSynthesizer                |       0 | 0.0     | 0.0     |
+| CTGAN                          |       0 | N/E     | N/E     |
+| CTGANSynthesizer               |       0 | 0.0     | 0.0     |
+| CopulaGAN                      |       0 | N/E     | N/E     |
+| GaussianCopulaCategorical      |       0 | N/E     | N/E     |
+| GaussianCopulaCategoricalFuzzy |       0 | N/E     | N/E     |
+| GaussianCopulaOneHot           |       0 | N/E     | N/E     |
+| MedganSynthesizer              |       4 | 4.0     | 1.0     |
+| PrivBNSynthesizer              |       3 | 3.0     | 6.0     |
+| TVAESynthesizer                |       1 | 1.0     | 3.0     |
+| TableganSynthesizer            |       0 | 0.0     | 0.0     |
+| VEEGANSynthesizer              |       0 | 0.0     | 0.0     |
 
 ### Real World Datasets
 
-| Synthesizer         |   0.2.1 |   0.2.0 |
-|---------------------|---------|---------|
-| CLBNSynthesizer     |       0 |       0 |
-| CTGANSynthesizer    |       3 |       3 |
-| MedganSynthesizer   |       0 |       0 |
-| PrivBNSynthesizer   |       0 |       0 |
-| TVAESynthesizer     |       5 |       5 |
-| TableganSynthesizer |       0 |       0 |
-| VEEGANSynthesizer   |       0 |       0 |
+| Synthesizer                    |   0.2.2 | 0.2.1   | 0.2.0   |
+|--------------------------------|---------|---------|---------|
+| CLBNSynthesizer                |       0 | 0.0     | 0.0     |
+| CTGAN                          |       1 | N/E     | N/E     |
+| CTGANSynthesizer               |       0 | 3.0     | 3.0     |
+| CopulaGAN                      |       3 | N/E     | N/E     |
+| GaussianCopulaCategorical      |       0 | N/E     | N/E     |
+| GaussianCopulaCategoricalFuzzy |       0 | N/E     | N/E     |
+| GaussianCopulaOneHot           |       0 | N/E     | N/E     |
+| MedganSynthesizer              |       0 | 0.0     | 0.0     |
+| PrivBNSynthesizer              |       0 | 0.0     | 0.0     |
+| TVAESynthesizer                |       4 | 5.0     | 5.0     |
+| TableganSynthesizer            |       0 | 0.0     | 0.0     |
+| VEEGANSynthesizer              |       0 | 0.0     | 0.0     |
 
 
 # Install
 
 ## Requirements
 
-**SDGym** has been developed and tested on [Python 3.5, and 3.6](https://www.python.org/downloads/)
+**SDGym** has been developed and tested on [Python 3.6, 3.7 and 3.8](https://www.python.org/downloads/)
 
 Also, although it is not strictly required, the usage of a [virtualenv](https://virtualenv.pypa.io/en/latest/)
 is highly recommended in order to avoid interfering with other software installed in the system
@@ -120,19 +137,28 @@ more details about how to do it.
 
 ## Benchmarking your own synthesizer
 
-All you need to do in order to use the SDGym Benchmark, is to import and call the `sdgym.benchmark`
-function passing it your synthesizer function:
+All you need to do in order to use the SDGym Benchmark, is to import `sdgym` and call its
+`run` function passing it your synthesizer function and the settings that you want to use
+for the evaluation.
+
+For example, if we want to evaluate a simple synthesizer function in the `adult` dataset
+we can execute:
 
 ```python3
-from sdgym import benchmark
+import numpy as np
+import sdgym
 
-scores = benchmark(synthesizers=my_synthesizer_function)
+def my_synthesizer_function(real_data, categorical_columns, ordinal_columns):
+    """dummy synthesizer that just returns a permutation of the real data."""
+    return np.random.permutation(real_data)
+
+scores = sdgym.run(synthesizers=my_synthesizer_function, datasets=['adult'])
 ```
 
 * You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).
-* You can learn about different arguments for benchmark function [here](BENCHMARK.md).
+* You can learn about different arguments for `sdgym.run` function [here](BENCHMARK.md).
 
-The output of the `benchmark` function will be a `pd.DataFrame` containing the results obtained
+The output of the `sdgym.run` function will be a `pd.DataFrame` containing the results obtained
 by your synthesizer on each dataset, as well as the results obtained previously by the SDGym
 synthesizers:
 
@@ -148,12 +174,12 @@ my_synthesizer_function        0.64865  0.210103  ...             -1.964966
 ## Benchmarking the SDGym Synthesizers
 
 If you want to run the SDGym benchmark on the SDGym Synthesizers you can directly pass the
-corresponding class, or a list of classes, to the `benchmark` function.
+corresponding class, or a list of classes, to the `sdgym.run` function.
 
 For example, if you want to run the complete benchmark suite to evaluate all the existing
 synthesizers you can run (this will take a lot of time to run!):
 
-```python3
+```python
 from sdgym.synthesizers import (
     CLBNSynthesizer, CTGANSynthesizer, IdentitySynthesizer, IndependentSynthesizer,
     MedganSynthesizer, PrivBNSynthesizer, TableganSynthesizer, TVAESynthesizer,
@@ -171,7 +197,7 @@ all_synthesizers = [
     UniformSynthesizer,
     VEEGANSynthesizer,
 ]
-scores = benchmark(synthesizers=all_synthesizers)
+scores = sdgym.run(synthesizers=all_synthesizers)
 ```
 
 For further details about all the arguments and possibilities that the `benchmark` function offers

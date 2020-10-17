@@ -1,33 +1,42 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""The setup script."""
+
 from setuptools import find_packages, setup
 
-with open('README.md') as readme_file:
+with open('README.md', encoding='utf-8') as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.md') as history_file:
+with open('HISTORY.md', encoding='utf-8') as history_file:
     history = history_file.read()
 
 install_requires = [
-    'matplotlib>=3.1.0,<4',
-    'numpy>=1.16.3,<1.18',
-    'pandas>=0.24.2,<0.26',
-    'pomegranate>=0.11.0,<0.12',
-    'scikit-learn>=0.21.1,<0.22',
+    'numpy>=1.15.4,<2',
+    'pandas>=0.23.4,<2',
+    'pomegranate>=0.13.0,<0.13.5',
+    'scikit-learn>=0.20,<0.24',
     'scipy>=1.3.0,<2',
     'torch>=1.1.0,<2',
     'torchvision>=0.3.0',
+    'sdv>=0.4.4.dev0,<0.5',
+    'ctgan>=0.2.2.dev1,<0.3',
+    'humanfriendly>=8.2,<9',
+    'psutil>=5.7,<6',
+    'tqdm>=4,<5',
+    'XlsxWriter>=1.2.8,<1.3',
+    'tabulate>=0.8.3,<0.9',
+]
+
+setup_requires = [
+    'pytest-runner>=2.11.1',
 ]
 
 tests_require = [
     'pytest>=3.4.2',
     'pytest-cov>=2.6.0',
-]
-
-
-setup_requires = [
-    'pytest-runner>=2.11.1',
+    'jupyter>=1.0.0,<2',
+    'rundoc>=0.4.3,<0.5',
 ]
 
 development_requires = [
@@ -57,14 +66,11 @@ development_requires = [
     # Advanced testing
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
-
-    # Generate results summary
-    'XlsxWriter>=1.2.8,<1.3',
-    'tabulate>=0.8.3,<0.9',
+    'importlib-metadata<2,>=0.12',
 ]
 
 setup(
-    author="MIT Data To AI Lab",
+    author='MIT Data To AI Lab',
     author_email='dailabmit@gmail.com',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
@@ -74,28 +80,35 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     description=(
-        "A framework to benchmark the performance of synthetic data generators "
-        "for non-temporal tabular data"),
+        'A framework to benchmark the performance of synthetic data generators '
+        'for non-temporal tabular data'
+    ),
+    entry_points={
+        'console_scripts': [
+            'sdgym=sdgym.__main__:main'
+        ],
+    },
     extras_require={
         'dev': development_requires + tests_require,
         'test': tests_require,
     },
     include_package_data=True,
     install_requires=install_requires,
-    license="MIT license",
+    license='MIT license',
     long_description=readme + '\n\n' + history,
     long_description_content_type='text/markdown',
-    keywords='machine learning synthetic data benchmark generative models',
+    keywords='machine learning synthetic data generation benchmark generative models',
     name='sdgym',
     packages=find_packages(include=['sdgym', 'sdgym.*']),
-    python_requires='>=3.6',
+    python_requires='>=3.6,<3.9',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.2.1',
+    version='0.2.2.dev1',
     zip_safe=False,
 )
