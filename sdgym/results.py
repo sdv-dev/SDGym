@@ -75,7 +75,7 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
         dfs = {None: dfs}
 
     for df_name, df in dfs.items():
-        df = df.fillna('N/E').reset_index()
+        df = df.fillna('N/E').sort_index().reset_index()
         startrow += bool(df_name)
         df.to_excel(writer, sheet_name=name, startrow=startrow + 1, index=False, header=False)
 
@@ -154,6 +154,8 @@ def make_leaderboard(scores, add_leaderboard=True, leaderboard_path=None,
     in the leaderboard, the old rows are dropped.
 
     Args:
+        scores (list):
+            List of DataFrames with scores or paths to CSV files.
         add_leaderboard (bool):
             Whether to append the obtained scores to the previous leaderboard or not. Defaults
             to ``True``.
@@ -197,7 +199,7 @@ def make_leaderboard(scores, add_leaderboard=True, leaderboard_path=None,
             parse_dates=['timestamp']
         ).reindex(columns=leaderboard.columns)
         if replace_existing:
-            old_leaderboard.drop(labels=[leaderboard.index], errors='ignore', inplace=True)
+            old_leaderboard.drop(labels=leaderboard.index, errors='ignore', inplace=True)
 
         leaderboard = old_leaderboard.append(leaderboard, sort=False)
 

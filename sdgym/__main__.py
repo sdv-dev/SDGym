@@ -6,6 +6,7 @@ import warnings
 
 import pandas as pd
 import tabulate
+import tqdm
 
 import sdgym
 
@@ -15,10 +16,10 @@ def _env_setup(logfile, verbose):
     warnings.simplefilter('ignore')
 
     FORMAT = '%(asctime)s - %(process)d - %(levelname)s - %(name)s - %(module)s - %(message)s'
-    logging.basicConfig(filename=logfile, level=logging.INFO, format=FORMAT)
+    level = logging.INFO if verbose else logging.WARN
+    logging.basicConfig(filename=logfile, level=level, format=FORMAT)
+    logging.getLogger('sdgym').setLevel(level)
     logging.getLogger().setLevel(logging.WARN)
-    if verbose:
-        logging.getLogger('sdgym.benchmark').setLevel(logging.INFO)
 
 
 def _run(args):
@@ -52,7 +53,8 @@ def _run(args):
         iterations=args.iterations,
         output_path=args.output_path,
         cache_dir=args.cache_dir,
-        workers=workers
+        workers=workers,
+        show_progress=args.progress
     )
     if lb is not None:
         print(lb)
@@ -75,6 +77,12 @@ def _make_summary(args):
             headers=['Synthesizer'] + list(section.columns),
             showindex=False
         ))
+
+
+def _download_datasets(args):
+    _env_setup(args.logfile, args.verbose)
+    for dataset in tqdm.tqdm(args.datasets):
+        sdgym.data.load_dataset(dataset)
 
 
 def _get_parser():
@@ -107,6 +115,8 @@ def _get_parser():
                      help='Name of the log file.')
     run.add_argument('-v', '--verbose', action='store_true',
                      help='Be verbose.')
+    run.add_argument('-p', '--progress', action='store_true',
+                     help='Print a progress bar using tqdm.')
 
     # make-leaderboard
     make_leaderboard = action.add_parser('make-leaderboard',
@@ -115,10 +125,21 @@ def _get_parser():
     make_leaderboard.add_argument('input', help='Input path with results.')
     make_leaderboard.add_argument('output', help='Output file.')
 
+    # make-summary
     make_summary = action.add_parser('make-summary', help='Summarize multiple leaderboards.')
     make_summary.set_defaults(action=_make_summary)
     make_summary.add_argument('input', nargs='+', help='Input path with results.')
     make_summary.add_argument('output', help='Output file.')
+
+    # download-datasets
+    download = action.add_parser('download-datasets', help='Download datasets.')
+    download.set_defaults(action=_download_datasets)
+    download.add_argument('-d', '--datasets', nargs='+', default=sdgym.benchmark.DEFAULT_DATASETS,
+                          help='Datasets/s to be downloaded. Accepts multiple names.')
+    download.add_argument('-v', '--verbose', action='store_true',
+                          help='Be verbose.')
+    download.add_argument('-l', '--logfile', type=str,
+                          help='Name of the log file.')
 
     return parser
 

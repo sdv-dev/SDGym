@@ -1,5 +1,6 @@
 """Main SDGym benchmarking module."""
 
+import io
 import logging
 import multiprocessing as mp
 import os
@@ -37,6 +38,17 @@ DEFAULT_DATASETS = [
     "news",
     "ring"
 ]
+
+
+class TqdmLogger(io.StringIO):
+
+    _buffer = ''
+
+    def write(self, buf):
+        self._buffer = buf.strip('\r\n\t ')
+
+    def flush(self):
+        LOGGER.info(self._buffer)
 
 
 def _used_memory():
@@ -209,7 +221,7 @@ def _run_on_dask(scorer_args, verbose):
 
 def run(synthesizers, datasets=None, iterations=3, add_leaderboard=True,
         leaderboard_path=None, replace_existing=True, workers=1,
-        cache_dir=None, output_path=None, verbose=True):
+        cache_dir=None, output_path=None, show_progress=False):
     """Run the SDGym benchmark and return a leaderboard.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -256,7 +268,7 @@ def run(synthesizers, datasets=None, iterations=3, add_leaderboard=True,
             If an ``output_path`` is given, the generated leaderboard will be stored in the
             indicated path as a CSV file. The given path must be a complete path including
             the ``.csv`` filename.
-        verbose (bool):
+        show_progress (bool):
             Whether to use tqdm to keep track of the progress. Defaults to ``True``.
 
     Returns:
@@ -277,7 +289,7 @@ def run(synthesizers, datasets=None, iterations=3, add_leaderboard=True,
                 scorer_args.append(args)
 
     if workers == 'dask':
-        scores = _run_on_dask(scorer_args, verbose)
+        scores = _run_on_dask(scorer_args, show_progress)
     else:
         if workers in (0, 1):
             scores = map(_score_synthesizer_on_dataset_args, scorer_args)
@@ -285,7 +297,8 @@ def run(synthesizers, datasets=None, iterations=3, add_leaderboard=True,
             pool = mp.Pool(workers)
             scores = pool.imap_unordered(_score_synthesizer_on_dataset_args, scorer_args)
 
-        if verbose:
+        scores = tqdm.tqdm(scores, total=len(scorer_args), file=TqdmLogger())
+        if show_progress:
             scores = tqdm.tqdm(scores, total=len(scorer_args))
 
     return make_leaderboard(
