@@ -8,7 +8,7 @@ __author__ = 'MIT Data To AI Lab'
 __copyright__ = 'Copyright (c) 2018, MIT Data To AI Lab'
 __email__ = 'dailabmit@gmail.com'
 __license__ = 'MIT'
-__version__ = '0.2.2'
+__version__ = '0.2.3.dev0'
 
 from sdgym import benchmark, results, synthesizers
 from sdgym.benchmark import run
