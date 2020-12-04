@@ -1,0 +1,65 @@
+{% set name = 'sdgym' %}
+{% set version = '0.2.3.dev0' %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  url: "https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz"
+
+build:
+  number: 0
+  noarch: python
+  entry_points:
+    - sdgym=sdgym.__main__:main
+  script: "{{ PYTHON }} -m pip install . -vv"
+
+requirements:
+  host:
+    - ctgan >=0.2.2.dev1,<0.3
+    - humanfriendly >=8.2,<9
+    - numpy >=1.15.4,<2
+    - pandas >=0.23.4,<2
+    - pip
+    - pomegranate >=0.13.0,<0.13.5
+    - psutil >=5.7,<6
+    - python
+    - scikit-learn >=0.20,<0.24
+    - scipy >=1.3.0,<2
+    - sdv >=0.4.4.dev0,<0.6
+    - tabulate >=0.8.3,<0.9
+    - pytorch >=1.1.0,<2
+    - torchvision >=0.3.0
+    - tqdm >=4,<5
+    - xlsxwriter >=1.2.8,<1.3
+    - pytest-runner
+  run:
+    - ctgan >=0.2.2.dev1,<0.3
+    - humanfriendly >=8.2,<9
+    - numpy >=1.15.4,<2
+    - pandas >=0.23.4,<2
+    - pomegranate >=0.13.0,<0.13.5
+    - psutil >=5.7,<6
+    - python
+    - scikit-learn >=0.20,<0.24
+    - scipy >=1.3.0,<2
+    - sdv >=0.4.4.dev0,<0.6
+    - tabulate >=0.8.3,<0.9
+    - pytorch >=1.1.0,<2
+    - torchvision >=0.3.0
+    - tqdm >=4,<5
+    - xlsxwriter >=1.2.8,<1.3
+
+about:
+  home: "https://github.com/sdv-dev/SDGym"
+  license: MIT
+  license_family: MIT
+  license_file: 
+  summary: "A framework to benchmark the performance of synthetic data generators for non-temporal tabular data"
+  doc_url: 
+  dev_url: 
+
+extra:
+  recipe-maintainers:
+    - sdv-dev

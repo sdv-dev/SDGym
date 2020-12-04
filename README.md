@@ -133,6 +133,17 @@ If you want to install it from source or contribute to the project please read t
 [Contributing Guide](https://sdv-dev.github.io/SDGym/contributing.html#get-started) for
 more details about how to do it.
 
+## Install with conda
+
+**SDGym** can also be installed using [conda](https://docs.conda.io/en/latest/):
+
+```bash
+conda install -c sdv-dev -c conda-forge sdgym
+```
+
+This will pull and install the latest stable release from [Anaconda](https://anaconda.org/).
+
+
 # Usage
 
 ## Benchmarking your own synthesizer
