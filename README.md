@@ -138,7 +138,7 @@ more details about how to do it.
 **SDGym** can also be installed using [conda](https://docs.conda.io/en/latest/):
 
 ```bash
-conda install -c sdv-dev -c conda-forge sdgym
+conda install -c sdv-dev -c pytorch -c conda-forge sdgym
 ```
 
 This will pull and install the latest stable release from [Anaconda](https://anaconda.org/).
