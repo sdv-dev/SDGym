@@ -1,6 +1,7 @@
 import logging
 
 import sdv
+import sdv.timeseries
 
 from sdgym.synthesizers.base import Baseline, SingleTableBaseline
 from sdgym.synthesizers.utils import select_device
@@ -35,6 +36,7 @@ class SDVTabular(SingleTableBaseline):
 
 
 class GaussianCopulaCategorical(SDVTabular):
+
     _MODEL = sdv.tabular.GaussianCopula
     _MODEL_KWARGS = {
         'categorical_transformer': 'categorical'
@@ -42,6 +44,7 @@ class GaussianCopulaCategorical(SDVTabular):
 
 
 class GaussianCopulaCategoricalFuzzy(SDVTabular):
+
     _MODEL = sdv.tabular.GaussianCopula
     _MODEL_KWARGS = {
         'categorical_transformer': 'categorical_fuzzy'
@@ -49,6 +52,7 @@ class GaussianCopulaCategoricalFuzzy(SDVTabular):
 
 
 class GaussianCopulaOneHot(SDVTabular):
+
     _MODEL = sdv.tabular.GaussianCopula
     _MODEL_KWARGS = {
         'categorical_transformer': 'one_hot_encoding'
@@ -56,6 +60,7 @@ class GaussianCopulaOneHot(SDVTabular):
 
 
 class CTGAN(SDVTabular):
+
     _MODEL = sdv.tabular.CTGAN
 
     def fit(self, data, metadata):
@@ -63,11 +68,20 @@ class CTGAN(SDVTabular):
         super().fit(data, metadata)
 
 
+class TVAE(CTGAN):
+
+    _MODEL = sdv.tabular.TVAE
+
+
 class CopulaGAN(CTGAN):
+
     _MODEL = sdv.tabular.CopulaGAN
 
 
 class SDVRelational(Baseline):
+
+    _MODEL = None
+    _MODEL_KWARGS = None
 
     def fit_sample(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
@@ -82,3 +96,30 @@ class SDVRelational(Baseline):
 class HMA1(SDVRelational):
 
     _MODEL = sdv.relational.HMA1
+
+
+class SDVTimeseries(SingleTableBaseline):
+
+    _MODEL = None
+    _MODEL_KWARGS = None
+
+    def _fit_sample(self, data, metadata):
+        LOGGER.info('Fitting %s', self.__class__.__name__)
+        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
+        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model.fit(data)
+
+        LOGGER.info('Sampling %s', self.__class__.__name__)
+        return model.sample()
+
+
+class PAR(SDVTimeseries):
+
+    def _fit_sample(self, data, metadata):
+        LOGGER.info('Fitting %s', self.__class__.__name__)
+        model = sdv.timeseries.PAR(table_metadata=metadata, epochs=1024, verbose=True)
+        model.device = select_device()
+        model.fit(data)
+
+        LOGGER.info('Sampling %s', self.__class__.__name__)
+        return model.sample()

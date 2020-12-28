@@ -7,7 +7,6 @@ from sdgym.synthesizers.sdv import (
     CTGAN, CopulaGAN, GaussianCopulaCategorical, GaussianCopulaCategoricalFuzzy,
     GaussianCopulaOneHot)
 from sdgym.synthesizers.tablegan import TableGAN
-from sdgym.synthesizers.tvae import TVAE
 from sdgym.synthesizers.uniform import Uniform
 from sdgym.synthesizers.veegan import VEEGAN
 
@@ -19,7 +18,6 @@ __all__ = (
     'PrivBN',
     'TableGAN',
     'CTGAN',
-    'TVAE',
     'Uniform',
     'VEEGAN',
     'CTGAN',
