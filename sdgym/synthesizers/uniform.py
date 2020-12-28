@@ -1,11 +1,11 @@
 import numpy as np
 
 from sdgym.constants import CONTINUOUS
-from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.base import LegacySingleTableBaseline
 from sdgym.synthesizers.utils import Transformer
 
 
-class UniformSynthesizer(BaseSynthesizer):
+class Uniform(LegacySingleTableBaseline):
     """UniformSynthesizer."""
 
     def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):

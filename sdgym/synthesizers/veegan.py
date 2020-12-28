@@ -5,7 +5,7 @@ from torch.nn.functional import mse_loss, softmax
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 
-from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.base import LegacySingleTableBaseline
 from sdgym.synthesizers.utils import GeneralTransformer
 
 
@@ -77,7 +77,7 @@ class Generator(Module):
         return torch.cat(data_t, dim=1)
 
 
-class VEEGANSynthesizer(BaseSynthesizer):
+class VEEGAN(LegacySingleTableBaseline):
     """VEEGANSynthesizer."""
 
     def __init__(

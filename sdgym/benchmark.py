@@ -6,20 +6,23 @@ import multiprocessing as mp
 import os
 import types
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import humanfriendly
 import psutil
 import tqdm
+import pandas as pd
 
-from sdgym.data import load_dataset
-from sdgym.evaluate import compute_scores
+from sdgym.datasets import load_dataset
 from sdgym.results import make_leaderboard
-from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.base import Baseline
+from sdgym.metrics import get_metrics
 
 LOGGER = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(__file__)
-LEADERBOARD_PATH = os.path.join(BASE_DIR, 'leaderboard.csv')
+BASE_DIR = Path(__file__).parent
+LEADERBOARD_PATH = BASE_DIR / 'leaderboard.csv'
+
 
 DEFAULT_DATASETS = [
     "adult",
@@ -56,43 +59,95 @@ def _used_memory():
     return humanfriendly.format_size(process.memory_info().rss)
 
 
-def _score_synthesizer_on_dataset(name, synthesizer, dataset_name, iteration, cache_dir):
+def _get_columns(metadata):
+    categorical_columns = list()
+    ordinal_columns = list()
+    for column_idx, column in enumerate(metadata['columns']):
+        if column['type'] == 'categorical':
+            categorical_columns.append(column_idx)
+        elif column['type'] == 'ordinal':
+            ordinal_columns.append(column_idx)
+
+    return categorical_columns, ordinal_columns
+
+
+def _synthesize(synthesizer, real_data, metadata):
+    if isinstance(synthesizer, type) and issubclass(synthesizer, Baseline):
+        synthesizer = synthesizer().fit_sample
+
+    now = datetime.utcnow()
+    synthetic_data = synthesizer(real_data.copy(), metadata)
+    elapsed = datetime.utcnow() - now
+    return synthetic_data, elapsed
+
+
+def _prepare_data(real_data, synthetic_data, metadata):
+    modality = metadata._metadata['modality']
+    if modality == 'multi-table':
+        metadata = metadata.to_dict()
+    else:
+        table = metadata.get_tables()[0]
+        metadata = metadata.get_table_meta(table)
+        real_data = real_data[table]
+        synthetic_data = synthetic_data[table]
+
+    return real_data, synthetic_data, metadata
+
+
+def _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata):
+    metrics = get_metrics(metrics, metadata)
+    real_data, synthetic_data, metadata_dict = _prepare_data(real_data, synthetic_data, metadata)
+
+    scores = []
+    for metric_name, metric in metrics.items():
+        try:
+            LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
+            score = metric.compute(real_data, synthetic_data, metadata_dict)
+            scores.append({
+                'metric': metric_name,
+                'score': score
+            })
+        except Exception:
+            LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
+                             metric_name, dataset_name)
+
+    return pd.DataFrame(scores)
+
+
+def _score_synthesizer_on_dataset(args):
+    synthesizer_name, synthesizer, dataset, bucket, metrics, iteration, cache_dir = args
+    dataset_name = Path(dataset).name
     try:
         LOGGER.info('Evaluating %s on dataset %s; iteration %s; %s',
-                    name, dataset_name, iteration, _used_memory())
-
-        train, test, meta, categoricals, ordinals = load_dataset(dataset_name, benchmark=True)
-        if isinstance(synthesizer, type) and issubclass(synthesizer, BaseSynthesizer):
-            synthesizer = synthesizer().fit_sample
+                    synthesizer_name, dataset_name, iteration, _used_memory())
+        metadata = load_dataset(dataset, bucket=bucket)
+        real_data = metadata.load_tables()
 
         LOGGER.info('Running %s on dataset %s; iteration %s; %s',
-                    name, dataset_name, iteration, _used_memory())
-
-        synthesized = synthesizer(train, categoricals, ordinals)
+                    synthesizer_name, dataset_name, iteration, _used_memory())
+        synthetic_data, elapsed = _synthesize(synthesizer, real_data, metadata)
 
         LOGGER.info('Scoring %s on dataset %s; iteration %s; %s',
-                    name, dataset_name, iteration, _used_memory())
-        scores = compute_scores(train, test, synthesized, meta)
+                    synthesizer_name, dataset_name, iteration, _used_memory())
+        scores = _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata)
+
         scores['dataset'] = dataset_name
         scores['iteration'] = iteration
-        scores['synthesizer'] = name
+        scores['synthesizer'] = synthesizer_name
+        scores['elapsed'] = elapsed.total_seconds()
 
         if cache_dir:
-            csv_name = f'{name}_{dataset_name}_{iteration}.csv'
+            csv_name = f'{synthesizer_name}_{dataset_name}_{iteration}.csv'
             scores.to_csv(os.path.join(cache_dir, csv_name))
 
         return scores
     except Exception:
         LOGGER.exception('Error running %s on dataset %s; iteration %s',
-                         name, dataset_name, iteration)
+                         synthesizer_name, dataset_name, iteration)
 
     finally:
         LOGGER.info('Finished %s on dataset %s; iteration %s; %s',
-                    name, dataset_name, iteration, _used_memory())
-
-
-def _score_synthesizer_on_dataset_args(args):
-    return _score_synthesizer_on_dataset(*args)
+                    synthesizer_name, dataset_name, iteration, _used_memory())
 
 
 def _get_synthesizer_name(synthesizer):
@@ -148,6 +203,28 @@ def _get_synthesizers(synthesizers):
         raise TypeError('`synthesizers` can only be a function, a class, a list or a dict')
 
     return synthesizers
+
+
+def _get_dataset_paths(datasets, datasets_path):
+    """Build the full path to datasets and validate their existance."""
+    if datasets_path is None:
+        return datasets or DEFAULT_DATASETS
+
+    datasets_path = Path(datasets_path)
+    if datasets is None:
+        datasets = datasets_path.iterdir()
+
+    dataset_paths = []
+    for dataset in datasets:
+        if isinstance(dataset, str):
+            dataset = datasets_path / dataset
+
+        if not dataset.exists():
+            raise ValueError(f'Dataset {dataset} not found')
+
+        dataset_paths.append(dataset)
+
+    return dataset_paths
 
 
 def progress(*futures):
@@ -208,7 +285,7 @@ def _run_on_dask(scorer_args, verbose):
         )
         raise
 
-    scorer = dask.delayed(_score_synthesizer_on_dataset_args)
+    scorer = dask.delayed(_score_synthesizer_on_dataset)
     persisted = dask.persist(*[scorer(args) for args in scorer_args])
     if verbose:
         try:
@@ -219,8 +296,8 @@ def _run_on_dask(scorer_args, verbose):
     return dask.compute(*persisted)
 
 
-def run(synthesizers, datasets=None, iterations=3, add_leaderboard=True,
-        leaderboard_path=None, replace_existing=True, workers=1,
+def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=None, iterations=1,
+        add_leaderboard=True, leaderboard_path=None, replace_existing=True, workers=1,
         cache_dir=None, output_path=None, show_progress=False):
     """Run the SDGym benchmark and return a leaderboard.
 
@@ -242,6 +319,12 @@ def run(synthesizers, datasets=None, iterations=3, add_leaderboard=True,
             is not a dict, synthesizer names will be extracted from the given object.
         datasets (list[str]):
             Names of the datasets to use for the benchmark. Defaults to all the ones available.
+        datasets_path (str):
+            Path to where the datasets can be found. If not given, use the default path.
+        metrics (list[str]):
+            List of metrics to apply.
+        bucket (str):
+            Name of the bucket from which the datasets must be downloaded if not found locally.
         iterations (int):
             Number of iterations to perform over each dataset and synthesizer. Defaults to 3.
         add_leaderboard (bool):
@@ -277,29 +360,34 @@ def run(synthesizers, datasets=None, iterations=3, add_leaderboard=True,
             one column for each dataset and metric is returned. Otherwise, there is no output.
     """
     synthesizers = _get_synthesizers(synthesizers)
+    datasets = _get_dataset_paths(datasets, datasets_path)
+    # metrics = get_metrics(metrics)
 
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
 
     scorer_args = list()
     for synthesizer_name, synthesizer in synthesizers.items():
-        for dataset_name in datasets or DEFAULT_DATASETS:
+        for dataset in datasets:
             for iteration in range(iterations):
-                args = (synthesizer_name, synthesizer, dataset_name, iteration, cache_dir)
+                args = (
+                    synthesizer_name, synthesizer, dataset, bucket, metrics, iteration, cache_dir)
                 scorer_args.append(args)
 
     if workers == 'dask':
         scores = _run_on_dask(scorer_args, show_progress)
     else:
         if workers in (0, 1):
-            scores = map(_score_synthesizer_on_dataset_args, scorer_args)
+            scores = map(_score_synthesizer_on_dataset, scorer_args)
         else:
             pool = mp.Pool(workers)
-            scores = pool.imap_unordered(_score_synthesizer_on_dataset_args, scorer_args)
+            scores = pool.imap_unordered(_score_synthesizer_on_dataset, scorer_args)
 
         scores = tqdm.tqdm(scores, total=len(scorer_args), file=TqdmLogger())
         if show_progress:
             scores = tqdm.tqdm(scores, total=len(scorer_args))
+
+    return pd.concat(scores)
 
     return make_leaderboard(
         scores,

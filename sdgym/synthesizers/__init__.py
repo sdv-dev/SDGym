@@ -1,38 +1,30 @@
-from sdgym.synthesizers.clbn import CLBNSynthesizer
-from sdgym.synthesizers.ctgan import CTGANSynthesizer
-from sdgym.synthesizers.identity import IdentitySynthesizer
-from sdgym.synthesizers.independent import IndependentSynthesizer
-from sdgym.synthesizers.medgan import MedganSynthesizer
-from sdgym.synthesizers.privbn import PrivBNSynthesizer
+from sdgym.synthesizers.clbn import CLBN
+from sdgym.synthesizers.identity import Identity
+from sdgym.synthesizers.independent import Independent
+from sdgym.synthesizers.medgan import MedGAN
+from sdgym.synthesizers.privbn import PrivBN
 from sdgym.synthesizers.sdv import (
     CTGAN, CopulaGAN, GaussianCopulaCategorical, GaussianCopulaCategoricalFuzzy,
     GaussianCopulaOneHot)
-from sdgym.synthesizers.tablegan import TableganSynthesizer
-from sdgym.synthesizers.tvae import TVAESynthesizer
-from sdgym.synthesizers.uniform import UniformSynthesizer
-from sdgym.synthesizers.veegan import VEEGANSynthesizer
+from sdgym.synthesizers.tablegan import TableGAN
+from sdgym.synthesizers.tvae import TVAE
+from sdgym.synthesizers.uniform import Uniform
+from sdgym.synthesizers.veegan import VEEGAN
 
 __all__ = (
-    'CLBNSynthesizer',
-    'IdentitySynthesizer',
-    'IndependentSynthesizer',
-    'MedganSynthesizer',
-    'PrivBNSynthesizer',
-    'TableganSynthesizer',
-    'CTGANSynthesizer',
-    'TVAESynthesizer',
-    'UniformSynthesizer',
-    'VEEGANSynthesizer',
+    'CLBN',
+    'Identity',
+    'Independent',
+    'MedGAN',
+    'PrivBN',
+    'TableGAN',
+    'CTGAN',
+    'TVAE',
+    'Uniform',
+    'VEEGAN',
     'CTGAN',
     'CopulaGAN',
     'GaussianCopulaCategorical',
     'GaussianCopulaCategoricalFuzzy',
     'GaussianCopulaOneHot'
 )
-
-
-def get_all_synthesizers():
-    return {
-        name: globals()[name]
-        for name in __all__
-    }

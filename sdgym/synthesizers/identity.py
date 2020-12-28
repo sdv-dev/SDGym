@@ -1,9 +1,9 @@
 import pandas as pd
 
-from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.base import LegacySingleTableBaseline
 
 
-class IdentitySynthesizer(BaseSynthesizer):
+class Identity(LegacySingleTableBaseline):
     """Trivial synthesizer.
 
     Returns the same exact data that is used to fit it.

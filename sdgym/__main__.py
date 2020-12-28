@@ -1,14 +1,37 @@
 import argparse
+import importlib
 import gc
 import logging
 import sys
 import warnings
 
+import humanfriendly
 import pandas as pd
 import tabulate
 import tqdm
 
 import sdgym
+
+
+class SDGymError(Exception):
+    pass
+
+
+def import_object(object_name):
+    """Import an object from its Fully Qualified Name."""
+
+    if isinstance(object_name, str):
+        parent_name, attribute = object_name.rsplit('.', 1)
+        try:
+            parent = importlib.import_module(parent_name)
+        except ImportError:
+            grand_parent_name, parent_name = parent_name.rsplit('.', 1)
+            grand_parent = importlib.import_module(grand_parent_name)
+            parent = getattr(grand_parent, parent_name)
+
+        return getattr(parent, attribute)
+
+    return object_name
 
 
 def _env_setup(logfile, verbose):
@@ -19,7 +42,26 @@ def _env_setup(logfile, verbose):
     level = logging.INFO if verbose else logging.WARN
     logging.basicConfig(filename=logfile, level=level, format=FORMAT)
     logging.getLogger('sdgym').setLevel(level)
+    logging.getLogger('sdmetrics').setLevel(level)
     logging.getLogger().setLevel(logging.WARN)
+
+
+def _print_table(data, sort=None, reverse=False, format=None):
+    if sort:
+        sort_fields = sort.split(',')
+        for field in sort_fields:
+            data = data.sort_values(field, ascending=not reverse)
+
+    if format:
+        for field, formatter in format.items():
+            data[field] = data[field].apply(formatter)
+
+    print(tabulate.tabulate(
+        data,
+        tablefmt='github',
+        headers=data.columns,
+        showindex=False
+    ))
 
 
 def _run(args):
@@ -43,27 +85,38 @@ def _run(args):
     else:
         workers = args.workers
 
-    synthesizers = sdgym.get_all_synthesizers()
-    if args.models:
-        synthesizers = {model: synthesizers[model] for model in args.models}
+    baselines = sdgym.synthesizers.base.Baseline.get_subclasses()
+    if args.synthesizers:
+        synthesizers = {}
+        for synthesizer in args.synthesizers:
+            if synthesizer in baselines:
+                synthesizers[synthesizer] = baselines[synthesizer]
+            else:
+                try:
+                    synthesizers[synthesizer] = import_object(synthesizer)
+                except Exception:
+                    raise SDGymError(f'Unknown synthesizer {synthesizer}')
 
     lb = sdgym.run(
         synthesizers=synthesizers,
         datasets=args.datasets,
+        datasets_path=args.datasets_path,
+        metrics=args.metrics,
         iterations=args.iterations,
         output_path=args.output_path,
         cache_dir=args.cache_dir,
         workers=workers,
-        show_progress=args.progress
+        show_progress=args.progress,
+        replace_existing=args.replace_existing,
     )
     if lb is not None:
-        print(lb)
+        _print_table(lb)
 
 
 def _make_leaderboard(args):
     lb = sdgym.results.make_leaderboard(args.input, output_path=args.output)
     if not args.output:
-        print(lb)
+        _print_table(lb)
 
 
 def _make_summary(args):
@@ -71,18 +124,26 @@ def _make_summary(args):
 
     for title, section in summary.items():
         print('\n### {}\n'.format(title))
-        print(tabulate.tabulate(
-            section.reset_index(),
-            tablefmt='github',
-            headers=['Synthesizer'] + list(section.columns),
-            showindex=False
-        ))
+        section.index.name = 'Synthesizer'
+        section = section.reset_index()
+        _print_table(section)
 
 
 def _download_datasets(args):
     _env_setup(args.logfile, args.verbose)
-    for dataset in tqdm.tqdm(args.datasets):
-        sdgym.data.load_dataset(dataset)
+    datasets = args.datasets or sdgym.datasets.get_datasets_list(args.bucket)
+    for dataset in tqdm.tqdm(datasets):
+        sdgym.datasets.load_dataset(dataset, args.datasets_path, args.bucket)
+
+
+def _list_downloaded(args):
+    datasets = sdgym.datasets.get_downloaded_datasets(args.datasets_path)
+    _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
+
+
+def _list_available(args):
+    datasets = sdgym.datasets.get_available_datasets(args.bucket)
+    _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
 
 
 def _get_parser():
@@ -99,11 +160,15 @@ def _get_parser():
                      help='Directory where the intermediate results will be stored.')
     run.add_argument('-o', '--output-path', type=str, required=False,
                      help='Path to the CSV file where the report will be dumped')
-    run.add_argument('-m', '--models', nargs='+',
-                     help='Models/s to be benchmarked. Accepts multiple names.')
+    run.add_argument('-s', '--synthesizers', nargs='+',
+                     help='Synthesizer/s to be benchmarked. Accepts multiple names.')
+    run.add_argument('-m', '--metrics', nargs='+',
+                     help='Metrics to apply. Accepts multiple names.')
     run.add_argument('-d', '--datasets', nargs='+',
                      help='Datasets/s to be used. Accepts multiple names.')
-    run.add_argument('-i', '--iterations', type=int, default=3,
+    run.add_argument('-dp', '--datasets-path',
+                     help='Path where datasets can be found.')
+    run.add_argument('-i', '--iterations', type=int, default=1,
                      help='Number of iterations.')
     run.add_argument('-D', '--distributed', action='store_true',
                      help='Distribute computation using dask.')
@@ -116,6 +181,8 @@ def _get_parser():
     run.add_argument('-v', '--verbose', action='store_true',
                      help='Be verbose.')
     run.add_argument('-p', '--progress', action='store_true',
+                     help='Print a progress bar using tqdm.')
+    run.add_argument('-r', '--replace-existing', action='store_true',
                      help='Print a progress bar using tqdm.')
 
     # make-leaderboard
@@ -132,14 +199,39 @@ def _get_parser():
     make_summary.add_argument('output', help='Output file.')
 
     # download-datasets
-    download = action.add_parser('download-datasets', help='Download datasets.')
+    download = action.add_parser('download', help='Download datasets.')
     download.set_defaults(action=_download_datasets)
+    download.add_argument('-b', '--bucket',
+                          help='Bucket from which to download the datasets.')
     download.add_argument('-d', '--datasets', nargs='+', default=sdgym.benchmark.DEFAULT_DATASETS,
                           help='Datasets/s to be downloaded. Accepts multiple names.')
+    download.add_argument('-dp', '--datasets-path',
+                          help='Optional path to download the datasets to.')
     download.add_argument('-v', '--verbose', action='store_true',
                           help='Be verbose.')
     download.add_argument('-l', '--logfile', type=str,
                           help='Name of the log file.')
+
+    # list-available-datasets
+    list_downloaded = action.add_parser('list-downloaded', help='List downloaded datasets.')
+    list_downloaded.set_defaults(action=_list_downloaded)
+    list_downloaded.add_argument('-s', '--sort', default='name',
+                                 help='Value to sort by (name|size). Defaults to `name`.')
+    list_downloaded.add_argument('-r', '--reverse', action='store_true',
+                                 help='Reverse the order.')
+    list_downloaded.add_argument('-dp', '--datasets-path',
+                                 help='Path where the datasets can be found.')
+
+    # list-available-datasets
+    list_available = action.add_parser('list-available',
+                                       help='List datasets available for download.')
+    list_available.add_argument('-s', '--sort', default='name',
+                                help='Value to sort by (name|size|modality). Defaults to `name`.')
+    list_available.add_argument('-r', '--reverse', action='store_true',
+                                help='Reverse the order.')
+    list_available.add_argument('-b', '--bucket',
+                                help='Bucket from which to download the datasets.')
+    list_available.set_defaults(action=_list_available)
 
     return parser
 
@@ -154,7 +246,10 @@ def main():
         sys.exit(0)
 
     args = parser.parse_args()
-    args.action(args)
+    try:
+        args.action(args)
+    except SDGymError as error:
+        print(f'ERROR: {error}')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,141 @@
+import json
+import logging
+
+import numpy as np
+import pandas as pd
+from pomegranate import BayesianNetwork
+from sklearn.metrics import accuracy_score, f1_score, r2_score
+from sdmetrics.single_table import bayesian_network, efficacy, gaussian_mixture
+from sdv import Metadata
+
+LOGGER = logging.getLogger(__name__)
+
+BINARY_METRICS = [
+    efficacy.binary_classification.BinaryDecisionTreeClassifier,
+    efficacy.binary_classification.BinaryAdaBoostClassifier,
+    efficacy.binary_classification.BinaryLogisticRegression,
+    efficacy.binary_classification.BinaryMLPClassifier,
+]
+MULTICLASS_METRICS = [
+    efficacy.multiclass_classification.MulticlassDecisionTreeClassifier,
+    efficacy.multiclass_classification.MulticlassMLPClassifier,
+]
+REGRESSION_METRICS = [
+    efficacy.regression.LinearRegression,
+    efficacy.regression.MLPRegressor,
+]
+
+
+def f1_macro(real_target, predictions):
+    return f1_score(real_target, predictions, average='macro'),
+
+
+def f1_binary(real_target, predictions):
+    if real_target.dtype not in ('bool', 'int'):
+        pos_label = np.unique(real_target)[-1]
+    else:
+        pos_label = 1
+
+    return f1_score(real_target, predictions, pos_label=pos_label)
+
+
+BINARY_SCORERS = {
+    'f1': f1_binary,
+}
+MULTICLASS_SCORERS = {
+    'accuracy': accuracy_score,
+    'macro_f1': f1_macro,
+}
+REGRESSION_SCORERS = {
+    'r2': r2_score,
+}
+
+
+def _evaluate_ml_efficacy(real, synthetic, metrics, scorers):
+    if scorers:
+        names = list(scorers.keys())
+        scorer_functions = list(scorers.values())
+
+    scores = []
+    for metric in metrics:
+        LOGGER.info('Evaluating %s', metric.__name__)
+        outputs = metric.compute(real, synthetic, 'label', scorer=scorer_functions)
+        output = dict(zip(names, outputs))
+        output['name'] = metric.__name__
+        scores.append(output)
+
+    return pd.DataFrame(scores)
+
+
+def _evaluate_gmm_likelihood(real, synthetic):
+    LOGGER.info('Evaluating GaussianMixture Log Likelihood.')
+    return pd.DataFrame([{
+        'name': 'GMLogLikelihood',
+        'syn_likelihood': gaussian_mixture.GMLogLikelihood.compute(real, synthetic),
+        'test_likelihood': gaussian_mixture.GMLogLikelihood.compute(synthetic, real),
+    }])
+
+
+def _evaluate_bayesian_likelihood(real, synthetic, metadata):
+    LOGGER.info('Evaluating Bayesian Log Likelihood.')
+    if isinstance(metadata, Metadata):
+        scores = []
+        for table_name in metadata.get_tables():
+            score = _evaluate_bayesian_likelihood(
+                real[table_name],
+                synthetic[table_name],
+                metadata.get_table_meta(table_name)
+            )
+            scores.append(score)
+
+        return pd.concat(scores, ignore_index=True)
+
+    structure = metadata.get('benchmark', {}).get('structure')
+    if structure:
+        bn_json = json.dumps(structure)
+        bn_structure = BayesianNetwork.from_json(bn_json).structure
+    else:
+        bn_structure = None
+
+    return pd.DataFrame([{
+        'name': 'Bayesian Likelihood',
+        'syn_likelihood': bayesian_network.BNLogLikelihood.compute(real, synthetic, bn_structure),
+        'test_likelihood': bayesian_network.BNLogLikelihood.compute(synthetic, real, bn_structure),
+    }])
+
+
+def _rebuild_dfs(real_test, synthetic, metadata):
+    columns = [column['name'] for column in metadata['columns']]
+    real_df = pd.DataFrame(real_test, columns=columns).sample(min(len(real_test), 50000))
+    synth_df = pd.DataFrame(synthetic, columns=columns).sample(min(len(synthetic), 50000))
+
+    for column in metadata['columns']:
+        name = column['name']
+        if column['type'] == 'categorical':
+            i2s = column['i2s']
+            real_df[name] = real_df[name].astype(int).apply(i2s.__getitem__)
+            synth_df[name] = synth_df[name].astype(int).apply(i2s.__getitem__)
+
+    return real_df, synth_df
+
+
+def compute_scores(dataset_name, real, synthetic, metadata, metrics):
+    # real, synthetic = _rebuild_dfs(real, synthetic, metadata)
+
+    _evaluate_bayesian_likelihood(real, synthetic, metadata)
+    _evaluate_gmm_likelihood(real, synthetic)
+
+    metadata = metadata._metadata['benchmark']
+    problem_type = metadata['problem_type']
+    if problem_type == 'bayesian_likelihood':
+        return _evaluate_bayesian_likelihood(real, synthetic, metadata)
+    elif problem_type == 'gaussian_likelihood':
+        return _evaluate_gmm_likelihood(real, synthetic)
+    elif problem_type == 'binary_classification':
+        return _evaluate_ml_efficacy(real, synthetic, BINARY_METRICS, BINARY_SCORERS)
+    elif problem_type == 'multiclass_classification':
+        return _evaluate_ml_efficacy(real, synthetic, MULTICLASS_METRICS, MULTICLASS_SCORERS)
+    elif problem_type == 'regression':
+        return _evaluate_ml_efficacy(real, synthetic, REGRESSION_METRICS, REGRESSION_SCORERS)
+
+    raise ValueError(f'Unknown problem type: {problem_type}')

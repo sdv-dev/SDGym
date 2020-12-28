@@ -7,7 +7,7 @@ from datetime import datetime
 import numpy as np
 
 from sdgym.constants import CATEGORICAL, ORDINAL
-from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.base import LegacySingleTableBaseline
 from sdgym.synthesizers.utils import Transformer
 
 LOGGER = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ def try_mkdirs(dir):
         os.makedirs(dir)
 
 
-class PrivBNSynthesizer(BaseSynthesizer):
+class PrivBN(LegacySingleTableBaseline):
     """docstring for IdentitySynthesizer."""
 
     def __init__(self, theta=20, max_samples=25000):
