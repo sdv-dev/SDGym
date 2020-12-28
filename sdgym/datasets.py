@@ -58,7 +58,18 @@ def load_dataset(dataset, datasets_path=None, bucket=None):
             modality = 'single-table'
 
     metadata._metadata['modality'] = modality
-    return metadata
+
+    real_data = metadata.load_tables()
+    for table_name, table in real_data.items():
+        fields = metadata.get_fields(table_name)
+        columns = [
+            column
+            for column in table.columns
+            if column in fields
+        ]
+        real_data[table_name] = table[columns]
+
+    return metadata, real_data
 
 
 def get_available_datasets(bucket=None):

@@ -120,8 +120,7 @@ def _score_synthesizer_on_dataset(args):
     try:
         LOGGER.info('Evaluating %s on dataset %s; iteration %s; %s',
                     synthesizer_name, dataset_name, iteration, _used_memory())
-        metadata = load_dataset(dataset, bucket=bucket)
-        real_data = metadata.load_tables()
+        metadata, real_data = load_dataset(dataset, bucket=bucket)
 
         LOGGER.info('Running %s on dataset %s; iteration %s; %s',
                     synthesizer_name, dataset_name, iteration, _used_memory())
