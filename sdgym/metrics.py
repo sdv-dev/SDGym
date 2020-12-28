@@ -2,7 +2,6 @@
 
 import sdmetrics
 
-
 # Metrics to use by default for specific problem types and data
 # modalities if no metrics have been explicitly specified.
 PROBLEM_TYPE_METRICS = {

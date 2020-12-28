@@ -1,27 +1,22 @@
 """Main SDGym benchmarking module."""
 
-import io
 import logging
 import multiprocessing as mp
 import os
 import types
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
-import humanfriendly
-import psutil
-import tqdm
 import pandas as pd
+import tqdm
 
 from sdgym.datasets import load_dataset
-from sdgym.results import make_leaderboard
-from sdgym.synthesizers.base import Baseline
 from sdgym.metrics import get_metrics
+from sdgym.progress import TqdmLogger, progress
+from sdgym.synthesizers.base import Baseline
+from sdgym.utils import used_memory
 
 LOGGER = logging.getLogger(__name__)
-
-BASE_DIR = Path(__file__).parent
-LEADERBOARD_PATH = BASE_DIR / 'leaderboard.csv'
 
 
 DEFAULT_DATASETS = [
@@ -41,34 +36,6 @@ DEFAULT_DATASETS = [
     "news",
     "ring"
 ]
-
-
-class TqdmLogger(io.StringIO):
-
-    _buffer = ''
-
-    def write(self, buf):
-        self._buffer = buf.strip('\r\n\t ')
-
-    def flush(self):
-        LOGGER.info(self._buffer)
-
-
-def _used_memory():
-    process = psutil.Process(os.getpid())
-    return humanfriendly.format_size(process.memory_info().rss)
-
-
-def _get_columns(metadata):
-    categorical_columns = list()
-    ordinal_columns = list()
-    for column_idx, column in enumerate(metadata['columns']):
-        if column['type'] == 'categorical':
-            categorical_columns.append(column_idx)
-        elif column['type'] == 'ordinal':
-            ordinal_columns.append(column_idx)
-
-    return categorical_columns, ordinal_columns
 
 
 def _synthesize(synthesizer, real_data, metadata):
@@ -119,15 +86,15 @@ def _score_synthesizer_on_dataset(args):
     dataset_name = Path(dataset).name
     try:
         LOGGER.info('Evaluating %s on dataset %s; iteration %s; %s',
-                    synthesizer_name, dataset_name, iteration, _used_memory())
+                    synthesizer_name, dataset_name, iteration, used_memory())
         metadata, real_data = load_dataset(dataset, bucket=bucket)
 
         LOGGER.info('Running %s on dataset %s; iteration %s; %s',
-                    synthesizer_name, dataset_name, iteration, _used_memory())
+                    synthesizer_name, dataset_name, iteration, used_memory())
         synthetic_data, elapsed = _synthesize(synthesizer, real_data, metadata)
 
         LOGGER.info('Scoring %s on dataset %s; iteration %s; %s',
-                    synthesizer_name, dataset_name, iteration, _used_memory())
+                    synthesizer_name, dataset_name, iteration, used_memory())
         scores = _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata)
 
         scores['dataset'] = dataset_name
@@ -146,7 +113,7 @@ def _score_synthesizer_on_dataset(args):
 
     finally:
         LOGGER.info('Finished %s on dataset %s; iteration %s; %s',
-                    synthesizer_name, dataset_name, iteration, _used_memory())
+                    synthesizer_name, dataset_name, iteration, used_memory())
 
 
 def _get_synthesizer_name(synthesizer):
@@ -224,52 +191,6 @@ def _get_dataset_paths(datasets, datasets_path):
         dataset_paths.append(dataset)
 
     return dataset_paths
-
-
-def progress(*futures):
-    """Track progress of dask computation in a remote cluster.
-
-    LogProgressBar is defined inside here to avoid having to import
-    its dependencies if not used.
-    """
-    # Import distributed only when used
-    from distributed.client import futures_of  # pylint: disable=C0415
-    from distributed.diagnostics.progressbar import TextProgressBar  # pylint: disable=c0415
-
-    class LogProgressBar(TextProgressBar):
-        """Dask progress bar based on logging instead of stdout."""
-
-        last = 0
-        logger = logging.getLogger('distributed')
-
-        def _draw_bar(self, remaining, all, **kwargs):   # pylint: disable=W0221,W0622
-            done = all - remaining
-            frac = (done / all) if all else 0
-
-            if frac > self.last + 0.01:
-                self.last = int(frac * 100) / 100
-                bar = "#" * int(self.width * frac)
-                percent = int(100 * frac)
-
-                time_per_task = self.elapsed / (all - remaining)
-                remaining_time = timedelta(seconds=time_per_task * remaining)
-                eta = datetime.utcnow() + remaining_time
-
-                elapsed = timedelta(seconds=self.elapsed)
-                msg = "[{0:<{1}}] | {2}/{3} ({4}%) Completed | {5} | {6} | {7}".format(
-                    bar, self.width, done, all, percent, elapsed, remaining_time, eta
-                )
-                self.logger.info(msg)
-                LOGGER.info(msg)
-
-        def _draw_stop(self, **kwargs):
-            pass
-
-    futures = futures_of(futures)
-    if not isinstance(futures, (set, list)):
-        futures = [futures]
-
-    LogProgressBar(futures)
 
 
 def _run_on_dask(scorer_args, verbose):
@@ -360,7 +281,6 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
     """
     synthesizers = _get_synthesizers(synthesizers)
     datasets = _get_dataset_paths(datasets, datasets_path)
-    # metrics = get_metrics(metrics)
 
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
@@ -370,7 +290,14 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
         for dataset in datasets:
             for iteration in range(iterations):
                 args = (
-                    synthesizer_name, synthesizer, dataset, bucket, metrics, iteration, cache_dir)
+                    synthesizer_name,
+                    synthesizer,
+                    dataset,
+                    bucket,
+                    metrics,
+                    iteration,
+                    cache_dir
+                )
                 scorer_args.append(args)
 
     if workers == 'dask':
@@ -387,11 +314,3 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
             scores = tqdm.tqdm(scores, total=len(scorer_args))
 
     return pd.concat(scores)
-
-    return make_leaderboard(
-        scores,
-        add_leaderboard=add_leaderboard,
-        leaderboard_path=leaderboard_path,
-        replace_existing=replace_existing,
-        output_path=output_path
-    )
