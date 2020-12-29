@@ -18,12 +18,12 @@ class SDGymError(Exception):
     pass
 
 
-def _env_setup(logfile, verbose):
+def _env_setup(logfile, verbosity):
     gc.enable()
     warnings.simplefilter('ignore')
 
     FORMAT = '%(asctime)s - %(process)d - %(levelname)s - %(name)s - %(module)s - %(message)s'
-    level = logging.INFO if verbose else logging.WARN
+    level = (3 - verbosity) * 10
     logging.basicConfig(filename=logfile, level=level, format=FORMAT)
     logging.getLogger('sdgym').setLevel(level)
     logging.getLogger('sdmetrics').setLevel(level)
@@ -162,8 +162,8 @@ def _get_parser():
                      help='Number of threads to use when distributing locally.')
     run.add_argument('-l', '--logfile', type=str,
                      help='Name of the log file.')
-    run.add_argument('-v', '--verbose', action='store_true',
-                     help='Be verbose.')
+    run.add_argument('-v', '--verbose', action='count', default=0,
+                     help='Be verbose. Repeat for increased verbosity.')
     run.add_argument('-p', '--progress', action='store_true',
                      help='Print a progress bar using tqdm.')
     run.add_argument('-r', '--replace-existing', action='store_true',
@@ -191,8 +191,8 @@ def _get_parser():
                           help='Datasets/s to be downloaded. Accepts multiple names.')
     download.add_argument('-dp', '--datasets-path',
                           help='Optional path to download the datasets to.')
-    download.add_argument('-v', '--verbose', action='store_true',
-                          help='Be verbose.')
+    download.add_argument('-v', '--verbose', action='count', default=0,
+                          help='Be verbose. Repeat for increased verbosity.')
     download.add_argument('-l', '--logfile', type=str,
                           help='Name of the log file.')
 
