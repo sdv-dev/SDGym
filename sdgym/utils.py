@@ -2,6 +2,7 @@
 
 import importlib
 import os
+from datetime import datetime
 
 import humanfriendly
 import psutil
@@ -28,3 +29,10 @@ def import_object(object_name):
         return getattr(parent, attribute)
 
     return object_name
+
+
+def timed(function, *args, **kwargs):
+    now = datetime.utcnow()
+    out = function(*args, **kwargs)
+    elapsed = datetime.utcnow() - now
+    return out, elapsed

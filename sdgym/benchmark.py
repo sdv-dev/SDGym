@@ -14,7 +14,7 @@ from sdgym.datasets import load_dataset
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.synthesizers.base import Baseline
-from sdgym.utils import used_memory
+from sdgym.utils import used_memory, timed
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,16 +67,21 @@ def _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata):
 
     scores = []
     for metric_name, metric in metrics.items():
+        error = None
+        score = None
         try:
             LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
             score = metric.compute(real_data, synthetic_data, metadata_dict)
-            scores.append({
-                'metric': metric_name,
-                'score': score
-            })
-        except Exception:
+        except Exception as ex:
             LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
                              metric_name, dataset_name)
+            error = f'{ex.__class__.__name__}: {ex}'
+
+        scores.append({
+            'metric': metric_name,
+            'score': score,
+            'error': error,
+        })
 
     return pd.DataFrame(scores)
 
@@ -91,29 +96,38 @@ def _score_synthesizer_on_dataset(args):
 
         LOGGER.info('Running %s on dataset %s; iteration %s; %s',
                     synthesizer_name, dataset_name, iteration, used_memory())
-        synthetic_data, elapsed = _synthesize(synthesizer, real_data, metadata)
+        if isinstance(synthesizer, type) and issubclass(synthesizer, Baseline):
+            synthesizer = synthesizer().fit_sample
+
+        synthetic_data, model_time = timed(synthesizer, real_data.copy(), metadata)
 
         LOGGER.info('Scoring %s on dataset %s; iteration %s; %s',
                     synthesizer_name, dataset_name, iteration, used_memory())
-        scores = _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata)
+        scores, metrics_time = timed(
+            _compute_scores, metrics, dataset_name, real_data, synthetic_data, metadata)
 
-        scores['dataset'] = dataset_name
-        scores['iteration'] = iteration
-        scores['synthesizer'] = synthesizer_name
-        scores['elapsed'] = elapsed.total_seconds()
-
-        if cache_dir:
-            csv_name = f'{synthesizer_name}_{dataset_name}_{iteration}.csv'
-            scores.to_csv(os.path.join(cache_dir, csv_name))
-
-        return scores
-    except Exception:
+    except Exception as ex:
         LOGGER.exception('Error running %s on dataset %s; iteration %s',
                          synthesizer_name, dataset_name, iteration)
+        scores = pd.DataFrame({
+            'error': f'{ex.__class__.__name__}: {ex}'
+        })
 
     finally:
         LOGGER.info('Finished %s on dataset %s; iteration %s; %s',
                     synthesizer_name, dataset_name, iteration, used_memory())
+
+    scores['dataset'] = dataset_name
+    scores['iteration'] = iteration
+    scores['synthesizer'] = synthesizer_name
+    scores['model_seconds'] = model_time.total_seconds()
+    scores['metrics_seconds'] = metrics_time.total_seconds()
+
+    if cache_dir:
+        csv_name = f'{synthesizer_name}_{dataset_name}_{iteration}.csv'
+        scores.to_csv(os.path.join(cache_dir, csv_name))
+
+    return scores
 
 
 def _get_synthesizer_name(synthesizer):

@@ -40,6 +40,9 @@ def _print_table(data, sort=None, reverse=False, format=None):
         for field, formatter in format.items():
             data[field] = data[field].apply(formatter)
 
+    if 'error' in data:
+        data['error'] = data['error'].str.split(':').str[0]
+
     print(tabulate.tabulate(
         data,
         tablefmt='github',
