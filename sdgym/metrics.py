@@ -28,10 +28,26 @@ PROBLEM_TYPE_METRICS = {
 }
 DATA_MODALITY_METRICS = {
     'single-table': [
+        'CSTest',
+        'KSTest',
+        'KSTestExtended',
+        'BNLikelihood',
+        'GMLogLikelihood',
+        'LogisticDetection',
     ],
     'multi-table': [
+        'CSTest',
+        'KSTest',
+        'KSTestExtended',
+        'LogisticDetection',
+        'LogisticParentChildDetection',
+        'BNLikelihood',
     ],
     'timeseries': [
+        'TSFClassifierEfficacy',
+        'LSTMClassifierEfficacy',
+        'TSFCDetection',
+        'LSTMDetection',
     ],
 }
 
@@ -50,9 +66,7 @@ def get_metrics(metrics, metadata):
         if problem_type:
             metrics = PROBLEM_TYPE_METRICS[problem_type]
         else:
-            # TODO: Define specific default subset of metrics by data modality
-            # instead of using all the metrics we have.
-            return metric_classes
+            metrics = DATA_MODALITY_METRICS[modality]
 
     final_metrics = {}
     for metric in metrics:
@@ -60,6 +74,6 @@ def get_metrics(metrics, metadata):
             try:
                 final_metrics[metric] = metric_classes[metric]
             except KeyError:
-                raise ValueError(f'Unknown {modality} metric: {metric}')
+                raise ValueError(f'Unknown {modality} metric: {metric}') from None
 
     return final_metrics
