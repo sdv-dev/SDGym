@@ -69,6 +69,7 @@ def _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata):
     for metric_name, metric in metrics.items():
         error = None
         score = None
+        start = datetime.utcnow()
         try:
             LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
             score = metric.compute(real_data, synthetic_data, metadata_dict)
@@ -81,6 +82,7 @@ def _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata):
             'metric': metric_name,
             'score': score,
             'error': error,
+            'metric_time': (datetime.utcnow() - start).total_seconds()
         })
 
     return pd.DataFrame(scores)
@@ -103,8 +105,7 @@ def _score_synthesizer_on_dataset(args):
 
         LOGGER.info('Scoring %s on dataset %s; iteration %s; %s',
                     synthesizer_name, dataset_name, iteration, used_memory())
-        scores, metrics_time = timed(
-            _compute_scores, metrics, dataset_name, real_data, synthetic_data, metadata)
+        scores = _compute_scores(metrics, dataset_name, real_data, synthetic_data, metadata)
 
     except Exception as ex:
         LOGGER.exception('Error running %s on dataset %s; iteration %s',
@@ -118,10 +119,10 @@ def _score_synthesizer_on_dataset(args):
                     synthesizer_name, dataset_name, iteration, used_memory())
 
     scores['dataset'] = dataset_name
+    scores['modality'] = metadata._metadata['modality']
     scores['iteration'] = iteration
     scores['synthesizer'] = synthesizer_name
-    scores['model_seconds'] = model_time.total_seconds()
-    scores['metrics_seconds'] = metrics_time.total_seconds()
+    scores['model_time'] = model_time.total_seconds()
 
     if cache_dir:
         csv_name = f'{synthesizer_name}_{dataset_name}_{iteration}.csv'
