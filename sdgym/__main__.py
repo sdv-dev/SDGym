@@ -41,7 +41,9 @@ def _print_table(data, sort=None, reverse=False, format=None):
             data[field] = data[field].apply(formatter)
 
     if 'error' in data:
-        data['error'] = data['error'].str.split(':').str[0]
+        error = data['error']
+        long_error = error.str.len() > 30
+        data.loc[long_error, 'error'] = error[long_error].str[:30] + '...'
 
     print(tabulate.tabulate(
         data,
@@ -95,6 +97,7 @@ def _run(args):
         workers=workers,
         show_progress=args.progress,
         replace_existing=args.replace_existing,
+        timeout=args.timeout,
     )
     if lb is not None:
         _print_table(lb)
@@ -171,6 +174,8 @@ def _get_parser():
                      help='Print a progress bar using tqdm.')
     run.add_argument('-r', '--replace-existing', action='store_true',
                      help='Print a progress bar using tqdm.')
+    run.add_argument('-t', '--timeout', type=int,
+                     help='Maximum seconds to run for each dataset.')
 
     # make-leaderboard
     make_leaderboard = action.add_parser('make-leaderboard',

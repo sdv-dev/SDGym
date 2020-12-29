@@ -100,7 +100,6 @@ class LegacySingleTableBaseline(SingleTableBaseline):
 
         ht = rdt.HyperTransformer(dtype_transformers={
             'O': 'label_encoding',
-            'M': None,
         })
         model_data = ht.fit_transform(real_data[columns])
 

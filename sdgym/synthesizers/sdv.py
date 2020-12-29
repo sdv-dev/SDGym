@@ -117,7 +117,7 @@ class PAR(SDVTimeseries):
 
     def _fit_sample(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
-        model = sdv.timeseries.PAR(table_metadata=metadata, epochs=1024, verbose=True)
+        model = sdv.timeseries.PAR(table_metadata=metadata, epochs=10, verbose=True)
         model.device = select_device()
         model.fit(data)
 

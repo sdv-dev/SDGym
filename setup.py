@@ -24,7 +24,8 @@ install_requires = [
     'tabulate>=0.8.3,<0.9',
     'appdirs>1.1.4,<2',
     'sdv>=0.6.0,<0.7',
-    'sdmetrics>=0.1.0,<0.2',
+    'sdmetrics>=0.1.1.dev0,<0.2',
+    'compress-pickle>=1.2.0,<2',
 ]
 
 setup_requires = [

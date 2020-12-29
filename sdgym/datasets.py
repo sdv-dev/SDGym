@@ -59,6 +59,10 @@ def load_dataset(dataset, datasets_path=None, bucket=None):
 
     metadata._metadata['modality'] = modality
 
+    return metadata
+
+
+def load_tables(metadata):
     real_data = metadata.load_tables()
     for table_name, table in real_data.items():
         fields = metadata.get_fields(table_name)
@@ -69,7 +73,7 @@ def load_dataset(dataset, datasets_path=None, bucket=None):
         ]
         real_data[table_name] = table[columns]
 
-    return metadata, real_data
+    return real_data
 
 
 def get_available_datasets(bucket=None):

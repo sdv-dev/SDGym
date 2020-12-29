@@ -31,8 +31,6 @@ DATA_MODALITY_METRICS = {
         'CSTest',
         'KSTest',
         'KSTestExtended',
-        'BNLikelihood',
-        'GMLogLikelihood',
         'LogisticDetection',
     ],
     'multi-table': [
@@ -41,7 +39,6 @@ DATA_MODALITY_METRICS = {
         'KSTestExtended',
         'LogisticDetection',
         'LogisticParentChildDetection',
-        'BNLikelihood',
     ],
     'timeseries': [
         'TSFClassifierEfficacy',
