@@ -6,25 +6,10 @@ import rdt
 LOGGER = logging.getLogger(__name__)
 
 
-class BaseSynthesizer:
-    """Base class for all default synthesizers of ``SDGym``."""
-
-    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
-        pass
-
-    def sample(self, samples):
-        pass
-
-    def fit_sample(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
-        LOGGER.info("Fitting %s", self.__class__.__name__)
-        self.fit(data, categorical_columns, ordinal_columns)
-
-        LOGGER.info("Sampling %s", self.__class__.__name__)
-        return self.sample(data.shape[0])
-
-
 class Baseline:
     """Base class for all the ``SDGym`` baselines."""
+
+    MODALITIES = ()
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -58,6 +43,8 @@ class SingleTableBaseline(Baseline):
     dataset metadata dicts.
     """
 
+    MODALITIES = ('single-table', )
+
     def fit_sample(self, real_data, metadata):
         if isinstance(real_data, dict):
             return {
@@ -74,6 +61,8 @@ class LegacySingleTableBaseline(SingleTableBaseline):
     This class exists here to support the legacy baselines which do not operate
     on metadata and instead expect lists of categorical and ordinal columns.
     """
+
+    MODALITIES = ('single-table', )
 
     def _get_columns(self, real_data, table_metadata):
         model_columns = []

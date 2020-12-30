@@ -11,6 +11,8 @@ LOGGER = logging.getLogger(__name__)
 
 class SDV(Baseline):
 
+    MODALITIES = ('single-table', 'multi-table')
+
     def fit_sample(self, data, metadata):
         LOGGER.info('Fitting SDV')
         model = sdv.SDV()
@@ -22,6 +24,7 @@ class SDV(Baseline):
 
 class SDVTabular(SingleTableBaseline):
 
+    MODALITIES = ('single-table', )
     _MODEL = None
     _MODEL_KWARGS = None
 
@@ -80,6 +83,7 @@ class CopulaGAN(CTGAN):
 
 class SDVRelational(Baseline):
 
+    MODALITIES = ('single-table', 'multi-table')
     _MODEL = None
     _MODEL_KWARGS = None
 
@@ -100,6 +104,7 @@ class HMA1(SDVRelational):
 
 class SDVTimeseries(SingleTableBaseline):
 
+    MODALITIES = ('timeseries', )
     _MODEL = None
     _MODEL_KWARGS = None
 

@@ -48,16 +48,22 @@ def load_dataset(dataset, datasets_path=None, bucket=None):
     dataset_path = _get_dataset_path(dataset, datasets_path or DATASETS_PATH, bucket=bucket)
     metadata = Metadata(str(dataset_path / 'metadata.json'))
     tables = metadata.get_tables()
-    if len(tables) > 1:
-        modality = 'multi-table'
-    else:
-        table = metadata.get_table_meta(tables[0])
-        if any(table.get(field) for field in TIMESERIES_FIELDS):
-            modality = 'timeseries'
+    if not hasattr(metadata, 'modality'):
+        if len(tables) > 1:
+            modality = 'multi-table'
         else:
-            modality = 'single-table'
+            table = metadata.get_table_meta(tables[0])
+            if any(table.get(field) for field in TIMESERIES_FIELDS):
+                modality = 'timeseries'
+            else:
+                modality = 'single-table'
 
-    metadata._metadata['modality'] = modality
+        metadata._metadata['modality'] = modality
+        metadata.modality = modality
+
+    if not hasattr(metadata, 'name'):
+        metadata._metadata['name'] = dataset_path.name
+        metadata.name = dataset_path.name
 
     return metadata
 

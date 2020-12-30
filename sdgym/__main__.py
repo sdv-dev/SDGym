@@ -14,10 +14,6 @@ import tqdm
 import sdgym
 
 
-class SDGymError(Exception):
-    pass
-
-
 def _env_setup(logfile, verbosity):
     gc.enable()
     warnings.simplefilter('ignore')
@@ -42,8 +38,11 @@ def _print_table(data, sort=None, reverse=False, format=None):
 
     if 'error' in data:
         error = data['error']
-        long_error = error.str.len() > 30
-        data.loc[long_error, 'error'] = error[long_error].str[:30] + '...'
+        if pd.isnull(error).all():
+            del data['error']
+        else:
+            long_error = error.str.len() > 30
+            data.loc[long_error, 'error'] = error[long_error].str[:30] + '...'
 
     print(tabulate.tabulate(
         data,
@@ -84,7 +83,7 @@ def _run(args):
                 try:
                     synthesizers[synthesizer] = sdgym.utils.import_object(synthesizer)
                 except Exception:
-                    raise SDGymError(f'Unknown synthesizer {synthesizer}')
+                    raise sdgym.errors.SDGymError(f'Unknown synthesizer {synthesizer}')
 
     lb = sdgym.run(
         synthesizers=synthesizers,
@@ -240,7 +239,7 @@ def main():
     args = parser.parse_args()
     try:
         args.action(args)
-    except SDGymError as error:
+    except sdgym.errors.SDGymError as error:
         print(f'ERROR: {error}')
 
 

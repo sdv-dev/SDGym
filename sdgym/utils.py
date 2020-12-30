@@ -10,6 +10,8 @@ from datetime import datetime
 import humanfriendly
 import psutil
 
+from sdgym.errors import SDGymTimeout
+
 
 def used_memory():
     """Get the memory used by this process nicely formatted."""
@@ -48,10 +50,6 @@ def format_exception():
     return exception, error
 
 
-class Timeout(Exception):
-    pass
-
-
 def _timeout_function(output, function, args):
     output['output'] = function(*args)
 
@@ -69,6 +67,6 @@ def with_timeout(timeout, function, *args):
         process.terminate()
 
         if not output:
-            raise Timeout()
+            raise SDGymTimeout()
 
         return dict(output)['output']
