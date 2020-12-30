@@ -16,7 +16,7 @@ from sdgym.errors import SDGymError, SDGymTimeout
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.synthesizers.base import Baseline
-from sdgym.utils import format_exception, used_memory, with_timeout
+from sdgym.utils import format_exception, import_object, used_memory, with_timeout
 
 LOGGER = logging.getLogger(__name__)
 
@@ -183,6 +183,25 @@ def _get_synthesizer_name(synthesizer):
     return synthesizer_name
 
 
+def _get_synthesizer(synthesizer, name=None):
+    if isinstance(synthesizer, str):
+        baselines = Baseline.get_subclasses()
+        if synthesizer in baselines:
+            synthesizer = baselines[synthesizer]
+        else:
+            try:
+                synthesizer = import_object(synthesizer)
+            except Exception:
+                raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
+
+    if name:
+        synthesizer.name = name
+    elif not hasattr(synthesizer, 'name'):
+        synthesizer.name = _get_synthesizer_name(synthesizer)
+
+    return synthesizer
+
+
 def _get_synthesizers(synthesizers):
     """Get the dict of synthesizers from the input value.
 
@@ -202,21 +221,21 @@ def _get_synthesizers(synthesizers):
         TypeError:
             if neither a synthesizer or an iterable or a dict is passed.
     """
+
     if callable(synthesizers):
-        synthesizers = {_get_synthesizer_name(synthesizers): synthesizers}
+        return [_get_synthesizer(synthesizers)]
     if isinstance(synthesizers, (list, tuple)):
-        synthesizers = {
-            _get_synthesizer_name(synthesizer): synthesizer
+        return [
+            _get_synthesizer(synthesizer)
             for synthesizer in synthesizers
-        }
-    elif not isinstance(synthesizers, dict):
+        ]
+    elif isinstance(synthesizers, dict):
+        return [
+            _get_synthesizer(synthesizer, name)
+            for name, synthesizer in synthesizers.items()
+        ]
+    else:
         raise TypeError('`synthesizers` can only be a function, a class, a list or a dict')
-
-    for synthesizer_name, synthesizer in synthesizers.items():
-        if not hasattr(synthesizer, 'name'):
-            synthesizer.name = synthesizer_name
-
-    return list(synthesizers.values())
 
 
 def _get_dataset_paths(datasets, datasets_path):

@@ -73,20 +73,8 @@ def _run(args):
     else:
         workers = args.workers
 
-    baselines = sdgym.synthesizers.base.Baseline.get_subclasses()
-    if args.synthesizers:
-        synthesizers = {}
-        for synthesizer in args.synthesizers:
-            if synthesizer in baselines:
-                synthesizers[synthesizer] = baselines[synthesizer]
-            else:
-                try:
-                    synthesizers[synthesizer] = sdgym.utils.import_object(synthesizer)
-                except Exception:
-                    raise sdgym.errors.SDGymError(f'Unknown synthesizer {synthesizer}')
-
     lb = sdgym.run(
-        synthesizers=synthesizers,
+        synthesizers=args.synthesizers,
         datasets=args.datasets,
         datasets_path=args.datasets_path,
         metrics=args.metrics,

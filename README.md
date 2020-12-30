@@ -141,18 +141,18 @@ All you need to do in order to use the SDGym Benchmark, is to import `sdgym` and
 `run` function passing it your synthesizer function and the settings that you want to use
 for the evaluation.
 
-For example, if we want to evaluate a simple synthesizer function in the `adult` dataset
+For example, if we want to evaluate a simple synthesizer function in the `census` dataset
 we can execute:
 
 ```python3
 import numpy as np
 import sdgym
 
-def my_synthesizer_function(real_data, categorical_columns, ordinal_columns):
+def my_synthesizer_function(real_data, metadata):
     """dummy synthesizer that just returns a permutation of the real data."""
-    return np.random.permutation(real_data)
+    return {name: table.sample(len(table)) for name, table in real_data.items()}
 
-scores = sdgym.run(synthesizers=my_synthesizer_function, datasets=['adult'])
+scores = sdgym.run(synthesizers=my_synthesizer_function, datasets=['census'])
 ```
 
 * You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).
@@ -163,7 +163,7 @@ by your synthesizer on each dataset, as well as the results obtained previously 
 synthesizers:
 
 ```
-                        adult/accuracy  adult/f1  ...  ring/test_likelihood
+                        census/accuracy  census/f1  ...  ring/test_likelihood
 IndependentSynthesizer         0.56530  0.134593  ...             -1.958888
 UniformSynthesizer             0.39695  0.273753  ...             -2.519416
 IdentitySynthesizer            0.82440  0.659250  ...             -1.705487
