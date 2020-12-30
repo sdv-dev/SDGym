@@ -1,5 +1,6 @@
 """Main SDGym benchmarking module."""
 
+import concurrent
 import logging
 import multiprocessing
 import os
@@ -12,11 +13,11 @@ import pandas as pd
 import tqdm
 
 from sdgym.datasets import load_dataset, load_tables
-from sdgym.errors import SDGymError, SDGymTimeout
+from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.synthesizers.base import Baseline
-from sdgym.utils import format_exception, import_object, used_memory, with_timeout
+from sdgym.utils import format_exception, import_object, used_memory
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ def _synthesize(synthesizer, real_data, metadata):
     return synthetic_data, elapsed
 
 
-def _prepare_data(real_data, synthetic_data, metadata):
+def _prepare_metric_args(real_data, synthetic_data, metadata):
     modality = metadata.modality
     if modality == 'multi-table':
         metadata = metadata.to_dict()
@@ -63,99 +64,133 @@ def _prepare_data(real_data, synthetic_data, metadata):
     return real_data, synthetic_data, metadata
 
 
-def _compute_scores(metrics, real_data, synthetic_data, metadata):
+def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
     metrics = get_metrics(metrics, metadata)
-    real_data, synthetic_data, metadata_dict = _prepare_data(real_data, synthetic_data, metadata)
+    metric_args = _prepare_metric_args(real_data, synthetic_data, metadata)
 
     scores = []
+    output['scores'] = scores
     for metric_name, metric in metrics.items():
+        scores.append({
+            'metric': metric_name,
+            'error': 'Metric Timeout',
+        })
+        output['scores'] = scores  # re-inject list to multiprocessing output
+
         error = None
         score = None
         start = datetime.utcnow()
         try:
-            LOGGER.info('Computing %s on dataset %s', metric_name, metadata.name)
-            score = metric.compute(real_data, synthetic_data, metadata_dict)
+            LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
+            score = metric.compute(*metric_args)
         except Exception:
             LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
-                             metric_name, metadata.name)
+                             metric_name, metadata._metadata['name'])
             _, error = format_exception()
 
-        scores.append({
-            'metric': metric_name,
+        scores[-1].update({
             'score': score,
             'error': error,
             'metric_time': (datetime.utcnow() - start).total_seconds()
         })
-
-    return pd.DataFrame(scores)
-
-
-def __score_synthesizer_on_dataset(synthesizer, metadata, metrics, iteration):
-    LOGGER.info('Evaluating %s on dataset %s; iteration %s; %s',
-                synthesizer.name, metadata.name, iteration, used_memory())
-    real_data = load_tables(metadata)
-
-    LOGGER.info('Running %s on dataset %s; iteration %s; %s',
-                synthesizer.name, metadata.name, iteration, used_memory())
-
-    synthetic_data, model_time = _synthesize(synthesizer, real_data.copy(), metadata)
-
-    LOGGER.info('Scoring %s on dataset %s; iteration %s; %s',
-                synthesizer.name, metadata.name, iteration, used_memory())
-    scores = _compute_scores(metrics, real_data, synthetic_data, metadata)
-
-    return scores, metadata, model_time
+        output['scores'] = scores  # re-inject list to multiprocessing output
 
 
-def _score_synthesizer_on_dataset(args):
-    synthesizer, metadata, metrics, iteration, cache_dir, timeout = args
-    synthetic_data = None
-    exception = None
-    scores = None
-    model_time = None
+def _score(name, synthesizer, metadata, metrics, iteration, output=None):
+    if output is None:
+        output = {}
+
+    output['timeout'] = True  # To be deleted if there is no error
+    output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
-        if timeout:
-            scores, metadata, model_time = with_timeout(
-                timeout, __score_synthesizer_on_dataset, synthesizer, metadata, metrics, iteration)
-        else:
-            scores, metadata, model_time = __score_synthesizer_on_dataset(
-                synthesizer, metadata, metrics, iteration)
-    except SDGymTimeout:
-        LOGGER.error('Timeout running %s on dataset %s; iteration %s',
-                     synthesizer.name, metadata.name, iteration)
-        scores = pd.DataFrame({
-            'error': ['Timeout']
-        })
+        real_data = load_tables(metadata)
+
+        LOGGER.info('Running %s on %s dataset %s; iteration %s; %s',
+                    name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
+
+        output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
+        synthetic_data, model_time = _synthesize(synthesizer, real_data.copy(), metadata)
+        output['synthetic_data'] = synthetic_data
+        output['model_time'] = model_time.total_seconds()
+
+        LOGGER.info('Scoring %s on %s dataset %s; iteration %s; %s',
+                    name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
+
+        del output['error']   # No error so far. _compute_scores tracks its own errors by metric
+        _compute_scores(metrics, real_data, synthetic_data, metadata, output)
+
+        output['timeout'] = False  # There was no timeout
+
     except Exception:
         LOGGER.exception('Error running %s on dataset %s; iteration %s',
-                         synthesizer.name, metadata.name, iteration)
+                         name, metadata._metadata['name'], iteration)
         exception, error = format_exception()
-        scores = pd.DataFrame({
-            'error': [error]
-        })
+        output['exception'] = exception
+        output['error'] = error
 
     finally:
         LOGGER.info('Finished %s on dataset %s; iteration %s; %s',
-                    synthesizer.name, metadata.name, iteration, used_memory())
+                    name, metadata._metadata['name'], iteration, used_memory())
 
-    scores['synthesizer'] = synthesizer.name
-    scores['dataset'] = metadata.name
-    scores['iteration'] = iteration
-    if metadata is not None:
-        scores['modality'] = metadata.modality
+    return output
 
-    if model_time is not None:
-        scores['model_time'] = model_time.total_seconds()
+
+def _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration):
+    with multiprocessing.Manager() as manager:
+        output = manager.dict()
+        process = multiprocessing.Process(
+            target=_score,
+            args=(name, synthesizer, metadata, metrics, iteration, output),
+        )
+
+        process.start()
+        process.join(timeout)
+        process.terminate()
+
+        output = dict(output)
+        if output['timeout']:
+            LOGGER.error('Timeout running %s on dataset %s; iteration %s',
+                         name, metadata._metadata['name'], iteration)
+
+        return output
+
+
+def _run_job(args):
+    name, synthesizer, metadata, metrics, iteration, cache_dir, timeout = args
+
+    LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; iteration %s; %s',
+                name, metadata.modality, metadata._metadata['name'],
+                timeout, iteration, used_memory())
+
+    if timeout:
+        output = _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration)
+    else:
+        output = _score(name, synthesizer, metadata, metrics, iteration)
+
+    scores = output.get('scores')
+    if not scores:
+        scores = pd.DataFrame({'score': [None]})
+    else:
+        scores = pd.DataFrame(scores)
+
+    scores.insert(0, 'synthesizer', name)
+    scores.insert(1, 'dataset', metadata._metadata['name'])
+    scores.insert(2, 'modality', metadata.modality)
+    scores.insert(3, 'iteration', iteration)
+    scores['model_time'] = output.get('model_time')
+
+    if 'error' in output:
+        scores['error'] = output['error']
 
     if cache_dir:
-        base_path = str(cache_dir / f'{synthesizer.name}_{metadata.name}_{iteration}')
+        base_path = str(cache_dir / f'{name}_{metadata._metadata["name"]}_{iteration}')
         if scores is not None:
             scores.to_csv(base_path + '_scores.csv', index=False)
-        if synthetic_data is not None:
-            compress_pickle.dump(synthetic_data, base_path + '.data.gz')
-        if exception is not None:
+        if 'synthetic_data' in output:
+            compress_pickle.dump(output['synthetic_data'], base_path + '.data.gz')
+        if 'exception' in output:
             with open(base_path + '_error.txt', 'w') as error_file:
-                error_file.write(exception)
+                error_file.write(output['exception'])
 
     return scores
 
@@ -221,21 +256,22 @@ def _get_synthesizers(synthesizers):
         TypeError:
             if neither a synthesizer or an iterable or a dict is passed.
     """
-
     if callable(synthesizers):
         return [_get_synthesizer(synthesizers)]
+
     if isinstance(synthesizers, (list, tuple)):
         return [
             _get_synthesizer(synthesizer)
             for synthesizer in synthesizers
         ]
-    elif isinstance(synthesizers, dict):
+
+    if isinstance(synthesizers, dict):
         return [
             _get_synthesizer(synthesizer, name)
             for name, synthesizer in synthesizers.items()
         ]
-    else:
-        raise TypeError('`synthesizers` can only be a function, a class, a list or a dict')
+
+    raise TypeError('`synthesizers` can only be a function, a class, a list or a dict')
 
 
 def _get_dataset_paths(datasets, datasets_path):
@@ -260,7 +296,7 @@ def _get_dataset_paths(datasets, datasets_path):
     return dataset_paths
 
 
-def _run_on_dask(scorer_args, verbose):
+def _run_on_dask(jobs, verbose):
     """Run the tasks in parallel using dask."""
     try:
         import dask
@@ -272,8 +308,8 @@ def _run_on_dask(scorer_args, verbose):
         )
         raise
 
-    scorer = dask.delayed(_score_synthesizer_on_dataset)
-    persisted = dask.persist(*[scorer(args) for args in scorer_args])
+    scorer = dask.delayed(_run_job)
+    persisted = dask.persist(*[scorer(args) for args in jobs])
     if verbose:
         try:
             progress(persisted)
@@ -284,8 +320,7 @@ def _run_on_dask(scorer_args, verbose):
 
 
 def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=None, iterations=1,
-        add_leaderboard=True, leaderboard_path=None, replace_existing=True, workers=1,
-        cache_dir=None, output_path=None, show_progress=False, timeout=None):
+        workers=1, cache_dir=None, show_progress=False, timeout=None, output_path=None):
     """Run the SDGym benchmark and return a leaderboard.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -314,15 +349,6 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
             Name of the bucket from which the datasets must be downloaded if not found locally.
         iterations (int):
             Number of iterations to perform over each dataset and synthesizer. Defaults to 3.
-        add_leaderboard (bool):
-            Whether to append the obtained scores to the previous leaderboard or not. Defaults
-            to ``True``.
-        leaderboard_path (str):
-            Path to where the leaderboard is stored. Defaults to the leaderboard included
-            with the package, which contains the scores obtained by the SDGym synthesizers.
-        replace_existing (bool):
-            Whether to replace old scores or keep them in the returned leaderboard. Defaults
-            to ``True``.
         workers (int or str):
             If ``workers`` is given as an integer value other than 0 or 1, a multiprocessing
             Pool is used to distribute the computation across the indicated number of workers.
@@ -334,21 +360,20 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
             as CSV files as they get computted. This allows inspecting results while the benchmark
             is still running and also recovering results in case the process does not finish
             properly. Defaults to ``None``.
-        output_path (str):
-            If an ``output_path`` is given, the generated leaderboard will be stored in the
-            indicated path as a CSV file. The given path must be a complete path including
-            the ``.csv`` filename.
         show_progress (bool):
             Whether to use tqdm to keep track of the progress. Defaults to ``True``.
         timeout (int):
             Maximum number of seconds to wait for each dataset to
             finish the evaluation process. If not passed, wait until
             all the datasets are done.
+        output_path (str):
+            If an ``output_path`` is given, the generated leaderboard will be stored in the
+            indicated path as a CSV file. The given path must be a complete path including
+            the ``.csv`` filename.
 
     Returns:
-        pandas.DataFrame or None:
-            If not ``output_path`` is given, a table containing one row per synthesizer and
-            one column for each dataset and metric is returned. Otherwise, there is no output.
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric + iteration.
     """
     synthesizers = _get_synthesizers(synthesizers)
     datasets = _get_dataset_paths(datasets, datasets_path)
@@ -357,7 +382,7 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
         cache_dir = Path(cache_dir)
         os.makedirs(cache_dir, exist_ok=True)
 
-    scorer_args = list()
+    jobs = list()
     for synthesizer in synthesizers:
         for dataset in datasets:
             metadata = load_dataset(dataset, bucket=bucket)
@@ -365,6 +390,7 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
             if not modalities or metadata.modality in modalities:
                 for iteration in range(iterations):
                     args = (
+                        synthesizer.name,
                         synthesizer,
                         metadata,
                         metrics,
@@ -372,22 +398,26 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
                         cache_dir,
                         timeout,
                     )
-                    scorer_args.append(args)
+                    jobs.append(args)
 
     if workers == 'dask':
-        scores = _run_on_dask(scorer_args, show_progress)
+        scores = _run_on_dask(jobs, show_progress)
     else:
         if workers in (0, 1):
-            scores = map(_score_synthesizer_on_dataset, scorer_args)
+            scores = map(_run_job, jobs)
         else:
-            pool = multiprocessing.Pool(workers)
-            scores = pool.imap_unordered(_score_synthesizer_on_dataset, scorer_args)
+            pool = concurrent.futures.ProcessPoolExecutor(workers)
+            scores = pool.map(_run_job, jobs)
 
-        scores = tqdm.tqdm(scores, total=len(scorer_args), file=TqdmLogger())
+        scores = tqdm.tqdm(scores, total=len(jobs), file=TqdmLogger())
         if show_progress:
-            scores = tqdm.tqdm(scores, total=len(scorer_args))
+            scores = tqdm.tqdm(scores, total=len(jobs))
 
     if not scores:
         raise SDGymError("No valid Dataset/Synthesizer combination given")
 
-    return pd.concat(scores)
+    scores = pd.concat(scores)
+    if output_path:
+        scores.to_csv(output_path, index=False)
+
+    return scores

@@ -66,7 +66,14 @@ def _run(args):
             )
             raise
 
-        client = Client(LocalCluster(n_workers=args.workers, threads_per_worker=args.threads))
+        processes = args.workers > 1
+        client = Client(
+            LocalCluster(
+                processes=processes,
+                n_workers=args.workers,
+                threads_per_worker=args.threads,
+            ),
+        )
         client.register_worker_callbacks(lambda: _env_setup(args.logfile, args.verbose))
 
         workers = 'dask'
@@ -79,12 +86,11 @@ def _run(args):
         datasets_path=args.datasets_path,
         metrics=args.metrics,
         iterations=args.iterations,
-        output_path=args.output_path,
         cache_dir=args.cache_dir,
         workers=workers,
         show_progress=args.progress,
-        replace_existing=args.replace_existing,
         timeout=args.timeout,
+        output_path=args.output_path,
     )
     if lb is not None:
         _print_table(lb)
@@ -158,8 +164,6 @@ def _get_parser():
     run.add_argument('-v', '--verbose', action='count', default=0,
                      help='Be verbose. Repeat for increased verbosity.')
     run.add_argument('-p', '--progress', action='store_true',
-                     help='Print a progress bar using tqdm.')
-    run.add_argument('-r', '--replace-existing', action='store_true',
                      help='Print a progress bar using tqdm.')
     run.add_argument('-t', '--timeout', type=int,
                      help='Maximum seconds to run for each dataset.')
