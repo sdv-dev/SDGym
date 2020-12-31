@@ -114,7 +114,10 @@ def _make_summary(args):
 
 def _download_datasets(args):
     _env_setup(args.logfile, args.verbose)
-    datasets = args.datasets or sdgym.datasets.get_datasets_list(args.bucket)
+    datasets = args.datasets
+    if not datasets:
+        datasets = sdgym.datasets.get_available_datasets(args.bucket)['name']
+
     for dataset in tqdm.tqdm(datasets):
         sdgym.datasets.load_dataset(dataset, args.datasets_path, args.bucket)
 
@@ -122,6 +125,7 @@ def _download_datasets(args):
 def _list_downloaded(args):
     datasets = sdgym.datasets.get_downloaded_datasets(args.datasets_path)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
+    print(f'Found {len(datasets)} downloaded datasets')
 
 
 def _list_available(args):
@@ -182,11 +186,11 @@ def _get_parser():
     make_summary.add_argument('output', help='Output file.')
 
     # download-datasets
-    download = action.add_parser('download', help='Download datasets.')
+    download = action.add_parser('download-datasets', help='Download datasets.')
     download.set_defaults(action=_download_datasets)
     download.add_argument('-b', '--bucket',
                           help='Bucket from which to download the datasets.')
-    download.add_argument('-d', '--datasets', nargs='+', default=sdgym.benchmark.DEFAULT_DATASETS,
+    download.add_argument('-d', '--datasets', nargs='+',
                           help='Datasets/s to be downloaded. Accepts multiple names.')
     download.add_argument('-dp', '--datasets-path',
                           help='Optional path to download the datasets to.')

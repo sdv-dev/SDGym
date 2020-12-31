@@ -102,7 +102,7 @@ def get_available_datasets(bucket=None):
 def get_downloaded_datasets(datasets_path=None):
     datasets_path = Path(datasets_path or DATASETS_PATH)
     if not datasets_path.is_dir():
-        raise ValueError(f'{datasets_path} is not a directory')
+        return pd.DataFrame(columns=['name', 'modality', 'tables', 'size'])
 
     datasets = []
     for dataset_path in datasets_path.iterdir():
