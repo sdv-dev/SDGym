@@ -62,21 +62,24 @@ class GaussianCopulaOneHot(SDVTabular):
     }
 
 
-class CTGAN(SDVTabular):
-
-    _MODEL = sdv.tabular.CTGAN
+class CUDATabular(SDVTabular):
 
     def fit(self, data, metadata):
         self._MODEL_KWARGS = {'cuda': select_device()}
         super().fit(data, metadata)
 
 
-class TVAE(CTGAN):
+class CTGAN(CUDATabular):
+
+    _MODEL = sdv.tabular.CTGAN
+
+
+class TVAE(CUDATabular):
 
     _MODEL = sdv.tabular.TVAE
 
 
-class CopulaGAN(CTGAN):
+class CopulaGAN(CUDATabular):
 
     _MODEL = sdv.tabular.CopulaGAN
 
@@ -122,7 +125,7 @@ class PAR(SDVTimeseries):
 
     def _fit_sample(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
-        model = sdv.timeseries.PAR(table_metadata=metadata, epochs=10, verbose=True)
+        model = sdv.timeseries.PAR(table_metadata=metadata, epochs=1024, verbose=False)
         model.device = select_device()
         model.fit(data)
 
