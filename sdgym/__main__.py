@@ -84,6 +84,7 @@ def _run(args):
         synthesizers=args.synthesizers,
         datasets=args.datasets,
         datasets_path=args.datasets_path,
+        modalities=args.modalities,
         metrics=args.metrics,
         iterations=args.iterations,
         cache_dir=args.cache_dir,
@@ -155,6 +156,8 @@ def _get_parser():
                      help='Datasets/s to be used. Accepts multiple names.')
     run.add_argument('-dp', '--datasets-path',
                      help='Path where datasets can be found.')
+    run.add_argument('-dm', '--modalities', nargs='+',
+                     help='Data Modalities to run. Accepts multiple names.')
     run.add_argument('-i', '--iterations', type=int, default=1,
                      help='Number of iterations.')
     run.add_argument('-D', '--distributed', action='store_true',

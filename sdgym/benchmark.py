@@ -319,8 +319,9 @@ def _run_on_dask(jobs, verbose):
     return dask.compute(*persisted)
 
 
-def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=None, iterations=1,
-        workers=1, cache_dir=None, show_progress=False, timeout=None, output_path=None):
+def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket=None,
+        metrics=None, iterations=1, workers=1, cache_dir=None, show_progress=False,
+        timeout=None, output_path=None):
     """Run the SDGym benchmark and return a leaderboard.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -343,6 +344,9 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
             Names of the datasets to use for the benchmark. Defaults to all the ones available.
         datasets_path (str):
             Path to where the datasets can be found. If not given, use the default path.
+        modalities (list[str]):
+            Filter datasets by the given modalities. If not given, filter datasets by the
+            synthesizer modalities.
         metrics (list[str]):
             List of metrics to apply.
         bucket (str):
@@ -386,8 +390,8 @@ def run(synthesizers, datasets=None, datasets_path=None, bucket=None, metrics=No
     for synthesizer in synthesizers:
         for dataset in datasets:
             metadata = load_dataset(dataset, bucket=bucket)
-            modalities = getattr(synthesizer, 'MODALITIES', None)
-            if not modalities or metadata.modality in modalities:
+            modalities_ = modalities or getattr(synthesizer, 'MODALITIES', None)
+            if not modalities_ or metadata.modality in modalities_:
                 for iteration in range(iterations):
                     args = (
                         synthesizer.name,
