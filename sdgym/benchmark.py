@@ -127,6 +127,7 @@ def _score(name, synthesizer, metadata, metrics, iteration, output=None):
         exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
+        output['timeout'] = False  # There was no timeout
 
     finally:
         LOGGER.info('Finished %s on dataset %s; iteration %s; %s',
@@ -157,10 +158,10 @@ def _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration
 
 def _run_job(args):
     name, synthesizer, metadata, metrics, iteration, cache_dir, timeout = args
+    dataset_name = metadata._metadata['name']
 
     LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; iteration %s; %s',
-                name, metadata.modality, metadata._metadata['name'],
-                timeout, iteration, used_memory())
+                name, metadata.modality, dataset_name, timeout, iteration, used_memory())
 
     if timeout:
         output = _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration)
@@ -183,7 +184,7 @@ def _run_job(args):
         scores['error'] = output['error']
 
     if cache_dir:
-        base_path = str(cache_dir / f'{name}_{metadata._metadata["name"]}_{iteration}')
+        base_path = str(cache_dir / f'{name}_{dataset_name}_{iteration}')
         if scores is not None:
             scores.to_csv(base_path + '_scores.csv', index=False)
         if 'synthetic_data' in output:
