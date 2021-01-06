@@ -30,7 +30,7 @@ SDGym is a part of the [The Synthetic Data Vault](https://sdv.dev/) project.
 
 ## What is a Synthetic Data Generator?
 
-A **Synthetic Data Generator** is a Python function (or class method) that takes as input some
+A **Synthetic Data Generator** is a Python function (or method) that takes as input some
 data, which we call the *real* data, learns a model from it, and outputs new *synthetic* data that
 has the same structure and similar mathematical properties as the *real* one.
 
@@ -46,7 +46,6 @@ https://sdv.dev/SDV/user_guides/relational/relational_metadata.html) JSON file.
 
 Further details about the list of available datasets and how to add your own datasets to
 the collection can be found in the [datasets documentation](DATASETS.md).
-
 
 # Install
 
@@ -68,30 +67,48 @@ For more installation options please visit the [SDGym installation Guide](INSTAL
 
 # Usage
 
-## Benchmarking your own synthesizer
+## Benchmarking your own Synthesizer
 
-To benchmark your own synthesizer function import `sdgym` and call it passing your synthesizer
-function and the settings that you want to use for the evaluation.
+SDGym evaluates **Synthetic Data Generators**, which are Python functions (or classes) that take
+as input some data, which we call the *real* data, learn a model from it, and output new
+*synthetic* data that has the same structure and similar mathematical properties as the *real* one.
 
-For example, if we want to evaluate a simple synthesizer function in the `census` dataset
-we can execute:
+As an example, let use define a synthesizer function that applies the [GaussianCopula model from SDV
+](https://sdv.dev/SDV/user_guides/single_table/gaussian_copula.html) with `gaussian` distribution.
 
 ```python3
 import numpy as np
-import sdgym
+from sdv.tabular import GaussianCopula
 
-def my_synthesizer_function(real_data, metadata):
-    """dummy synthesizer that just returns a permutation of the real data."""
-    return {name: table.sample(len(table)) for name, table in real_data.items()}
 
-scores = sdgym.run(synthesizers=my_synthesizer_function, datasets=['census'])
+def gaussian_copula(real_data, metadata):
+    gc = GaussianCopula(default_distribution='gaussian')
+    table_name = metadata.get_tables()[0]
+    gc.fit(real_data[table_name])
+    return {table_name: gc.sample()}
 ```
 
-* You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).
-* You can learn about different arguments for `sdgym.run` function [here](BENCHMARK.md).
+|:information_source: You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).|
+|:-|
+
+We can now try to evaluate this function on the `asia` and `alarm` datasets:
+
+```python3
+import sdgym
+
+scores = sdgym.run(synthesizers=gaussian_copula, datasets=['asia', 'alarm'])
+```
+
+|:information_source: You can learn about different arguments for `sdgym.run` function [here](BENCHMARK.md).|
+|:-|
 
 The output of the `sdgym.run` function will be a `pd.DataFrame` containing the results obtained
 by your synthesizer on each dataset.
+
+| synthesizer     | dataset | modality     | metric          |      score | metric_time | model_time |
+|-----------------|---------|--------------|-----------------|------------|-------------|------------|
+| gaussian_copula | asia    | single-table | BNLogLikelihood |  -2.842690 |    2.762427 |   0.752364 |
+| gaussian_copula | alarm   | single-table | BNLogLikelihood | -20.223178 |    7.009401 |   3.173832 |
 
 ## Benchmarking the SDGym Synthesizers
 
@@ -99,7 +116,7 @@ If you want to run the SDGym benchmark on the SDGym Synthesizers you can directl
 corresponding class, or a list of classes, to the `sdgym.run` function.
 
 For example, if you want to run the complete benchmark suite to evaluate all the existing
-synthesizers you can run (this will take a lot of time to run!):
+synthesizers you can run (:warning: this will take a lot of time to run!):
 
 ```python
 from sdgym.synthesizers import (

@@ -4,7 +4,6 @@ import concurrent
 import logging
 import multiprocessing
 import os
-import types
 from datetime import datetime
 from pathlib import Path
 
@@ -12,33 +11,15 @@ import compress_pickle
 import pandas as pd
 import tqdm
 
-from sdgym.datasets import load_dataset, load_tables
+from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.synthesizers.base import Baseline
-from sdgym.utils import format_exception, import_object, used_memory
+from sdgym.synthesizers.utils import get_synthesizers_dict
+from sdgym.utils import format_exception, used_memory
 
 LOGGER = logging.getLogger(__name__)
-
-
-DEFAULT_DATASETS = [
-    "adult",
-    "alarm",
-    "asia",
-    "census",
-    "child",
-    "covtype",
-    "credit",
-    "grid",
-    "gridr",
-    "insurance",
-    "intrusion",
-    "mnist12",
-    "mnist28",
-    "news",
-    "ring"
-]
 
 
 def _synthesize(synthesizer, real_data, metadata):
@@ -196,107 +177,6 @@ def _run_job(args):
     return scores
 
 
-def _get_synthesizer_name(synthesizer):
-    """Get the name of the synthesizer function or class.
-
-    If the given synthesizer is a function, return its name.
-    If it is a method, return the name of the class to which
-    the method belongs.
-
-    Args:
-        synthesizer (function or method):
-            The synthesizer function or method.
-
-    Returns:
-        str:
-            Name of the function or the class to which the method belongs.
-    """
-    if isinstance(synthesizer, types.MethodType):
-        synthesizer_name = synthesizer.__self__.__class__.__name__
-    else:
-        synthesizer_name = synthesizer.__name__
-
-    return synthesizer_name
-
-
-def _get_synthesizer(synthesizer, name=None):
-    if isinstance(synthesizer, str):
-        baselines = Baseline.get_subclasses()
-        if synthesizer in baselines:
-            synthesizer = baselines[synthesizer]
-        else:
-            try:
-                synthesizer = import_object(synthesizer)
-            except Exception:
-                raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
-
-    if name:
-        synthesizer.name = name
-    elif not hasattr(synthesizer, 'name'):
-        synthesizer.name = _get_synthesizer_name(synthesizer)
-
-    return synthesizer
-
-
-def _get_synthesizers(synthesizers):
-    """Get the dict of synthesizers from the input value.
-
-    If the input is a synthesizer or an iterable of synthesizers, get their names
-    and put them on a dict.
-
-    Args:
-        synthesizers (function, class, list, tuple or dict):
-            A synthesizer (function or method or class) or an iterable of synthesizers
-            or a dict containing synthesizer names as keys and synthesizers as values.
-
-    Returns:
-        dict[str, function]:
-            dict containing synthesizer names as keys and function as values.
-
-    Raises:
-        TypeError:
-            if neither a synthesizer or an iterable or a dict is passed.
-    """
-    if callable(synthesizers):
-        return [_get_synthesizer(synthesizers)]
-
-    if isinstance(synthesizers, (list, tuple)):
-        return [
-            _get_synthesizer(synthesizer)
-            for synthesizer in synthesizers
-        ]
-
-    if isinstance(synthesizers, dict):
-        return [
-            _get_synthesizer(synthesizer, name)
-            for name, synthesizer in synthesizers.items()
-        ]
-
-    raise TypeError('`synthesizers` can only be a function, a class, a list or a dict')
-
-
-def _get_dataset_paths(datasets, datasets_path):
-    """Build the full path to datasets and validate their existance."""
-    if datasets_path is None:
-        return datasets or DEFAULT_DATASETS
-
-    datasets_path = Path(datasets_path)
-    if datasets is None:
-        datasets = datasets_path.iterdir()
-
-    dataset_paths = []
-    for dataset in datasets:
-        if isinstance(dataset, str):
-            dataset = datasets_path / dataset
-
-        if not dataset.exists():
-            raise ValueError(f'Dataset {dataset} not found')
-
-        dataset_paths.append(dataset)
-
-    return dataset_paths
-
-
 def _run_on_dask(jobs, verbose):
     """Run the tasks in parallel using dask."""
     try:
@@ -380,17 +260,17 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric + iteration.
     """
-    synthesizers = _get_synthesizers(synthesizers)
-    datasets = _get_dataset_paths(datasets, datasets_path)
+    synthesizers = get_synthesizers_dict(synthesizers)
+    datasets = get_dataset_paths(datasets, datasets_path, bucket)
 
     if cache_dir:
         cache_dir = Path(cache_dir)
         os.makedirs(cache_dir, exist_ok=True)
 
     jobs = list()
-    for synthesizer in synthesizers:
-        for dataset in datasets:
-            metadata = load_dataset(dataset, bucket=bucket)
+    for dataset in datasets:
+        metadata = load_dataset(dataset)
+        for synthesizer in synthesizers:
             modalities_ = modalities or getattr(synthesizer, 'MODALITIES', None)
             if not modalities_ or metadata.modality in modalities_:
                 for iteration in range(iterations):

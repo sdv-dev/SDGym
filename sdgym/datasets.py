@@ -36,6 +36,7 @@ def _get_dataset_path(dataset, datasets_path, bucket=None):
     if dataset.exists():
         return dataset
 
+    datasets_path = datasets_path or DATASETS_PATH
     dataset_path = datasets_path / dataset
     if dataset_path.exists():
         return dataset_path
@@ -45,7 +46,7 @@ def _get_dataset_path(dataset, datasets_path, bucket=None):
 
 
 def load_dataset(dataset, datasets_path=None, bucket=None):
-    dataset_path = _get_dataset_path(dataset, datasets_path or DATASETS_PATH, bucket=bucket)
+    dataset_path = _get_dataset_path(dataset, datasets_path, bucket)
     metadata = Metadata(str(dataset_path / 'metadata.json'))
     tables = metadata.get_tables()
     if not hasattr(metadata, 'modality'):
@@ -115,3 +116,22 @@ def get_downloaded_datasets(datasets_path=None):
         })
 
     return pd.DataFrame(datasets)
+
+
+def get_dataset_paths(datasets, datasets_path, bucket):
+    """Build the full path to datasets and ensure they exist."""
+    if datasets_path is None:
+        datasets_path = DATASETS_PATH
+
+    datasets_path = Path(datasets_path)
+    if datasets is None:
+        if datasets_path.exists():
+            datasets = list(datasets_path.iterdir())
+
+        if not datasets:
+            datasets = get_available_datasets()['name'].tolist()
+
+    return [
+        _get_dataset_path(dataset, datasets_path, bucket)
+        for dataset in datasets
+    ]

@@ -24,5 +24,5 @@ __all__ = (
     'CopulaGAN',
     'GaussianCopulaCategorical',
     'GaussianCopulaCategoricalFuzzy',
-    'GaussianCopulaOneHot'
+    'GaussianCopulaOneHot',
 )
