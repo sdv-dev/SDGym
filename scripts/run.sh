@@ -8,6 +8,7 @@ CONF=$1
 SDGYM=${2:-$(which sdgym)}
 BASE_PATH=${3:-$(pwd)}
 PRIVBAYES_BIN=$4
+DATASETS_PATH=$5
 
 if [ -n "$PRIVBAYES_BIN" ]; then
     export PRIVBAYES_BIN
@@ -46,5 +47,6 @@ $SDGYM run -v \
     -i 3 \
     $MODALITIES \
     ${CACHE_PATH:+-c ${CACHE_PATH}} \
+    ${DATASETS_PATH:+-dp ${DATASETS_PATH}} \
     -W $WORKERS \
     -s $SYNTHESIZERS

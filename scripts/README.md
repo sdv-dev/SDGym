@@ -43,12 +43,16 @@ conda activate sdgym
 make install
 ```
 
-4. Enter the `scripts` folder and execute it passing the config files you want to run
+4. Enter the `scripts` folder and execute `submit.sh` passing the config files you want to run
 
 ```bash
 cd scripts
 ./submit.sh config/identity.conf config/...
 ```
+
+> **NOTE**: The first time the script is run it will download all the available datasets in the
+`datasets` folder within the `scripts` folder. Subsequent runs will skip this step if the
+`datasets` folder is found.
 
 After this, you can verify that the tasks have been properly submitted running `LLstat`, and
 that a folder called `runs/<current-date-and-time>` has been created inside the `scripts` folder.
