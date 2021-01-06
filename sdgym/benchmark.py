@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import compress_pickle
 import pandas as pd
 import tqdm
@@ -137,6 +138,9 @@ def _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration
 
 
 def _run_job(args):
+    # Reset random seed
+    np.random.seed()
+
     name, synthesizer, metadata, metrics, iteration, cache_dir, timeout = args
     dataset_name = metadata._metadata['name']
 
