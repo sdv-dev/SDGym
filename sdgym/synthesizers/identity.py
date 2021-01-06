@@ -1,16 +1,14 @@
-import pandas as pd
+import copy
 
-from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.base import Baseline
 
 
-class IdentitySynthesizer(BaseSynthesizer):
+class Identity(Baseline):
     """Trivial synthesizer.
 
     Returns the same exact data that is used to fit it.
     """
 
-    def fit(self, train_data, *args):
-        self.data = pd.DataFrame(train_data)
-
-    def sample(self, samples):
-        return self.data.sample(samples, replace=True).to_numpy().copy()
+    def fit_sample(self, real_data, metadata):
+        del metadata
+        return copy.deepcopy(real_data)

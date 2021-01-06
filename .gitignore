@@ -112,3 +112,5 @@ tmp/
 privbayes/privBayes.bin
 __privbn_tmp/
 dask-worker-space
+scripts/runs
+scripts/datasets

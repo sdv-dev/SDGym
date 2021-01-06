@@ -2,11 +2,11 @@ import numpy as np
 from sklearn.mixture import GaussianMixture
 
 from sdgym.constants import CONTINUOUS
-from sdgym.synthesizers.base import BaseSynthesizer
+from sdgym.synthesizers.base import LegacySingleTableBaseline
 from sdgym.synthesizers.utils import Transformer
 
 
-class IndependentSynthesizer(BaseSynthesizer):
+class Independent(LegacySingleTableBaseline):
     """docstring for IdentitySynthesizer."""
 
     def __init__(self, gmm_n=5):

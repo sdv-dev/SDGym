@@ -182,7 +182,7 @@ def make_leaderboard(scores, add_leaderboard=True, leaderboard_path=None,
         ]
 
     scores = pd.concat(scores, ignore_index=True)
-    scores = scores.drop(['distance', 'iteration', 'name'], axis=1, errors='ignore')
+    scores = scores.drop(['iteration', 'name'], axis=1, errors='ignore')
 
     leaderboard = scores.groupby(['synthesizer', 'dataset']).apply(_dataset_summary)
     if isinstance(leaderboard, pd.Series):
