@@ -20,7 +20,7 @@ The **SDV Datasets** are comprised of two elements:
 
 All the datasets can also be found for download inside the [sgdym S3 bucket](
 http://sdgym.s3.amazonaws.com/index.html) in the form of a `.zip` file that contains
-both the `metadata.json` and the `CSV` file colection.
+both the `metadata.json` and the `CSV` file collection.
 
 In order to load these datasets in the same format as they will be passed to your synthesizer
 you can use the `sdgym.load_dataset` function passing the name of the dataset to load.

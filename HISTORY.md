@@ -2,7 +2,7 @@
 
 ## v0.2.2 - 2020-10-17
 
-This version adds a rework of the the benchmark function and a few new synthetsizers.
+This version adds a rework of the benchmark function and a few new synthesizers.
 
 ### New Features
 
