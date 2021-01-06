@@ -7,8 +7,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import compress_pickle
+import numpy as np
 import pandas as pd
 import tqdm
 
