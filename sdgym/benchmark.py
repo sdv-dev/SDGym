@@ -16,8 +16,7 @@ from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.synthesizers.base import Baseline
-from sdgym.synthesizers.utils import get_synthesizers_dict
-from sdgym.utils import format_exception, used_memory
+from sdgym.utils import format_exception, get_synthesizers_dict, used_memory
 
 LOGGER = logging.getLogger(__name__)
 

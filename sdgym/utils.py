@@ -4,9 +4,13 @@ import importlib
 import os
 import sys
 import traceback
+import types
 
 import humanfriendly
 import psutil
+
+from sdgym.errors import SDGymError
+from sdgym.synthesizers.base import Baseline
 
 
 def used_memory():
@@ -116,4 +120,3 @@ def get_synthesizers_dict(synthesizers):
         ]
 
     raise TypeError('`synthesizers` can only be a function, a class, a list or a dict')
-
