@@ -4,6 +4,7 @@ import concurrent
 import logging
 import multiprocessing
 import os
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -141,7 +142,7 @@ def _run_job(args):
     # Reset random seed
     np.random.seed()
 
-    name, synthesizer, metadata, metrics, iteration, cache_dir, timeout = args
+    name, synthesizer, metadata, metrics, iteration, cache_dir, timeout, run_id = args
     dataset_name = metadata._metadata['name']
 
     LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; iteration %s; %s',
@@ -163,12 +164,13 @@ def _run_job(args):
     scores.insert(2, 'modality', metadata.modality)
     scores.insert(3, 'iteration', iteration)
     scores['model_time'] = output.get('model_time')
+    scores['run_id'] = run_id
 
     if 'error' in output:
         scores['error'] = output['error']
 
     if cache_dir:
-        base_path = str(cache_dir / f'{name}_{dataset_name}_{iteration}')
+        base_path = str(cache_dir / f'{name}_{dataset_name}_{iteration}_{run_id}')
         if scores is not None:
             scores.to_csv(base_path + '_scores.csv', index=False)
         if 'synthetic_data' in output:
@@ -265,6 +267,7 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
     """
     synthesizers = get_synthesizers_dict(synthesizers)
     datasets = get_dataset_paths(datasets, datasets_path, bucket)
+    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
     if cache_dir:
         cache_dir = Path(cache_dir)
@@ -285,6 +288,7 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
                         iteration,
                         cache_dir,
                         timeout,
+                        run_id,
                     )
                     jobs.append(args)
 
