@@ -17,14 +17,23 @@ from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.synthesizers.base import Baseline
-from sdgym.utils import format_exception, get_synthesizers_dict, used_memory
+from sdgym.utils import (
+    build_synthesizer, format_exception, get_synthesizers_dict, import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _synthesize(synthesizer, real_data, metadata):
-    if isinstance(synthesizer, type) and issubclass(synthesizer, Baseline):
-        synthesizer = synthesizer().fit_sample
+def _synthesize(synthesizer_dict, real_data, metadata):
+    synthesizer = synthesizer_dict['synthesizer']
+
+    if isinstance(synthesizer, str):
+        synthesizer = import_object(synthesizer)
+
+    if isinstance(synthesizer, type):
+        if issubclass(synthesizer, Baseline):
+            synthesizer = synthesizer().fit_sample
+        else:
+            synthesizer = build_synthesizer(synthesizer, synthesizer_dict)
 
     now = datetime.utcnow()
     synthetic_data = synthesizer(real_data.copy(), metadata)
@@ -77,9 +86,11 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
         output['scores'] = scores  # re-inject list to multiprocessing output
 
 
-def _score(name, synthesizer, metadata, metrics, iteration, output=None):
+def _score(synthesizer, metadata, metrics, iteration, output=None):
     if output is None:
         output = {}
+
+    name = synthesizer['name']
 
     output['timeout'] = True  # To be deleted if there is no error
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
@@ -117,12 +128,12 @@ def _score(name, synthesizer, metadata, metrics, iteration, output=None):
     return output
 
 
-def _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration):
+def _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
         process = multiprocessing.Process(
             target=_score,
-            args=(name, synthesizer, metadata, metrics, iteration, output),
+            args=(synthesizer, metadata, metrics, iteration, output),
         )
 
         process.start()
@@ -132,7 +143,7 @@ def _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration
         output = dict(output)
         if output['timeout']:
             LOGGER.error('Timeout running %s on dataset %s; iteration %s',
-                         name, metadata._metadata['name'], iteration)
+                         synthesizer['name'], metadata._metadata['name'], iteration)
 
         return output
 
@@ -141,16 +152,17 @@ def _run_job(args):
     # Reset random seed
     np.random.seed()
 
-    name, synthesizer, metadata, metrics, iteration, cache_dir, timeout = args
+    synthesizer, metadata, metrics, iteration, cache_dir, timeout = args
+    name = synthesizer['name']
     dataset_name = metadata._metadata['name']
 
     LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; iteration %s; %s',
                 name, metadata.modality, dataset_name, timeout, iteration, used_memory())
 
     if timeout:
-        output = _score_with_timeout(timeout, name, synthesizer, metadata, metrics, iteration)
+        output = _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration)
     else:
-        output = _score(name, synthesizer, metadata, metrics, iteration)
+        output = _score(synthesizer, metadata, metrics, iteration)
 
     scores = output.get('scores')
     if not scores:
@@ -274,11 +286,10 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
     for dataset in datasets:
         metadata = load_dataset(dataset)
         for synthesizer in synthesizers:
-            modalities_ = modalities or getattr(synthesizer, 'MODALITIES', None)
+            modalities_ = modalities or synthesizer.get('modalities')
             if not modalities_ or metadata.modality in modalities_:
                 for iteration in range(iterations):
                     args = (
-                        synthesizer.name,
                         synthesizer,
                         metadata,
                         metrics,

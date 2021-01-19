@@ -1,6 +1,7 @@
 """Random utils used by SDGym."""
 
 import importlib
+import json
 import os
 import sys
 import traceback
@@ -11,6 +12,7 @@ import psutil
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.utils import select_device
 
 
 def used_memory():
@@ -67,7 +69,14 @@ def _get_synthesizer_name(synthesizer):
 
 
 def _get_synthesizer(synthesizer, name=None):
+    if isinstance(synthesizer, dict):
+        return synthesizer
+
     if isinstance(synthesizer, str):
+        if synthesizer.endswith('.json'):
+            with open(synthesizer, 'r') as json_file:
+                return json.load(json_file)
+
         baselines = Baseline.get_subclasses()
         if synthesizer in baselines:
             synthesizer = baselines[synthesizer]
@@ -77,12 +86,14 @@ def _get_synthesizer(synthesizer, name=None):
             except Exception:
                 raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
-    if name:
-        synthesizer.name = name
-    elif not hasattr(synthesizer, 'name'):
-        synthesizer.name = _get_synthesizer_name(synthesizer)
+    if not name:
+        name = _get_synthesizer_name(synthesizer)
 
-    return synthesizer
+    return {
+        'name': name,
+        'synthesizer': synthesizer,
+        'modalities': getattr(synthesizer, 'MODALITIES', None),
+    }
 
 
 def get_synthesizers_dict(synthesizers):
@@ -120,3 +131,51 @@ def get_synthesizers_dict(synthesizers):
         ]
 
     raise TypeError('`synthesizers` can only be a function, a class, a list or a dict')
+
+
+def _get_kwargs(synthesizer_dict, method_name, replace):
+    method_kwargs = synthesizer_dict.get(method_name + '_kwargs', {})
+    for key, value in method_kwargs.items():
+        for replace_keyword, replace_value in replace:
+            if value == replace_keyword:
+                method_kwargs[key] = replace_value
+
+    return method_kwargs
+
+
+def build_synthesizer(synthesizer, synthesizer_dict):
+    def _synthesizer_function(real_data, metadata):
+        metadata_keyword = synthesizer_dict.get('metadata', '$metadata')
+        real_data_keyword = synthesizer_dict.get('real_data', '$real_data')
+        device_keyword = synthesizer_dict.get('device', '$device')
+        device_attribute = synthesizer_dict.get('device_attribute')
+        device = select_device()
+
+        multi_table = 'multi-table' in synthesizer_dict['modalities']
+        if not multi_table:
+            table = metadata.get_tables()[0]
+            metadata = metadata.get_table_meta(table)
+            real_data = real_data[table]
+
+        replace = [
+            (metadata_keyword, metadata),
+            (real_data_keyword, real_data),
+            (device_keyword, device),
+        ]
+
+        init_kwargs = _get_kwargs(synthesizer_dict, 'init', replace)
+        fit_kwargs = _get_kwargs(synthesizer_dict, 'fit', replace)
+
+        instance = synthesizer(**init_kwargs)
+        if device_attribute:
+            setattr(instance, device_attribute, device)
+
+        instance.fit(**fit_kwargs)
+
+        sampled = instance.sample()
+        if not multi_table:
+            sampled = {table: sampled}
+
+        return sampled
+
+    return _synthesizer_function
