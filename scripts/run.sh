@@ -9,19 +9,20 @@ SDGYM=${2:-$(which sdgym)}
 BASE_PATH=${3:-$(pwd)}
 PRIVBAYES_BIN=$4
 DATASETS_PATH=$5
+ITERATIONS=$6
+RUN_ID=$7
+
+# Source config
+. $CONF
 
 if [ -n "$PRIVBAYES_BIN" ]; then
     export PRIVBAYES_BIN
 fi
 
-# Source config
-. $CONF
-
-# Set default values
-WORKERS=${GPU:-${CPU}}
-TIMEOUT=${TIMEOUT:-28800}
-ITERATIONS=${ITERATIONS:-3}
-MODALITIES=${MODALITIES:+-dm ${MODALITIES}}
+if [ -n "$RUN_ID" ]; then
+    NAME=$NAME-$RUN_ID
+    export RUN_ID
+fi
 
 # Define paths
 if [ "x$CACHE" != "xFALSE" ]; then
@@ -43,10 +44,10 @@ mkdir -p output
 $SDGYM run -v \
     -o $OUTPUT_PATH \
     -l $LOG_PATH \
-    -t $TIMEOUT \
-    -i 3 \
-    $MODALITIES \
+    -t ${TIMEOUT:-28800} \
+    -i ${ITERATIONS:-1} \
+    ${MODALITIES:+-dm ${MODALITIES}} \
     ${CACHE_PATH:+-c ${CACHE_PATH}} \
     ${DATASETS_PATH:+-dp ${DATASETS_PATH}} \
-    -W $WORKERS \
+    -W ${GPU:-${CPU}} \
     -s $SYNTHESIZERS
