@@ -6,7 +6,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 
 from sdgym.synthesizers.base import LegacySingleTableBaseline
-from sdgym.synthesizers.utils import GeneralTransformer
+from sdgym.synthesizers.utils import GeneralTransformer, select_device
 
 
 class Reconstructor(Module):
@@ -100,7 +100,7 @@ class VEEGAN(LegacySingleTableBaseline):
         self.batch_size = batch_size
         self.epochs = epochs
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = select_device()
 
     def fit(self, train_data, categorical_columns=tuple(), ordinal_columns=tuple()):
         self.transformer = GeneralTransformer(act='tanh')

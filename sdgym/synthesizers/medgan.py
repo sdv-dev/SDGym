@@ -7,7 +7,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 
 from sdgym.synthesizers.base import LegacySingleTableBaseline
-from sdgym.synthesizers.utils import GeneralTransformer
+from sdgym.synthesizers.utils import GeneralTransformer, select_device
 
 
 class ResidualFC(Module):
@@ -148,7 +148,7 @@ class MedGAN(LegacySingleTableBaseline):
         self.batch_size = batch_size
         self.epochs = epochs
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = select_device()
         self.transformer = None
 
     def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
