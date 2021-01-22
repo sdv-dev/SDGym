@@ -144,6 +144,36 @@ def _get_kwargs(synthesizer_dict, method_name, replace):
 
 
 def build_synthesizer(synthesizer, synthesizer_dict):
+    """Build a synthesizer function for a dict specification.
+
+    The dict specification may contain any combination of the following entries:
+        * ``modalities``: List of modalities supported by this synthesizer.
+        * ``init``: Dict with the keyword arguments to pass to the ``__init__`` method. The
+          arguments should include the metadata, real data or device arguments when
+          required, encoded as the corresponding keywords.
+        * ``init``: Dict with the keyword arguments to pass to the ``fit`` method. The
+          arguments should include the metadata, real data or device arguments when
+          required, encoded as the corresponding keywords.
+        * ``modalities``: List of modalities supported by this synthesizer.
+        * ``metadata``: Keyword that should be replaced by the ``metadata`` object
+          when building the ``__init__`` and ``fit`` arguments. Defaults to ``$metadata``.
+        * ``real_data``: Keyword that should be replaced by the ``real_data`` object
+          when building the ``__init__`` and ``fit`` arguments. Defaults to ``$real_data``.
+        * ``device``: Keyword that should be replaced by the CUDA device to use
+          when building the ``__init__`` and ``fit`` arguments. Defaults to ``$device``.
+        * ``device_attr``: boolean indicating whether the CUDA device must be set
+          as an attribute instead of passing it as an argument. Defaults to ``False``.
+
+    Args:
+        synthesizer (class):
+            The class to be used in the synthesizer function.
+        synthesizer_dict (dict):
+            Dictionary with the specification of how to use the synthesizer.
+
+    Returns:
+        callable:
+            The synthesizer function
+    """
     def _synthesizer_function(real_data, metadata):
         metadata_keyword = synthesizer_dict.get('metadata', '$metadata')
         real_data_keyword = synthesizer_dict.get('real_data', '$real_data')
