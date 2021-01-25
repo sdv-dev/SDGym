@@ -216,6 +216,7 @@ bumpversion-revert: ## Undo a previous bumpversion-release
 	git checkout master
 	git branch -D stable
 
+CURRENT_VERSION := $(shell grep "^current_version" setup.cfg | grep -o "dev[0-9]*")
 CLEAN_DIR := $(shell git status --short | grep -v ??)
 CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 CHANGELOG_LINES := $(shell git diff HEAD..origin/stable HISTORY.md 2>&1 | wc -l)
@@ -224,6 +225,12 @@ CHANGELOG_LINES := $(shell git diff HEAD..origin/stable HISTORY.md 2>&1 | wc -l)
 check-clean: ## Check if the directory has uncommitted changes
 ifneq ($(CLEAN_DIR),)
 	$(error There are uncommitted changes)
+endif
+
+.PHONY: check-candidate
+check-candidate: ## Check if a release candidate has been made
+ifeq ($(CURRENT_VERSION),dev0)
+       $(error Please make a release candidate and test it before atempting a release)
 endif
 
 .PHONY: check-master
@@ -239,7 +246,7 @@ ifeq ($(CHANGELOG_LINES),0)
 endif
 
 .PHONY: check-release
-check-release: check-clean check-master check-history ## Check if the release can be made
+check-release: check-candidate check-clean check-master check-history ## Check if the release can be made
 	@echo "A new release can be made"
 
 .PHONY: release
@@ -253,9 +260,3 @@ release-candidate: check-master publish bumpversion-candidate
 
 .PHONY: release-candidate-test
 release-candidate-test: check-clean check-master publish-test
-
-.PHONY: release-minor
-release-minor: check-release bumpversion-minor release
-
-.PHONY: release-major
-release-major: check-release bumpversion-major release
