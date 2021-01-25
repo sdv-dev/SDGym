@@ -230,7 +230,7 @@ endif
 .PHONY: check-candidate
 check-candidate: ## Check if a release candidate has been made
 ifeq ($(CURRENT_VERSION),dev0)
-       $(error Please make a release candidate and test it before atempting a release)
+	$(error Please make a release candidate and test it before atempting a release)
 endif
 
 .PHONY: check-master
