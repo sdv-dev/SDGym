@@ -109,7 +109,7 @@ we can pass both of them inside a list:
 ```python3
 In [7]: synthesizers = [my_synthesizer_function, Independent]
 
-In [8]: scores = sdgym.run(synthesizers=synthesizers, )
+In [8]: scores = sdgym.run(synthesizers=synthesizers)
 ```
 
 Or, if we wanted to evaluate all the SDGym Synthesizers at once (note that this takes a lot of time

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from sdgym.constants import CATEGORICAL
 from sdgym.synthesizers.base import LegacySingleTableBaseline
-from sdgym.synthesizers.utils import TableganTransformer
+from sdgym.synthesizers.utils import TableganTransformer, select_device
 
 
 class Discriminator(Module):
@@ -133,7 +133,7 @@ class TableGAN(LegacySingleTableBaseline):
         self.batch_size = batch_size
         self.epochs = epochs
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = select_device()
 
     def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
         sides = [4, 8, 16, 24, 32]
