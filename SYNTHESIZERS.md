@@ -57,40 +57,6 @@ corresponding publications when applicable.
 | [SDV](sdgym/synthesizers/sdv.py)                            | [sdv.SDV](https://sdv.dev/SDV/getting_started/quickstart.html)                                                                                  | [7]       |
 | [VEEGAN](sdgym/synthesizers/veegan.py)                      |                                                                                                                                                 | [5]       |
 
-
-## Compile C++ dependencies
-
-Some of the third party synthesizers that SDGym offers, like the `PrivBN`, require
-dependencies written in C++ that need to be compiled before they can be used.
-
-In order to be able to use them, please do:
-
-1. Clone or download the SDGym repository to your local machine:
-
-```bash
-git clone git@github.com:sdv-dev/SDGym.git
-cd SDGym
-```
-
-2. make sure to have installed all the necessary dependencies to compile C++. In Linux
-distributions based on Ubuntu, this can be done with the following command:
-
-```bash
-sudo apt-get install build-essential
-```
-
-3. Trigger the C++ compilation:
-
-```bash
-make compile
-```
-
-4. Add the path to the created `privBayes.bin` binary to the `PRIVBAYES_BIN` environment variable:
-
-```bash
-export PRIVBAYES_BIN=$(pwd)/privBayes.bin
-```
-
 ## Benchmarking the SDGym Synthesizers
 
 If you want to re-evaluate the performance of any of the SDGym synthesizers, all you need to
