@@ -101,22 +101,6 @@ def _run(args):
         _print_table(scores)
 
 
-def _make_leaderboard(args):
-    lb = sdgym.results.make_leaderboard(args.input, output_path=args.output)
-    if not args.output:
-        _print_table(lb)
-
-
-def _make_summary(args):
-    summary = sdgym.results.summarize_results(args.input, args.output)
-
-    for title, section in summary.items():
-        print('\n### {}\n'.format(title))
-        section.index.name = 'Synthesizer'
-        section = section.reset_index()
-        _print_table(section)
-
-
 def _download_datasets(args):
     _env_setup(args.logfile, args.verbose)
     datasets = args.datasets
@@ -180,19 +164,6 @@ def _get_parser():
                      help='Maximum seconds to run for each dataset.')
     run.add_argument('-g', '--groupby', nargs='+',
                      help='Group scores leaderboard by the given fields')
-
-    # make-leaderboard
-    make_leaderboard = action.add_parser('make-leaderboard',
-                                         help='Make a leaderboard from cached results.')
-    make_leaderboard.set_defaults(action=_make_leaderboard)
-    make_leaderboard.add_argument('input', help='Input path with results.')
-    make_leaderboard.add_argument('output', help='Output file.')
-
-    # make-summary
-    make_summary = action.add_parser('make-summary', help='Summarize multiple leaderboards.')
-    make_summary.set_defaults(action=_make_summary)
-    make_summary.add_argument('input', nargs='+', help='Input path with results.')
-    make_summary.add_argument('output', help='Output file.')
 
     # download-datasets
     download = action.add_parser('download-datasets', help='Download datasets.')
