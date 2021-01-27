@@ -80,7 +80,7 @@ def _run(args):
     else:
         workers = args.workers
 
-    lb = sdgym.run(
+    scores = sdgym.run(
         synthesizers=args.synthesizers,
         datasets=args.datasets,
         datasets_path=args.datasets_path,
@@ -93,8 +93,12 @@ def _run(args):
         timeout=args.timeout,
         output_path=args.output_path,
     )
-    if lb is not None:
-        _print_table(lb)
+
+    if args.groupby:
+        scores = scores.groupby(args.groupby).mean().reset_index()
+
+    if scores is not None:
+        _print_table(scores)
 
 
 def _make_leaderboard(args):
@@ -174,6 +178,8 @@ def _get_parser():
                      help='Print a progress bar using tqdm.')
     run.add_argument('-t', '--timeout', type=int,
                      help='Maximum seconds to run for each dataset.')
+    run.add_argument('-g', '--groupby', nargs='+',
+                     help='Group scores leaderboard by the given fields')
 
     # make-leaderboard
     make_leaderboard = action.add_parser('make-leaderboard',
