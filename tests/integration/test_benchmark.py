@@ -10,4 +10,4 @@ def test_identity():
     assert not output.empty
     assert set(output['modality'].unique()) == {'single-table', 'multi-table'}
     assert output[output.synthesizer == 'Identity'].score.mean() > 0.9
-    assert output[output.synthesizer == 'Uniform'].score.mean() < 0.8
+    assert output[output.synthesizer == 'Uniform'].score.mean() < 0.9
