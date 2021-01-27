@@ -2,6 +2,17 @@
 
 import sdmetrics
 
+
+class WithKWargs:
+
+    def __init__(self, metric, **kwargs):
+        self._metric = metric
+        self._kwargs = kwargs
+
+    def compute(self, real_data, synthetic_data, metadata):
+        return self._metric.compute(real_data, synthetic_data, metadata, **self._kwargs)
+
+
 # Metrics to use by default for specific problem types and data
 # modalities if no metrics have been explicitly specified.
 PROBLEM_TYPE_METRICS = {
@@ -23,7 +34,14 @@ PROBLEM_TYPE_METRICS = {
         'BNLogLikelihood',
     ],
     'gaussian_likelihood': [
-        'GMLogLikelihood',
+        (
+            'GMLogLikelihood(10)',
+            WithKWargs(sdmetrics.single_table.GMLogLikelihood, n_components=10, iterations=10),
+        ),
+        (
+            'GMLogLikelihood(30)',
+            WithKWargs(sdmetrics.single_table.GMLogLikelihood, n_components=30, iterations=10),
+        ),
     ],
 }
 DATA_MODALITY_METRICS = {
@@ -67,10 +85,18 @@ def get_metrics(metrics, metadata):
 
     final_metrics = {}
     for metric in metrics:
-        if isinstance(metric, str):
+        if isinstance(metric, tuple):
+            metric_name, metric = metric
+        elif isinstance(metric, str):
+            metric_name = metric
             try:
-                final_metrics[metric] = metric_classes[metric]
+                metric = metric_classes[metric]
             except KeyError:
                 raise ValueError(f'Unknown {modality} metric: {metric}') from None
+
+        else:
+            metric_name = metric.__name__
+
+        final_metrics[metric_name] = metric
 
     return final_metrics
