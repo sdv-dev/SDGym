@@ -3,6 +3,8 @@ import logging
 import pandas as pd
 import rdt
 
+from sdgym.errors import UnsupportedDataset
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -120,11 +122,24 @@ class LegacySingleTableBaseline(SingleTableBaseline):
 
     def _fit_sample(self, real_data, table_metadata):
         columns, categoricals = self._get_columns(real_data, table_metadata)
+        real_data = real_data[columns]
 
         ht = rdt.HyperTransformer(dtype_transformers={
             'O': 'label_encoding',
         })
-        model_data = ht.fit_transform(real_data[columns])
+        ht.fit(real_data.iloc[:, categoricals])
+        model_data = ht.transform(real_data)
+
+        supported = set(model_data.select_dtypes(('number', 'bool')).columns)
+        unsupported = set(model_data.columns) - supported
+        if unsupported:
+            unsupported_dtypes = model_data[unsupported].dtypes.unique().tolist()
+            raise UnsupportedDataset(f'Unsupported dtypes {unsupported_dtypes}')
+
+        nulls = model_data.isnull().any()
+        if nulls.any():
+            unsupported_columns = nulls[nulls].index.tolist()
+            raise UnsupportedDataset(f'Null values found in columns {unsupported_columns}')
 
         LOGGER.info("Fitting %s", self.__class__.__name__)
         self.fit(model_data.to_numpy(), categoricals, ())
