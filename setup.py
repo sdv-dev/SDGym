@@ -12,20 +12,22 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
     history = history_file.read()
 
 install_requires = [
+    'appdirs>1.1.4,<2',
+    'compress-pickle>=1.2.0,<2',
+    'humanfriendly>=8.2,<9',
     'numpy>=1.15.4,<2',
     'pandas>=0.23.4,<2',
     'pomegranate>=0.13.0,<0.13.5',
-    'scikit-learn>=0.20,<0.24',
-    'torch>=1.1.0,<2',
-    'humanfriendly>=8.2,<9',
     'psutil>=5.7,<6',
+    'rdt>=0.2.11.dev0,<0.3',
+    'sdmetrics>=0.1.2.dev0,<0.2',
+    'scikit-learn>=0.20,<0.24',
+    'sdmetrics>=0.1.1.dev0,<0.2',
+    'sdv>=0.6.0,<0.7',
+    'tabulate>=0.8.3,<0.9',
+    'torch>=1.1.0,<2',
     'tqdm>=4,<5',
     'XlsxWriter>=1.2.8,<1.3',
-    'tabulate>=0.8.3,<0.9',
-    'appdirs>1.1.4,<2',
-    'sdv>=0.6.0,<0.7',
-    'sdmetrics>=0.1.1.dev0,<0.2',
-    'compress-pickle>=1.2.0,<2',
 ]
 
 setup_requires = [

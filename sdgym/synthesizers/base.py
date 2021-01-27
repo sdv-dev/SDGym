@@ -55,6 +55,40 @@ class SingleTableBaseline(Baseline):
         return self._fit_sample(real_data, metadata)
 
 
+class MultiSingleTableBaseline(Baseline):
+    """Base class for SingleTableBaselines that are used on multi table scenarios.
+
+    These classes model and sample each table independently and then just
+    randomly choose ids from the parent tables to form the relationships.
+    """
+
+    MODALITIES = ('multi-table', 'single-table')
+
+    def fit_sample(self, real_data, metadata):
+        if isinstance(real_data, dict):
+            tables = {
+                table_name: self._fit_sample(table, metadata.get_table_meta(table_name))
+                for table_name, table in real_data.items()
+            }
+
+            for table_name, table in tables.items():
+                parents = metadata.get_parents(table_name)
+                for parent_name in parents:
+                    parent = tables[parent_name]
+                    primary_key = metadata.get_primary_key(parent_name)
+                    foreign_keys = metadata.get_foreign_keys(parent_name, table_name)
+                    length = len(table)
+                    for foreign_key in foreign_keys:
+                        foreign_key_values = parent[primary_key].sample(length, replace=True)
+                        table[foreign_key] = foreign_key_values.values
+
+                tables[table_name] = table[real_data[table_name].columns]
+
+            return tables
+
+        return self._fit_sample(real_data, metadata)
+
+
 class LegacySingleTableBaseline(SingleTableBaseline):
     """Single table baseline which passes ordinals and categoricals down.
 
