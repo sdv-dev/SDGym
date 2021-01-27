@@ -13,4 +13,3 @@ def test_identity():
     scores = output.groupby('synthesizer').score.mean().sort_values()
 
     assert ['Uniform', 'Independent', 'Identity'] == scores.index.tolist()
-
