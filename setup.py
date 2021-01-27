@@ -19,15 +19,14 @@ install_requires = [
     'pandas>=0.23.4,<2',
     'pomegranate>=0.13.0,<0.13.5',
     'psutil>=5.7,<6',
-    'rdt>=0.2.11.dev0,<0.3',
-    'sdmetrics>=0.1.2.dev0,<0.2',
     'scikit-learn>=0.20,<0.24',
-    'sdmetrics>=0.1.2.dev0,<0.2',
-    'sdv>=0.6.2.dev0,<0.7',
     'tabulate>=0.8.3,<0.9',
     'torch>=1.1.0,<2',
     'tqdm>=4,<5',
     'XlsxWriter>=1.2.8,<1.3',
+    'rdt>=0.3.0,<0.4',
+    'sdmetrics>=0.1.2.dev2,<0.2',
+    'sdv>=0.6.2.dev2,<0.7',
 ]
 
 setup_requires = [

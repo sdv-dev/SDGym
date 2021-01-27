@@ -138,7 +138,7 @@ In [11]: synthesizers = {
 In [12]: scores = sdgym.run(synthesizers=synthesizers)
 ```
 
-## Datasets
+### Datasets
 
 By default, the sdgym.run function will run on [all the SDGym Datasets](DATASETS.md).
 
@@ -156,7 +156,7 @@ In [13]: datasets = ['adult', 'intrusion']
 In [14]: scores = sdgym.run(my_synthesizer_function, datasets=datasets)
 ```
 
-## Iterations
+### Iterations
 
 By default, the SDGym benchmark evaluates each synthesizer on each datasets exactly once.
 However, in some cases you may want to run each synthesizer and dataset combination multiple times

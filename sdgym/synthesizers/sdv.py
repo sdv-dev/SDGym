@@ -64,9 +64,15 @@ class GaussianCopulaOneHot(SDVTabular):
 
 class CUDATabular(SDVTabular):
 
-    def fit(self, data, metadata):
-        self._MODEL_KWARGS = {'cuda': select_device()}
-        super().fit(data, metadata)
+    def _fit_sample(self, data, metadata):
+        LOGGER.info('Fitting %s', self.__class__.__name__)
+        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
+        model_kwargs.setdefault('cuda', select_device())
+        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model.fit(data)
+
+        LOGGER.info('Sampling %s', self.__class__.__name__)
+        return model.sample()
 
 
 class CTGAN(CUDATabular):

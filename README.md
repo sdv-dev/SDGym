@@ -36,7 +36,7 @@ has the same structure and similar mathematical properties as the *real* one.
 
 Please refer to the [synthesizers documentation](SYNTHESIZERS.md) for instructions about how to
 implement your own Synthetic Data Generator and integrate with SDGym. You can also read about how
-to use the ones included in **SDGym** and see the current [leaderboard](SYNTHESIZERS.md#leaderboard).
+to use the ones already included in **SDGym** and see how to run them.
 
 ## Benchmark datasets
 
@@ -49,7 +49,7 @@ the collection can be found in the [datasets documentation](DATASETS.md).
 
 # Install
 
-**SDGym** can also be installed using the following commands:
+**SDGym** can be installed using the following commands:
 
 **Using `pip`:**
 
