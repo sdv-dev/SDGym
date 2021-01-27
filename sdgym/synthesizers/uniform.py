@@ -28,4 +28,3 @@ class Uniform(MultiSingleTableBaseline):
             sampled[name] = values
 
         return metadata.reverse_transform(sampled)
-
