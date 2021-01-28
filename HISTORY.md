@@ -1,5 +1,18 @@
 # History
 
+## v0.3.0 - 2021-01-27
+
+Major rework of the SDGym functionality to support a collection of new features:
+
+* Add relational and timeseries model benchmarking.
+* Use SDMetrics for model scoring.
+* Update datasets format to match SDV metadata based storage format.
+* Centralize default datasets collection in the `sdv-datasets` S3 bucket.
+* Add options to download and use datasets from different S3 buckets.
+* Rename synthesizers to baselines and adapt to the new metadata format.
+* Add model execution and metric computation time logging.
+* Add optional synthetic data and error traceback caching.
+
 ## v0.2.2 - 2020-10-17
 
 This version adds a rework of the benchmark function and a few new synthesizers.
