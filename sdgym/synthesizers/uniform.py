@@ -1,25 +1,30 @@
 import numpy as np
+import pandas as pd
+from sdv.metadata import Table
 
-from sdgym.constants import CONTINUOUS
-from sdgym.synthesizers.base import BaseSynthesizer
-from sdgym.synthesizers.utils import Transformer
+from sdgym.synthesizers.base import MultiSingleTableBaseline
 
 
-class UniformSynthesizer(BaseSynthesizer):
-    """UniformSynthesizer."""
+class Uniform(MultiSingleTableBaseline):
+    """Synthesizer that samples each column using a Uniform distribution."""
 
-    def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
-        self.dtype = data.dtype
-        self.shape = data.shape
-        self.meta = Transformer.get_metadata(data, categorical_columns, ordinal_columns)
+    @staticmethod
+    def _fit_sample(real_data, metadata):
+        metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
+        metadata.fit(real_data)
+        transformed = metadata.transform(real_data)
 
-    def sample(self, samples):
-        data = np.random.uniform(0, 1, (samples, self.shape[1]))
-
-        for i, c in enumerate(self.meta):
-            if c['type'] == CONTINUOUS:
-                data[:, i] = data[:, i] * (c['max'] - c['min']) + c['min']
+        sampled = pd.DataFrame()
+        length = len(real_data)
+        for name, column in transformed.items():
+            kind = column.dtype.kind
+            if kind == 'i':
+                values = np.random.randint(column.min(), column.max() + 1, size=length)
+            elif kind == 'O':
+                values = np.random.choice(column.unique(), size=length)
             else:
-                data[:, i] = (data[:, i] * (1 - 1e-8) * c['size']).astype('int32')
+                values = np.random.uniform(column.min(), column.max(), size=length)
 
-        return data.astype(self.dtype)
+            sampled[name] = values
+
+        return metadata.reverse_transform(sampled)
