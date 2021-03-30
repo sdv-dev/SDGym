@@ -24,9 +24,9 @@ install_requires = [
     'torch>=1.1.0,<2',
     'tqdm>=4,<5',
     'XlsxWriter>=1.2.8,<1.3',
-    'rdt>=0.3.0,<0.4',
-    'sdmetrics>=0.1.2,<0.2',
-    'sdv>=0.7.0,<0.8',
+    'rdt>=0.4.1,<0.5',
+    'sdmetrics>=0.3.0.dev0,<0.4',
+    'sdv>=0.8.0',
 ]
 
 setup_requires = [
@@ -67,7 +67,7 @@ development_requires = [
     # Advanced testing
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
-    'importlib-metadata<2,>=0.12',
+    'importlib-metadata>=3.6',
 ]
 
 setup(
