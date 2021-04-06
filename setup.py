@@ -16,7 +16,7 @@ install_requires = [
     'compress-pickle>=1.2.0,<2',
     'humanfriendly>=8.2,<9',
     'numpy>=1.15.4,<2',
-    'pandas>=0.23.4,<2',
+    'pandas<1.1.5,>=1.1',
     'pomegranate>=0.13.0,<0.13.5',
     'psutil>=5.7,<6',
     'scikit-learn>=0.20,<0.24',
@@ -26,7 +26,7 @@ install_requires = [
     'XlsxWriter>=1.2.8,<1.3',
     'rdt>=0.4.1,<0.5',
     'sdmetrics>=0.3.0.dev0,<0.4',
-    'sdv>=0.8.0',
+    'sdv>=0.9.0',
 ]
 
 setup_requires = [
