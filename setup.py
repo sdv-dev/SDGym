@@ -25,7 +25,7 @@ install_requires = [
     'tqdm>=4,<5',
     'XlsxWriter>=1.2.8,<1.3',
     'rdt>=0.4.1,<0.5',
-    'sdmetrics>=0.3.0.dev0,<0.4',
+    'sdmetrics>=0.3.0,<0.4',
     'sdv>=0.9.0',
 ]
 
