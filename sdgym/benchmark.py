@@ -264,7 +264,7 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
             is still running and also recovering results in case the process does not finish
             properly. Defaults to ``None``.
         show_progress (bool):
-            Whether to use tqdm to keep track of the progress. Defaults to ``True``.
+            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
         timeout (int):
             Maximum number of seconds to wait for each dataset to
             finish the evaluation process. If not passed, wait until
