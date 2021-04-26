@@ -251,7 +251,7 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
         bucket (str):
             Name of the bucket from which the datasets must be downloaded if not found locally.
         iterations (int):
-            Number of iterations to perform over each dataset and synthesizer. Defaults to 3.
+            Number of iterations to perform over each dataset and synthesizer. Defaults to 1.
         workers (int or str):
             If ``workers`` is given as an integer value other than 0 or 1, a multiprocessing
             Pool is used to distribute the computation across the indicated number of workers.
