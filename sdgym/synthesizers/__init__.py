@@ -1,4 +1,5 @@
 from sdgym.synthesizers.clbn import CLBN
+from sdgym.synthesizers.gretel import Gretel, PreprocessedGretel
 from sdgym.synthesizers.identity import Identity
 from sdgym.synthesizers.independent import Independent
 from sdgym.synthesizers.medgan import MedGAN
@@ -25,4 +26,6 @@ __all__ = (
     'GaussianCopulaCategorical',
     'GaussianCopulaCategoricalFuzzy',
     'GaussianCopulaOneHot',
+    'Gretel',
+    'PreprocessedGretel',
 )
