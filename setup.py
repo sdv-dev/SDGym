@@ -14,8 +14,9 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
 install_requires = [
     'appdirs>1.1.4,<2',
     'compress-pickle>=1.2.0,<2',
+    'gretel-synthetics>=0.15.4,<0.16',
     'humanfriendly>=8.2,<9',
-    'numpy>=1.15.4,<2',
+    'numpy>=1.15.4,<1.20',
     'pandas<1.1.5,>=1.1',
     'pomegranate>=0.13.0,<0.13.5',
     'psutil>=5.7,<6',
@@ -27,6 +28,8 @@ install_requires = [
     'rdt>=0.4.1',
     'sdmetrics>=0.3.0',
     'sdv>=0.9.0',
+    'tensorflow==2.4.0rc1',
+    'wheel~=0.35',
 ]
 
 setup_requires = [
