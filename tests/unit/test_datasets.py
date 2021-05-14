@@ -16,7 +16,7 @@ class AnyConfigWith:
         return self.signature_version == other.signature_version
 
 
-@patch('sdgym.datasets.boto3')
+@patch('sdgym.s3.boto3')
 def test_download_dataset_public_bucket(boto3_mock, tmpdir):
     """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
     with a dataset in a public bucket, and does not pass in any aws credentials.
@@ -74,7 +74,7 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
         assert dataset_file.read() == 'test_content'
 
 
-@patch('sdgym.datasets.boto3')
+@patch('sdgym.s3.boto3')
 def test_download_dataset_private_bucket(boto3_mock, tmpdir):
     """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
     with a dataset in a private bucket and uses aws credentials.
