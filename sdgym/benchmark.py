@@ -220,7 +220,7 @@ def _run_on_dask(jobs, verbose):
 
 def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket=None,
         metrics=None, iterations=1, workers=1, cache_dir=None, show_progress=False,
-        timeout=None, output_path=None):
+        timeout=None, output_path=None, aws_key=None, aws_secret=None):
     """Run the SDGym benchmark and return a leaderboard.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -273,13 +273,19 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
             If an ``output_path`` is given, the generated leaderboard will be stored in the
             indicated path as a CSV file. The given path must be a complete path including
             the ``.csv`` filename.
+        aws_key (str):
+            If an ``aws_key`` is provided, the given access key id will be used to read
+            from the specified bucket.
+        aws_secret (str):
+            If an ``aws_secret`` is provided, the given secret access key will be used to read
+            from the specified bucket.
 
     Returns:
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric + iteration.
     """
     synthesizers = get_synthesizers_dict(synthesizers)
-    datasets = get_dataset_paths(datasets, datasets_path, bucket)
+    datasets = get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret)
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
     if cache_dir:

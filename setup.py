@@ -13,6 +13,7 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
 
 install_requires = [
     'appdirs>1.1.4,<2',
+    'boto3>=1.15.0,<2',
     'compress-pickle>=1.2.0,<2',
     'humanfriendly>=8.2,<9',
     'numpy>=1.15.4,<2',

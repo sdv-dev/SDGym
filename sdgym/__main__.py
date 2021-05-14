@@ -86,12 +86,15 @@ def _run(args):
         datasets_path=args.datasets_path,
         modalities=args.modalities,
         metrics=args.metrics,
+        bucket=args.bucket,
         iterations=args.iterations,
         cache_dir=args.cache_dir,
         workers=workers,
         show_progress=args.progress,
         timeout=args.timeout,
         output_path=args.output_path,
+        aws_key=args.aws_key,
+        aws_secret=args.aws_secret,
     )
 
     if args.groupby:
@@ -105,10 +108,12 @@ def _download_datasets(args):
     _env_setup(args.logfile, args.verbose)
     datasets = args.datasets
     if not datasets:
-        datasets = sdgym.datasets.get_available_datasets(args.bucket)['name']
+        datasets = sdgym.datasets.get_available_datasets(
+            args.bucket, args.aws_key, args.aws_secret)['name']
 
     for dataset in tqdm.tqdm(datasets):
-        sdgym.datasets.load_dataset(dataset, args.datasets_path, args.bucket)
+        sdgym.datasets.load_dataset(
+            dataset, args.datasets_path, args.bucket, args.aws_key, args.aws_secret)
 
 
 def _list_downloaded(args):
@@ -118,7 +123,7 @@ def _list_downloaded(args):
 
 
 def _list_available(args):
-    datasets = sdgym.datasets.get_available_datasets(args.bucket)
+    datasets = sdgym.datasets.get_available_datasets(args.bucket, args.aws_key, args.aws_secret)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
 
 
@@ -140,6 +145,8 @@ def _get_parser():
                      help='Synthesizer/s to be benchmarked. Accepts multiple names.')
     run.add_argument('-m', '--metrics', nargs='+',
                      help='Metrics to apply. Accepts multiple names.')
+    run.add_argument('-b', '--bucket',
+                     help='Bucket from which to download the datasets.')
     run.add_argument('-d', '--datasets', nargs='+',
                      help='Datasets/s to be used. Accepts multiple names.')
     run.add_argument('-dp', '--datasets-path',
@@ -163,7 +170,11 @@ def _get_parser():
     run.add_argument('-t', '--timeout', type=int,
                      help='Maximum seconds to run for each dataset.')
     run.add_argument('-g', '--groupby', nargs='+',
-                     help='Group scores leaderboard by the given fields')
+                     help='Group scores leaderboard by the given fields.')
+    run.add_argument('-ak', '--aws-key', type=str, required=False,
+                     help='Aws access key ID to use when reading datasets.')
+    run.add_argument('-as', '--aws-secret', type=str, required=False,
+                     help='Aws secret access key to use when reading datasets.')
 
     # download-datasets
     download = action.add_parser('download-datasets', help='Download datasets.')
@@ -178,8 +189,12 @@ def _get_parser():
                           help='Be verbose. Repeat for increased verbosity.')
     download.add_argument('-l', '--logfile', type=str,
                           help='Name of the log file.')
+    download.add_argument('-ak', '--aws-key', type=str, required=False,
+                          help='Aws access key ID to use when reading datasets.')
+    download.add_argument('-as', '--aws-secret', type=str, required=False,
+                          help='Aws secret access key to use when reading datasets.')
 
-    # list-available-datasets
+    # list-downloaded-datasets
     list_downloaded = action.add_parser('list-downloaded', help='List downloaded datasets.')
     list_downloaded.set_defaults(action=_list_downloaded)
     list_downloaded.add_argument('-s', '--sort', default='name',
@@ -198,6 +213,10 @@ def _get_parser():
                                 help='Reverse the order.')
     list_available.add_argument('-b', '--bucket',
                                 help='Bucket from which to download the datasets.')
+    list_available.add_argument('-ak', '--aws-key', type=str, required=False,
+                                help='Aws access key ID to use when reading datasets.')
+    list_available.add_argument('-as', '--aws-secret', type=str, required=False,
+                                help='Aws secret access key to use when reading datasets.')
     list_available.set_defaults(action=_list_available)
 
     return parser
