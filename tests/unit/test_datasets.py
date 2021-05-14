@@ -18,13 +18,35 @@ class AnyConfigWith:
 
 @patch('sdgym.datasets.boto3')
 def test_download_dataset_public_bucket(boto3_mock, tmpdir):
-    """Test downloading datasets from a public bucket."""
+    """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
+    with a dataset in a public bucket, and does not pass in any aws credentials.
+
+    Setup:
+    The boto3 library for s3 access is patched, and mocks are created for the
+    s3 bucket and dataset zipfile. The tmpdir fixture is used for the expected
+    file creation.
+
+    Input:
+    - dataset name
+    - datasets path
+    - bucket
+
+    Output:
+    - n/a
+
+    Side effects:
+    - s3 client creation
+    - s3 method call to the bucket
+    - file creation for dataset in datasets path
+    """
     # setup
     dataset = 'my_dataset'
     bucket = 'my_bucket'
     bytesio = io.BytesIO()
+
     with ZipFile(bytesio, mode='w') as zf:
         zf.writestr(dataset, 'test_content')
+
     s3_mock = Mock()
     body_mock = Mock()
     body_mock.read.return_value = bytesio.getvalue()
@@ -54,15 +76,39 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
 
 @patch('sdgym.datasets.boto3')
 def test_download_dataset_private_bucket(boto3_mock, tmpdir):
-    """Test downloading datasets from a private bucket."""
+    """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
+    with a dataset in a private bucket and uses aws credentials.
+
+    Setup:
+    The boto3 library for s3 access is patched, and mocks are created for the
+    s3 bucket and dataset zipfile. The tmpdir fixture is used for the expected
+    file creation.
+
+    Input:
+    - dataset name
+    - datasets path
+    - bucket
+    - aws key
+    - aws secret
+
+    Output:
+    - n/a
+
+    Side effects:
+    - s3 client creation with aws credentials
+    - s3 method call to the bucket
+    - file creation for dataset in datasets path
+    """
     # setup
     dataset = 'my_dataset'
     bucket = 'my_bucket'
     aws_key = 'my_key'
     aws_secret = 'my_secret'
     bytesio = io.BytesIO()
+
     with ZipFile(bytesio, mode='w') as zf:
         zf.writestr(dataset, 'test_content')
+
     s3_mock = Mock()
     body_mock = Mock()
     body_mock.read.return_value = bytesio.getvalue()
