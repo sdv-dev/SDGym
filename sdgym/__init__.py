@@ -12,6 +12,7 @@ __version__ = '0.3.1.dev2'
 
 from sdgym import benchmark, results, synthesizers
 from sdgym.benchmark import run
+from sdgym.collect import collect_results
 from sdgym.datasets import load_dataset
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     'results',
     'run',
     'load_dataset',
+    'collect_results'
 ]

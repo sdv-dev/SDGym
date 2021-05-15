@@ -127,6 +127,10 @@ def _list_available(args):
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
 
 
+def _collect(args):
+    sdgym.collect.collect_results(args.input_path, args.output_file)
+
+
 def _get_parser():
     parser = argparse.ArgumentParser(description='SDGym Command Line Interface')
     parser.set_defaults(action=None)
@@ -207,6 +211,7 @@ def _get_parser():
     # list-available-datasets
     list_available = action.add_parser('list-available',
                                        help='List datasets available for download.')
+    list_available.set_defaults(action=_list_available)
     list_available.add_argument('-s', '--sort', default='name',
                                 help='Value to sort by (name|size|modality). Defaults to `name`.')
     list_available.add_argument('-r', '--reverse', action='store_true',
@@ -217,7 +222,14 @@ def _get_parser():
                                 help='Aws access key ID to use when reading datasets.')
     list_available.add_argument('-as', '--aws-secret', type=str, required=False,
                                 help='Aws secret access key to use when reading datasets.')
-    list_available.set_defaults(action=_list_available)
+
+    # collect
+    collect = action.add_parser('collect', help='Collect sdgym results.')
+    collect.set_defaults(action=_collect)
+    collect.add_argument('-i', '--input-path', type=str, required=True,
+                         help='Path within which to look for sdgym results.')
+    collect.add_argument('-o', '--output-file', type=str,
+                         help='Output file containing the collected results.')
 
     return parser
 
