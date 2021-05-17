@@ -251,7 +251,7 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
         bucket (str):
             Name of the bucket from which the datasets must be downloaded if not found locally.
         iterations (int):
-            Number of iterations to perform over each dataset and synthesizer. Defaults to 3.
+            Number of iterations to perform over each dataset and synthesizer. Defaults to 1.
         workers (int or str):
             If ``workers`` is given as an integer value other than 0 or 1, a multiprocessing
             Pool is used to distribute the computation across the indicated number of workers.
@@ -264,7 +264,7 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
             is still running and also recovering results in case the process does not finish
             properly. Defaults to ``None``.
         show_progress (bool):
-            Whether to use tqdm to keep track of the progress. Defaults to ``True``.
+            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
         timeout (int):
             Maximum number of seconds to wait for each dataset to
             finish the evaluation process. If not passed, wait until
