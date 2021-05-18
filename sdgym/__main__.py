@@ -128,7 +128,7 @@ def _list_available(args):
 
 
 def _collect(args):
-    sdgym.collect.collect_results(args.input_path, args.output_file)
+    sdgym.collect.collect_results(args.input_path, args.output_file, args.aws_key, args.aws_secret)
 
 
 def _get_parser():
@@ -230,6 +230,10 @@ def _get_parser():
                          help='Path within which to look for sdgym results.')
     collect.add_argument('-o', '--output-file', type=str,
                          help='Output file containing the collected results.')
+    collect.add_argument('-ak', '--aws-key', type=str, required=False,
+                         help='Aws access key ID to use when reading datasets.')
+    collect.add_argument('-as', '--aws-secret', type=str, required=False,
+                         help='Aws secret access key to use when reading datasets.')
 
     return parser
 

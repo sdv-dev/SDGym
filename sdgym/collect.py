@@ -1,10 +1,7 @@
-import pathlib
-
-import pandas as pd
-import tqdm
+from sdgym.s3 import read_csv_from_path, write_csv
 
 
-def collect_results(input_path, output_file):
+def collect_results(input_path, output_file=None, aws_key=None, aws_secret=None):
     """Collect the results in the given input directory, and
     write all the results into one csv file.
 
@@ -16,20 +13,23 @@ def collect_results(input_path, output_file):
             If ``output_file`` is provided, the consolidated
             results will be written there. Otherwise, they
             will be written to ``input_path``/results.csv.
+        aws_key (str):
+            If an ``aws_key`` is provided, the given access
+            key id will be used to read from and/or write to
+            any s3 paths.
+        aws_secret (str):
+            If an ``aws_secret`` is provided, the given secret
+            access key will be used to read from and/or write to
+            any s3 paths.
     """
     print(f'Reading results from {input_path}')
-    run_path = pathlib.Path(input_path)
-
-    scores = []
-    for path in tqdm.tqdm(list(run_path.glob('**/*.csv'))):
-        scores.append(pd.read_csv(path))
-
-    scores = pd.concat(scores).drop_duplicates()
+    scores = read_csv_from_path(input_path, aws_key, aws_secret)
+    scores = scores.drop_duplicates()
 
     if output_file:
         output = output_file
     else:
-        output = run_path / 'results.csv'
+        output = f'{input_path}/results.csv'
 
     print(f'Storing results at {output}')
-    scores.to_csv(output, index=False)
+    write_csv(scores, output, aws_key, aws_secret)
