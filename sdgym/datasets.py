@@ -4,10 +4,10 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import appdirs
-import boto3
-import botocore
 import pandas as pd
 from sdv import Metadata
+
+from sdgym.s3 import get_s3_client
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,31 +17,12 @@ BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
 
 
-def _get_s3_client(aws_key=None, aws_secret=None):
-    if aws_key is not None and aws_secret is not None:
-        # credentials available
-        return boto3.client(
-            's3',
-            aws_access_key_id=aws_key,
-            aws_secret_access_key=aws_secret
-        )
-    else:
-        if boto3.Session().get_credentials():
-            # credentials available and will be detected automatically
-            config = None
-        else:
-            # no credentials available, make unsigned requests
-            config = botocore.config.Config(signature_version=botocore.UNSIGNED)
-
-        return boto3.client('s3', config=config)
-
-
 def download_dataset(dataset_name, datasets_path=None, bucket=None, aws_key=None, aws_secret=None):
     datasets_path = datasets_path or DATASETS_PATH
     bucket = bucket or BUCKET
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
-    s3 = _get_s3_client(aws_key, aws_secret)
+    s3 = get_s3_client(aws_key, aws_secret)
     obj = s3.get_object(Bucket=bucket, Key=f'{dataset_name}.zip')
     bytes_io = io.BytesIO(obj['Body'].read())
 
@@ -103,7 +84,7 @@ def load_tables(metadata):
 
 
 def get_available_datasets(bucket=None, aws_key=None, aws_secret=None):
-    s3 = _get_s3_client(aws_key, aws_secret)
+    s3 = get_s3_client(aws_key, aws_secret)
     response = s3.list_objects(Bucket=bucket or BUCKET)
     datasets = []
     for content in response['Contents']:

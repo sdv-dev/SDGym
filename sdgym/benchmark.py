@@ -17,6 +17,7 @@ from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
+from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers.base import Baseline
 from sdgym.utils import (
     build_synthesizer, format_exception, get_synthesizers_dict, import_object, used_memory)
@@ -153,7 +154,8 @@ def _run_job(args):
     # Reset random seed
     np.random.seed()
 
-    synthesizer, metadata, metrics, iteration, cache_dir, timeout, run_id = args
+    synthesizer, metadata, metrics, iteration, cache_dir, \
+        timeout, run_id, aws_key, aws_secret = args
 
     name = synthesizer['name']
     dataset_name = metadata._metadata['name']
@@ -183,14 +185,16 @@ def _run_job(args):
         scores['error'] = output['error']
 
     if cache_dir:
-        base_path = str(cache_dir / f'{name}_{dataset_name}_{iteration}_{run_id}')
+        cache_dir_name = str(cache_dir)
+        base_path = f'{cache_dir_name}/{name}_{dataset_name}_{iteration}_{run_id}'
         if scores is not None:
-            scores.to_csv(base_path + '_scores.csv', index=False)
+            write_csv(scores, f'{base_path}_scores.csv', aws_key, aws_secret)
         if 'synthetic_data' in output:
-            compress_pickle.dump(output['synthetic_data'], base_path + '.data.gz')
+            synthetic_data = compress_pickle.dumps(output['synthetic_data'], compression='gzip')
+            write_file(synthetic_data, f'{base_path}.data.gz', aws_key, aws_secret)
         if 'exception' in output:
-            with open(base_path + '_error.txt', 'w') as error_file:
-                error_file.write(output['exception'])
+            exception = output['exception'].encode('utf-8')
+            write_file(exception, f'{base_path}_error.txt', aws_key, aws_secret)
 
     return scores
 
@@ -288,7 +292,7 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
     datasets = get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret)
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
-    if cache_dir:
+    if cache_dir and not is_s3_path(cache_dir):
         cache_dir = Path(cache_dir)
         os.makedirs(cache_dir, exist_ok=True)
 
@@ -307,6 +311,8 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
                         cache_dir,
                         timeout,
                         run_id,
+                        aws_key,
+                        aws_secret,
                     )
                     jobs.append(args)
 
@@ -327,7 +333,8 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
         raise SDGymError("No valid Dataset/Synthesizer combination given")
 
     scores = pd.concat(scores)
+
     if output_path:
-        scores.to_csv(output_path, index=False)
+        write_csv(scores, output_path, aws_key, aws_secret)
 
     return scores
