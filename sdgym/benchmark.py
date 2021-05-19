@@ -333,7 +333,8 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
         raise SDGymError("No valid Dataset/Synthesizer combination given")
 
     scores = pd.concat(scores)
+
     if output_path:
-        scores.to_csv(output_path, index=False)
+        write_csv(scores, output_path, aws_key, aws_secret)
 
     return scores
