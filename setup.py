@@ -13,10 +13,11 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
 
 install_requires = [
     'appdirs>1.1.4,<2',
+    'boto3>=1.15.0,<2',
     'compress-pickle>=1.2.0,<2',
     'humanfriendly>=8.2,<9',
     'numpy>=1.15.4,<2',
-    'pandas>=0.23.4,<2',
+    'pandas<1.1.5,>=1.1',
     'pomegranate>=0.13.0,<0.13.5',
     'psutil>=5.7,<6',
     'scikit-learn>=0.20,<0.24',
@@ -24,9 +25,9 @@ install_requires = [
     'torch>=1.1.0,<2',
     'tqdm>=4,<5',
     'XlsxWriter>=1.2.8,<1.3',
-    'rdt>=0.3.0,<0.4',
-    'sdmetrics>=0.1.2,<0.2',
-    'sdv>=0.7.0,<0.8',
+    'rdt>=0.4.1',
+    'sdmetrics>=0.3.0',
+    'sdv>=0.9.0',
 ]
 
 setup_requires = [
@@ -67,7 +68,7 @@ development_requires = [
     # Advanced testing
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
-    'importlib-metadata<2,>=0.12',
+    'importlib-metadata>=3.6',
 ]
 
 setup(
@@ -110,6 +111,6 @@ setup(
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.3.0',
+    version='0.3.1.dev3',
     zip_safe=False,
 )
