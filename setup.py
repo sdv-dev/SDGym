@@ -13,6 +13,7 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
 
 install_requires = [
     'appdirs>1.1.4,<2',
+    'boto3>=1.15.0,<2',
     'compress-pickle>=1.2.0,<2',
     'gretel-synthetics>=0.15.4,<0.16',
     'humanfriendly>=8.2,<9',
@@ -113,6 +114,6 @@ setup(
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.3.1.dev2',
+    version='0.3.2.dev0',
     zip_safe=False,
 )

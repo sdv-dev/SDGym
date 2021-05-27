@@ -1,5 +1,20 @@
 # History
 
+## v0.3.1 - 2021-05-20
+
+This release adds new features to store results and cache contents into an S3 bucket
+as well as a script to collect results from a cache dir and compile a single results
+CSV file.
+
+### Issues closed
+
+* Collect cached results from s3 bucket - [Issue #85](https://github.com/sdv-dev/SDGym/issues/85) by @katxiao
+* Store cache contents into an S3 bucket - [Issue #81](https://github.com/sdv-dev/SDGym/issues/81) by @katxiao
+* Store SDGym results into an S3 bucket - [Issue #80](https://github.com/sdv-dev/SDGym/issues/80) by @katxiao
+* Add a way to collect cached results - [Issue #79](https://github.com/sdv-dev/SDGym/issues/79) by @katxiao
+* Allow reading datasets from private s3 bucket - [Issue #74](https://github.com/sdv-dev/SDGym/issues/74) by @katxiao
+* Typos in the sdgym.run function docstring documentation - [Issue #69](https://github.com/sdv-dev/SDGym/issues/69) by @sbrugman
+
 ## v0.3.0 - 2021-01-27
 
 Major rework of the SDGym functionality to support a collection of new features:
