@@ -17,4 +17,4 @@ RUN make install compile
 ENV PRIVBAYES_BIN /SDGym/privbayes/privBayes.bin
 ENV TF_CPP_MIN_LOG_LEVEL 2
 
-CMD ["echo", "Usage: docker run -ti sdvproject/sdgym -- sdgym COMMAND OPTIONS"]
+CMD ["echo", "Usage: docker run -ti sdvproject/sdgym sdgym COMMAND OPTIONS"]
