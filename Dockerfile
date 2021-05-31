@@ -6,7 +6,7 @@ RUN mkdir /SDGym && \
     mkdir /SDGym/privbayes
 
 # Copy code
-COPY setup.py README.md HISTORY.md MANIFEST.in LICENSE Makefile setup.cfg /SDGym
+COPY setup.py README.md HISTORY.md MANIFEST.in LICENSE Makefile setup.cfg /SDGym/
 COPY /sdgym/ /SDGym/sdgym
 COPY /privbayes/ /SDGym/privbayes
 
