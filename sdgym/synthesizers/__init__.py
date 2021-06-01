@@ -10,6 +10,8 @@ from sdgym.synthesizers.sdv import (
 from sdgym.synthesizers.tablegan import TableGAN
 from sdgym.synthesizers.uniform import Uniform
 from sdgym.synthesizers.veegan import VEEGAN
+from sdgym.synthesizers.ydata import (
+    DRAGAN, WGAN_GP, PreprocessedDRAGAN, PreprocessedVanillaGAN, PreprocessedWGAN_GP, VanillaGAN)
 
 __all__ = (
     'CLBN',
@@ -28,4 +30,10 @@ __all__ = (
     'GaussianCopulaOneHot',
     'Gretel',
     'PreprocessedGretel',
+    'VanillaGAN',
+    'DRAGAN',
+    'WGAN_GP',
+    'PreprocessedDRAGAN',
+    'PreprocessedWGAN_GP',
+    'PreprocessedVanillaGAN',
 )
