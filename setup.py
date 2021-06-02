@@ -21,7 +21,7 @@ install_requires = [
     'pandas<1.1.5,>=1.1',
     'pomegranate>=0.13.0,<0.13.5',
     'psutil>=5.7,<6',
-    'scikit-learn>=0.20,<0.24',
+    'scikit-learn>=0.20,<1',
     'tabulate>=0.8.3,<0.9',
     'torch>=1.1.0,<2',
     'tqdm>=4,<5',
@@ -31,6 +31,11 @@ install_requires = [
     'sdv>=0.9.0',
     'tensorflow==2.4.0rc1',
     'wheel~=0.35',
+]
+
+ydata_requires = [
+    # preferably install using make install-ydata
+    'ydata-synthetic>=0.3.0,<0.4',
 ]
 
 setup_requires = [

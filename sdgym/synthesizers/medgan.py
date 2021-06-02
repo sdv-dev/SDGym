@@ -119,7 +119,7 @@ def aeloss(fake, real, output_info):
 
 
 class MedGAN(LegacySingleTableBaseline):
-    """docstring for IdentitySynthesizer."""
+    """docstring for MedGAN."""
 
     def __init__(self,
                  embedding_dim=128,
