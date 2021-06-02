@@ -96,7 +96,7 @@ def _get_synthesizer(synthesizer, name=None):
     }
 
 
-def get_synthesizers_dict(synthesizers):
+def get_synthesizers(synthesizers):
     """Get the dict of synthesizers from the input value.
 
     If the input is a synthesizer or an iterable of synthesizers, get their names
