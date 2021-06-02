@@ -47,19 +47,28 @@ def _best(data):
     return ranks.groupby(data.synthesizer).sum()
 
 
+def _wins(data):
+    for synthesizer in data.synthesizer.unique():
+        solved = data[(data.synthesizer == synthesizer) & data.score.notnull()]
+        solved_data = hma1[hma1.dataset.isin(solved.dataset.unique())].copy()
+        solved_data['rank'] = solved_data.groupby('dataset').score.rank(method='min', ascending=False)
+        wins = solved_data[solved_data.synthesizer == synthesizer]['rank'] == 1
+        wins.sum(), wins.mean()
+
+
 def _seconds(data):
     return data.groupby('synthesizer').model_time.mean().round()
 
 
 def _synthesizer_beat_baseline(synthesizer_data, baseline_scores):
     synthesizer_scores = synthesizer_data.set_index('dataset').score
-    beat = (synthesizer_scores >= baseline_scores.fillna(-np.inf)).sum()
-    solved = (synthesizer_scores.notnull() & baseline_scores.isnull()).sum()
-    return beat + solved
+    synthesizer_scores = synthesizer_scores.reindex(baseline_scores.index)
+    return (synthesizer_scores.fillna(-np.inf) >= baseline_scores.fillna(-np.inf)).sum()
 
 
-def _beat_baseline(data, baseline_data):
-    return data.groupby('synthesizer').apply(_synthesizer_beat_baseline, args=(baseline_data, ))
+def _beat_baseline(data, baseline_scores):
+    return data.groupby('synthesizer').apply(
+        _synthesizer_beat_baseline, baseline_scores=baseline_scores)
 
 
 def summarize(data, baselines=(), datasets=None):
@@ -87,23 +96,28 @@ def summarize(data, baselines=(), datasets=None):
     no_identity = data[data.synthesizer != 'Identity']
 
     coverage_perc, coverage_str = _coverage(data)
+    solved = data.groupby('synthesizer').apply(lambda x: x.score.notnull().sum())
 
     results = {
+        'total': len(data.dataset.unique()),
+        'solved': solved,
         'coverage': coverage_str,
         'coverage_perc': coverage_perc,
         'time': _seconds(data),
         'best': _best(no_identity),
-        'score': _mean_score(data)
     }
     for baseline in baselines:
         baseline_data = baselines_data[baselines_data.synthesizer == baseline]
-        results[f'beat_{baseline.lower()}'] = _beat_baseline(data, baseline_data)
+        baseline_scores = baseline_data.set_index('dataset').score
+        results[f'beat_{baseline.lower()}'] = _beat_baseline(data, baseline_scores)
 
     grouped = data.groupby('synthesizer')
     for _, error_column in KNOWN_ERRORS:
         results[error_column] = grouped[error_column].sum()
 
     results['errors'] = grouped.error.apply(lambda x: x.notnull().sum())
+    total_errors = results['errors'] + results['memory_error'] + results['timeout']
+    results['metric_errors'] = results['total'] - results['solved'] - total_errors
 
     return pd.DataFrame(results)
 
