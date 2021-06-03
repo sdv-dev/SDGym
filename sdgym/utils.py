@@ -99,7 +99,7 @@ def _get_synthesizer(synthesizer, name=None):
 
                 except JSONDecodeError as e:
                     raise SDGymError(f'Error decoding synthesizer. {e}') from None
-                    
+
                 except Exception:
                     raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
