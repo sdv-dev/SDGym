@@ -150,3 +150,21 @@ def errors_summary(data):
         all_errors[synthesizer] = errors.fillna(0).astype(int)
 
     return all_errors
+
+def make_summary_spreadsheet(file_path):
+    data = preprocess(file_path)
+    ST_BASELINES = ['Uniform', 'Independent', 'CLBN', 'PrivBN']
+    single = data[data.modality == 'single-table']
+    total_summary = summarize(single, baselines=ST_BASELINES)
+    summary = total_summary['coverage_perc', 'score']
+    quality = total_summary['best', 'beat_uniform', 'beat_independent', 'beat_clbn', 'beat_privbn']
+    performance = total_summary['time']
+    error_details = errors_summary(single)
+    error_summary = total_summary['coverage', 'coverage_perc', 'timeout', 'memory_error', 'errors']
+    writer = pd.ExcelWriter(file_path + '_summary.xlsx')
+    summary.to_excel(writer, 'Single Table (Summary)')
+    quality.to_excel(writer, 'Single Table (Quality)')
+    performance.to_excel(writer, 'Single Table (Performance)')
+    error_summary.to_excel(writer, 'Single Table (Errors Summary)')
+    error_details.to_excel(writer, 'Single Table (Errors Detail)')
+    writer.save()
