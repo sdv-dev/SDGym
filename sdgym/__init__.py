@@ -14,6 +14,7 @@ from sdgym import benchmark, results, synthesizers
 from sdgym.benchmark import run
 from sdgym.collect import collect_results
 from sdgym.datasets import load_dataset
+from sdgym.summary import make_summary_spreadsheet
 
 __all__ = [
     'benchmark',
@@ -21,5 +22,6 @@ __all__ = [
     'results',
     'run',
     'load_dataset',
-    'collect_results'
+    'collect_results',
+    'make_summary_spreadsheet'
 ]

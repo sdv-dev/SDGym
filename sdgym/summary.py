@@ -3,6 +3,8 @@
 import numpy as np
 import pandas as pd
 
+from sdgym.results import add_sheet
+
 KNOWN_ERRORS = (
     ('Synthesizer Timeout', 'timeout'),
     ('MemoryError', 'memory_error'),
@@ -105,6 +107,7 @@ def summarize(data, baselines=(), datasets=None):
         'coverage_perc': coverage_perc,
         'time': _seconds(data),
         'best': _best(no_identity),
+        'avg score': _mean_score(data),
     }
     for baseline in baselines:
         baseline_data = baselines_data[baselines_data.synthesizer == baseline]
@@ -151,20 +154,54 @@ def errors_summary(data):
 
     return all_errors
 
+
 def make_summary_spreadsheet(file_path):
     data = preprocess(file_path)
     ST_BASELINES = ['Uniform', 'Independent', 'CLBN', 'PrivBN']
     single = data[data.modality == 'single-table']
     total_summary = summarize(single, baselines=ST_BASELINES)
-    summary = total_summary['coverage_perc', 'score']
-    quality = total_summary['best', 'beat_uniform', 'beat_independent', 'beat_clbn', 'beat_privbn']
-    performance = total_summary['time']
+    summary = total_summary[['coverage_perc', 'time', 'avg score']].rename({
+        'coverage_perc': 'coverage %',
+        'time': 'avg time'
+    }, axis=1)
+    quality = total_summary[[
+        'total', 'solved', 'best', 'beat_uniform', 'beat_independent', 'beat_clbn', 'beat_privbn'
+    ]]
+    performance = total_summary[['time']]
     error_details = errors_summary(single)
-    error_summary = total_summary['coverage', 'coverage_perc', 'timeout', 'memory_error', 'errors']
+    error_summary = total_summary[[
+        'total', 'solved', 'coverage', 'coverage_perc', 'timeout',
+        'memory_error', 'errors', 'metric_errors'
+    ]]
+    summary.index.name = ''
+    quality.index.name = ''
+    performance.index.name = ''
+    error_details.index.name = ''
+    error_summary.index.name = ''
+
     writer = pd.ExcelWriter(file_path + '_summary.xlsx')
-    summary.to_excel(writer, 'Single Table (Summary)')
-    quality.to_excel(writer, 'Single Table (Quality)')
-    performance.to_excel(writer, 'Single Table (Performance)')
-    error_summary.to_excel(writer, 'Single Table (Errors Summary)')
-    error_details.to_excel(writer, 'Single Table (Errors Detail)')
+    cell_fmt = writer.book.add_format({
+        'font_name': 'Roboto',
+        'font_size': '11',
+        'align': 'right'
+    })
+    index_fmt = writer.book.add_format({
+        'font_name': 'Roboto',
+        'font_size': '11',
+        'bold': True,
+        'align': 'center'
+    })
+    header_fmt = writer.book.add_format({
+        'font_name': 'Roboto',
+        'font_size': '11',
+        'bold': True,
+        'bottom': 1,
+        'align': 'right'
+    })
+
+    add_sheet(summary, 'Single Table (Summary)', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(quality, 'Single Table (Quality)', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(performance, 'Single Table (Performance)', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(error_summary, 'Single Table (Errors Summary)', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(error_details, 'Single Table (Errors Detail)', writer, cell_fmt, index_fmt, header_fmt)
     writer.save()
