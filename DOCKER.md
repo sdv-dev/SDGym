@@ -1,3 +1,4 @@
+# Running SDGym using docker
 We support using Docker to run SDGym. This can help you avoid dependency issues when running SDGym
 on Windows as well as in environments where you don't have permission to install libraries.
 
@@ -7,8 +8,13 @@ To get started with SDGym on Docker, you should do the following:
 1. Pull the [latest SDGym image](https://hub.docker.com/r/sdvproject/sdgym) from DockerHub by running:
 
 ```bash
-docker pull sdvproject/sdgym
+docker pull sdvproject/sdgym <tag>
 ```
+
+where `<tag>` is a qualifier for the desired version. You can use:
+ - `stable` to get the latest release
+ - `latest` (equivalent to not giving any tag at all) to get the latest development version from the master branch
+ - `<any other tag>` to get the corresponding version
 
 2. Run SDGym using the following command:
 
