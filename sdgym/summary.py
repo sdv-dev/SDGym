@@ -1,14 +1,19 @@
 """Functions to summarize the sdgym.run output."""
+import re
 
 import numpy as np
 import pandas as pd
-
-from sdgym.results import add_sheet
 
 KNOWN_ERRORS = (
     ('Synthesizer Timeout', 'timeout'),
     ('MemoryError', 'memory_error'),
 )
+
+MODALITY_BASELINES = {
+    'single-table': ['Uniform', 'Independent', 'CLBN', 'PrivBN'],
+    'multi-table': ['Uniform', 'Independent'],
+    'timeseries': []
+}
 
 
 def preprocess(data):
@@ -155,20 +160,48 @@ def errors_summary(data):
     return all_errors
 
 
-def make_summary_spreadsheet(file_path):
-    data = preprocess(file_path)
-    ST_BASELINES = ['Uniform', 'Independent', 'CLBN', 'PrivBN']
-    single = data[data.modality == 'single-table']
-    total_summary = summarize(single, baselines=ST_BASELINES)
+def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
+    startrow = 0
+    widths = [0]
+    if not isinstance(dfs, dict):
+        dfs = {None: dfs}
+
+    for df_name, df in dfs.items():
+        df = df.fillna('N/E').sort_index().reset_index()
+        startrow += bool(df_name)
+        df.to_excel(writer, sheet_name=name, startrow=startrow + 1, index=False, header=False)
+
+        worksheet = writer.sheets[name]
+
+        if df_name:
+            worksheet.write(startrow - 1, 0, df_name, index_fmt)
+            widths[0] = max(widths[0], len(df_name))
+
+        for idx, column in enumerate(df.columns):
+            worksheet.write(startrow, idx, column, header_fmt)
+            width = max(len(column), *df[column].astype(str).str.len()) + 1
+            if len(widths) > idx:
+                widths[idx] = max(widths[idx], width)
+            else:
+                widths.append(width)
+
+        startrow += len(df) + 2
+
+    for idx, width in enumerate(widths):
+        fmt = cell_fmt if idx else index_fmt
+        worksheet.set_column(idx, idx, width + 1, fmt)
+
+
+def _add_summary(data, modality, baselines, writer):
+    total_summary = summarize(data, baselines=baselines)
     summary = total_summary[['coverage_perc', 'time', 'avg score']].rename({
         'coverage_perc': 'coverage %',
         'time': 'avg time'
     }, axis=1)
-    quality = total_summary[[
-        'total', 'solved', 'best', 'beat_uniform', 'beat_independent', 'beat_clbn', 'beat_privbn'
-    ]]
+    beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
+    quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
     performance = total_summary[['time']]
-    error_details = errors_summary(single)
+    error_details = errors_summary(data)
     error_summary = total_summary[[
         'total', 'solved', 'coverage', 'coverage_perc', 'timeout',
         'memory_error', 'errors', 'metric_errors'
@@ -179,7 +212,6 @@ def make_summary_spreadsheet(file_path):
     error_details.index.name = ''
     error_summary.index.name = ''
 
-    writer = pd.ExcelWriter(file_path + '_summary.xlsx')
     cell_fmt = writer.book.add_format({
         'font_name': 'Roboto',
         'font_size': '11',
@@ -198,9 +230,40 @@ def make_summary_spreadsheet(file_path):
         'align': 'right'
     })
 
-    add_sheet(summary, 'Single Table (Summary)', writer, cell_fmt, index_fmt, header_fmt)
-    add_sheet(quality, 'Single Table (Quality)', writer, cell_fmt, index_fmt, header_fmt)
-    add_sheet(performance, 'Single Table (Performance)', writer, cell_fmt, index_fmt, header_fmt)
-    add_sheet(error_summary, 'Single Table (Errors Summary)', writer, cell_fmt, index_fmt, header_fmt)
-    add_sheet(error_details, 'Single Table (Errors Detail)', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(summary, f'Summary ({modality})', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(quality, f'Quality ({modality})', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(performance, f'Performance ({modality})', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(error_summary, f'Errors Summary ({modality})', writer, cell_fmt, index_fmt,
+              header_fmt)
+    add_sheet(error_details, f'Errors Detail ({modality})', writer, cell_fmt, index_fmt,
+              header_fmt)
+
+
+def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None):
+    """Create a spreadsheet document organizing information from results.
+
+    This function creates a ``.xlsx`` file containing information from
+    the results of running ``sdgym.run``. The file contains five sheets
+    for each modality: summary, quality, performance, error summary and
+    error details.
+
+    Args:
+        results_csv_path (str):
+            Path to the csv file containing the results.
+        output_path (str):
+            Path constaining where to store the output spreadsheet.
+            Defaults to {results_csv_path}.xlsx.
+        baselines (dict):
+            Optional dict mapping modalities to a list of baseline
+            model names. If not provided, a default dict is used.
+    """
+    data = preprocess(results_csv_path)
+    baselines = baselines or MODALITY_BASELINES
+    output_path = output_path or re.sub('.csv$', '.xlsx', results_csv_path)
+    writer = pd.ExcelWriter(output_path)
+
+    for modality, df in data.groupby('modality'):
+        modality_baselines = baselines[modality]
+        _add_summary(df, modality, modality_baselines, writer)
+
     writer.save()

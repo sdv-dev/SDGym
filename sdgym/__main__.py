@@ -251,6 +251,8 @@ def _get_parser():
     summary.set_defaults(action=_summary)
     summary.add_argument('-i', '--input-path', type=str, required=True,
                          help='Path to sdgym results file.')
+    summary.add_argument('-o', '--output-file', type=str,
+                         help='Output file containing summary xlsx doc.')
 
     return parser
 
