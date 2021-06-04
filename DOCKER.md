@@ -6,15 +6,21 @@ To get started with SDGym on Docker, you should do the following:
 
 1. Pull the [latest SDGym image](https://hub.docker.com/r/sdvproject/sdgym) from DockerHub by running:
 
-> docker pull sdvproject/sdgym
+```bash
+docker pull sdvproject/sdgym
+```
 
 2. Run SDGym using the following command:
 
-> docker run -ti sdvproject/sdgym -- sdgym COMMAND OPTIONS
+```bash
+docker run -ti sdvproject/sdgym -- sdgym COMMAND OPTIONS
+```
 
 where `COMMAND` and `OPTIONS` are the standard command line options. For example, you could try:
 
-> docker run -ti sdvproject/sdgym -- sdgym run --datasets adult --synthesizer sdv.tabular.CTGANSynthesizer
+```bash
+docker run -ti sdvproject/sdgym -- sdgym run --datasets adult --synthesizer sdv.tabular.CTGANSynthesizer
+```
 
 to benchmark the CTGAN model on the adult dataset.
 
@@ -24,7 +30,9 @@ automatically be downloaded inside your Docker container. However, if you alread
 datasets stored locally that you want to use for benchmarking, you will need to mount the datasets
 folder so it can be accessed from inside the Docker container:
 
-> docker run -ti -v </path/to/data>:/SDGym/datasets sdvproject/sdgym -- sdgym run --datasets-path /SDGym/datasets OPTIONS
+```bash
+docker run -ti -v </path/to/data>:/SDGym/datasets sdvproject/sdgym -- sdgym run --datasets-path /SDGym/datasets OPTIONS
+```
 
 The above command will take the path  `/path/to/data` and mount it inside the Docker container so
 it is available to SDGym.
