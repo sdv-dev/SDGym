@@ -91,3 +91,7 @@ make compile
 ```bash
 export PRIVBAYES_BIN=$(pwd)/privBayes.bin
 ```
+
+## Run using Docker
+
+We support using Docker to run SDGym. For more information on how to do so, check the `DOCKER.md` file.
