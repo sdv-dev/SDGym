@@ -50,4 +50,5 @@ def test_json_synthesizer():
         datasets=['KRK_v1'],
         iterations=1,
     )
+    
     assert set(output['synthesizer']) == {"synthesizer_name"}
