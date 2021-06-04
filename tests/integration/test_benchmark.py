@@ -1,4 +1,5 @@
 import sdgym
+import json
 
 
 def test_identity():
@@ -33,3 +34,20 @@ def test_identity_jobs():
     )
 
     assert combinations == set(jobs)
+
+
+def test_json_synthesizer():
+    synthesizer = {
+        "name": "synthesizer_name", 
+        "synthesizer": "sdgym.synthesizers.ydata.PreprocessedVanillaGAN", 
+        "modalities": ["single-table"], 
+        "init_kwargs": {"categorical_transformer": "label_encoding"},
+        "fit_kwargs": {"data": "$real_data"}
+    }
+
+    output = sdgym.run(
+        synthesizers=[json.dumps(synthesizer)],
+        datasets=['KRK_v1'],
+        iterations=1,
+    )
+    assert set(output['synthesizer']) == {"synthesizer_name"}

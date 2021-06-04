@@ -89,17 +89,14 @@ def _get_synthesizer(synthesizer, name=None):
 
         else:
             try:
-                LOGGER.info('Trying to import synthesizer from fully qualified name.')
-                synthesizer = import_object(synthesizer)
-
+                LOGGER.info('Trying to load synthesizer from JSON string.')
+                return json.loads(synthesizer)
+            
             except Exception:
-                try:
-                    LOGGER.info('Trying to load synthesizer from JSON string.')
-                    return json.loads(synthesizer)
-
-                except JSONDecodeError as e:
-                    raise SDGymError(f'Error decoding synthesizer. {e}') from None
-
+                try: 
+                    LOGGER.info('Trying to import synthesizer from fully qualified name.')
+                    synthesizer = import_object(synthesizer)
+            
                 except Exception:
                     raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
