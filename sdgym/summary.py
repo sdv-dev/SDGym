@@ -195,7 +195,6 @@ def make_summary_spreadsheet(file_path):
         'font_name': 'Roboto',
         'font_size': '11',
         'bold': True,
-        'bottom': 1,
         'align': 'right'
     })
 
