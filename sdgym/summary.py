@@ -1,8 +1,11 @@
 """Functions to summarize the sdgym.run output."""
+import io
 import re
 
 import numpy as np
 import pandas as pd
+
+from sdgym.s3 import read_csv, write_file
 
 KNOWN_ERRORS = (
     ('Synthesizer Timeout', 'timeout'),
@@ -239,7 +242,8 @@ def _add_summary(data, modality, baselines, writer):
               header_fmt)
 
 
-def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None):
+def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
+                             aws_key=None, aws_secret=None):
     """Create a spreadsheet document organizing information from results.
 
     This function creates a ``.xlsx`` file containing information from
@@ -257,13 +261,17 @@ def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None)
             Optional dict mapping modalities to a list of baseline
             model names. If not provided, a default dict is used.
     """
-    data = preprocess(results_csv_path)
+    results = read_csv(results_csv_path, aws_key, aws_secret)
+    data = preprocess(results)
     baselines = baselines or MODALITY_BASELINES
     output_path = output_path or re.sub('.csv$', '.xlsx', results_csv_path)
-    writer = pd.ExcelWriter(output_path)
+    output = io.BytesIO()
+    writer = pd.ExcelWriter(output) if aws_key and aws_secret else pd.ExcelWriter(output_path)
 
     for modality, df in data.groupby('modality'):
         modality_baselines = baselines[modality]
         _add_summary(df, modality, modality_baselines, writer)
 
     writer.save()
+    if aws_key and aws_secret:
+        write_file(output.getvalue(), output_path, aws_key, aws_secret)
