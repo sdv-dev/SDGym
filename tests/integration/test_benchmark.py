@@ -1,5 +1,6 @@
-import sdgym
 import json
+
+import sdgym
 
 
 def test_identity():
@@ -38,9 +39,9 @@ def test_identity_jobs():
 
 def test_json_synthesizer():
     synthesizer = {
-        "name": "synthesizer_name", 
-        "synthesizer": "sdgym.synthesizers.ydata.PreprocessedVanillaGAN", 
-        "modalities": ["single-table"], 
+        "name": "synthesizer_name",
+        "synthesizer": "sdgym.synthesizers.ydata.PreprocessedVanillaGAN",
+        "modalities": ["single-table"],
         "init_kwargs": {"categorical_transformer": "label_encoding"},
         "fit_kwargs": {"data": "$real_data"}
     }
@@ -50,5 +51,5 @@ def test_json_synthesizer():
         datasets=['KRK_v1'],
         iterations=1,
     )
-    
+
     assert set(output['synthesizer']) == {"synthesizer_name"}

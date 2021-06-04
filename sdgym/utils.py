@@ -7,7 +7,6 @@ import os
 import sys
 import traceback
 import types
-from json.decoder import JSONDecodeError
 
 import humanfriendly
 import psutil
@@ -91,12 +90,12 @@ def _get_synthesizer(synthesizer, name=None):
             try:
                 LOGGER.info('Trying to load synthesizer from JSON string.')
                 return json.loads(synthesizer)
-            
+
             except Exception:
-                try: 
+                try:
                     LOGGER.info('Trying to import synthesizer from fully qualified name.')
                     synthesizer = import_object(synthesizer)
-            
+
                 except Exception:
                     raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
