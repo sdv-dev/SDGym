@@ -20,7 +20,7 @@ from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers.base import Baseline
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_synthesizers_dict, import_object, used_memory)
+    build_synthesizer, format_exception, get_synthesizers, import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -222,9 +222,9 @@ def _run_on_dask(jobs, verbose):
     return dask.compute(*persisted)
 
 
-def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket=None,
+def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, bucket=None,
         metrics=None, iterations=1, workers=1, cache_dir=None, show_progress=False,
-        timeout=None, output_path=None, aws_key=None, aws_secret=None):
+        timeout=None, output_path=None, aws_key=None, aws_secret=None, jobs=None):
     """Run the SDGym benchmark and return a leaderboard.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -283,51 +283,70 @@ def run(synthesizers, datasets=None, datasets_path=None, modalities=None, bucket
         aws_secret (str):
             If an ``aws_secret`` is provided, the given secret access key will be used to read
             from the specified bucket.
+        jobs (list[tuple]):
+            List of jobs to execute, as a sequence of tuple-like objects containing synthesizer,
+            dataset and iteration-id specifications. If not passed, the jobs list is build by
+            combining the synthesizers and datasets given instead.
 
     Returns:
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric + iteration.
     """
-    synthesizers = get_synthesizers_dict(synthesizers)
-    datasets = get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret)
-    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
-
     if cache_dir and not is_s3_path(cache_dir):
         cache_dir = Path(cache_dir)
         os.makedirs(cache_dir, exist_ok=True)
 
-    jobs = list()
-    for dataset in datasets:
-        metadata = load_dataset(dataset)
-        for synthesizer in synthesizers:
-            modalities_ = modalities or synthesizer.get('modalities')
-            if not modalities_ or metadata.modality in modalities_:
+    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
+
+    if jobs is None:
+        synthesizers = get_synthesizers(synthesizers)
+        datasets = get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret)
+
+        job_tuples = list()
+        for dataset in datasets:
+            for synthesizer in synthesizers:
                 for iteration in range(iterations):
-                    args = (
-                        synthesizer,
-                        metadata,
-                        metrics,
-                        iteration,
-                        cache_dir,
-                        timeout,
-                        run_id,
-                        aws_key,
-                        aws_secret,
-                    )
-                    jobs.append(args)
+                    job_tuples.append((synthesizer, dataset, iteration))
+
+    else:
+        job_tuples = list()
+        for synthesizer, dataset, iteration in jobs:
+            job_tuples.append((
+                get_synthesizers([synthesizer])[0],
+                get_dataset_paths([dataset], datasets_path, bucket, aws_key, aws_secret)[0],
+                iteration
+            ))
+
+    job_args = list()
+    for synthesizer, dataset, iteration in job_tuples:
+        metadata = load_dataset(dataset)
+        modalities_ = modalities or synthesizer.get('modalities')
+        if not modalities_ or metadata.modality in modalities_:
+            args = (
+                synthesizer,
+                metadata,
+                metrics,
+                iteration,
+                cache_dir,
+                timeout,
+                run_id,
+                aws_key,
+                aws_secret,
+            )
+            job_args.append(args)
 
     if workers == 'dask':
-        scores = _run_on_dask(jobs, show_progress)
+        scores = _run_on_dask(job_args, show_progress)
     else:
         if workers in (0, 1):
-            scores = map(_run_job, jobs)
+            scores = map(_run_job, job_args)
         else:
             pool = concurrent.futures.ProcessPoolExecutor(workers)
-            scores = pool.map(_run_job, jobs)
+            scores = pool.map(_run_job, job_args)
 
-        scores = tqdm.tqdm(scores, total=len(jobs), file=TqdmLogger())
+        scores = tqdm.tqdm(scores, total=len(job_args), file=TqdmLogger())
         if show_progress:
-            scores = tqdm.tqdm(scores, total=len(jobs))
+            scores = tqdm.tqdm(scores, total=len(job_args))
 
     if not scores:
         raise SDGymError("No valid Dataset/Synthesizer combination given")
