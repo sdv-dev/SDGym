@@ -10,7 +10,7 @@ __email__ = 'dailabmit@gmail.com'
 __license__ = 'MIT'
 __version__ = '0.3.2.dev0'
 
-from sdgym import benchmark, results, synthesizers
+from sdgym import benchmark, synthesizers
 from sdgym.benchmark import run
 from sdgym.collect import collect_results
 from sdgym.datasets import load_dataset
@@ -19,7 +19,6 @@ from sdgym.summary import make_summary_spreadsheet
 __all__ = [
     'benchmark',
     'synthesizers',
-    'results',
     'run',
     'load_dataset',
     'collect_results',

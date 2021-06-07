@@ -137,7 +137,8 @@ def _collect(args):
 
 
 def _summary(args):
-    sdgym.summary.make_summary_spreadsheet(args.input_path, args.output_file, args.aws_key, args.aws_secret)
+    sdgym.summary.make_summary_spreadsheet(args.input_path, args.output_file, args.aws_key,
+                                           args.aws_secret)
 
 
 def _get_parser():

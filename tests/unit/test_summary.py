@@ -5,6 +5,8 @@ import pandas as pd
 
 from sdgym.summary import make_summary_spreadsheet
 
+
+@patch('sdgym.summary.write_file')
 @patch('sdgym.summary.read_csv')
 @patch('sdgym.summary.preprocess')
 @patch('sdgym.summary.errors_summary')
@@ -12,18 +14,24 @@ from sdgym.summary import make_summary_spreadsheet
 @patch('sdgym.summary.pd.ExcelWriter')
 @patch('sdgym.summary.add_sheet')
 def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_mock,
-                                  errors_summary_mock, preprocess_mock, read_csv_mock):
+                                  errors_summary_mock, preprocess_mock, read_csv_mock,
+                                  write_file_mock):
     """Test the ``sdgym.summary.make_summary_spreadsheet`` function.
 
     The ``make_summary_spreadsheet`` function is expected to extract the correct
     columns from the input file and add them to the correct sheets. It should
-    then save the file as an .xslx.
+    then use the ``aws_key`` and ``aws_secret`` provided to call ``sdgym.s3.write_file``
+    and save the output document.
 
     Input:
-    - file path to results csv
+    - file path to results csv.
+    - output file path
+    - asw key
+    - aws secret
 
     Side effect:
-    - Saves excel sheets
+    - Saves excel sheets. The ``ExcelWriter`` should also write to a ``BytesIO``
+    object that is saved using ``sdgym.s3.write_file``.
     """
     # Setup
     data = pd.DataFrame({
@@ -54,7 +62,7 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     errors_summary_mock.return_value = errors
 
     # Run
-    make_summary_spreadsheet('file_path')
+    make_summary_spreadsheet('file_path.csv', 'output_path.xlsx', None, 'aws_key', 'aws_secret')
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -87,8 +95,8 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     })
     expected_errors.index.name = ''
     add_sheet_calls = add_sheet_mock.mock_calls
-    read_csv_mock.assert_called_once_with('file_path', None, None)
-    assert excel_writer_mock.mock_calls[0][1][0] == 'file_path'
+    read_csv_mock.assert_called_once_with('file_path.csv', 'aws_key', 'aws_secret')
+    assert isinstance(excel_writer_mock.mock_calls[0][1][0], io.BytesIO)
     excel_writer_mock.return_value.save.assert_called_once()
     assert len(add_sheet_calls) == 5
     pd.testing.assert_frame_equal(add_sheet_calls[0][1][0], expected_summary)
@@ -96,6 +104,7 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     pd.testing.assert_frame_equal(add_sheet_calls[2][1][0], expected_performance)
     pd.testing.assert_frame_equal(add_sheet_calls[3][1][0], expected_errors)
     pd.testing.assert_frame_equal(add_sheet_calls[4][1][0], errors)
+    write_file_mock.assert_called_once_with(b'', 'output_path.xlsx', 'aws_key', 'aws_secret')
 
 
 @patch('sdgym.summary.write_file')
@@ -106,25 +115,23 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
 @patch('sdgym.summary.summarize')
 @patch('sdgym.summary.pd.ExcelWriter')
 @patch('sdgym.summary.add_sheet')
-def test_make_summary_spreadsheet_s3(add_sheet_mock, excel_writer_mock, summarize_mock,
-                                  errors_summary_mock, preprocess_mock, read_csv_mock,
-                                  add_summary_mock, write_file_mock):
+def test_make_summary_spreadsheet_no_output_path(add_sheet_mock, excel_writer_mock, summarize_mock,
+                                                 errors_summary_mock, preprocess_mock,
+                                                 read_csv_mock, add_summary_mock, write_file_mock):
     """Test the ``sdgym.summary.make_summary_spreadsheet`` function.
 
-    The ``make_summary_spreadsheet`` function is expected to download the data
-    from s3 if the ``aws_key`` and ``aws_secret`` are provided. It should also
-    save the output document to s3 in this case.
+    The ``make_summary_spreadsheet`` function is expected to use the
+    input file path to create the output file path if none is provided.
 
     Input:
     - file path to results csv
-    - output file path
+    - No output file path
     - aws key
     - aws secret
 
     Side effect:
-    - The ``sdgym.s3.write_file`` method should be called with the provided
-    aws key and secret. The ``ExcelWriter`` should also write to a ``BytesIO``
-    object and then save that object to s3, instead of writing directly to a file.
+    - The ``sdgym.s3.write_file`` method should be called with the correct
+    output file path name.
     """
     # Setup
 
@@ -134,11 +141,11 @@ def test_make_summary_spreadsheet_s3(add_sheet_mock, excel_writer_mock, summariz
     add_sheet_mock.return_value = None
 
     # Run
-    make_summary_spreadsheet('file_path', 'output_path', None, 'aws_key', 'aws_secret')
+    make_summary_spreadsheet('file_path.csv', None, None, 'aws_key', 'aws_secret')
 
     # Assert
-    read_csv_mock.assert_called_once_with('file_path', 'aws_key', 'aws_secret')
+    read_csv_mock.assert_called_once_with('file_path.csv', 'aws_key', 'aws_secret')
     assert isinstance(excel_writer_mock.mock_calls[0][1][0], io.BytesIO)
     excel_writer_mock.return_value.save.assert_called_once()
     add_summary_mock.assert_called_once()
-    write_file_mock.assert_called_once_with(b'', 'output_path', 'aws_key', 'aws_secret')
+    write_file_mock.assert_called_once_with(b'', 'file_path.xlsx', 'aws_key', 'aws_secret')

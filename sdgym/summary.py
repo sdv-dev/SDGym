@@ -57,15 +57,6 @@ def _best(data):
     return ranks.groupby(data.synthesizer).sum()
 
 
-def _wins(data):
-    for synthesizer in data.synthesizer.unique():
-        solved = data[(data.synthesizer == synthesizer) & data.score.notnull()]
-        solved_data = hma1[hma1.dataset.isin(solved.dataset.unique())].copy()
-        solved_data['rank'] = solved_data.groupby('dataset').score.rank(method='min', ascending=False)
-        wins = solved_data[solved_data.synthesizer == synthesizer]['rank'] == 1
-        wins.sum(), wins.mean()
-
-
 def _seconds(data):
     return data.groupby('synthesizer').model_time.mean().round()
 
@@ -266,12 +257,11 @@ def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
     baselines = baselines or MODALITY_BASELINES
     output_path = output_path or re.sub('.csv$', '.xlsx', results_csv_path)
     output = io.BytesIO()
-    writer = pd.ExcelWriter(output) if aws_key and aws_secret else pd.ExcelWriter(output_path)
+    writer = pd.ExcelWriter(output)
 
     for modality, df in data.groupby('modality'):
         modality_baselines = baselines[modality]
         _add_summary(df, modality, modality_baselines, writer)
 
     writer.save()
-    if aws_key and aws_secret:
-        write_file(output.getvalue(), output_path, aws_key, aws_secret)
+    write_file(output.getvalue(), output_path, aws_key, aws_secret)
