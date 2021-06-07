@@ -136,6 +136,11 @@ def _collect(args):
     sdgym.collect.collect_results(args.input_path, args.output_file, args.aws_key, args.aws_secret)
 
 
+def _summary(args):
+    sdgym.summary.make_summary_spreadsheet(args.input_path, args.output_file, args.aws_key,
+                                           args.aws_secret)
+
+
 def _get_parser():
     parser = argparse.ArgumentParser(description='SDGym Command Line Interface')
     parser.set_defaults(action=None)
@@ -240,6 +245,18 @@ def _get_parser():
     collect.add_argument('-ak', '--aws-key', type=str, required=False,
                          help='Aws access key ID to use when reading datasets.')
     collect.add_argument('-as', '--aws-secret', type=str, required=False,
+                         help='Aws secret access key to use when reading datasets.')
+
+    # summary
+    summary = action.add_parser('summary', help='Create summary file for sdgym results.')
+    summary.set_defaults(action=_summary)
+    summary.add_argument('-i', '--input-path', type=str, required=True,
+                         help='Path to sdgym results file.')
+    summary.add_argument('-o', '--output-file', type=str, required=False,
+                         help='Output file containing summary xlsx doc.')
+    summary.add_argument('-ak', '--aws-key', type=str, required=False,
+                         help='Aws access key ID to use when reading datasets.')
+    summary.add_argument('-as', '--aws-secret', type=str, required=False,
                          help='Aws secret access key to use when reading datasets.')
 
     return parser
