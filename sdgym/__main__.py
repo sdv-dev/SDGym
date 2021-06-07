@@ -2,6 +2,7 @@
 
 import argparse
 import gc
+import json
 import logging
 import sys
 import warnings
@@ -80,6 +81,9 @@ def _run(args):
     else:
         workers = args.workers
 
+    if args.jobs:
+        args.jobs = json.loads(args.jobs)
+
     scores = sdgym.run(
         synthesizers=args.synthesizers,
         datasets=args.datasets,
@@ -95,6 +99,7 @@ def _run(args):
         output_path=args.output_path,
         aws_key=args.aws_key,
         aws_secret=args.aws_secret,
+        jobs=args.jobs,
     )
 
     if args.groupby:
@@ -179,6 +184,8 @@ def _get_parser():
                      help='Aws access key ID to use when reading datasets.')
     run.add_argument('-as', '--aws-secret', type=str, required=False,
                      help='Aws secret access key to use when reading datasets.')
+    run.add_argument('-j', '--jobs', type=str, required=False,
+                     help='Serialized list of jobs to run.')
 
     # download-datasets
     download = action.add_parser('download-datasets', help='Download datasets.')
