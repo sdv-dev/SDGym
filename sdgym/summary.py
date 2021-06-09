@@ -177,6 +177,7 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
                 width = len(column) + 1
             else:
                 width = max(len(column), *df[column].astype(str).str.len()) + 1
+
             if len(widths) > idx:
                 widths[idx] = max(widths[idx], width)
             else:
