@@ -8,7 +8,7 @@ To get started with SDGym on Docker, you should do the following:
 1. Pull the [latest SDGym image](https://hub.docker.com/r/sdvproject/sdgym) from DockerHub by running:
 
 ```bash
-docker pull sdvproject/sdgym <tag>
+docker pull sdvproject/sdgym:<tag>
 ```
 
 where `<tag>` is a qualifier for the desired version. You can use:
