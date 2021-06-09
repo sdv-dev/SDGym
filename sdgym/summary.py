@@ -173,7 +173,10 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
 
         for idx, column in enumerate(df.columns):
             worksheet.write(startrow, idx, column, header_fmt)
-            width = max(len(column), *df[column].astype(str).str.len()) + 1
+            if df.empty:
+                width = len(column) + 1
+            else:
+                width = max(len(column), *df[column].astype(str).str.len()) + 1
             if len(widths) > idx:
                 widths[idx] = max(widths[idx], width)
             else:
