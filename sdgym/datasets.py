@@ -1,4 +1,6 @@
 import io
+import itertools
+import json
 import logging
 from pathlib import Path
 from zipfile import ZipFile
@@ -45,9 +47,24 @@ def _get_dataset_path(dataset, datasets_path, bucket=None, aws_key=None, aws_sec
     return dataset_path
 
 
-def load_dataset(dataset, datasets_path=None, bucket=None, aws_key=None, aws_secret=None):
+def load_dataset(dataset, datasets_path=None, bucket=None, aws_key=None, aws_secret=None,
+                 max_columns=None):
     dataset_path = _get_dataset_path(dataset, datasets_path, bucket, aws_key, aws_secret)
-    metadata = Metadata(str(dataset_path / 'metadata.json'))
+    metadata_file = open(str(dataset_path / 'metadata.json'))
+    metadata_content = json.load(metadata_file)
+    if max_columns:
+        for table in metadata_content['tables']:
+            fields = metadata_content['tables'][table]['fields']
+            if len(fields) > max_columns:
+                fields = dict(itertools.islice(fields.items(), max_columns))
+                metadata_content['tables'][table]['fields'] = fields
+            if 'structure' in metadata_content['tables'][table]:
+                metadata_content['tables'][table]['structure']['structure'] = \
+                    metadata_content['tables'][table]['structure']['structure'][:max_columns]
+                metadata_content['tables'][table]['structure']['states'] = \
+                    metadata_content['tables'][table]['structure']['states'][:max_columns]
+
+    metadata = Metadata(metadata_content, dataset_path)
     tables = metadata.get_tables()
     if not hasattr(metadata, 'modality'):
         if len(tables) > 1:
@@ -69,9 +86,11 @@ def load_dataset(dataset, datasets_path=None, bucket=None, aws_key=None, aws_sec
     return metadata
 
 
-def load_tables(metadata):
+def load_tables(metadata, max_rows=None):
     real_data = metadata.load_tables()
     for table_name, table in real_data.items():
+        if max_rows and table.shape[0] > max_rows:
+            table = table.head(max_rows)
         fields = metadata.get_fields(table_name)
         columns = [
             column
