@@ -11,6 +11,7 @@ from pathlib import Path
 import compress_pickle
 import numpy as np
 import pandas as pd
+import torch
 import tqdm
 
 from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
@@ -259,9 +260,10 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
         workers (int or str):
             If ``workers`` is given as an integer value other than 0 or 1, a multiprocessing
             Pool is used to distribute the computation across the indicated number of workers.
-            If the string ``dask`` is given, the computation is distributed using ``dask``.
-            In this case, setting up the ``dask`` cluster and client is expected to be handled
-            outside of this function.
+            If ``workers`` is -1, the number of workers will be automatically determined by
+            the number of GPUs (if available) or the number of CPU cores. If the string ``dask``
+            is given, the computation is distributed using ``dask``. In this case, setting up the
+            ``dask`` cluster and client is expected to be handled outside of this function.
         cache_dir (str):
             If a ``cache_dir`` is given, intermediate results are stored in the indicated directory
             as CSV files as they get computted. This allows inspecting results while the benchmark
@@ -297,6 +299,12 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
         os.makedirs(cache_dir, exist_ok=True)
 
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
+
+    if workers == -1:
+        if torch.cuda.is_available():
+            workers = torch.cuda.device_count()
+        else:
+            workers = multiprocessing.cpu_count()
 
     if jobs is None:
         synthesizers = get_synthesizers(synthesizers)
