@@ -26,9 +26,9 @@ install_requires = [
     'torch>=1.1.0,<2',
     'tqdm>=4,<5',
     'XlsxWriter>=1.2.8,<1.3',
-    'rdt>=0.4.1',
+    'rdt>=0.4.2',
     'sdmetrics>=0.3.0',
-    'sdv>=0.9.0',
+    'sdv>=0.10.1',
     'tensorflow==2.4.0rc1',
     'wheel~=0.35',
 ]
