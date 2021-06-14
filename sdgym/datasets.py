@@ -54,6 +54,7 @@ def _apply_max_columns_to_metadata(metadata, max_columns):
         if len(fields) > max_columns:
             fields = dict(itertools.islice(fields.items(), max_columns))
             table['fields'] = fields
+
         structure = table.get('structure')
         if structure:
             structure['structure'] = structure['structure'][:max_columns]
@@ -69,6 +70,7 @@ def load_dataset(dataset, datasets_path=None, bucket=None, aws_key=None, aws_sec
     if max_columns:
         if len(metadata_content['tables']) > 1:
             raise ValueError('max_columns is not supported for multi-table datasets')
+
         _apply_max_columns_to_metadata(metadata_content, max_columns)
 
     metadata = Metadata(metadata_content, dataset_path)
