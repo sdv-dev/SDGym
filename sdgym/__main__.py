@@ -100,6 +100,8 @@ def _run(args):
         aws_key=args.aws_key,
         aws_secret=args.aws_secret,
         jobs=args.jobs,
+        max_rows=args.max_rows,
+        max_columns=args.max_columns,
     )
 
     if args.groupby:
@@ -191,6 +193,10 @@ def _get_parser():
                      help='Aws secret access key to use when reading datasets.')
     run.add_argument('-j', '--jobs', type=str, required=False,
                      help='Serialized list of jobs to run.')
+    run.add_argument('-mr', '--max-rows', type=int,
+                     help='Cap the number of rows to model from each dataset.')
+    run.add_argument('-mc', '--max-columns', type=int,
+                     help='Cap the number of columns to model from each dataset.')
 
     # download-datasets
     download = action.add_parser('download-datasets', help='Download datasets.')

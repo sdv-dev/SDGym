@@ -89,7 +89,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
         output['scores'] = scores  # re-inject list to multiprocessing output
 
 
-def _score(synthesizer, metadata, metrics, iteration, output=None):
+def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None):
     if output is None:
         output = {}
 
@@ -98,7 +98,7 @@ def _score(synthesizer, metadata, metrics, iteration, output=None):
     output['timeout'] = True  # To be deleted if there is no error
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
-        real_data = load_tables(metadata)
+        real_data = load_tables(metadata, max_rows)
 
         LOGGER.info('Running %s on %s dataset %s; iteration %s; %s',
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
@@ -156,7 +156,7 @@ def _run_job(args):
     np.random.seed()
 
     synthesizer, metadata, metrics, iteration, cache_dir, \
-        timeout, run_id, aws_key, aws_secret = args
+        timeout, run_id, aws_key, aws_secret, max_rows = args
 
     name = synthesizer['name']
     dataset_name = metadata._metadata['name']
@@ -167,7 +167,7 @@ def _run_job(args):
     if timeout:
         output = _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration)
     else:
-        output = _score(synthesizer, metadata, metrics, iteration)
+        output = _score(synthesizer, metadata, metrics, iteration, max_rows=max_rows)
 
     scores = output.get('scores')
     if not scores:
@@ -225,7 +225,8 @@ def _run_on_dask(jobs, verbose):
 
 def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, bucket=None,
         metrics=None, iterations=1, workers=1, cache_dir=None, show_progress=False,
-        timeout=None, output_path=None, aws_key=None, aws_secret=None, jobs=None):
+        timeout=None, output_path=None, aws_key=None, aws_secret=None, jobs=None,
+        max_rows=None, max_columns=None):
     """Run the SDGym benchmark and return a leaderboard.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -289,6 +290,11 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
             List of jobs to execute, as a sequence of tuple-like objects containing synthesizer,
             dataset and iteration-id specifications. If not passed, the jobs list is build by
             combining the synthesizers and datasets given instead.
+        max_rows (int):
+            Cap the number of rows to model from each dataset. Rows will be selected in order.
+        max_columns (int):
+            Cap the number of columns to model from each dataset.
+            Columns will be selected in order.
 
     Returns:
         pandas.DataFrame:
@@ -327,7 +333,7 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
 
     job_args = list()
     for synthesizer, dataset, iteration in job_tuples:
-        metadata = load_dataset(dataset)
+        metadata = load_dataset(dataset, max_columns=max_columns)
         modalities_ = modalities or synthesizer.get('modalities')
         if not modalities_ or metadata.modality in modalities_:
             args = (
@@ -340,6 +346,7 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
                 run_id,
                 aws_key,
                 aws_secret,
+                max_rows,
             )
             job_args.append(args)
 
