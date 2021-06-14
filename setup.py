@@ -29,7 +29,7 @@ install_requires = [
     'rdt>=0.4.1',
     'sdmetrics>=0.3.0',
     'sdv>=0.9.0',
-    'tensorflow==2.4.0rc1',
+    'tensorflow==2.5.0rc0',
     'wheel~=0.35',
 ]
 
