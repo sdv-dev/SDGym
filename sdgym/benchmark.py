@@ -76,6 +76,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
         try:
             LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
             score = metric.compute(*metric_args)
+            normalized_score = metric.normalize(score)
         except Exception:
             LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
                              metric_name, metadata._metadata['name'])
@@ -83,6 +84,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
 
         scores[-1].update({
             'score': score,
+            'normalized_score': normalized_score,
             'error': error,
             'metric_time': (datetime.utcnow() - start).total_seconds()
         })
