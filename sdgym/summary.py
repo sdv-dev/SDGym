@@ -42,18 +42,18 @@ def preprocess(data):
 
 def _coverage(data):
     total = len(data.dataset.unique())
-    scores = data.groupby('synthesizer').apply(lambda x: x.score.notnull().sum())
+    scores = data.groupby('synthesizer').apply(lambda x: x.normalized_score.notnull().sum())
     coverage_perc = scores / total
     coverage_str = (scores.astype(str) + f' / {total}')
     return coverage_perc, coverage_str
 
 
 def _mean_score(data):
-    return data.groupby('synthesizer').score.mean()
+    return data.groupby('synthesizer').normalized_score.mean()
 
 
 def _best(data):
-    ranks = data.groupby('dataset').rank(method='min', ascending=False)['score'] == 1
+    ranks = data.groupby('dataset').rank(method='min', ascending=False)['normalized_score'] == 1
     return ranks.groupby(data.synthesizer).sum()
 
 
@@ -62,7 +62,7 @@ def _seconds(data):
 
 
 def _synthesizer_beat_baseline(synthesizer_data, baseline_scores):
-    synthesizer_scores = synthesizer_data.set_index('dataset').score
+    synthesizer_scores = synthesizer_data.set_index('dataset').normalized_score
     synthesizer_scores = synthesizer_scores.reindex(baseline_scores.index)
     return (synthesizer_scores.fillna(-np.inf) >= baseline_scores.fillna(-np.inf)).sum()
 
@@ -97,7 +97,7 @@ def summarize(data, baselines=(), datasets=None):
     no_identity = data[data.synthesizer != 'Identity']
 
     coverage_perc, coverage_str = _coverage(data)
-    solved = data.groupby('synthesizer').apply(lambda x: x.score.notnull().sum())
+    solved = data.groupby('synthesizer').apply(lambda x: x.normalized_score.notnull().sum())
 
     results = {
         'total': len(data.dataset.unique()),
@@ -110,7 +110,7 @@ def summarize(data, baselines=(), datasets=None):
     }
     for baseline in baselines:
         baseline_data = baselines_data[baselines_data.synthesizer == baseline]
-        baseline_scores = baseline_data.set_index('dataset').score
+        baseline_scores = baseline_data.set_index('dataset').normalized_score
         results[f'beat_{baseline.lower()}'] = _beat_baseline(data, baseline_scores)
 
     grouped = data.groupby('synthesizer')
