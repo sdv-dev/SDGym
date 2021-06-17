@@ -1,5 +1,22 @@
 # History
 
+## v0.4.0 - 2021-06-17
+
+This release adds new synthesizers for Gretel and ydata, and creates a Docker image for SDGym.
+It also includes enhancements to the accepted SDGym arguments, adds a summary command to aggregate
+metrics, and adds the normalized score to the benchmark results.
+
+## New Features
+
+* Add normalized score to benchmark results - [Issue #102](https://github.com/sdv-dev/SDGym/issues/102) by @katxiao
+* Add max rows and max columns args - [Issue #96](https://github.com/sdv-dev/SDGym/issues/96) by @katxiao
+* Automatically detect number of workers - [Issue #97](https://github.com/sdv-dev/SDGym/issues/97) by @katxiao
+* Add summary function and command - [Issue #92](https://github.com/sdv-dev/SDGym/issues/92) by @amontanez24
+* Allow jobs list/JSON to be passed - [Issue #93](https://github.com/sdv-dev/SDGym/issues/93) by @fealho
+* Add ydata to sdgym - [Issue #90](https://github.com/sdv-dev/SDGym/issues/90) by @fealho
+* Add dockerfile for sdgym - [Issue #88](https://github.com/sdv-dev/SDGym/issues/88) by @katxiao
+* Add Gretel to SDGym synthesizer - [Issue #87](https://github.com/sdv-dev/SDGym/issues/87) by @amontanez24
+
 ## v0.3.1 - 2021-05-20
 
 This release adds new features to store results and cache contents into an S3 bucket
