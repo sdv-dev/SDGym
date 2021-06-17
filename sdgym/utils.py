@@ -2,6 +2,7 @@
 
 import importlib
 import json
+import logging
 import os
 import sys
 import traceback
@@ -13,6 +14,8 @@ import psutil
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import Baseline
 from sdgym.synthesizers.utils import select_device
+
+LOGGER = logging.getLogger(__name__)
 
 
 def used_memory():
@@ -74,17 +77,27 @@ def _get_synthesizer(synthesizer, name=None):
 
     if isinstance(synthesizer, str):
         if synthesizer.endswith('.json'):
+            LOGGER.info('Trying to load synthesizer from a JSON file.')
             with open(synthesizer, 'r') as json_file:
                 return json.load(json_file)
 
         baselines = Baseline.get_subclasses()
         if synthesizer in baselines:
+            LOGGER.info('Trying to import synthesizer by name.')
             synthesizer = baselines[synthesizer]
+
         else:
             try:
-                synthesizer = import_object(synthesizer)
+                LOGGER.info('Trying to load synthesizer from JSON string.')
+                return json.loads(synthesizer)
+
             except Exception:
-                raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
+                try:
+                    LOGGER.info('Trying to import synthesizer from fully qualified name.')
+                    synthesizer = import_object(synthesizer)
+
+                except Exception:
+                    raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
     if not name:
         name = _get_synthesizer_name(synthesizer)
@@ -92,11 +105,11 @@ def _get_synthesizer(synthesizer, name=None):
     return {
         'name': name,
         'synthesizer': synthesizer,
-        'modalities': getattr(synthesizer, 'MODALITIES', None),
+        'modalities': getattr(synthesizer, 'MODALITIES', []),
     }
 
 
-def get_synthesizers_dict(synthesizers):
+def get_synthesizers(synthesizers):
     """Get the dict of synthesizers from the input value.
 
     If the input is a synthesizer or an iterable of synthesizers, get their names
@@ -137,7 +150,7 @@ def _get_kwargs(synthesizer_dict, method_name, replace):
     method_kwargs = synthesizer_dict.get(method_name + '_kwargs', {})
     for key, value in method_kwargs.items():
         for replace_keyword, replace_value in replace:
-            if value == replace_keyword:
+            if isinstance(value, type(replace_keyword)) and value == replace_keyword:
                 method_kwargs[key] = replace_value
 
     return method_kwargs
@@ -151,7 +164,7 @@ def build_synthesizer(synthesizer, synthesizer_dict):
         * ``init``: Dict with the keyword arguments to pass to the ``__init__`` method. The
           arguments should include the metadata, real data or device arguments when
           required, encoded as the corresponding keywords.
-        * ``init``: Dict with the keyword arguments to pass to the ``fit`` method. The
+        * ``fit``: Dict with the keyword arguments to pass to the ``fit`` method. The
           arguments should include the metadata, real data or device arguments when
           required, encoded as the corresponding keywords.
         * ``modalities``: List of modalities supported by this synthesizer.

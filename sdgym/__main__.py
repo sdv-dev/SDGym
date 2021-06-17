@@ -2,6 +2,7 @@
 
 import argparse
 import gc
+import json
 import logging
 import sys
 import warnings
@@ -80,18 +81,27 @@ def _run(args):
     else:
         workers = args.workers
 
+    if args.jobs:
+        args.jobs = json.loads(args.jobs)
+
     scores = sdgym.run(
         synthesizers=args.synthesizers,
         datasets=args.datasets,
         datasets_path=args.datasets_path,
         modalities=args.modalities,
         metrics=args.metrics,
+        bucket=args.bucket,
         iterations=args.iterations,
         cache_dir=args.cache_dir,
         workers=workers,
         show_progress=args.progress,
         timeout=args.timeout,
         output_path=args.output_path,
+        aws_key=args.aws_key,
+        aws_secret=args.aws_secret,
+        jobs=args.jobs,
+        max_rows=args.max_rows,
+        max_columns=args.max_columns,
     )
 
     if args.groupby:
@@ -105,10 +115,12 @@ def _download_datasets(args):
     _env_setup(args.logfile, args.verbose)
     datasets = args.datasets
     if not datasets:
-        datasets = sdgym.datasets.get_available_datasets(args.bucket)['name']
+        datasets = sdgym.datasets.get_available_datasets(
+            args.bucket, args.aws_key, args.aws_secret)['name']
 
     for dataset in tqdm.tqdm(datasets):
-        sdgym.datasets.load_dataset(dataset, args.datasets_path, args.bucket)
+        sdgym.datasets.load_dataset(
+            dataset, args.datasets_path, args.bucket, args.aws_key, args.aws_secret)
 
 
 def _list_downloaded(args):
@@ -118,8 +130,17 @@ def _list_downloaded(args):
 
 
 def _list_available(args):
-    datasets = sdgym.datasets.get_available_datasets(args.bucket)
+    datasets = sdgym.datasets.get_available_datasets(args.bucket, args.aws_key, args.aws_secret)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
+
+
+def _collect(args):
+    sdgym.collect.collect_results(args.input_path, args.output_file, args.aws_key, args.aws_secret)
+
+
+def _summary(args):
+    sdgym.summary.make_summary_spreadsheet(args.input_path, output_path=args.output_file,
+                                           aws_key=args.aws_key, aws_secret=args.aws_secret)
 
 
 def _get_parser():
@@ -140,6 +161,8 @@ def _get_parser():
                      help='Synthesizer/s to be benchmarked. Accepts multiple names.')
     run.add_argument('-m', '--metrics', nargs='+',
                      help='Metrics to apply. Accepts multiple names.')
+    run.add_argument('-b', '--bucket',
+                     help='Bucket from which to download the datasets.')
     run.add_argument('-d', '--datasets', nargs='+',
                      help='Datasets/s to be used. Accepts multiple names.')
     run.add_argument('-dp', '--datasets-path',
@@ -163,7 +186,17 @@ def _get_parser():
     run.add_argument('-t', '--timeout', type=int,
                      help='Maximum seconds to run for each dataset.')
     run.add_argument('-g', '--groupby', nargs='+',
-                     help='Group scores leaderboard by the given fields')
+                     help='Group scores leaderboard by the given fields.')
+    run.add_argument('-ak', '--aws-key', type=str, required=False,
+                     help='Aws access key ID to use when reading datasets.')
+    run.add_argument('-as', '--aws-secret', type=str, required=False,
+                     help='Aws secret access key to use when reading datasets.')
+    run.add_argument('-j', '--jobs', type=str, required=False,
+                     help='Serialized list of jobs to run.')
+    run.add_argument('-mr', '--max-rows', type=int,
+                     help='Cap the number of rows to model from each dataset.')
+    run.add_argument('-mc', '--max-columns', type=int,
+                     help='Cap the number of columns to model from each dataset.')
 
     # download-datasets
     download = action.add_parser('download-datasets', help='Download datasets.')
@@ -178,8 +211,12 @@ def _get_parser():
                           help='Be verbose. Repeat for increased verbosity.')
     download.add_argument('-l', '--logfile', type=str,
                           help='Name of the log file.')
+    download.add_argument('-ak', '--aws-key', type=str, required=False,
+                          help='Aws access key ID to use when reading datasets.')
+    download.add_argument('-as', '--aws-secret', type=str, required=False,
+                          help='Aws secret access key to use when reading datasets.')
 
-    # list-available-datasets
+    # list-downloaded-datasets
     list_downloaded = action.add_parser('list-downloaded', help='List downloaded datasets.')
     list_downloaded.set_defaults(action=_list_downloaded)
     list_downloaded.add_argument('-s', '--sort', default='name',
@@ -192,13 +229,41 @@ def _get_parser():
     # list-available-datasets
     list_available = action.add_parser('list-available',
                                        help='List datasets available for download.')
+    list_available.set_defaults(action=_list_available)
     list_available.add_argument('-s', '--sort', default='name',
                                 help='Value to sort by (name|size|modality). Defaults to `name`.')
     list_available.add_argument('-r', '--reverse', action='store_true',
                                 help='Reverse the order.')
     list_available.add_argument('-b', '--bucket',
                                 help='Bucket from which to download the datasets.')
-    list_available.set_defaults(action=_list_available)
+    list_available.add_argument('-ak', '--aws-key', type=str, required=False,
+                                help='Aws access key ID to use when reading datasets.')
+    list_available.add_argument('-as', '--aws-secret', type=str, required=False,
+                                help='Aws secret access key to use when reading datasets.')
+
+    # collect
+    collect = action.add_parser('collect', help='Collect sdgym results.')
+    collect.set_defaults(action=_collect)
+    collect.add_argument('-i', '--input-path', type=str, required=True,
+                         help='Path within which to look for sdgym results.')
+    collect.add_argument('-o', '--output-file', type=str,
+                         help='Output file containing the collected results.')
+    collect.add_argument('-ak', '--aws-key', type=str, required=False,
+                         help='Aws access key ID to use when reading datasets.')
+    collect.add_argument('-as', '--aws-secret', type=str, required=False,
+                         help='Aws secret access key to use when reading datasets.')
+
+    # summary
+    summary = action.add_parser('summary', help='Create summary file for sdgym results.')
+    summary.set_defaults(action=_summary)
+    summary.add_argument('-i', '--input-path', type=str, required=True,
+                         help='Path to sdgym results file.')
+    summary.add_argument('-o', '--output-file', type=str, required=False,
+                         help='Output file containing summary xlsx doc.')
+    summary.add_argument('-ak', '--aws-key', type=str, required=False,
+                         help='Aws access key ID to use when reading datasets.')
+    summary.add_argument('-as', '--aws-secret', type=str, required=False,
+                         help='Aws secret access key to use when reading datasets.')
 
     return parser
 

@@ -21,7 +21,7 @@ def try_mkdirs(dir):
 
 
 class PrivBN(LegacySingleTableBaseline):
-    """docstring for IdentitySynthesizer."""
+    """docstring for PrivBN."""
 
     def __init__(self, theta=20, max_samples=25000):
         self.privbayes_bin = os.getenv('PRIVBAYES_BIN', 'privbayes/privBayes.bin')
