@@ -1,9 +1,13 @@
 import os
 
 import numpy as np
-from gretel_synthetics.batch import DataFrameBatch
 
 from sdgym.synthesizers.base import SingleTableBaseline
+
+try:
+    from gretel_synthetics.batch import DataFrameBatch
+except ImportError:
+    DataFrameBatch = None
 
 
 class Gretel(SingleTableBaseline):
@@ -14,6 +18,9 @@ class Gretel(SingleTableBaseline):
     def __init__(self, max_lines=0, max_line_len=2048, epochs=None, vocab_size=20000,
                  gen_lines=None, dp=False, field_delimiter=",", overwrite=True,
                  checkpoint_dir=DEFAULT_CHECKPOINT_DIR):
+        if DataFrameBatch is None:
+            raise ImportError('Please install gretel-synthetics using `pip install sdgym[gretel]`')
+
         self.max_lines = max_lines
         self.max_line_len = max_line_len
         self.epochs = epochs
