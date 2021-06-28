@@ -72,6 +72,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
 
         error = None
         score = None
+        normalized_score = None
         start = datetime.utcnow()
         try:
             LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
