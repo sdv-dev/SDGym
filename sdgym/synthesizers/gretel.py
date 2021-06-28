@@ -1,4 +1,4 @@
-import os
+import tempfile
 
 import numpy as np
 from gretel_synthetics.batch import DataFrameBatch
@@ -9,11 +9,9 @@ from sdgym.synthesizers.base import SingleTableBaseline
 class Gretel(SingleTableBaseline):
     """Class to represent Gretel's neural network model."""
 
-    DEFAULT_CHECKPOINT_DIR = os.path.join(os.getcwd(), 'checkpoints')
-
     def __init__(self, max_lines=0, max_line_len=2048, epochs=None, vocab_size=20000,
                  gen_lines=None, dp=False, field_delimiter=",", overwrite=True,
-                 checkpoint_dir=DEFAULT_CHECKPOINT_DIR):
+                 checkpoint_dir=None):
         self.max_lines = max_lines
         self.max_line_len = max_line_len
         self.epochs = epochs
@@ -22,7 +20,7 @@ class Gretel(SingleTableBaseline):
         self.dp = dp
         self.field_delimiter = field_delimiter
         self.overwrite = overwrite
-        self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_dir = checkpoint_dir or tempfile.TemporaryDirectory().name
 
     def _fit_sample(self, data, metadata):
         config = {
