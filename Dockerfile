@@ -1,5 +1,10 @@
-FROM python:3.8-buster
-RUN apt-get update && apt-get install -y build-essential
+FROM nvidia/cuda:10.2-base
+CMD nvidia-smi
+
+RUN apt-get update && apt-get install -y build-essential && apt-get -y install curl
+RUN apt-get -y install python3.8 python3-distutils && ln -s /usr/bin/python3.8 /usr/bin/python
+RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    python get-pip.py && ln -s /usr/bin/pip3 /usr/bin/pip
 
 RUN mkdir /SDGym && \
     mkdir /SDGym/sdgym && \
