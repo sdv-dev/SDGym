@@ -18,7 +18,7 @@ COPY /privbayes/ /SDGym/privbayes
 WORKDIR /SDGym
 
 # Install project
-RUN make install-ydata compile
+RUN make install-all compile
 ENV PRIVBAYES_BIN /SDGym/privbayes/privBayes.bin
 ENV TF_CPP_MIN_LOG_LEVEL 2
 
