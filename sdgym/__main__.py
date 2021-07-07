@@ -133,21 +133,16 @@ def _list_available(args):
     datasets = sdgym.datasets.get_available_datasets(args.bucket, args.aws_key, args.aws_secret)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
 
+
 def _list_synthesizers(args):
-    from sdgym.synthesizers.base import Baseline
+    from sdgym.synthesizers import __all__ as synthesizers
     from sdgym.utils import get_synthesizers
 
-    # A list of synthesizers to hide.
-    blocklist = set([
-        "SingleTableBaseline",
-        "MultiSingleTableBaseline",
-        "CUDATabular",
-        "LegacySingleTableBaseline",
-    ])
+    # Append extra synthesizers not included in the ``__init__``
+    synthesizers += ('HMA1', 'PAR')
 
-    synthesizers = Baseline.get_subclasses(include_parents=True).keys()
-    synthesizers = set(synthesizers) - blocklist
     _print_table(pd.DataFrame(get_synthesizers(list(synthesizers))))
+
 
 def _collect(args):
     sdgym.collect.collect_results(args.input_path, args.output_file, args.aws_key, args.aws_secret)
