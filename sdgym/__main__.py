@@ -133,6 +133,21 @@ def _list_available(args):
     datasets = sdgym.datasets.get_available_datasets(args.bucket, args.aws_key, args.aws_secret)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
 
+def _list_synthesizers(args):
+    from sdgym.synthesizers.base import Baseline
+    from sdgym.utils import get_synthesizers
+
+    # A list of synthesizers to hide.
+    blocklist = set([
+        "SingleTableBaseline",
+        "MultiSingleTableBaseline",
+        "CUDATabular",
+        "LegacySingleTableBaseline",
+    ])
+
+    synthesizers = Baseline.get_subclasses(include_parents=True).keys()
+    synthesizers = set(synthesizers) - blocklist
+    _print_table(pd.DataFrame(get_synthesizers(list(synthesizers))))
 
 def _collect(args):
     sdgym.collect.collect_results(args.input_path, args.output_file, args.aws_key, args.aws_secret)
@@ -240,6 +255,11 @@ def _get_parser():
                                 help='Aws access key ID to use when reading datasets.')
     list_available.add_argument('-as', '--aws-secret', type=str, required=False,
                                 help='Aws secret access key to use when reading datasets.')
+
+    # list-synthesizers
+    list_available = action.add_parser('list-synthesizers',
+                                       help='List synthesizers available for use.')
+    list_available.set_defaults(action=_list_synthesizers)
 
     # collect
     collect = action.add_parser('collect', help='Collect sdgym results.')
