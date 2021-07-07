@@ -13,6 +13,8 @@ import tabulate
 import tqdm
 
 import sdgym
+from sdgym.synthesizers import __all__ as _synthesizers
+from sdgym.utils import get_synthesizers
 
 
 def _env_setup(logfile, verbosity):
@@ -135,11 +137,8 @@ def _list_available(args):
 
 
 def _list_synthesizers(args):
-    from sdgym.synthesizers import __all__ as synthesizers
-    from sdgym.utils import get_synthesizers
-
     # Append extra synthesizers not included in the ``__init__``
-    synthesizers += ('HMA1', 'PAR')
+    synthesizers = _synthesizers + ('HMA1', 'PAR')
 
     _print_table(pd.DataFrame(get_synthesizers(list(synthesizers))))
 
