@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.2-base
+FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 CMD nvidia-smi
 
 RUN apt-get update && apt-get install -y build-essential && apt-get -y install curl
