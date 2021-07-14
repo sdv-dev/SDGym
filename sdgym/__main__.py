@@ -4,6 +4,7 @@ import argparse
 import gc
 import json
 import logging
+from sdgym.synthesizers.base import Baseline
 import sys
 import warnings
 
@@ -13,7 +14,6 @@ import tabulate
 import tqdm
 
 import sdgym
-from sdgym.synthesizers import __all__ as _synthesizers
 from sdgym.utils import get_synthesizers
 
 
@@ -137,9 +137,7 @@ def _list_available(args):
 
 
 def _list_synthesizers(args):
-    # Append extra synthesizers not included in the ``__init__``
-    synthesizers = _synthesizers + ('HMA1', 'PAR')
-
+    synthesizers = Baseline.get_baselines()
     _print_table(pd.DataFrame(get_synthesizers(list(synthesizers))))
 
 

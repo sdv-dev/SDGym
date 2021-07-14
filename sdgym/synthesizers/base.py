@@ -31,6 +31,20 @@ class Baseline:
 
         return subclasses
 
+    @classmethod
+    def get_baselines(cls):
+        blocklist = {
+            "SingleTableBaseline",
+            "MultiSingleTableBaseline",
+            "CUDATabular",
+            "LegacySingleTableBaseline",
+        }
+        
+        subclasses = cls.get_subclasses(include_parents=True).keys()
+        subclasses = set(subclasses) - blocklist
+
+        return subclasses
+
     def fit_sample(self, real_data, metadata):
         pass
 
