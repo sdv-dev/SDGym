@@ -1,3 +1,4 @@
+import abc
 import logging
 
 import pandas as pd
@@ -8,7 +9,7 @@ from sdgym.errors import UnsupportedDataset
 LOGGER = logging.getLogger(__name__)
 
 
-class Baseline:
+class Baseline(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
     MODALITIES = ()
@@ -33,23 +34,19 @@ class Baseline:
 
     @classmethod
     def get_baselines(cls):
-        blocklist = {
-            "SingleTableBaseline",
-            "MultiSingleTableBaseline",
-            "CUDATabular",
-            "LegacySingleTableBaseline",
-        }
-        
-        subclasses = cls.get_subclasses(include_parents=True).keys()
-        subclasses = set(subclasses) - blocklist
+        subclasses = cls.get_subclasses(include_parents=True)
+        synthesizers = []
+        for _, subclass in subclasses.items():
+            if abc.ABC not in subclass.__bases__:
+                synthesizers.append(subclass)
 
-        return subclasses
+        return synthesizers
 
     def fit_sample(self, real_data, metadata):
         pass
 
 
-class SingleTableBaseline(Baseline):
+class SingleTableBaseline(Baseline, abc.ABC):
     """Base class for all the SingleTable Baselines.
 
     Subclasses can choose to implement ``_fit_sample``, which will
@@ -91,7 +88,7 @@ class SingleTableBaseline(Baseline):
         return _fit_sample(real_data, metadata)
 
 
-class MultiSingleTableBaseline(Baseline):
+class MultiSingleTableBaseline(Baseline, abc.ABC):
     """Base class for SingleTableBaselines that are used on multi table scenarios.
 
     These classes model and sample each table independently and then just
@@ -125,7 +122,7 @@ class MultiSingleTableBaseline(Baseline):
         return self._fit_sample(real_data, metadata)
 
 
-class LegacySingleTableBaseline(SingleTableBaseline):
+class LegacySingleTableBaseline(SingleTableBaseline, abc.ABC):
     """Single table baseline which passes ordinals and categoricals down.
 
     This class exists here to support the legacy baselines which do not operate

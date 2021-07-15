@@ -1,12 +1,14 @@
+import abc
+
+from sdgym.synthesizers.base import SingleTableBaseline
+
 try:
     import ydata_synthetic.synthesizers.regular as ydata
 except ImportError:
     ydata = None
 
-from sdgym.synthesizers.base import SingleTableBaseline
 
-
-class YData(SingleTableBaseline):
+class YData(SingleTableBaseline, abc.ABC):
 
     def _fit_sample(self, real_data, table_metadata):
         if ydata is None:

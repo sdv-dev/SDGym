@@ -4,7 +4,6 @@ import argparse
 import gc
 import json
 import logging
-from sdgym.synthesizers.base import Baseline
 import sys
 import warnings
 
@@ -14,6 +13,7 @@ import tabulate
 import tqdm
 
 import sdgym
+from sdgym.synthesizers.base import Baseline
 from sdgym.utils import get_synthesizers
 
 
