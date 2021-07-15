@@ -81,7 +81,7 @@ def _get_synthesizer(synthesizer, name=None):
             with open(synthesizer, 'r') as json_file:
                 return json.load(json_file)
 
-        baselines = Baseline.get_subclasses()
+        baselines = Baseline.get_subclasses(include_parents=True)
         if synthesizer in baselines:
             LOGGER.info('Trying to import synthesizer by name.')
             synthesizer = baselines[synthesizer]
