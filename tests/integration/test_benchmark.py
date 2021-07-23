@@ -53,3 +53,27 @@ def test_json_synthesizer():
     )
 
     assert set(output['synthesizer']) == {'synthesizer_name'}
+
+
+def test_json_synthesizer_multi_table():
+    synthesizer = {
+        'name': 'HMA1',
+        'synthesizer': 'sdv.relational.HMA1',
+        'modalities': [
+            'multi-table'
+        ],
+        'init_kwargs': {
+            'metadata': '$metadata'
+        },
+        'fit_kwargs': {
+            'tables': '$real_data'
+        }
+    }
+
+    output = sdgym.run(
+        synthesizers=[json.dumps(synthesizer)],
+        datasets=['university_v1', 'trains_v1'],
+        iterations=1,
+    )
+
+    assert not output.error.any()
