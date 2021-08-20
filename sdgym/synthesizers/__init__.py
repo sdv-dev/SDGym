@@ -23,7 +23,6 @@ __all__ = (
     'CTGAN',
     'Uniform',
     'VEEGAN',
-    'CTGAN',
     'CopulaGAN',
     'GaussianCopulaCategorical',
     'GaussianCopulaCategoricalFuzzy',

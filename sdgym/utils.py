@@ -1,5 +1,6 @@
 """Random utils used by SDGym."""
 
+import copy
 import importlib
 import json
 import logging
@@ -81,7 +82,7 @@ def _get_synthesizer(synthesizer, name=None):
             with open(synthesizer, 'r') as json_file:
                 return json.load(json_file)
 
-        baselines = Baseline.get_subclasses()
+        baselines = Baseline.get_subclasses(include_parents=True)
         if synthesizer in baselines:
             LOGGER.info('Trying to import synthesizer by name.')
             synthesizer = baselines[synthesizer]
@@ -187,14 +188,17 @@ def build_synthesizer(synthesizer, synthesizer_dict):
         callable:
             The synthesizer function
     """
+
+    _synthesizer_dict = copy.deepcopy(synthesizer_dict)
+
     def _synthesizer_function(real_data, metadata):
-        metadata_keyword = synthesizer_dict.get('metadata', '$metadata')
-        real_data_keyword = synthesizer_dict.get('real_data', '$real_data')
-        device_keyword = synthesizer_dict.get('device', '$device')
-        device_attribute = synthesizer_dict.get('device_attribute')
+        metadata_keyword = _synthesizer_dict.get('metadata', '$metadata')
+        real_data_keyword = _synthesizer_dict.get('real_data', '$real_data')
+        device_keyword = _synthesizer_dict.get('device', '$device')
+        device_attribute = _synthesizer_dict.get('device_attribute')
         device = select_device()
 
-        multi_table = 'multi-table' in synthesizer_dict['modalities']
+        multi_table = 'multi-table' in _synthesizer_dict['modalities']
         if not multi_table:
             table = metadata.get_tables()[0]
             metadata = metadata.get_table_meta(table)
@@ -206,8 +210,8 @@ def build_synthesizer(synthesizer, synthesizer_dict):
             (device_keyword, device),
         ]
 
-        init_kwargs = _get_kwargs(synthesizer_dict, 'init', replace)
-        fit_kwargs = _get_kwargs(synthesizer_dict, 'fit', replace)
+        init_kwargs = _get_kwargs(_synthesizer_dict, 'init', replace)
+        fit_kwargs = _get_kwargs(_synthesizer_dict, 'fit', replace)
 
         instance = synthesizer(**init_kwargs)
         if device_attribute:
