@@ -1,12 +1,29 @@
 # History
 
 ## v0.4.0 - 2021-06-17
+This release fixed a bug where passing a `json` file as configuration for a multi-table synthesizer crashed the model.
+It also adds a number of fixes and enhancements, including: (1) a function and CLI command to list the available synthesizer names,
+(2) a curate set of dependencies and making `Gretel` into an optional dependency, (3) updating `Gretel` to use temp directories,
+(4) using `nvidia-smi` to get the number of gpus and (5) multiple `dockerfile` updates to improve functionality.
+
+### Issues closed
+
+* Bug when using JSON configuration for multiple multi-table evaluation - [Issue #115](https://github.com/sdv-dev/SDGym/issues/115) by @pvk-developer
+* Use nvidia-smi to get number of gpus - [PR #113](https://github.com/sdv-dev/SDGym/issues/113) by @katxiao
+* List synthesizer names - [Issue #82](https://github.com/sdv-dev/SDGym/issues/82) by @fealho
+* Use nvidia base for dockerfile - [PR #108](https://github.com/sdv-dev/SDGym/issues/108) by @katxiao
+* Add Makefile target to install gretel and ydata - [PR #107](https://github.com/sdv-dev/SDGym/issues/107) by @katxiao
+* Curate dependencies and make Gretel optional - [PR #106](https://github.com/sdv-dev/SDGym/issues/106) by @csala
+* Update gretel checkpoints to use temp directory - [PR #105](https://github.com/sdv-dev/SDGym/issues/105) by @katxiao
+* Initialize variable before reference - [PR #104](https://github.com/sdv-dev/SDGym/issues/104) by @katxiao
+
+## v0.4.0 - 2021-06-17
 
 This release adds new synthesizers for Gretel and ydata, and creates a Docker image for SDGym.
 It also includes enhancements to the accepted SDGym arguments, adds a summary command to aggregate
 metrics, and adds the normalized score to the benchmark results.
 
-## New Features
+### New Features
 
 * Add normalized score to benchmark results - [Issue #102](https://github.com/sdv-dev/SDGym/issues/102) by @katxiao
 * Add max rows and max columns args - [Issue #96](https://github.com/sdv-dev/SDGym/issues/96) by @katxiao
