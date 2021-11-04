@@ -15,8 +15,8 @@ install_requires = [
     'appdirs>=1.1.4,<2',
     'boto3>=1.15.0,<2',
     'botocore>=1.20,<2',
-    'compress-pickle>=1.2.0,<2',
-    'humanfriendly>=8.2,<9',
+    'compress-pickle>=1.2.0,<3',
+    'humanfriendly>=8.2,<11',
     'numpy>=1.18.0,<2',
     'pandas>=1.1,<1.1.5',
     'pomegranate>=0.13.4,<0.14.2',
@@ -29,7 +29,7 @@ install_requires = [
     'tabulate>=0.8.3,<0.9',
     'torch>=1.4,<2',
     'tqdm>=4.14,<5',
-    'XlsxWriter>=1.2.8,<1.3',
+    'XlsxWriter>=1.2.8,<4',
 ]
 
 
