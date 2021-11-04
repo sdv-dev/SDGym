@@ -26,7 +26,7 @@ requirements:
     - botocore >=1.20,<2
     - humanfriendly >=8.2,<9
     - numpy >=1.18.0,<2
-    - pandas >=1.1,<1.1.5
+    - pandas >=1.1,<2
     - pomegranate >=0.13.4,<0.14.2
     - psutil >=5.7,<6
     - rdt >=0.4.1
@@ -44,7 +44,7 @@ requirements:
     - botocore >=1.20,<2
     - humanfriendly >=8.2,<9
     - numpy >=1.18.0,<2
-    - pandas >=1.1,<1.1.5
+    - pandas >=1.1,<2
     - pomegranate >=0.13.4,<0.14.2
     - psutil >=5.7,<6
     - rdt >=0.4.1
