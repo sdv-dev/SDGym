@@ -12,9 +12,9 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
     history = history_file.read()
 
 install_requires = [
-    'appdirs>=1.1.4,<2',
+    'appdirs>=1.3,<2',
     'boto3>=1.15.0,<2',
-    'botocore>=1.20,<2',
+    'botocore>=1.18,<2',
     'compress-pickle>=1.2.0,<3',
     'humanfriendly>=8.2,<11',
     'numpy>=1.18.0,<2',
