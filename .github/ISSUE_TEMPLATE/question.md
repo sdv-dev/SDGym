@@ -1,6 +1,6 @@
 ---
 name: Question
-about: Doubts about SDMetrics usage
+about: Doubts about SDV usage
 title: ''
 labels: question, pending review
 assignees: ''
@@ -9,16 +9,16 @@ assignees: ''
 
 ### Environment details
 
-If you are already running SDMetrics, please indicate the following details about the environment in
+If you are already running SDGym, please indicate the following details about the environment in
 which you are running it:
 
-* SDMetrics version:
+* SDGym version:
 * Python version:
 * Operating System:
 
 ### Problem description
 
-<!--Replace this with a description of the problem that you are trying to solve using SDMetrics. If
+<!--Replace this with a description of the problem that you are trying to solve using SDGym. If
 possible, describe the data that you are using, or consider attaching some example data
 that others can use to propose a working solution for your problem.-->
 

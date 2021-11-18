@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report an error that you found when using SDMetrics
+about: Report an error that you found when using SDGym
 title: ''
 labels: bug, pending review
 assignees: ''
@@ -11,7 +11,7 @@ assignees: ''
 
 Please indicate the following details about the environment in which you found the bug:
 
-* SDMetrics version:
+* SDGym version:
 * Python version:
 * Operating System:
 
