@@ -21,15 +21,14 @@ install_requires = [
     'pandas>=1.1,<2',
     'pomegranate>=0.13.4,<0.14.2',
     'psutil>=5.7,<6',
-    'rdt>=0.4.1',
     'scikit-learn>=0.23,<1',
     'scipy>=1.4.1,<2',
-    'sdmetrics>=0.3.0',
-    'sdv>=0.9.0',
     'tabulate>=0.8.3,<0.9',
-    'torch>=1.4,<2',
     'tqdm>=4.14,<5',
     'XlsxWriter>=1.2.8,<4',
+    'rdt>=0.4.1,<0.6',  # uncap when 3.9 available
+    'sdmetrics>=0.3.0<0.5',  # uncap when 3.9 available
+    'sdv>=0.9.0',
 ]
 
 
@@ -67,12 +66,6 @@ development_requires = [
     'pip>=9.0.1',
     'watchdog>=0.8.3,<0.11',
 
-    # docs
-    'm2r>=0.2.0,<0.3',
-    'Sphinx>=1.7.1,<3',
-    'sphinx_rtd_theme>=0.2.4,<0.5',
-    'autodocsumm>=0.1.10,<0.2',
-
     # style check
     'flake8>=3.7.7,<4',
     'isort>=4.3.4,<5',
@@ -89,6 +82,9 @@ development_requires = [
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
     'importlib-metadata>=3.6',
+
+    # Invoke
+    'invoke',
 ]
 
 setup(
