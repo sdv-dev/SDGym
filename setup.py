@@ -24,6 +24,7 @@ install_requires = [
     'scikit-learn>=0.23,<1',
     'scipy>=1.4.1,<2',
     'tabulate>=0.8.3,<0.9',
+    'torch>=1.7.1,<2',
     'tqdm>=4.14,<5',
     'XlsxWriter>=1.2.8,<4',
     'rdt>=0.4.1,<0.6',  # uncap when 3.9 available
