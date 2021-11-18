@@ -204,9 +204,10 @@ def test_write_csv(write_file_mock):
     write_csv(data, path, None, None)
 
     # asserts
-    expected_content = 'col1,col2\n1,3\n2,4\n'
+    input_data = pd.DataFrame({"col1": [1, 2], "col2": [3, 4]})
+    expected_content = input_data.to_csv(index=False).encode('utf-8')
     write_file_mock.assert_called_once_with(
-        expected_content.encode('utf-8'),
+        expected_content,
         path,
         None,
         None
