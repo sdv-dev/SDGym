@@ -86,7 +86,7 @@ install-develop: clean-build clean-pyc clean-pyc compile ## install the package 
 
 .PHONY: install-ydata
 install-ydata: clean-build clean-compile clean-pyc compile ## install the package with ydata
-	pip install 'ydata-synthetic>=0.5.0,<0.6'
+	pip install 'ydata-synthetic>=0.3.0,<0.4'
 	pip install .
 
 .PHONY: install-ydata-develop
