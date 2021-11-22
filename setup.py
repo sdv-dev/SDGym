@@ -12,24 +12,24 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
     history = history_file.read()
 
 install_requires = [
-    'appdirs>=1.1.4,<2',
+    'appdirs>=1.3,<2',
     'boto3>=1.15.0,<2',
-    'botocore>=1.20,<2',
+    'botocore>=1.18,<2',
     'compress-pickle>=1.2.0,<3',
     'humanfriendly>=8.2,<11',
     'numpy>=1.18.0,<2',
     'pandas>=1.1,<2',
     'pomegranate>=0.13.4,<0.14.2',
     'psutil>=5.7,<6',
-    'rdt>=0.4.1',
     'scikit-learn>=0.23,<1',
     'scipy>=1.4.1,<2',
-    'sdmetrics>=0.3.0',
-    'sdv>=0.9.0',
     'tabulate>=0.8.3,<0.9',
-    'torch>=1.4,<2',
+    'torch>=1.7.1,<2',
     'tqdm>=4.14,<5',
     'XlsxWriter>=1.2.8,<4',
+    'rdt>=0.4.1,<0.6',
+    'sdmetrics>=0.3.0,<0.5',
+    'sdv>=0.9.0',
 ]
 
 
@@ -67,12 +67,6 @@ development_requires = [
     'pip>=9.0.1',
     'watchdog>=0.8.3,<0.11',
 
-    # docs
-    'm2r>=0.2.0,<0.3',
-    'Sphinx>=1.7.1,<3',
-    'sphinx_rtd_theme>=0.2.4,<0.5',
-    'autodocsumm>=0.1.10,<0.2',
-
     # style check
     'flake8>=3.7.7,<4',
     'isort>=4.3.4,<5',
@@ -89,6 +83,9 @@ development_requires = [
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
     'importlib-metadata>=3.6',
+
+    # Invoke
+    'invoke',
 ]
 
 setup(
