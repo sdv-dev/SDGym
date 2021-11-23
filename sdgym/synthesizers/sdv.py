@@ -59,7 +59,7 @@ class GaussianCopulaOneHot(SDVTabular):
 
     _MODEL = sdv.tabular.GaussianCopula
     _MODEL_KWARGS = {
-        'categorical_transformer': 'one_hot_encoding'
+        'categorical_transformer': 'OneHotEncodingTransformer'
     }
 
 

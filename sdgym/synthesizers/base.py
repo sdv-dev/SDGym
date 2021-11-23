@@ -155,8 +155,8 @@ class LegacySingleTableBaseline(SingleTableBaseline, abc.ABC):
         columns, categoricals = self._get_columns(real_data, table_metadata)
         real_data = real_data[columns]
 
-        ht = rdt.HyperTransformer(dtype_transformers={
-            'O': 'label_encoding',
+        ht = rdt.HyperTransformer(default_data_type_transformers={
+            'categorical': 'LabelEncodingTransformer',
         })
         ht.fit(real_data.iloc[:, categoricals])
         model_data = ht.transform(real_data)
