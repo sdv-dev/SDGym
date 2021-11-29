@@ -10,7 +10,7 @@
 [![PyPi Shield](https://img.shields.io/pypi/v/sdgym.svg)](https://pypi.python.org/pypi/sdgym)
 [![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
 
-<img align="center" width=30% src="docs/resources/header.png">
+<img align="center" width=30% src="https://user-images.githubusercontent.com/41479552/143880769-fde8b853-b42c-49bf-8544-97ef4b85ed6f.png">
 
 Benchmarking framework for Synthetic Data Generators
 
