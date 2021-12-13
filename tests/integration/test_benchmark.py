@@ -76,4 +76,7 @@ def test_json_synthesizer_multi_table():
         iterations=1,
     )
 
-    assert not output.error.any()
+    # CSTest for `university_v1` is not valid because there are no categorical columns.
+    valid_out = output.loc[~((output.dataset == 'university_v1') & (output.metric == 'CSTest'))]
+
+    assert not valid_out.error.any()
