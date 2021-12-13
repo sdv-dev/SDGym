@@ -1,6 +1,16 @@
 # History
 
-## v0.4.0 - 2021-06-17
+## v0.5.0 - 2021-12-13
+This release adds support for Python 3.9, and updates dependencies to accept the latest versions when possible.
+
+### Issues closed
+
+* Add support for Python 3.9 - [Issue #127](https://github.com/sdv-dev/SDGym/issues/127) by @katxiao
+* Add pip check worflow - [Issue #124](https://github.com/sdv-dev/SDGym/issues/124) by @pvk-developer
+* Fix meta.yaml dependencies - [PR #119](https://github.com/sdv-dev/SDGym/pull/119) by @fealho
+* Upgrade dependency ranges - [Issue #118](https://github.com/sdv-dev/SDGym/issues/118) by @katxiao
+
+## v0.4.1 - 2021-08-20
 This release fixed a bug where passing a `json` file as configuration for a multi-table synthesizer crashed the model.
 It also adds a number of fixes and enhancements, including: (1) a function and CLI command to list the available synthesizer names,
 (2) a curate set of dependencies and making `Gretel` into an optional dependency, (3) updating `Gretel` to use temp directories,
