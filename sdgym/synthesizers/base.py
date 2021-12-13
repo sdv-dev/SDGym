@@ -1,3 +1,4 @@
+import abc
 import logging
 
 import pandas as pd
@@ -8,7 +9,7 @@ from sdgym.errors import UnsupportedDataset
 LOGGER = logging.getLogger(__name__)
 
 
-class Baseline:
+class Baseline(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
     MODALITIES = ()
@@ -31,11 +32,21 @@ class Baseline:
 
         return subclasses
 
+    @classmethod
+    def get_baselines(cls):
+        subclasses = cls.get_subclasses(include_parents=True)
+        synthesizers = []
+        for _, subclass in subclasses.items():
+            if abc.ABC not in subclass.__bases__:
+                synthesizers.append(subclass)
+
+        return synthesizers
+
     def fit_sample(self, real_data, metadata):
         pass
 
 
-class SingleTableBaseline(Baseline):
+class SingleTableBaseline(Baseline, abc.ABC):
     """Base class for all the SingleTable Baselines.
 
     Subclasses can choose to implement ``_fit_sample``, which will
@@ -77,7 +88,7 @@ class SingleTableBaseline(Baseline):
         return _fit_sample(real_data, metadata)
 
 
-class MultiSingleTableBaseline(Baseline):
+class MultiSingleTableBaseline(Baseline, abc.ABC):
     """Base class for SingleTableBaselines that are used on multi table scenarios.
 
     These classes model and sample each table independently and then just
@@ -111,7 +122,7 @@ class MultiSingleTableBaseline(Baseline):
         return self._fit_sample(real_data, metadata)
 
 
-class LegacySingleTableBaseline(SingleTableBaseline):
+class LegacySingleTableBaseline(SingleTableBaseline, abc.ABC):
     """Single table baseline which passes ordinals and categoricals down.
 
     This class exists here to support the legacy baselines which do not operate
@@ -144,8 +155,8 @@ class LegacySingleTableBaseline(SingleTableBaseline):
         columns, categoricals = self._get_columns(real_data, table_metadata)
         real_data = real_data[columns]
 
-        ht = rdt.HyperTransformer(dtype_transformers={
-            'O': 'label_encoding',
+        ht = rdt.HyperTransformer(default_data_type_transformers={
+            'categorical': 'LabelEncodingTransformer',
         })
         ht.fit(real_data.iloc[:, categoricals])
         model_data = ht.transform(real_data)

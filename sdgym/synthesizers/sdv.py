@@ -1,3 +1,4 @@
+import abc
 import logging
 
 import sdv
@@ -9,7 +10,7 @@ from sdgym.synthesizers.utils import select_device
 LOGGER = logging.getLogger(__name__)
 
 
-class SDV(Baseline):
+class SDV(Baseline, abc.ABC):
 
     MODALITIES = ('single-table', 'multi-table')
 
@@ -22,7 +23,7 @@ class SDV(Baseline):
         return model.sample_all()
 
 
-class SDVTabular(SingleTableBaseline):
+class SDVTabular(SingleTableBaseline, abc.ABC):
 
     MODALITIES = ('single-table', )
     _MODEL = None
@@ -58,11 +59,11 @@ class GaussianCopulaOneHot(SDVTabular):
 
     _MODEL = sdv.tabular.GaussianCopula
     _MODEL_KWARGS = {
-        'categorical_transformer': 'one_hot_encoding'
+        'categorical_transformer': 'OneHotEncodingTransformer'
     }
 
 
-class CUDATabular(SDVTabular):
+class CUDATabular(SDVTabular, abc.ABC):
 
     def _fit_sample(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
@@ -90,7 +91,7 @@ class CopulaGAN(CUDATabular):
     _MODEL = sdv.tabular.CopulaGAN
 
 
-class SDVRelational(Baseline):
+class SDVRelational(Baseline, abc.ABC):
 
     MODALITIES = ('single-table', 'multi-table')
     _MODEL = None
@@ -111,7 +112,7 @@ class HMA1(SDVRelational):
     _MODEL = sdv.relational.HMA1
 
 
-class SDVTimeseries(SingleTableBaseline):
+class SDVTimeseries(SingleTableBaseline, abc.ABC):
 
     MODALITIES = ('timeseries', )
     _MODEL = None

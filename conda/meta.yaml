@@ -1,5 +1,5 @@
 {% set name = 'sdgym' %}
-{% set version = '0.4.0' %}
+{% set version = '0.5.0.dev1' %}
 
 package:
   name: "{{ name|lower }}"
@@ -17,52 +17,53 @@ build:
 
 requirements:
   host:
-    - ctgan >=0.2.2.dev1,<0.3
-    - gretel-synthetics >=0.15.4,<0.16
-    - humanfriendly >=8.2,<9
-    - numpy >=1.15.4,<2
-    - pandas >=0.23.4,<2
     - pip
-    - pomegranate >=0.13.0,<0.13.5
-    - psutil >=5.7,<6
-    - python
-    - scikit-learn >=0.20,<0.24
-    - scipy >=1.3.0,<2
-    - sdv >=0.4.4.dev0,<0.6
-    - tabulate >=0.8.3,<0.9
-    - pytorch >=1.1.0,<2
-    - tensorflow ==2.4.0rc1
-    - torchvision >=0.3.0
-    - tqdm >=4,<5
-    - xlsxwriter >=1.2.8,<1.3
     - pytest-runner
-  run:
-    - ctgan >=0.2.2.dev1,<0.3
-    - gretel-synthetics >=0.15.4,<0.16
-    - humanfriendly >=8.2,<9
-    - numpy >=1.15.4,<2
-    - pandas >=0.23.4,<2
-    - pomegranate >=0.13.0,<0.13.5
+    - graphviz
+    - python >=3.6,<3.9
+    - appdirs >=1.3,<2
+    - boto3 >=1.15.0,<2
+    - botocore >=1.18,<2
+    - humanfriendly >=8.2,<11
+    - numpy >=1.18.0,<2
+    - pandas >=1.1.3,<2
+    - pomegranate >=0.14.1,<15
     - psutil >=5.7,<6
-    - python
-    - scikit-learn >=0.20,<0.24
-    - scipy >=1.3.0,<2
-    - sdv >=0.4.4.dev0,<0.6
+    - scikit-learn >=0.24,<2
     - tabulate >=0.8.3,<0.9
-    - pytorch >=1.1.0,<2
-    - tensorflow ==2.4.0rc1
-    - torchvision >=0.3.0
-    - tqdm >=4,<5
-    - xlsxwriter >=1.2.8,<1.3
+    - pytorch >=1.8.0,<2
+    - tqdm >=4.14,<5
+    - XlsxWriter >=1.2.8,<4
+    - rdt >=0.4.1,<0.6
+    - sdmetrics >=0.4.1,<0.5
+    - sdv >=0.9.0
+  run:
+    - python >=3.6,<3.9
+    - appdirs >=1.3,<2
+    - boto3 >=1.15.0,<2
+    - botocore >=1.18,<2
+    - humanfriendly >=8.2,<11
+    - numpy >=1.18.0,<2
+    - pandas >=1.1.3,<2
+    - pomegranate >=0.14.1,<15
+    - psutil >=5.7,<6
+    - scikit-learn >=0.24,<2
+    - tabulate >=0.8.3,<0.9
+    - pytorch >=1.8.0,<2
+    - tqdm >=4.14,<5
+    - XlsxWriter >=1.2.8,<4
+    - rdt >=0.4.1,<0.6
+    - sdmetrics >=0.4.1,<0.5
+    - sdv >=0.9.0
 
 about:
   home: "https://github.com/sdv-dev/SDGym"
   license: MIT
   license_family: MIT
-  license_file: 
+  license_file:
   summary: "A framework to benchmark the performance of synthetic data generators for non-temporal tabular data"
-  doc_url: 
-  dev_url: 
+  doc_url:
+  dev_url:
 
 extra:
   recipe-maintainers:

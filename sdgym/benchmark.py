@@ -11,7 +11,6 @@ from pathlib import Path
 import compress_pickle
 import numpy as np
 import pandas as pd
-import torch
 import tqdm
 
 from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
@@ -20,6 +19,7 @@ from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
     build_synthesizer, format_exception, get_synthesizers, import_object, used_memory)
 
@@ -72,6 +72,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
 
         error = None
         score = None
+        normalized_score = None
         start = datetime.utcnow()
         try:
             LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
@@ -309,8 +310,9 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
     if workers == -1:
-        if torch.cuda.is_available():
-            workers = torch.cuda.device_count()
+        num_gpus = get_num_gpus()
+        if num_gpus > 0:
+            workers = num_gpus
         else:
             workers = multiprocessing.cpu_count()
 

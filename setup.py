@@ -12,30 +12,44 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
     history = history_file.read()
 
 install_requires = [
-    'appdirs>1.1.4,<2',
+    'appdirs>=1.3,<2',
     'boto3>=1.15.0,<2',
-    'compress-pickle>=1.2.0,<2',
-    'gretel-synthetics>=0.15.4,<0.16',
-    'humanfriendly>=8.2,<9',
-    'numpy>=1.15.4,<1.20',
-    'pandas<1.1.5,>=1.1',
-    'pomegranate>=0.13.0,<0.13.5',
+    'botocore>=1.18,<2',
+    'compress-pickle>=1.2.0,<3',
+    'humanfriendly>=8.2,<11',
+    "numpy>=1.18.0,<1.20.0;python_version<'3.7'",
+    "numpy>=1.20.0,<2;python_version>='3.7'",
+    'pandas>=1.1.3,<2',
+    "pomegranate>=0.13.4,<0.14.2;python_version<'3.7'",
+    "pomegranate>=0.14.1,<0.15;python_version>='3.7'",
     'psutil>=5.7,<6',
-    'scikit-learn>=0.20,<1',
+    'scikit-learn>=0.24,<2',
+    'scipy>=1.5.4,<2',
     'tabulate>=0.8.3,<0.9',
-    'torch>=1.1.0,<2',
-    'tqdm>=4,<5',
-    'XlsxWriter>=1.2.8,<1.3',
-    'rdt>=0.4.1',
-    'sdmetrics>=0.3.0',
-    'sdv>=0.9.0',
-    'tensorflow==2.4.0rc1',
-    'wheel~=0.35',
+    'torch>=1.8.0,<2',
+    'tqdm>=4.15,<5',
+    'XlsxWriter>=1.2.8,<4',
+    'rdt>=0.6.1,<0.7',
+    'sdmetrics>=0.4.1,<0.5',
+    'sdv>=0.13.0',
 ]
+
+
+dask_requires = [
+    'dask',
+    'distributed',
+]
+
 
 ydata_requires = [
     # preferably install using make install-ydata
     'ydata-synthetic>=0.3.0,<0.4',
+]
+
+gretel_requires = [
+    'gretel-synthetics>=0.15.4,<0.16',
+    'tensorflow==2.4.0rc1',
+    'wheel~=0.35',
 ]
 
 setup_requires = [
@@ -55,12 +69,6 @@ development_requires = [
     'pip>=9.0.1',
     'watchdog>=0.8.3,<0.11',
 
-    # docs
-    'm2r>=0.2.0,<0.3',
-    'Sphinx>=1.7.1,<3',
-    'sphinx_rtd_theme>=0.2.4,<0.5',
-    'autodocsumm>=0.1.10,<0.2',
-
     # style check
     'flake8>=3.7.7,<4',
     'isort>=4.3.4,<5',
@@ -77,6 +85,9 @@ development_requires = [
     'coverage>=4.5.1,<6',
     'tox>=2.9.1,<4',
     'importlib-metadata>=3.6',
+
+    # Invoke
+    'invoke',
 ]
 
 setup(
@@ -91,6 +102,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     description=(
@@ -103,8 +115,11 @@ setup(
         ],
     },
     extras_require={
-        'dev': development_requires + tests_require,
+        'all': development_requires + tests_require + dask_requires + gretel_requires,
+        'dev': development_requires + tests_require + dask_requires,
         'test': tests_require,
+        'gretel': gretel_requires,
+        'dask': dask_requires,
     },
     include_package_data=True,
     install_requires=install_requires,
@@ -114,11 +129,11 @@ setup(
     keywords='machine learning synthetic data generation benchmark generative models',
     name='sdgym',
     packages=find_packages(include=['sdgym', 'sdgym.*']),
-    python_requires='>=3.6,<3.9',
+    python_requires='>=3.6,<3.10',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.4.0',
+    version='0.5.0.dev1',
     zip_safe=False,
 )

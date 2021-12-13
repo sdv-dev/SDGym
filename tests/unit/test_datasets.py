@@ -9,6 +9,7 @@ from sdgym.datasets import download_dataset
 
 class AnyConfigWith:
     """AnyConfigWith matches any s3 config with the specified signature version."""
+
     def __init__(self, signature_version):
         self.signature_version = signature_version
 
