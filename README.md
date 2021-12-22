@@ -1,8 +1,7 @@
-<p align="left">
-  <a href="https://dai.lids.mit.edu">
-    <img width=15% src="https://dai.lids.mit.edu/wp-content/uploads/2018/06/Logo_DAI_highres.png" alt="DAI-Lab" />
-  </a>
-  <i>An Open Source Project from the <a href="https://dai.lids.mit.edu">Data to AI Lab, at MIT</a></i>
+<div align="center">
+<br/>
+<p align="center">
+    <i>This repository is part of <a href="https://sdv.dev">The Synthetic Data Vault Project</a>, a project from <a href="https://datacebo.com">DataCebo</a>.</i>
 </p>
 
 [![Development Status](https://img.shields.io/badge/Development%20Status-2%20--%20Pre--Alpha-yellow)](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
@@ -10,15 +9,14 @@
 [![PyPi Shield](https://img.shields.io/pypi/v/sdgym.svg)](https://pypi.python.org/pypi/sdgym)
 [![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
 
-<img align="center" width=30% src="https://user-images.githubusercontent.com/41479552/143880769-fde8b853-b42c-49bf-8544-97ef4b85ed6f.png">
+<div align="left">
+<br/>
+<p align="center">
+<img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/SDGym-DataCebo.png"></img>
+</p>
+</div>
 
-Benchmarking framework for Synthetic Data Generators
-
-* Website: https://sdv.dev
-* Documentation: https://sdv.dev/SDV
-* Repository: https://github.com/sdv-dev/SDGym
-* License: [MIT](https://github.com/sdv-dev/SDGym/blob/master/LICENSE)
-* Development Status: [Pre-Alpha](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
+</div>
 
 # Overview
 
@@ -26,7 +24,25 @@ Synthetic Data Gym (SDGym) is a framework to benchmark the performance of synthe
 generators based on [SDV](https://github.com/sdv-dev/SDV) and [SDMetrics](
 https://github.com/sdv-dev/SDMetrics).
 
-SDGym is a part of the [The Synthetic Data Vault](https://sdv.dev/) project.
+| Important Links            |                                                                |
+| -------------------------- | -------------------------------------------------------------- |
+| :computer: **[Website]**        | Check out the SDV Website for more information about the project. |
+| :orange_book: **[SDV Blog]**        | Regular publshing of useful content about Synthetic Data Generation. |
+| :book: **[Documentation]**      | Quickstarts, User and Development Guides, and API Reference. |
+| :octocat: **[Repository]**            | The link to the Github Repository of this library. |
+| :scroll: **[License]**        | The entire ecosystem is published under the MIT License. |
+| :keyboard: **[Development Status]** | This software is in its Pre-Alpha stage. |
+| ![](slack.png) **[Community]** | Join our Slack Workspace for announcements and discussions. |
+| ![](mybinder.png) **[Tutorials]** | Run the SDV Tutorials in a Binder environment. |
+
+[Website]: https://sdv.dev
+[SDV Blog]: https://sdv.dev/blog
+[Documentation]: https://sdv.dev/SDV
+[Repository]: https://github.com/sdv-dev/SDGym
+[License]: https://github.com/sdv-dev/SDGym/blob/master/LICENSE
+[Development Status]: https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha
+[Community]: https://join.slack.com/t/sdv-space/shared_invite/zt-gdsfcb5w-0QQpFMVoyB2Yd6SRiMplcw
+[Tutorials]: https://mybinder.org/v2/gh/sdv-dev/SDV/master?filepath=tutorials
 
 ## What is a Synthetic Data Generator?
 
@@ -60,7 +76,7 @@ pip install sdgym
 **Using `conda`:**
 
 ```bash
-conda install -c sdv-dev -c conda-forge sdgym
+conda install -c pytorch -c conda-forge sdgym
 ```
 
 For more installation options please visit the [SDGym installation Guide](INSTALL.md)
@@ -154,14 +170,25 @@ please refer to the [benchmark documentation](BENCHMARK.md)
 * Detailed leaderboard results for all the releases are available [here](
 https://docs.google.com/spreadsheets/d/1iNJDVG_tIobcsGUG5Gn4iLa565vVhz2U/edit).
 
-# The Synthetic Data Vault
+---
 
-<p>
-  <a href="https://sdv.dev">
-    <img width=30% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/SDV-Logo-Color-Tagline.png?raw=true">
-  </a>
-  <p><i>This repository is part of <a href="https://sdv.dev">The Synthetic Data Vault Project</a></i></p>
-</p>
 
-* Website: https://sdv.dev
-* Documentation: https://sdv.dev/SDV
+<div align="center">
+<a href="https://datacebo.com"><img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/DataCebo.png"></img></a>
+</div>
+<br/>
+<br/>
+
+The [DataCebo team](https://datacebo.com) is the proud developer of [The Synthetic Data Vault Project](
+https://sdv.dev), the largest open source ecosystem for synthetic data generation & evaluation.
+The ecosystem is home to multiple libraries that support synthetic data, including:
+
+* 🔄 Data discovery & transformation. Reverse the transforms to reproduce realistic data.
+* 🧠 Multiple machine learning models -- ranging from Copulas to Deep Learning -- to create tabular,
+  multi table and time series data.
+* 📊 Measuring quality and privacy of synthetic data, and comparing different synthetic data
+  generation models.
+
+[Get started using the SDV package](https://sdv.dev/SDV/getting_started/install.html) -- a fully
+integrated solution and your one-stop shop for synthetic data.Or, use the standalone libraries
+for specific needs.
