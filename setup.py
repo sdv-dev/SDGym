@@ -43,7 +43,7 @@ dask_requires = [
 
 ydata_requires = [
     # preferably install using make install-ydata
-    'ydata-synthetic>=0.3.0,<0.4',
+    'ydata-synthetic==0.6.1',
 ]
 
 gretel_requires = [

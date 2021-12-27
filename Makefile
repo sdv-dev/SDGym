@@ -104,8 +104,13 @@ install-gretel-develop: clean-build clean-compile clean-pyc compile ## install t
 
 .PHONY: install-all
 install-all: clean-build clean-compile clean-pyc compile ## install the package with gretel and ydata
-	pip install 'ydata-synthetic>=0.3.0,<0.4'
+	pip install 'ydata-synthetic==0.6.1'
 	pip install .[gretel]
+
+.PHONY: install-all-develop
+install-all-develop: clean-build clean-compile clean-pyc compile ## install the package with gretel and ydata
+	pip install 'ydata-synthetic==0.6.1'
+	pip install -e .[dev,gretel]
 
 # LINT TARGETS
 
