@@ -47,8 +47,7 @@ ydata_requires = [
 ]
 
 gretel_requires = [
-    'gretel-synthetics>=0.15.4,<0.16',
-    'tensorflow==2.4.0rc1',
+    'gretel-synthetics==0.17',
     'wheel~=0.35',
 ]
 
