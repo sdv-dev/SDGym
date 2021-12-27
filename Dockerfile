@@ -1,8 +1,8 @@
 FROM nvidia/cuda:11.0.3-cudnn8-devel-ubuntu18.04
 CMD nvidia-smi
 
-RUN apt-get update && apt-get install -y build-essential && apt-get -y install curl
-RUN apt-get -y install python3.8 python3-distutils && ln -s /usr/bin/python3.8 /usr/bin/python
+RUN apt-get update && apt-get install -y build-essential curl python3.7 python3.7-dev \
+    python3-distutils && ln -s /usr/bin/python3.7 /usr/bin/python
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
     python get-pip.py && ln -s /usr/bin/pip3 /usr/bin/pip
 
@@ -18,8 +18,9 @@ COPY /privbayes/ /SDGym/privbayes
 WORKDIR /SDGym
 
 # Install project
-RUN make install-all compile
-RUN pip install -U numpy==1.20
+RUN pip install ydata-synthetic==0.6.1
+RUN pip install .[gretel] --no-binary pomegranate
+RUN make compile
 ENV PRIVBAYES_BIN /SDGym/privbayes/privBayes.bin
 ENV TF_CPP_MIN_LOG_LEVEL 2
 
