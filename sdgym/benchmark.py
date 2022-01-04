@@ -338,8 +338,12 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
     job_args = list()
     for synthesizer, dataset, iteration in job_tuples:
         metadata = load_dataset(dataset, max_columns=max_columns)
-        modalities_ = modalities or synthesizer.get('modalities')
-        if not modalities_ or metadata.modality in modalities_:
+        dataset_modality = metadata.modality
+        if modalities and dataset_modality not in modalities:
+            continue
+
+        synthesizer_modalities = synthesizer.get('modalities')
+        if not synthesizer_modalities or dataset_modality in synthesizer_modalities:
             args = (
                 synthesizer,
                 metadata,
