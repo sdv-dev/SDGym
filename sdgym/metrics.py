@@ -12,6 +12,9 @@ class WithKWargs:
     def compute(self, real_data, synthetic_data, metadata):
         return self._metric.compute(real_data, synthetic_data, metadata, **self._kwargs)
 
+    def normalize(self, raw_score):
+        return self._metric.normalize(raw_score)
+
 
 # Metrics to use by default for specific problem types and data
 # modalities if no metrics have been explicitly specified.
