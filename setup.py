@@ -21,7 +21,7 @@ install_requires = [
     "numpy>=1.20.0,<2;python_version>='3.7'",
     'pandas>=1.1.3,<2',
     "pomegranate>=0.13.4,<0.14.2;python_version<'3.7'",
-    "pomegranate>=0.14.1,<0.15;python_version>='3.7'",
+    "pomegranate>=0.14.1,<0.14.7;python_version>='3.7'",
     'psutil>=5.7,<6',
     'scikit-learn>=0.24,<2',
     'scipy>=1.5.4,<2',
