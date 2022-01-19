@@ -110,16 +110,17 @@ def _get_synthesizer(synthesizer, name=None):
     }
 
 
-def get_synthesizers(synthesizers):
+def get_synthesizers(synthesizers=None):
     """Get the dict of synthesizers from the input value.
 
     If the input is a synthesizer or an iterable of synthesizers, get their names
-    and put them on a dict.
+    and put them on a dict. If None is given, get all the available synthesizers.
 
     Args:
-        synthesizers (function, class, list, tuple or dict):
+        synthesizers (function, class, list, tuple, dict or None):
             A synthesizer (function or method or class) or an iterable of synthesizers
             or a dict containing synthesizer names as keys and synthesizers as values.
+            If no synthesizers are given, all the available ones are returned.
 
     Returns:
         dict[str, function]:
@@ -131,6 +132,9 @@ def get_synthesizers(synthesizers):
     """
     if callable(synthesizers):
         return [_get_synthesizer(synthesizers)]
+
+    if not synthesizers:
+        synthesizers = Baseline.get_baselines()
 
     if isinstance(synthesizers, (list, tuple)):
         return [

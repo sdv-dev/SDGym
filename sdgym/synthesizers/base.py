@@ -155,11 +155,14 @@ class LegacySingleTableBaseline(SingleTableBaseline, abc.ABC):
         columns, categoricals = self._get_columns(real_data, table_metadata)
         real_data = real_data[columns]
 
-        ht = rdt.HyperTransformer(default_data_type_transformers={
-            'categorical': 'LabelEncodingTransformer',
-        })
-        ht.fit(real_data.iloc[:, categoricals])
-        model_data = ht.transform(real_data)
+        if categoricals:
+            ht = rdt.HyperTransformer(default_data_type_transformers={
+                'categorical': 'LabelEncodingTransformer',
+            })
+            ht.fit(real_data.iloc[:, categoricals])
+            model_data = ht.transform(real_data)
+        else:
+            model_data = real_data
 
         supported = set(model_data.select_dtypes(('number', 'bool')).columns)
         unsupported = set(model_data.columns) - supported
@@ -177,8 +180,11 @@ class LegacySingleTableBaseline(SingleTableBaseline, abc.ABC):
 
         LOGGER.info("Sampling %s", self.__class__.__name__)
         sampled_data = self.sample(len(model_data))
-        sampled_data = pd.DataFrame(sampled_data, columns=columns)
+        sampled_data = pd.DataFrame(sampled_data, columns=model_data.columns)
 
         synthetic_data = real_data.copy()
-        synthetic_data.update(ht.reverse_transform(sampled_data))
+        if categoricals:
+            sampled_data = ht.reverse_transform(sampled_data)
+
+        synthetic_data.update(sampled_data)
         return synthetic_data

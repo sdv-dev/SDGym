@@ -59,16 +59,16 @@ class GaussianCopulaOneHot(SDVTabular):
 
     _MODEL = sdv.tabular.GaussianCopula
     _MODEL_KWARGS = {
-        'categorical_transformer': 'OneHotEncodingTransformer'
+        'categorical_transformer': 'one_hot_encoding'
     }
 
 
 class CUDATabular(SDVTabular, abc.ABC):
 
     def _fit_sample(self, data, metadata):
-        LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model_kwargs.setdefault('cuda', select_device())
+        LOGGER.info('Fitting %s with kwargs %s', self.__class__.__name__, model_kwargs)
         model = self._MODEL(table_metadata=metadata, **model_kwargs)
         model.fit(data)
 

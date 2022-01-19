@@ -107,6 +107,8 @@ def write_file(contents, path, aws_key, aws_secret):
     if path.endswith('gz') or path.endswith('gzip'):
         content_encoding = 'gzip'
         write_mode = 'wb'
+    elif isinstance(contents, bytes):
+        write_mode = 'wb'
 
     if is_s3_path(path):
         s3 = get_s3_client(aws_key, aws_secret)
