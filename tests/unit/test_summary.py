@@ -41,6 +41,9 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
         'coverage_perc': [1.0, 0.5],
         'time': [100, 200],
         'best': [2, 0],
+        'best_time': [1, 0],
+        'second_best_time': [0, 1],
+        'third_best_time': [0, 0],
         'beat_uniform': [2, 1],
         'beat_independent': [2, 1],
         'beat_clbn': [2, 1],
@@ -67,8 +70,9 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     # Assert
     expected_summary = pd.DataFrame({
         'coverage %': [1.0, 0.5],
-        'avg time': [100, 200],
-        'avg score': [0.9, 0.45]
+        'best_time': [1, 0],
+        'second_best_time': [0, 1],
+        'third_best_time': [0, 0],
     })
     expected_summary.index.name = ''
     expected_quality = pd.DataFrame({

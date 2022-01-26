@@ -212,7 +212,7 @@ def _add_summary(data, modality, baselines, writer):
     ]].rename({
         'coverage_perc': 'coverage %',
     }, axis=1)
-    summary.drop(index='Identity', inplace=True)
+    summary.drop(index='Identity', inplace=True, errors='ignore')
 
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
