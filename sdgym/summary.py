@@ -72,11 +72,18 @@ def _beat_baseline(data, baseline_scores):
         _synthesizer_beat_baseline, baseline_scores=baseline_scores)
 
 
+def _best_time(data, rank):
+    ranks = data.groupby('dataset')['model_time'].rank('dense')
+    ranks = pd.DataFrame({'rank': ranks, 'synthesizer': data['synthesizer']})
+    ranks = ranks.groupby('synthesizer').apply(lambda x: x[x['rank'] == rank].count())
+    return ranks['rank']
+
+
 def summarize(data, baselines=(), datasets=None):
     """Obtain an overview of the performance of each synthesizer.
 
     Optionally compare the synthesizers with the indicated baselines or analyze
-    only some o the datasets.
+    only some of the datasets.
 
     Args:
         data (pandas.DataFrame):
@@ -107,7 +114,11 @@ def summarize(data, baselines=(), datasets=None):
         'time': _seconds(data),
         'best': _best(no_identity),
         'avg score': _mean_score(data),
+        'best_time': _best_time(no_identity, 1),
+        'second_best_time': _best_time(no_identity, 2),
+        'third_best_time': _best_time(no_identity, 3),
     }
+
     for baseline in baselines:
         baseline_data = baselines_data[baselines_data.synthesizer == baseline]
         baseline_scores = baseline_data.set_index('dataset').normalized_score
@@ -192,10 +203,17 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
 
 def _add_summary(data, modality, baselines, writer):
     total_summary = summarize(data, baselines=baselines)
-    summary = total_summary[['coverage_perc', 'time', 'avg score']].rename({
+
+    summary = total_summary[[
+        'coverage_perc',
+        'best_time',
+        'second_best_time',
+        'third_best_time',
+    ]].rename({
         'coverage_perc': 'coverage %',
-        'time': 'avg time'
     }, axis=1)
+    summary.drop(index='Identity', inplace=True)
+
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
     performance = total_summary[['time']]
