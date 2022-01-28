@@ -201,6 +201,27 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
         worksheet.set_column(idx, idx, width + 1, fmt)
 
 
+def _find_category(synthesizer, categories):
+    for category, category_synthesizers in categories.items():
+        for category_synthesizer in category_synthesizers:
+            if category_synthesizer in synthesizer.lower():
+                return category
+
+    return None
+
+
+def _add_summary_categories(summary_data):
+    categories = {
+        'SDV': ['ctgan', 'copulagan', 'gaussiancopula', 'tvae', 'hma1', 'par'],
+        'Gretel': ['gretel'],
+        'YData': ['dragan', 'vanilllagan', 'wgan'],
+    }
+    summary_data['category'] = summary_data.index.map(
+        lambda x: _find_category(x, categories))
+    summary_data['category'].fillna('Other', inplace=True)
+    return summary_data
+
+
 def _add_summary(data, modality, baselines, writer):
     total_summary = summarize(data, baselines=baselines)
 
@@ -213,6 +234,7 @@ def _add_summary(data, modality, baselines, writer):
         'coverage_perc': 'coverage %',
     }, axis=1)
     summary.drop(index='Identity', inplace=True, errors='ignore')
+    summary = _add_summary_categories(summary)
 
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
