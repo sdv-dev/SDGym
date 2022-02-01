@@ -58,11 +58,7 @@ def _mean_score(data):
     return data.groupby('synthesizer').normalized_score.mean()
 
 
-def _best(data, rank, field):
-    ascending = False
-    if field == 'model_time':
-        ascending = True
-
+def _best(data, rank, field, ascending):
     ranks = data.groupby('dataset').rank(method='dense', ascending=ascending)[field] == rank
     return ranks.groupby(data.synthesizer).sum()
 
@@ -80,13 +76,6 @@ def _synthesizer_beat_baseline(synthesizer_data, baseline_scores):
 def _beat_baseline(data, baseline_scores):
     return data.groupby('synthesizer').apply(
         _synthesizer_beat_baseline, baseline_scores=baseline_scores)
-
-
-def _best_time(data, rank):
-    ranks = data.groupby('dataset')['model_time'].rank('dense')
-    ranks = pd.DataFrame({'rank': ranks, 'synthesizer': data['synthesizer']})
-    ranks = ranks.groupby('synthesizer').apply(lambda x: x[x['rank'] == rank].count())
-    return ranks['rank']
 
 
 def summarize(data, baselines=(), datasets=None):
@@ -122,11 +111,11 @@ def summarize(data, baselines=(), datasets=None):
         'coverage': coverage_str,
         'coverage_perc': coverage_perc,
         'time': _seconds(data),
-        'best': _best(no_identity, 1, 'normalized_score'),
+        'best': _best(no_identity, 1, 'normalized_score', False),
         'avg score': _mean_score(data),
-        'best_time': _best(no_identity, 1, 'model_time'),
-        'second_best_time': _best(no_identity, 2, 'model_time'),
-        'third_best_time': _best(no_identity, 3, 'model_time'),
+        'best_time': _best(no_identity, 1, 'model_time', True),
+        'second_best_time': _best(no_identity, 2, 'model_time', True),
+        'third_best_time': _best(no_identity, 3, 'model_time', True),
     }
 
     for baseline in baselines:
