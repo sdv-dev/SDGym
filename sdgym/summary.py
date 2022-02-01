@@ -18,6 +18,12 @@ MODALITY_BASELINES = {
     'timeseries': []
 }
 
+LIBRARIES = {
+    'SDV': ['ctgan', 'copulagan', 'gaussiancopula', 'tvae', 'hma1', 'par'],
+    'Gretel': ['gretel'],
+    'YData': ['dragan', 'vanilllagan', 'wgan'],
+}
+
 
 def preprocess(data):
     if isinstance(data, str):
@@ -52,8 +58,12 @@ def _mean_score(data):
     return data.groupby('synthesizer').normalized_score.mean()
 
 
-def _best(data):
-    ranks = data.groupby('dataset').rank(method='min', ascending=False)['normalized_score'] == 1
+def _best(data, rank, field):
+    ascending = False
+    if field == 'model_time':
+        ascending = True
+
+    ranks = data.groupby('dataset').rank(method='dense', ascending=ascending)[field] == rank
     return ranks.groupby(data.synthesizer).sum()
 
 
@@ -112,11 +122,11 @@ def summarize(data, baselines=(), datasets=None):
         'coverage': coverage_str,
         'coverage_perc': coverage_perc,
         'time': _seconds(data),
-        'best': _best(no_identity),
+        'best': _best(no_identity, 1, 'normalized_score'),
         'avg score': _mean_score(data),
-        'best_time': _best_time(no_identity, 1),
-        'second_best_time': _best_time(no_identity, 2),
-        'third_best_time': _best_time(no_identity, 3),
+        'best_time': _best(no_identity, 1, 'model_time'),
+        'second_best_time': _best(no_identity, 2, 'model_time'),
+        'third_best_time': _best(no_identity, 3, 'model_time'),
     }
 
     for baseline in baselines:
@@ -201,24 +211,18 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
         worksheet.set_column(idx, idx, width + 1, fmt)
 
 
-def _find_category(synthesizer, categories):
-    for category, category_synthesizers in categories.items():
-        for category_synthesizer in category_synthesizers:
-            if category_synthesizer in synthesizer.lower():
-                return category
+def _find_library(synthesizer):
+    for library, library_synthesizers in LIBRARIES.items():
+        for library_synthesizer in library_synthesizers:
+            if library_synthesizer in synthesizer.lower():
+                return library
 
     return None
 
 
-def _add_summary_categories(summary_data):
-    categories = {
-        'SDV': ['ctgan', 'copulagan', 'gaussiancopula', 'tvae', 'hma1', 'par'],
-        'Gretel': ['gretel'],
-        'YData': ['dragan', 'vanilllagan', 'wgan'],
-    }
-    summary_data['category'] = summary_data.index.map(
-        lambda x: _find_category(x, categories))
-    summary_data['category'].fillna('Other', inplace=True)
+def _add_summary_libraries(summary_data):
+    summary_data['library'] = summary_data.index.map(_find_library)
+    summary_data['library'].fillna('Other', inplace=True)
     return summary_data
 
 
@@ -232,9 +236,12 @@ def _add_summary(data, modality, baselines, writer):
         'third_best_time',
     ]].rename({
         'coverage_perc': 'coverage %',
+        'best_time': '# of Wins',
+        'second_best_time': '# of 2nd best',
+        'third_best_time': '# of 3rd best',
     }, axis=1)
     summary.drop(index='Identity', inplace=True, errors='ignore')
-    summary = _add_summary_categories(summary)
+    summary = _add_summary_libraries(summary)
 
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]

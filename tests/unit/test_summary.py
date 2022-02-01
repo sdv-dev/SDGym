@@ -70,10 +70,10 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     # Assert
     expected_summary = pd.DataFrame({
         'coverage %': [1.0, 0.5],
-        'best_time': [1, 0],
-        'second_best_time': [0, 1],
-        'third_best_time': [0, 0],
-        'category': ['Other', 'Other'],
+        '# of Wins': [1, 0],
+        '# of 2nd best': [0, 1],
+        '# of 3rd best': [0, 0],
+        'library': ['Other', 'Other'],
     }, index=['synth1', 'synth2'])
     expected_summary.index.name = ''
     expected_quality = pd.DataFrame({
