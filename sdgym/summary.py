@@ -18,6 +18,12 @@ MODALITY_BASELINES = {
     'timeseries': []
 }
 
+LIBRARIES = {
+    'SDV': ['ctgan', 'copulagan', 'gaussiancopula', 'tvae', 'hma1', 'par'],
+    'Gretel': ['gretel'],
+    'YData': ['dragan', 'vanilllagan', 'wgan'],
+}
+
 
 def preprocess(data):
     if isinstance(data, str):
@@ -52,8 +58,8 @@ def _mean_score(data):
     return data.groupby('synthesizer').normalized_score.mean()
 
 
-def _best(data):
-    ranks = data.groupby('dataset').rank(method='min', ascending=False)['normalized_score'] == 1
+def _best(data, rank, field, ascending):
+    ranks = data.groupby('dataset').rank(method='dense', ascending=ascending)[field] == rank
     return ranks.groupby(data.synthesizer).sum()
 
 
@@ -76,7 +82,7 @@ def summarize(data, baselines=(), datasets=None):
     """Obtain an overview of the performance of each synthesizer.
 
     Optionally compare the synthesizers with the indicated baselines or analyze
-    only some o the datasets.
+    only some of the datasets.
 
     Args:
         data (pandas.DataFrame):
@@ -105,9 +111,13 @@ def summarize(data, baselines=(), datasets=None):
         'coverage': coverage_str,
         'coverage_perc': coverage_perc,
         'time': _seconds(data),
-        'best': _best(no_identity),
+        'best': _best(no_identity, 1, 'normalized_score', False),
         'avg score': _mean_score(data),
+        'best_time': _best(no_identity, 1, 'model_time', True),
+        'second_best_time': _best(no_identity, 2, 'model_time', True),
+        'third_best_time': _best(no_identity, 3, 'model_time', True),
     }
+
     for baseline in baselines:
         baseline_data = baselines_data[baselines_data.synthesizer == baseline]
         baseline_scores = baseline_data.set_index('dataset').normalized_score
@@ -190,12 +200,38 @@ def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
         worksheet.set_column(idx, idx, width + 1, fmt)
 
 
+def _find_library(synthesizer):
+    for library, library_synthesizers in LIBRARIES.items():
+        for library_synthesizer in library_synthesizers:
+            if library_synthesizer in synthesizer.lower():
+                return library
+
+    return None
+
+
+def _add_summary_libraries(summary_data):
+    summary_data['library'] = summary_data.index.map(_find_library)
+    summary_data['library'].fillna('Other', inplace=True)
+    return summary_data
+
+
 def _add_summary(data, modality, baselines, writer):
     total_summary = summarize(data, baselines=baselines)
-    summary = total_summary[['coverage_perc', 'time', 'avg score']].rename({
+
+    summary = total_summary[[
+        'coverage_perc',
+        'best_time',
+        'second_best_time',
+        'third_best_time',
+    ]].rename({
         'coverage_perc': 'coverage %',
-        'time': 'avg time'
+        'best_time': '# of Wins',
+        'second_best_time': '# of 2nd best',
+        'third_best_time': '# of 3rd best',
     }, axis=1)
+    summary.drop(index='Identity', inplace=True, errors='ignore')
+    summary = _add_summary_libraries(summary)
+
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
     performance = total_summary[['time']]

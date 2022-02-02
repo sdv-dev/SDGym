@@ -41,6 +41,9 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
         'coverage_perc': [1.0, 0.5],
         'time': [100, 200],
         'best': [2, 0],
+        'best_time': [1, 0],
+        'second_best_time': [0, 1],
+        'third_best_time': [0, 0],
         'beat_uniform': [2, 1],
         'beat_independent': [2, 1],
         'beat_clbn': [2, 1],
@@ -50,7 +53,7 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
         'errors': [0, 1],
         'metric_errors': [0, 0],
         'avg score': [0.9, 0.45]
-    })
+    }, index=['synth1', 'synth2'])
     preprocessed_data = pd.DataFrame({'modality': ['single-table']})
     errors = pd.DataFrame({
         'synth1': [0],
@@ -67,9 +70,11 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     # Assert
     expected_summary = pd.DataFrame({
         'coverage %': [1.0, 0.5],
-        'avg time': [100, 200],
-        'avg score': [0.9, 0.45]
-    })
+        '# of Wins': [1, 0],
+        '# of 2nd best': [0, 1],
+        '# of 3rd best': [0, 0],
+        'library': ['Other', 'Other'],
+    }, index=['synth1', 'synth2'])
     expected_summary.index.name = ''
     expected_quality = pd.DataFrame({
         'total': [2, 2],
@@ -79,9 +84,9 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
         'beat_independent': [2, 1],
         'beat_clbn': [2, 1],
         'beat_privbn': [2, 1]
-    })
+    }, index=['synth1', 'synth2'])
     expected_quality.index.name = ''
-    expected_performance = pd.DataFrame({'time': [100, 200]})
+    expected_performance = pd.DataFrame({'time': [100, 200]}, index=['synth1', 'synth2'])
     expected_performance.index.name = ''
     expected_errors = pd.DataFrame({
         'total': [2, 2],
@@ -92,7 +97,7 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
         'memory_error': [0, 0],
         'errors': [0, 1],
         'metric_errors': [0, 0]
-    })
+    }, index=['synth1', 'synth2'])
     expected_errors.index.name = ''
     add_sheet_calls = add_sheet_mock.mock_calls
     read_csv_mock.assert_called_once_with('file_path.csv', 'aws_key', 'aws_secret')
