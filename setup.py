@@ -29,7 +29,7 @@ install_requires = [
     'torch>=1.8.0,<2',
     'tqdm>=4.15,<5',
     'XlsxWriter>=1.2.8,<4',
-    'rdt>=0.6.1,<0.7',
+    'rdt>=0.6.4.dev0,<0.7',
     'sdmetrics>=0.4.1,<0.5',
     'sdv>=0.13.0',
 ]
