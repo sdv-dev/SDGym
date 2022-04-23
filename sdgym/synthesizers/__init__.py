@@ -6,7 +6,7 @@ from sdgym.synthesizers.medgan import MedGAN
 from sdgym.synthesizers.privbn import PrivBN
 from sdgym.synthesizers.sdv import (
     CTGAN, TVAE, CopulaGAN, GaussianCopulaCategorical, GaussianCopulaCategoricalFuzzy,
-    GaussianCopulaOneHot)
+    GaussianCopulaOneHot, HMA1, PAR)
 from sdgym.synthesizers.tablegan import TableGAN
 from sdgym.synthesizers.uniform import Uniform
 from sdgym.synthesizers.veegan import VEEGAN
@@ -29,6 +29,8 @@ __all__ = (
     'GaussianCopulaCategorical',
     'GaussianCopulaCategoricalFuzzy',
     'GaussianCopulaOneHot',
+    'HMA1',
+    'PAR',
     'Gretel',
     'PreprocessedGretel',
     'VanilllaGAN',
