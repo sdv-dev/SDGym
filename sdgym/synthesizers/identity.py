@@ -1,9 +1,9 @@
 import copy
 
-from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.base import BaselineSynthesizer
 
 
-class Identity(Baseline):
+class IdentitySynthesizer(BaselineSynthesizer):
     """Trivial synthesizer.
 
     Returns the same exact data that is used to fit it.

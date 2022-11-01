@@ -2,10 +2,10 @@ import pandas as pd
 from sdv.metadata import Table
 from sklearn.mixture import GaussianMixture
 
-from sdgym.synthesizers.base import MultiSingleTableBaseline
+from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
 
 
-class Independent(MultiSingleTableBaseline):
+class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
     """Synthesizer that learns each column independently.
 
     Categorical columns are sampled using empirical frequencies.

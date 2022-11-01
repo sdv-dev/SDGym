@@ -2,7 +2,7 @@ import tempfile
 
 import numpy as np
 
-from sdgym.synthesizers.base import SingleTableBaseline
+from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
 
 try:
     from gretel_synthetics.batch import DataFrameBatch
@@ -10,7 +10,7 @@ except ImportError:
     DataFrameBatch = None
 
 
-class Gretel(SingleTableBaseline):
+class GretelSynthesizer(SingleTableBaselineSynthesizer):
     """Class to represent Gretel's neural network model."""
 
     def __init__(self, max_lines=0, max_line_len=2048, epochs=None, vocab_size=20000,

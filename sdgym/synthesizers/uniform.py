@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 from sdv.metadata import Table
 
-from sdgym.synthesizers.base import MultiSingleTableBaseline
+from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
 
 
-class Uniform(MultiSingleTableBaseline):
+class UniformSynthesizer(MultiSingleTableBaselineSynthesizer):
     """Synthesizer that samples each column using a Uniform distribution."""
 
     @staticmethod

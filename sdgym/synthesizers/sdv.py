@@ -4,13 +4,13 @@ import logging
 import sdv
 import sdv.timeseries
 
-from sdgym.synthesizers.base import Baseline, SingleTableBaseline
+from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
 
 
-class SDV(Baseline, abc.ABC):
+class SDVSynthesizer(BaselineSynthesizer, abc.ABC):
 
     MODALITIES = ('single-table', 'multi-table')
 
@@ -23,7 +23,7 @@ class SDV(Baseline, abc.ABC):
         return model.sample_all()
 
 
-class SDVTabular(SingleTableBaseline, abc.ABC):
+class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
     MODALITIES = ('single-table', )
     _MODEL = None
@@ -39,31 +39,12 @@ class SDVTabular(SingleTableBaseline, abc.ABC):
         return model.sample()
 
 
-class GaussianCopulaCategorical(SDVTabular):
+class GaussianCopulaSynthesizer(SDVTabularSynthesizer):
 
     _MODEL = sdv.tabular.GaussianCopula
-    _MODEL_KWARGS = {
-        'categorical_transformer': 'categorical'
-    }
 
 
-class GaussianCopulaCategoricalFuzzy(SDVTabular):
-
-    _MODEL = sdv.tabular.GaussianCopula
-    _MODEL_KWARGS = {
-        'categorical_transformer': 'categorical_fuzzy'
-    }
-
-
-class GaussianCopulaOneHot(SDVTabular):
-
-    _MODEL = sdv.tabular.GaussianCopula
-    _MODEL_KWARGS = {
-        'categorical_transformer': 'one_hot_encoding'
-    }
-
-
-class CUDATabular(SDVTabular, abc.ABC):
+class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
 
     def _fit_sample(self, data, metadata):
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
@@ -76,22 +57,22 @@ class CUDATabular(SDVTabular, abc.ABC):
         return model.sample()
 
 
-class CTGAN(CUDATabular):
+class CTGANSynthesizer(CUDATabularSynthesizer):
 
     _MODEL = sdv.tabular.CTGAN
 
 
-class TVAE(CUDATabular):
+class TVAESynthesizer(CUDATabularSynthesizer):
 
     _MODEL = sdv.tabular.TVAE
 
 
-class CopulaGAN(CUDATabular):
+class CopulaGANSynthesizer(CUDATabularSynthesizer):
 
     _MODEL = sdv.tabular.CopulaGAN
 
 
-class SDVRelational(Baseline, abc.ABC):
+class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
 
     MODALITIES = ('single-table', 'multi-table')
     _MODEL = None
@@ -107,12 +88,12 @@ class SDVRelational(Baseline, abc.ABC):
         return model.sample()
 
 
-class HMA1(SDVRelational):
+class HMASynthesizer(SDVRelationalSynthesizer):
 
     _MODEL = sdv.relational.HMA1
 
 
-class SDVTimeseries(SingleTableBaseline, abc.ABC):
+class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
     MODALITIES = ('timeseries', )
     _MODEL = None
@@ -128,7 +109,7 @@ class SDVTimeseries(SingleTableBaseline, abc.ABC):
         return model.sample()
 
 
-class PAR(SDVTimeseries):
+class PARSynthesizer(SDVTimeseriesSynthesizer):
 
     def _fit_sample(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)

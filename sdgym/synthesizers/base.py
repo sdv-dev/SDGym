@@ -9,7 +9,7 @@ from sdgym.errors import UnsupportedDataset
 LOGGER = logging.getLogger(__name__)
 
 
-class Baseline(abc.ABC):
+class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
     MODALITIES = ()
@@ -46,7 +46,7 @@ class Baseline(abc.ABC):
         pass
 
 
-class SingleTableBaseline(Baseline, abc.ABC):
+class SingleTableBaselineSynthesizer(BaselinesSynthesizer, abc.ABC):
     """Base class for all the SingleTable Baselines.
 
     Subclasses can choose to implement ``_fit_sample``, which will
@@ -88,7 +88,7 @@ class SingleTableBaseline(Baseline, abc.ABC):
         return _fit_sample(real_data, metadata)
 
 
-class MultiSingleTableBaseline(Baseline, abc.ABC):
+class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
     """Base class for SingleTableBaselines that are used on multi table scenarios.
 
     These classes model and sample each table independently and then just
@@ -122,7 +122,7 @@ class MultiSingleTableBaseline(Baseline, abc.ABC):
         return self._fit_sample(real_data, metadata)
 
 
-class LegacySingleTableBaseline(SingleTableBaseline, abc.ABC):
+class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     """Single table baseline which passes ordinals and categoricals down.
 
     This class exists here to support the legacy baselines which do not operate

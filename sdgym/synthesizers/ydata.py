@@ -1,7 +1,7 @@
 import abc
 
 from sdgym.errors import UnsupportedDataset
-from sdgym.synthesizers.base import SingleTableBaseline
+from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
 
 try:
     import ydata_synthetic as ydata
@@ -11,7 +11,7 @@ except ImportError:
     ydata = None
 
 
-class YData(SingleTableBaseline, abc.ABC):
+class YDataSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
     SYNTHESIZER_CLASS = None
     DEFAULT_NOISE_DIM = 128

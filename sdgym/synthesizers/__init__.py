@@ -1,4 +1,5 @@
 from sdgym.synthesizers.clbn import CLBN
+from sdgyn.synthesizers.generate import create_single_table_synthesizer
 from sdgym.synthesizers.gretel import Gretel, PreprocessedGretel
 from sdgym.synthesizers.identity import Identity
 from sdgym.synthesizers.independent import Independent
@@ -44,4 +45,5 @@ __all__ = (
     'PreprocessedDRAGAN',
     'PreprocessedCRAMERGAN',
     'SDV',
+    'create_single_table_synthesizer',
 )

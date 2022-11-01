@@ -6,7 +6,7 @@ from torch.nn.functional import cross_entropy, mse_loss, sigmoid
 from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 
-from sdgym.synthesizers.base import LegacySingleTableBaseline
+from sdgym.synthesizers.base import LegacySingleTableBaselineSyntheizer
 from sdgym.synthesizers.utils import GeneralTransformer, select_device
 
 
@@ -118,7 +118,7 @@ def aeloss(fake, real, output_info):
     return sum(loss) / fake.size()[0]
 
 
-class MedGAN(LegacySingleTableBaseline):
+class MedGANSyntheizer(LegacySingleTableBaselineSyntheizer):
     """docstring for MedGAN."""
 
     def __init__(self,
