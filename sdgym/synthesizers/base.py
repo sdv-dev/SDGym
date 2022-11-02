@@ -46,7 +46,7 @@ class BaselineSynthesizer(abc.ABC):
         pass
 
 
-class SingleTableBaselineSynthesizer(BaselinesSynthesizer, abc.ABC):
+class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
     """Base class for all the SingleTable Baselines.
 
     Subclasses can choose to implement ``_fit_sample``, which will

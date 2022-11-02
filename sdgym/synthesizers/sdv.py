@@ -10,17 +10,15 @@ from sdgym.synthesizers.utils import select_device
 LOGGER = logging.getLogger(__name__)
 
 
-class SDVSynthesizer(BaselineSynthesizer, abc.ABC):
+class FastMLPresetSynthesizer(SingleTableBaselineSynthesizer):
 
-    MODALITIES = ('single-table', 'multi-table')
+    MODALITIES = ('single-table', )
 
-    def fit_sample(self, data, metadata):
-        LOGGER.info('Fitting SDV')
-        model = sdv.SDV()
-        model.fit(metadata, data)
+    def _fit_sample(self, data, metadata):
+        model = sdv.lite.TabularPreset(metadata, name='FAST_ML')
+        model.fit(data)
 
-        LOGGER.info('Sampling SDV')
-        return model.sample_all()
+        return model.sample(len(data))
 
 
 class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):

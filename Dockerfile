@@ -19,7 +19,7 @@ WORKDIR /SDGym
 
 # Install project
 RUN pip install ydata-synthetic==0.6.1
-RUN pip install .[gretel] --no-binary pomegranate
+RUN pip install . --no-binary pomegranate
 RUN make compile
 ENV PRIVBAYES_BIN /SDGym/privbayes/privBayes.bin
 ENV TF_CPP_MIN_LOG_LEVEL 2

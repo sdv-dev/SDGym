@@ -1,6 +1,4 @@
 from sdgym.synthesizers.clbn import CLBN
-from sdgyn.synthesizers.generate import create_single_table_synthesizer
-from sdgym.synthesizers.gretel import Gretel, PreprocessedGretel
 from sdgym.synthesizers.identity import Identity
 from sdgym.synthesizers.independent import Independent
 from sdgym.synthesizers.medgan import MedGAN
@@ -14,6 +12,7 @@ from sdgym.synthesizers.veegan import VEEGAN
 from sdgym.synthesizers.ydata import (
     CRAMERGAN, DRAGAN, WGAN, WGAN_GP, PreprocessedCRAMERGAN, PreprocessedDRAGAN,
     PreprocessedVanilllaGAN, PreprocessedWGAN, PreprocessedWGAN_GP, VanilllaGAN)
+from sdgyn.synthesizers.generate import create_single_table_synthesizer
 
 __all__ = (
     'CLBN',
@@ -32,8 +31,6 @@ __all__ = (
     'GaussianCopulaOneHot',
     'HMA1',
     'PAR',
-    'Gretel',
-    'PreprocessedGretel',
     'VanilllaGAN',
     'WGAN',
     'WGAN_GP',

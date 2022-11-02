@@ -83,14 +83,14 @@ class YDataSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
         return synthetic_data
 
 
-class VanilllaGAN(YData):
+class VanilllaGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'VanilllaGAN'
     LEARNING_RATE = 5e-4
     EPOCHS = 201
 
 
-class WGAN(YData):
+class WGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'WGAN'
     DEFAULT_LEARNING_RATE = 5e-4
@@ -99,7 +99,7 @@ class WGAN(YData):
     }
 
 
-class WGAN_GP(YData):
+class WGANGPSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'WGAN_GP'
     DEFAULT_LEARNING_RATE = [5e-4, 3e-3]
@@ -108,7 +108,7 @@ class WGAN_GP(YData):
     }
 
 
-class DRAGAN(YData):
+class DRAGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'DRAGAN'
     EXTRA_KWARGS = {
@@ -116,7 +116,7 @@ class DRAGAN(YData):
     }
 
 
-class CRAMERGAN(YData):
+class CRAMERGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'CRAMERGAN'
     DEFAULT_LEARNING_RATE = 5e-4
@@ -125,26 +125,26 @@ class CRAMERGAN(YData):
     }
 
 
-class PreprocessedVanilllaGAN(VanilllaGAN):
+class PreprocessedVanilllaGANSynthesizer(VanilllaGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedWGAN(WGAN):
+class PreprocessedWGANSynthesizer(WGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedWGAN_GP(WGAN_GP):
+class PreprocessedWGANGPSynthesizer(WGANGPSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedDRAGAN(DRAGAN):
+class PreprocessedDRAGANSynthesizer(DRAGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedCRAMERGAN(CRAMERGAN):
+class PreprocessedCRAMERGANSynthesizer(CRAMERGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True

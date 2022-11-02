@@ -20,7 +20,6 @@ MODALITY_BASELINES = {
 
 LIBRARIES = {
     'SDV': ['ctgan', 'copulagan', 'gaussiancopula', 'tvae', 'hma1', 'par'],
-    'Gretel': ['gretel'],
     'YData': ['dragan', 'vanilllagan', 'wgan'],
 }
 
