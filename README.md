@@ -103,11 +103,14 @@ from sdv.tabular import GaussianCopula
 
 def create_gaussian_copula(real_data, metadata):
     gc = GaussianCopula(default_distribution='gaussian')
-    gc.fit(real_data)
-    return gc
+    table_name = metadata.get_tables()[0]
+    gc.fit(real_data[table_name])
+    num_rows = len(real_data[table_name])
+    return (table_name, num_rows, gc)
 
-def sample_gaussian_copula(gc, num_samples):
-    return gc.sample(num_samples)
+def sample_gaussian_copula(synthesizer, num_samples):
+    table_name, num_rows, gc = synthesizer
+    return {table_name: gc.sample(num_rows)}
 ```
 
 |:information_source: You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).|

@@ -18,7 +18,7 @@ from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
     build_synthesizer, format_exception, get_synthesizers, import_object, used_memory)
@@ -47,7 +47,15 @@ def _synthesize(synthesizer_dict, real_data, metadata):
 
     data = real_data.copy()
     num_samples = None
-    if len(real_data) == 1:
+    modalities = getattr(synthesizer, 'MODALITIES', [])
+    is_single_table = (
+        isinstance(synthesizer, type)
+        and issubclass(synthesizer, SingleTableBaselineSynthesizer)
+    ) or (
+        len(modalities) == 1
+        and 'single-table' in modalities
+    )
+    if is_single_table:
         data = list(real_data.values())[0]
         num_samples = len(data)
 
@@ -56,7 +64,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     synthetic_data = sample_synthesizer(synthesizer_obj, num_samples)
     elapsed = datetime.utcnow() - now
 
-    if len(real_data) == 1:
+    if is_single_table:
         synthetic_data = {list(real_data.keys())[0]: synthetic_data}
 
     return synthetic_data, elapsed
