@@ -56,13 +56,13 @@ class YDataSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
         return synthesizer
 
-    def _fit_sample(self, real_data, table_metadata):
+    def _get_trained_synthesizer(self, real_data, table_metadata):
         if ydata is None:
             raise ImportError('Please install ydata using `make install-ydata`.')
 
-        columns = real_data.columns
+        self.columns = real_data.columns
         if self.CONVERT_TO_NUMERIC:
-            numericals = list(columns)
+            numericals = list(self.columns)
             categoricals = []
         else:
             numericals = []
@@ -76,9 +76,11 @@ class YDataSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
                 else:
                     raise UnsupportedDataset(f'Unsupported field type: {field_type}')
 
-        synthesizer = self._fit_synthesizer(real_data, numericals, categoricals)
-        synthetic_data = synthesizer.sample(len(real_data))
-        synthetic_data.columns = columns
+        return self._fit_synthesizer(real_data, numericals, categoricals)
+
+    def _sample_synthesizer(self, synthesizer, n_samples):
+        synthetic_data = synthesizer.sample(n_samples)
+        synthetic_data.columns = self.columns
 
         return synthetic_data
 

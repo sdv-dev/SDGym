@@ -10,15 +10,18 @@ from sdgym.synthesizers.utils import select_device
 LOGGER = logging.getLogger(__name__)
 
 
-class FastMLPresetSynthesizer(SingleTableBaselineSynthesizer):
+class FastMLPreset(SingleTableBaselineSynthesizer):
 
     MODALITIES = ('single-table', )
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         model = sdv.lite.TabularPreset(metadata, name='FAST_ML')
         model.fit(data)
 
-        return model.sample(len(data))
+        return model
+
+    def _sample_synthesizer(self, synthesizer, n_samples):
+        return synthesizer.sample(n_samples)
 
 
 class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
@@ -27,14 +30,16 @@ class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     _MODEL = None
     _MODEL_KWARGS = None
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = self._MODEL(table_metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample(n_samples)
 
 
 class GaussianCopulaSynthesizer(SDVTabularSynthesizer):
@@ -44,15 +49,17 @@ class GaussianCopulaSynthesizer(SDVTabularSynthesizer):
 
 class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model_kwargs.setdefault('cuda', select_device())
         LOGGER.info('Fitting %s with kwargs %s', self.__class__.__name__, model_kwargs)
         model = self._MODEL(table_metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample(n_samples)
 
 
 class CTGANSynthesizer(CUDATabularSynthesizer):
@@ -76,14 +83,16 @@ class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
     _MODEL = None
     _MODEL_KWARGS = None
 
-    def fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample()
 
 
 class HMASynthesizer(SDVRelationalSynthesizer):
@@ -97,23 +106,27 @@ class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     _MODEL = None
     _MODEL_KWARGS = None
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = self._MODEL(table_metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample()
 
 
 class PARSynthesizer(SDVTimeseriesSynthesizer):
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model = sdv.timeseries.PAR(table_metadata=metadata, epochs=1024, verbose=False)
         model.device = select_device()
         model.fit(data)
+        return model
 
+    def _sample_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample()

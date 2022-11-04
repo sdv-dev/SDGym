@@ -9,6 +9,12 @@ class IdentitySynthesizer(BaselineSynthesizer):
     Returns the same exact data that is used to fit it.
     """
 
-    def fit_sample(self, real_data, metadata):
-        del metadata
-        return copy.deepcopy(real_data)
+    def __init__(self):
+        self._data = None
+
+    def get_trained_synthesizer(self, data, metadata):
+        self._data = data
+        return None
+
+    def sample_synthesizer(self, synthesizer, n_samples):
+        return copy.deepcopy(self._data)

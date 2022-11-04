@@ -1,46 +1,44 @@
-from sdgym.synthesizers.clbn import CLBN
-from sdgym.synthesizers.identity import Identity
-from sdgym.synthesizers.independent import Independent
-from sdgym.synthesizers.medgan import MedGAN
-from sdgym.synthesizers.privbn import PrivBN
+from sdgym.synthesizers.clbn import CLBNSynthesizer
+from sdgym.synthesizers.identity import IdentitySynthesizer
+from sdgym.synthesizers.independent import IndependentSynthesizer
+from sdgym.synthesizers.medgan import MedGANSynthesizer
+from sdgym.synthesizers.privbn import PrivBNSynthesizer
 from sdgym.synthesizers.sdv import (
-    CTGAN, HMA1, PAR, SDV, TVAE, CopulaGAN, GaussianCopulaCategorical,
-    GaussianCopulaCategoricalFuzzy, GaussianCopulaOneHot)
-from sdgym.synthesizers.tablegan import TableGAN
-from sdgym.synthesizers.uniform import Uniform
-from sdgym.synthesizers.veegan import VEEGAN
+    CopulaGANSynthesizer, CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer,
+    HMASynthesizer, PARSynthesizer, TVAESynthesizer)
+from sdgym.synthesizers.tablegan import TableGANSynthesizer
+from sdgym.synthesizers.uniform import UniformSynthesizer
+from sdgym.synthesizers.veegan import VEEGANSynthesizer
 from sdgym.synthesizers.ydata import (
-    CRAMERGAN, DRAGAN, WGAN, WGAN_GP, PreprocessedCRAMERGAN, PreprocessedDRAGAN,
-    PreprocessedVanilllaGAN, PreprocessedWGAN, PreprocessedWGAN_GP, VanilllaGAN)
-from sdgyn.synthesizers.generate import create_single_table_synthesizer
+    CRAMERGANSynthesizer, DRAGANSynthesizer, PreprocessedCRAMERGANSynthesizer,
+    PreprocessedDRAGANSynthesizer, PreprocessedVanilllaGANSynthesizer,
+    PreprocessedWGANGPSynthesizer, PreprocessedWGANSynthesizer, VanilllaGANSynthesizer,
+    WGANGPSynthesizer, WGANSynthesizer)
 
 __all__ = (
-    'CLBN',
-    'Identity',
-    'Independent',
-    'MedGAN',
-    'PrivBN',
-    'TableGAN',
-    'CTGAN',
-    'TVAE',
-    'Uniform',
-    'VEEGAN',
-    'CopulaGAN',
-    'GaussianCopulaCategorical',
-    'GaussianCopulaCategoricalFuzzy',
-    'GaussianCopulaOneHot',
-    'HMA1',
-    'PAR',
-    'VanilllaGAN',
-    'WGAN',
-    'WGAN_GP',
-    'DRAGAN',
-    'CRAMERGAN',
-    'PreprocessedVanilllaGAN',
-    'PreprocessedWGAN',
-    'PreprocessedWGAN_GP',
-    'PreprocessedDRAGAN',
-    'PreprocessedCRAMERGAN',
-    'SDV',
-    'create_single_table_synthesizer',
+    'CLBNSynthesizer',
+    'IdentitySynthesizer',
+    'IndependentSynthesizer',
+    'MedGANSynthesizer',
+    'PrivBNSynthesizer',
+    'TableGANSynthesizer',
+    'CTGANSynthesizer',
+    'TVAESynthesizer',
+    'UniformSynthesizer',
+    'VEEGANSynthesizer',
+    'CopulaGANSynthesizer',
+    'GaussianCopulaSynthesizer',
+    'HMASynthesizer',
+    'PARSynthesizer',
+    'VanilllaGANSynthesizer',
+    'WGANSynthesizer',
+    'WGANGPSynthesizer',
+    'DRAGANSynthesizer',
+    'CRAMERGANSynthesizer',
+    'PreprocessedVanilllaGANSynthesizer',
+    'PreprocessedWGANSynthesizer',
+    'PreprocessedWGANGPSynthesizer',
+    'PreprocessedDRAGANSynthesizer',
+    'PreprocessedCRAMERGANSynthesizer',
+    'FastMLPreset',
 )

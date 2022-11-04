@@ -18,7 +18,7 @@ from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
-from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
     build_synthesizer, format_exception, get_synthesizers, import_object, used_memory)
@@ -28,19 +28,37 @@ LOGGER = logging.getLogger(__name__)
 
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
+    get_synthesizer = None
+    sample_synthesizer = None
 
     if isinstance(synthesizer, str):
         synthesizer = import_object(synthesizer)
 
     if isinstance(synthesizer, type):
-        if issubclass(synthesizer, Baseline):
-            synthesizer = synthesizer().fit_sample
+        if issubclass(synthesizer, BaselineSynthesizer):
+            s_obj = synthesizer()
+            get_synthesizer = s_obj.get_trained_synthesizer
+            sample_synthesizer = s_obj.sample_synthesizer
         else:
-            synthesizer = build_synthesizer(synthesizer, synthesizer_dict)
+            get_synthesizer, sample_synthesizer = build_synthesizer(synthesizer, synthesizer_dict)
+
+    if isinstance(synthesizer, tuple):
+        get_synthesizer, sample_synthesizer = synthesizer
+
+    data = real_data.copy()
+    num_samples = None
+    if len(real_data) == 1:
+        data = list(real_data.values())[0]
+        num_samples = len(data)
 
     now = datetime.utcnow()
-    synthetic_data = synthesizer(real_data.copy(), metadata)
+    synthesizer_obj = get_synthesizer(data, metadata)
+    synthetic_data = sample_synthesizer(synthesizer_obj, num_samples)
     elapsed = datetime.utcnow() - now
+
+    if len(real_data) == 1:
+        synthetic_data = {list(real_data.keys())[0]: synthetic_data}
+
     return synthetic_data, elapsed
 
 
