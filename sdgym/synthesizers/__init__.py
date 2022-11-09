@@ -1,5 +1,5 @@
 from sdgym.synthesizers.clbn import CLBNSynthesizer
-from sdgym.synthesizers.identity import IdentitySynthesizer
+from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.independent import IndependentSynthesizer
 from sdgym.synthesizers.medgan import MedGANSynthesizer
 from sdgym.synthesizers.privbn import PrivBNSynthesizer
@@ -17,7 +17,7 @@ from sdgym.synthesizers.ydata import (
 
 __all__ = (
     'CLBNSynthesizer',
-    'IdentitySynthesizer',
+    'DataIdentity',
     'IndependentSynthesizer',
     'MedGANSynthesizer',
     'PrivBNSynthesizer',

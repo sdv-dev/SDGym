@@ -5,7 +5,7 @@ import sdgym
 
 def test_identity():
     output = sdgym.run(
-        synthesizers=['IdentitySynthesizer', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
         datasets=['trains_v1', 'KRK_v1'],
     )
 
@@ -17,13 +17,13 @@ def test_identity():
     assert [
         'UniformSynthesizer',
         'IndependentSynthesizer',
-        'IdentitySynthesizer',
+        'DataIdentity',
     ] == scores.index.tolist()
 
 
 def test_identity_jobs():
     jobs = [
-        ('IdentitySynthesizer', 'trains_v1', 0),
+        ('DataIdentity', 'trains_v1', 0),
         ('IndependentSynthesizer', 'trains_v1', 1),
         ('UniformSynthesizer', 'KRK_v1', 1),
     ]
