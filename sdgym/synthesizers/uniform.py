@@ -15,7 +15,7 @@ class UniformSynthesizer(MultiSingleTableBaselineSynthesizer):
         self.length = len(real_data)
         return (metadata, transformed)
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         metadata, transformed = synthesizer
         sampled = pd.DataFrame()
         for name, column in transformed.items():

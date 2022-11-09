@@ -43,9 +43,34 @@ class BaselineSynthesizer(abc.ABC):
         return synthesizers
 
     def get_trained_synthesizer(self, data, metadata):
+        """Get a synthesizer that has been trained on the provided data and metadata.
+
+        Args:
+            data (pandas.DataFrame or dict):
+                The data to train on.
+            metadata (sdv.Metadata):
+                The metadata.
+
+        Returns:
+            obj:
+                The synthesizer object
+        """
         pass
 
-    def sample_synthesizer(synthesizer, n_samples):
+    def sample_from_synthesizer(synthesizer, n_samples):
+        """Sample data from the provided synthesizer.
+
+        Args:
+            synthesizer (obj):
+                The synthesizer object to sample data from.
+            n_samples (int):
+                The number of samples to create.
+
+        Returns:
+            pandas.DataFrame or dict:
+                The sampled data. If single-table, should be a DataFrame. If multi-table,
+                should be a dict mapping table name to DataFrame.
+        """
         pass
 
 
@@ -80,18 +105,42 @@ class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
         return self._get_trained_synthesizer(transformed_data, metadata)
 
     def _get_reverse_transformed_samples(self, data):
-        synthetic_data = self._sample_synthesizer(data)
+        synthetic_data = self._sample_from_synthesizer(data)
         reverse_transformed_synthetic_data = self.ht.reverse_transform(synthetic_data)
         reverse_transformed_synthetic_data[self.id_fields] = self.id_field_values
         return reverse_transformed_synthetic_data
 
     def get_trained_synthesizer(self, data, metadata):
+        """Get a synthesizer that has been trained on the provided data and metadata.
+
+        Args:
+            data (pandas.DataFrame):
+                The data to train on.
+            metadata (sdv.Metadata):
+                The metadata.
+
+        Returns:
+            obj:
+                The synthesizer object
+        """
         return self._get_transformed_trained_synthesizer(data, metadata) if (
             self.CONVERT_TO_NUMERIC) else self._get_trained_synthesizer(data, metadata)
 
-    def sample_synthesizer(self, synthesizer, n_samples):
+    def sample_from_synthesizer(self, synthesizer, n_samples):
+        """Sample data from the provided synthesizer.
+
+        Args:
+            synthesizer (obj):
+                The synthesizer object to sample data from.
+            n_samples (int):
+                The number of samples to create.
+
+        Returns:
+            pandas.DataFrame:
+                The sampled data.
+        """
         return self._get_reverse_transformed_samples(synthesizer, n_samples) if (
-            self.CONVERT_TO_NUMERIC) else self._sample_synthesizer(synthesizer, n_samples)
+            self.CONVERT_TO_NUMERIC) else self._sample_from_synthesizer(synthesizer, n_samples)
 
 
 class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
@@ -125,7 +174,7 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
 
         return synthesizers
 
-    def sample_synthesizer(self, synthesizers, n_samples):
+    def sample_from_synthesizer(self, synthesizers, n_samples):
         """Sample from the given synthesizers.
 
         Args:
@@ -139,7 +188,7 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
                 A mapping of table name to sampled table data.
         """
         tables = {
-            table_name: self._sample_synthesizer(synthesizer, n_samples)
+            table_name: self._sample_from_synthesizer(synthesizer, n_samples)
             for table_name, synthesizer in synthesizers.items()
         }
 
@@ -228,7 +277,7 @@ class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.A
         LOGGER.info("Fitting %s", self.__class__.__name__)
         self.fit(model_data.to_numpy(), self.categoricals, ())
 
-    def sample_synthesizer(self, synthesizer, n_samples):
+    def sample_from_synthesizer(self, synthesizer, n_samples):
         """Sample from the given synthesizers.
 
         Args:

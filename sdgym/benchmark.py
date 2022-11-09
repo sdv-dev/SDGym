@@ -29,7 +29,7 @@ LOGGER = logging.getLogger(__name__)
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
     get_synthesizer = None
-    sample_synthesizer = None
+    sample_from_synthesizer = None
 
     if isinstance(synthesizer, str):
         synthesizer = import_object(synthesizer)
@@ -38,12 +38,13 @@ def _synthesize(synthesizer_dict, real_data, metadata):
         if issubclass(synthesizer, BaselineSynthesizer):
             s_obj = synthesizer()
             get_synthesizer = s_obj.get_trained_synthesizer
-            sample_synthesizer = s_obj.sample_synthesizer
+            sample_from_synthesizer = s_obj.sample_from_synthesizer
         else:
-            get_synthesizer, sample_synthesizer = build_synthesizer(synthesizer, synthesizer_dict)
+            get_synthesizer, sample_from_synthesizer = build_synthesizer(
+                synthesizer, synthesizer_dict)
 
     if isinstance(synthesizer, tuple):
-        get_synthesizer, sample_synthesizer = synthesizer
+        get_synthesizer, sample_from_synthesizer = synthesizer
 
     data = real_data.copy()
     num_samples = None
@@ -61,7 +62,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
 
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
-    synthetic_data = sample_synthesizer(synthesizer_obj, num_samples)
+    synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
     elapsed = datetime.utcnow() - now
 
     if is_single_table:

@@ -20,7 +20,7 @@ class FastMLPreset(SingleTableBaselineSynthesizer):
 
         return model
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         return synthesizer.sample(n_samples)
 
 
@@ -37,7 +37,7 @@ class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
         model.fit(data)
         return model
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
         return synthesizer.sample(n_samples)
 
@@ -57,7 +57,7 @@ class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
         model.fit(data)
         return model
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
         return synthesizer.sample(n_samples)
 
@@ -90,7 +90,7 @@ class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
         model.fit(data)
         return model
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
         return synthesizer.sample()
 
@@ -113,7 +113,7 @@ class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
         model.fit(data)
         return model
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
         return synthesizer.sample()
 
@@ -127,6 +127,6 @@ class PARSynthesizer(SDVTimeseriesSynthesizer):
         model.fit(data)
         return model
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
         return synthesizer.sample()

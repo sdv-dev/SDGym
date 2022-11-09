@@ -16,5 +16,5 @@ class IdentitySynthesizer(BaselineSynthesizer):
         self._data = data
         return None
 
-    def sample_synthesizer(self, synthesizer, n_samples):
+    def sample_from_synthesizer(self, synthesizer, n_samples):
         return copy.deepcopy(self._data)

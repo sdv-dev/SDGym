@@ -78,7 +78,7 @@ class YDataSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
         return self._fit_synthesizer(real_data, numericals, categoricals)
 
-    def _sample_synthesizer(self, synthesizer, n_samples):
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         synthetic_data = synthesizer.sample(n_samples)
         synthetic_data.columns = self.columns
 
