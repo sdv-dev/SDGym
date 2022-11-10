@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 class FastMLPreset(SingleTableBaselineSynthesizer):
 
     MODALITIES = ('single-table', )
-    _MODEL = sdv.lite.TabularPreset
+    _MODEL = None
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
