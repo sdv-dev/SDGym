@@ -1,6 +1,21 @@
 """Synthesizers module."""
 
-from sdgym.synthesizers import BaselineSynthesizer, SDVTabularSynthesizer
+from sdv.lite import TabularPreset
+from sdv.relational import HMA1
+from sdv.tabular import CTGAN, PAR, TVAE, CopulaGAN, GaussianCopula
+
+from sdgym.synthesizers import (
+    BaselineSynthesizer, FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer)
+
+SYNTHESIZER_MAPPING = {
+    'FastMLPreset': TabularPreset,
+    'GaussianCopulaSynthesizer': GaussianCopula,
+    'CTGANSynthesizer': CTGAN,
+    'CopulaGANSynthesizer': CopulaGAN,
+    'TVAESynthesizer': TVAE,
+    'PARSynthesizer': PAR,
+    'HMASynthesizer': HMA1,
+}
 
 
 def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
@@ -10,7 +25,7 @@ def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
         synthesizer_class (string):
             The name of the SDV synthesizer class. The available options are
             ('FastMLPreset', 'GaussianCopulaSynthesizer', 'CTGANSynthesizer',
-            'CopulaGANSynthesizer', 'TVAESynthesizer', 'PARSynthesizer')
+            'CopulaGANSynthesizer', 'TVAESynthesizer', 'PARSynthesizer', ''HMASynthesizer')
         synthesizer_parameters (dict):
             A dictionary of the parameter names and values that will be used for the synthesizer.
 
@@ -18,7 +33,19 @@ def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(SDVTabularSynthesizer):
+    if synthesizer_class not in SYNTHESIZER_MAPPING.keys():
+        raise ValueError(
+            f'Synthesizer class {synthesizer_class} is not recognized. '
+            f'The supported options are {list(SYNTHESIZER_MAPPING.keys())}'
+        )
+
+    baseclass = SDVTabularSynthesizer
+    if synthesizer_class == 'HMASynthesizer':
+        baseclass = SDVRelationalSynthesizer
+    if synthesizer_class == 'FastMLPreset':
+        baseclass = FastMLPreset
+
+    class NewSynthesizer(baseclass):
         """New Synthesizer class.
 
         Args:
