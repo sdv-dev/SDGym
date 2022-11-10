@@ -5,7 +5,7 @@ import sdgym
 
 def test_identity():
     output = sdgym.run(
-        synthesizers=['Identity', 'Independent', 'Uniform'],
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
         datasets=['trains_v1', 'KRK_v1'],
     )
 
@@ -14,14 +14,18 @@ def test_identity():
 
     scores = output.groupby('synthesizer').score.mean().sort_values()
 
-    assert ['Uniform', 'Independent', 'Identity'] == scores.index.tolist()
+    assert [
+        'UniformSynthesizer',
+        'IndependentSynthesizer',
+        'DataIdentity',
+    ] == scores.index.tolist()
 
 
 def test_identity_jobs():
     jobs = [
-        ('Identity', 'trains_v1', 0),
-        ('Independent', 'trains_v1', 1),
-        ('Uniform', 'KRK_v1', 1),
+        ('DataIdentity', 'trains_v1', 0),
+        ('IndependentSynthesizer', 'trains_v1', 1),
+        ('UniformSynthesizer', 'KRK_v1', 1),
     ]
     output = sdgym.run(jobs=jobs)
 
@@ -40,7 +44,7 @@ def test_identity_jobs():
 def test_json_synthesizer():
     synthesizer = {
         'name': 'synthesizer_name',
-        'synthesizer': 'sdgym.synthesizers.ydata.PreprocessedVanillaGAN',
+        'synthesizer': 'sdgym.synthesizers.ydata.PreprocessedVanillaGANSynthesizer',
         'modalities': ['single-table'],
         'init_kwargs': {'categorical_transformer': 'label_encoding'},
         'fit_kwargs': {'data': '$real_data'}

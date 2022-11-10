@@ -18,7 +18,7 @@ from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
-from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
     build_synthesizer, format_exception, get_synthesizers, import_object, used_memory)
@@ -28,19 +28,46 @@ LOGGER = logging.getLogger(__name__)
 
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
+    get_synthesizer = None
+    sample_from_synthesizer = None
 
     if isinstance(synthesizer, str):
         synthesizer = import_object(synthesizer)
 
     if isinstance(synthesizer, type):
-        if issubclass(synthesizer, Baseline):
-            synthesizer = synthesizer().fit_sample
+        if issubclass(synthesizer, BaselineSynthesizer):
+            s_obj = synthesizer()
+            get_synthesizer = s_obj.get_trained_synthesizer
+            sample_from_synthesizer = s_obj.sample_from_synthesizer
         else:
-            synthesizer = build_synthesizer(synthesizer, synthesizer_dict)
+            get_synthesizer, sample_from_synthesizer = build_synthesizer(
+                synthesizer, synthesizer_dict)
+
+    if isinstance(synthesizer, tuple):
+        get_synthesizer, sample_from_synthesizer = synthesizer
+
+    data = real_data.copy()
+    num_samples = None
+    modalities = getattr(synthesizer, 'MODALITIES', [])
+    is_single_table = (
+        isinstance(synthesizer, type)
+        and issubclass(synthesizer, SingleTableBaselineSynthesizer)
+    ) or (
+        len(modalities) == 1
+        and 'single-table' in modalities
+    )
+    if is_single_table:
+        data = list(real_data.values())[0]
+        num_samples = len(data)
 
     now = datetime.utcnow()
-    synthetic_data = synthesizer(real_data.copy(), metadata)
+    synthesizer_obj = get_synthesizer(data, metadata)
+    synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
     elapsed = datetime.utcnow() - now
+
+    if is_single_table:
+        synthetic_data = {list(real_data.keys())[0]: synthetic_data}
+
     return synthetic_data, elapsed
 
 

@@ -87,13 +87,13 @@ The most basic scenario is to pass a synthesizer function, but the sdgym.run fun
 can also be used to evaluate any `Synthesizer` class, as far as it is a subclass of
 `sdgym.synthesizers.BaseSynthesizer`.
 
-For example, if we want to evaluate the `Independent` we can do so by passing the class
+For example, if we want to evaluate the `IndependentSynthesizer` we can do so by passing the class
 directly to the sdgym.run function:
 
 ```python3
-In [5]: from sdgym.synthesizers import Independent
+In [5]: from sdgym.synthesizers import IndependentSynthesizer
 
-In [6]: scores = sdgym.run(synthesizers=Independent)
+In [6]: scores = sdgym.run(synthesizers=IndependentSynthesizer)
 ```
 
 #### Evaluating multiple Synthesizers
@@ -103,7 +103,7 @@ The `sdgym.run` function can be used to evaluate more than one Synthesizer at a 
 In order to do this, all you need to do is pass a list of functions instead of a single
 object.
 
-For example, if we want to evaluate our synthesizer function and also the `Independent`
+For example, if we want to evaluate our synthesizer function and also the `IndependentSynthesizer`
 we can pass both of them inside a list:
 
 ```python3
@@ -113,12 +113,12 @@ In [8]: scores = sdgym.run(synthesizers=synthesizers)
 ```
 
 Or, if we wanted to evaluate all the SDGym Synthesizers at once (note that this takes a lot of time
-to run!), we could just pass all the subclasses of `Baseline`:
+to run!), we could just pass all the subclasses of `BaselineSynthesizer`:
 
 ```python3
-In [9]: from sdgym.synthesizers import Baseline
+In [9]: from sdgym.synthesizers import BaselineSynthesizer
 
-In [10]: scores = sdgym.run(Baseline.get_subclasses())
+In [10]: scores = sdgym.run(BaselineSynthesizer.get_subclasses())
 ```
 
 #### Customizing the Synthesizer names.
@@ -132,7 +132,7 @@ putting the names as keys and the functions or classes as the values:
 ```python3
 In [11]: synthesizers = {
     ...:     'My Synthesizer': my_synthesizer_function,
-    ...:     'SDGym Independent': Independent
+    ...:     'SDGym Independent': IndependentSynthesizer
     ...: }
 
 In [12]: scores = sdgym.run(synthesizers=synthesizers)

@@ -101,11 +101,16 @@ import numpy as np
 from sdv.tabular import GaussianCopula
 
 
-def gaussian_copula(real_data, metadata):
+def create_gaussian_copula(real_data, metadata):
     gc = GaussianCopula(default_distribution='gaussian')
     table_name = metadata.get_tables()[0]
     gc.fit(real_data[table_name])
-    return {table_name: gc.sample()}
+    num_rows = len(real_data[table_name])
+    return (table_name, num_rows, gc)
+
+def sample_gaussian_copula(synthesizer, num_samples):
+    table_name, num_rows, gc = synthesizer
+    return {table_name: gc.sample(num_rows)}
 ```
 
 |:information_source: You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).|
@@ -116,7 +121,8 @@ We can now try to evaluate this function on the `asia` and `alarm` datasets:
 ```python3
 import sdgym
 
-scores = sdgym.run(synthesizers=gaussian_copula, datasets=['asia', 'alarm'])
+scores = sdgym.run(
+    synthesizers=(create_gaussian_copula, sample_gaussian_copula), datasets=['asia', 'alarm'])
 ```
 
 |:information_source: You can learn about different arguments for `sdgym.run` function [here](BENCHMARK.md).|

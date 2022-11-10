@@ -13,7 +13,7 @@ import tabulate
 import tqdm
 
 import sdgym
-from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import get_synthesizers
 
 
@@ -137,7 +137,7 @@ def _list_available(args):
 
 
 def _list_synthesizers(args):
-    synthesizers = Baseline.get_baselines()
+    synthesizers = BaselineSynthesizer.get_baselines()
     _print_table(pd.DataFrame(get_synthesizers(list(synthesizers))))
 
 

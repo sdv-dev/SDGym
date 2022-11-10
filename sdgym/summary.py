@@ -20,7 +20,6 @@ MODALITY_BASELINES = {
 
 LIBRARIES = {
     'SDV': ['ctgan', 'copulagan', 'gaussiancopula', 'tvae', 'hma1', 'par'],
-    'Gretel': ['gretel'],
     'YData': ['dragan', 'vanilllagan', 'wgan'],
 }
 
@@ -100,7 +99,7 @@ def summarize(data, baselines=(), datasets=None):
 
     baselines_data = data[data.synthesizer.isin(baselines)]
     data = data[~data.synthesizer.isin(baselines)]
-    no_identity = data[data.synthesizer != 'Identity']
+    no_identity = data[data.synthesizer != 'DataIdentity']
 
     coverage_perc, coverage_str = _coverage(data)
     solved = data.groupby('synthesizer').apply(lambda x: x.normalized_score.notnull().sum())

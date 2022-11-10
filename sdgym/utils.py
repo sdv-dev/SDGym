@@ -13,7 +13,7 @@ import humanfriendly
 import psutil
 
 from sdgym.errors import SDGymError
-from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def _get_synthesizer_name(synthesizer):
     if isinstance(synthesizer, types.MethodType):
         synthesizer_name = synthesizer.__self__.__class__.__name__
     else:
-        synthesizer_name = synthesizer.__name__
+        synthesizer_name = getattr(synthesizer, '__name__', 'undefined')
 
     return synthesizer_name
 
@@ -82,7 +82,7 @@ def _get_synthesizer(synthesizer, name=None):
             with open(synthesizer, 'r') as json_file:
                 return json.load(json_file)
 
-        baselines = Baseline.get_subclasses(include_parents=True)
+        baselines = BaselineSynthesizer.get_subclasses(include_parents=True)
         if synthesizer in baselines:
             LOGGER.info('Trying to import synthesizer by name.')
             synthesizer = baselines[synthesizer]
@@ -130,13 +130,13 @@ def get_synthesizers(synthesizers=None):
         TypeError:
             if neither a synthesizer or an iterable or a dict is passed.
     """
-    if callable(synthesizers):
+    if callable(synthesizers) or isinstance(synthesizers, tuple):
         return [_get_synthesizer(synthesizers)]
 
     if not synthesizers:
-        synthesizers = Baseline.get_baselines()
+        synthesizers = BaselineSynthesizer.get_baselines()
 
-    if isinstance(synthesizers, (list, tuple)):
+    if isinstance(synthesizers, list):
         return [
             _get_synthesizer(synthesizer)
             for synthesizer in synthesizers
@@ -195,7 +195,7 @@ def build_synthesizer(synthesizer, synthesizer_dict):
 
     _synthesizer_dict = copy.deepcopy(synthesizer_dict)
 
-    def _synthesizer_function(real_data, metadata):
+    def _synthesizer_fit_function(real_data, metadata):
         metadata_keyword = _synthesizer_dict.get('metadata', '$metadata')
         real_data_keyword = _synthesizer_dict.get('real_data', '$real_data')
         device_keyword = _synthesizer_dict.get('device', '$device')
@@ -222,11 +222,11 @@ def build_synthesizer(synthesizer, synthesizer_dict):
             setattr(instance, device_attribute, device)
 
         instance.fit(**fit_kwargs)
+        return instance
 
+    def _synthesizer_sample_function(instance, n_samples=None):
         sampled = instance.sample()
-        if not multi_table:
-            sampled = {table: sampled}
 
         return sampled
 
-    return _synthesizer_function
+    return _synthesizer_fit_function, _synthesizer_sample_function

@@ -4,137 +4,129 @@ import logging
 import sdv
 import sdv.timeseries
 
-from sdgym.synthesizers.base import Baseline, SingleTableBaseline
+from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
 
 
-class SDV(Baseline, abc.ABC):
+class FastMLPreset(SingleTableBaselineSynthesizer):
 
-    MODALITIES = ('single-table', 'multi-table')
+    MODALITIES = ('single-table', )
 
-    def fit_sample(self, data, metadata):
-        LOGGER.info('Fitting SDV')
-        model = sdv.SDV()
-        model.fit(metadata, data)
+    def _get_trained_synthesizer(self, data, metadata):
+        model = sdv.lite.TabularPreset(metadata, name='FAST_ML')
+        model.fit(data)
 
-        LOGGER.info('Sampling SDV')
-        return model.sample_all()
+        return model
+
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
+        return synthesizer.sample(n_samples)
 
 
-class SDVTabular(SingleTableBaseline, abc.ABC):
+class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
     MODALITIES = ('single-table', )
     _MODEL = None
     _MODEL_KWARGS = None
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = self._MODEL(table_metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample(n_samples)
 
 
-class GaussianCopulaCategorical(SDVTabular):
-
-    _MODEL = sdv.tabular.GaussianCopula
-    _MODEL_KWARGS = {
-        'categorical_transformer': 'categorical'
-    }
-
-
-class GaussianCopulaCategoricalFuzzy(SDVTabular):
+class GaussianCopulaSynthesizer(SDVTabularSynthesizer):
 
     _MODEL = sdv.tabular.GaussianCopula
-    _MODEL_KWARGS = {
-        'categorical_transformer': 'categorical_fuzzy'
-    }
 
 
-class GaussianCopulaOneHot(SDVTabular):
+class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
 
-    _MODEL = sdv.tabular.GaussianCopula
-    _MODEL_KWARGS = {
-        'categorical_transformer': 'one_hot_encoding'
-    }
-
-
-class CUDATabular(SDVTabular, abc.ABC):
-
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model_kwargs.setdefault('cuda', select_device())
         LOGGER.info('Fitting %s with kwargs %s', self.__class__.__name__, model_kwargs)
         model = self._MODEL(table_metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample(n_samples)
 
 
-class CTGAN(CUDATabular):
+class CTGANSynthesizer(CUDATabularSynthesizer):
 
     _MODEL = sdv.tabular.CTGAN
 
 
-class TVAE(CUDATabular):
+class TVAESynthesizer(CUDATabularSynthesizer):
 
     _MODEL = sdv.tabular.TVAE
 
 
-class CopulaGAN(CUDATabular):
+class CopulaGANSynthesizer(CUDATabularSynthesizer):
 
     _MODEL = sdv.tabular.CopulaGAN
 
 
-class SDVRelational(Baseline, abc.ABC):
+class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
 
     MODALITIES = ('single-table', 'multi-table')
     _MODEL = None
     _MODEL_KWARGS = None
 
-    def fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample()
 
 
-class HMA1(SDVRelational):
+class HMASynthesizer(SDVRelationalSynthesizer):
 
     _MODEL = sdv.relational.HMA1
 
 
-class SDVTimeseries(SingleTableBaseline, abc.ABC):
+class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
     MODALITIES = ('timeseries', )
     _MODEL = None
     _MODEL_KWARGS = None
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = self._MODEL(table_metadata=metadata, **model_kwargs)
         model.fit(data)
+        return model
 
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample()
 
 
-class PAR(SDVTimeseries):
+class PARSynthesizer(SDVTimeseriesSynthesizer):
 
-    def _fit_sample(self, data, metadata):
+    def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model = sdv.timeseries.PAR(table_metadata=metadata, epochs=1024, verbose=False)
         model.device = select_device()
         model.fit(data)
+        return model
 
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
         LOGGER.info('Sampling %s', self.__class__.__name__)
-        return model.sample()
+        return synthesizer.sample()

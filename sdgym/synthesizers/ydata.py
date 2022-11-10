@@ -1,7 +1,7 @@
 import abc
 
 from sdgym.errors import UnsupportedDataset
-from sdgym.synthesizers.base import SingleTableBaseline
+from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
 
 try:
     import ydata_synthetic as ydata
@@ -11,7 +11,7 @@ except ImportError:
     ydata = None
 
 
-class YData(SingleTableBaseline, abc.ABC):
+class YDataSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
     SYNTHESIZER_CLASS = None
     DEFAULT_NOISE_DIM = 128
@@ -56,13 +56,13 @@ class YData(SingleTableBaseline, abc.ABC):
 
         return synthesizer
 
-    def _fit_sample(self, real_data, table_metadata):
+    def _get_trained_synthesizer(self, real_data, table_metadata):
         if ydata is None:
             raise ImportError('Please install ydata using `make install-ydata`.')
 
-        columns = real_data.columns
+        self.columns = real_data.columns
         if self.CONVERT_TO_NUMERIC:
-            numericals = list(columns)
+            numericals = list(self.columns)
             categoricals = []
         else:
             numericals = []
@@ -76,21 +76,23 @@ class YData(SingleTableBaseline, abc.ABC):
                 else:
                     raise UnsupportedDataset(f'Unsupported field type: {field_type}')
 
-        synthesizer = self._fit_synthesizer(real_data, numericals, categoricals)
-        synthetic_data = synthesizer.sample(len(real_data))
-        synthetic_data.columns = columns
+        return self._fit_synthesizer(real_data, numericals, categoricals)
+
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
+        synthetic_data = synthesizer.sample(n_samples)
+        synthetic_data.columns = self.columns
 
         return synthetic_data
 
 
-class VanilllaGAN(YData):
+class VanilllaGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'VanilllaGAN'
     LEARNING_RATE = 5e-4
     EPOCHS = 201
 
 
-class WGAN(YData):
+class WGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'WGAN'
     DEFAULT_LEARNING_RATE = 5e-4
@@ -99,7 +101,7 @@ class WGAN(YData):
     }
 
 
-class WGAN_GP(YData):
+class WGANGPSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'WGAN_GP'
     DEFAULT_LEARNING_RATE = [5e-4, 3e-3]
@@ -108,7 +110,7 @@ class WGAN_GP(YData):
     }
 
 
-class DRAGAN(YData):
+class DRAGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'DRAGAN'
     EXTRA_KWARGS = {
@@ -116,7 +118,7 @@ class DRAGAN(YData):
     }
 
 
-class CRAMERGAN(YData):
+class CRAMERGANSynthesizer(YDataSynthesizer):
 
     SYNTHESIZER_CLASS = 'CRAMERGAN'
     DEFAULT_LEARNING_RATE = 5e-4
@@ -125,26 +127,26 @@ class CRAMERGAN(YData):
     }
 
 
-class PreprocessedVanilllaGAN(VanilllaGAN):
+class PreprocessedVanilllaGANSynthesizer(VanilllaGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedWGAN(WGAN):
+class PreprocessedWGANSynthesizer(WGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedWGAN_GP(WGAN_GP):
+class PreprocessedWGANGPSynthesizer(WGANGPSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedDRAGAN(DRAGAN):
+class PreprocessedDRAGANSynthesizer(DRAGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True
 
 
-class PreprocessedCRAMERGAN(CRAMERGAN):
+class PreprocessedCRAMERGANSynthesizer(CRAMERGANSynthesizer):
 
     CONVERT_TO_NUMERIC = True

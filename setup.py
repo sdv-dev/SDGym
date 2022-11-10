@@ -46,11 +46,6 @@ ydata_requires = [
     'ydata-synthetic==0.6.1',
 ]
 
-gretel_requires = [
-    'gretel-synthetics==0.17',
-    'wheel~=0.35',
-]
-
 setup_requires = [
     'pytest-runner>=2.11.1',
 ]
@@ -114,10 +109,9 @@ setup(
         ],
     },
     extras_require={
-        'all': development_requires + tests_require + dask_requires + gretel_requires,
+        'all': development_requires + tests_require + dask_requires,
         'dev': development_requires + tests_require + dask_requires,
         'test': tests_require,
-        'gretel': gretel_requires,
         'dask': dask_requires,
     },
     include_package_data=True,

@@ -3,11 +3,11 @@ import json
 import numpy as np
 from pomegranate import BayesianNetwork, ConditionalProbabilityTable, DiscreteDistribution
 
-from sdgym.synthesizers.base import LegacySingleTableBaseline
+from sdgym.synthesizers.base import LegacySingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import DiscretizeTransformer
 
 
-class CLBN(LegacySingleTableBaseline):
+class CLBNSynthesizer(LegacySingleTableBaselineSynthesizer):
     """CLBNSynthesizer."""
 
     def fit(self, data, categorical_columns=tuple(), ordinal_columns=tuple()):
