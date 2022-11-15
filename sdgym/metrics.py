@@ -50,16 +50,11 @@ PROBLEM_TYPE_METRICS = {
 DATA_MODALITY_METRICS = {
     'single-table': [
         'CSTest',
-        'KSTest',
-        'KSTestExtended',
-        'LogisticDetection',
+        'KSComplement',
     ],
     'multi-table': [
         'CSTest',
-        'KSTest',
-        'KSTestExtended',
-        'LogisticDetection',
-        'LogisticParentChildDetection',
+        'KSComplement',
     ],
     'timeseries': [
         'TSFClassifierEfficacy',
