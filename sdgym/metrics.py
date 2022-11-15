@@ -50,14 +50,12 @@ PROBLEM_TYPE_METRICS = {
 DATA_MODALITY_METRICS = {
     'single-table': [
         'CSTest',
-        'KSTest',
-        'KSTestExtended',
+        'KSComplement',
         'LogisticDetection',
     ],
     'multi-table': [
         'CSTest',
-        'KSTest',
-        'KSTestExtended',
+        'KSComplement',
         'LogisticDetection',
         'LogisticParentChildDetection',
     ],
