@@ -31,7 +31,7 @@ install_requires = [
     'XlsxWriter>=1.2.8,<4',
     'rdt>=1.2.1,<2.0',
     'sdmetrics>=0.7.0,<1.0',
-    'sdv>=0.14.1',
+    'sdv>=0.17.1',
 ]
 
 
