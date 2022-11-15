@@ -51,13 +51,10 @@ DATA_MODALITY_METRICS = {
     'single-table': [
         'CSTest',
         'KSComplement',
-        'LogisticDetection',
     ],
     'multi-table': [
         'CSTest',
         'KSComplement',
-        'LogisticDetection',
-        'LogisticParentChildDetection',
     ],
     'timeseries': [
         'TSFClassifierEfficacy',
