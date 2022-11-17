@@ -2,10 +2,11 @@
 
 from sdv.lite import TabularPreset
 from sdv.relational import HMA1
-from sdv.tabular import CTGAN, PAR, TVAE, CopulaGAN, GaussianCopula
+from sdv.tabular import CTGAN, TVAE, CopulaGAN, GaussianCopula
+from sdv.timeseries import PAR
 
-from sdgym.synthesizers import (
-    BaselineSynthesizer, FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer)
+from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.sdv import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
     'FastMLPreset': TabularPreset,
@@ -36,7 +37,7 @@ def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
     if synthesizer_class not in SYNTHESIZER_MAPPING.keys():
         raise ValueError(
             f'Synthesizer class {synthesizer_class} is not recognized. '
-            f'The supported options are {list(SYNTHESIZER_MAPPING.keys())}'
+            f"The supported options are {', '.join(SYNTHESIZER_MAPPING.keys())}"
         )
 
     baseclass = SDVTabularSynthesizer

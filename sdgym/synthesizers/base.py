@@ -55,7 +55,6 @@ class BaselineSynthesizer(abc.ABC):
             obj:
                 The synthesizer object
         """
-        pass
 
     def sample_from_synthesizer(synthesizer, n_samples):
         """Sample data from the provided synthesizer.
@@ -71,7 +70,6 @@ class BaselineSynthesizer(abc.ABC):
                 The sampled data. If single-table, should be a DataFrame. If multi-table,
                 should be a dict mapping table name to DataFrame.
         """
-        pass
 
 
 class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
