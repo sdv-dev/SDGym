@@ -24,9 +24,16 @@ def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
 
     Args:
         synthesizer_class (string):
-            The name of the SDV synthesizer class. The available options are
-            ('FastMLPreset', 'GaussianCopulaSynthesizer', 'CTGANSynthesizer',
-            'CopulaGANSynthesizer', 'TVAESynthesizer', 'PARSynthesizer', ''HMASynthesizer')
+            The name of the SDV synthesizer class. The available options are:
+
+                * 'FastMLPreset'
+                * 'GaussianCopulaSynthesizer'
+                * 'CTGANSynthesizer',
+                * 'CopulaGANSynthesizer'
+                * 'TVAESynthesizer'
+                * 'PARSynthesizer'
+                * 'HMASynthesizer'
+
         synthesizer_parameters (dict):
             A dictionary of the parameter names and values that will be used for the synthesizer.
 
@@ -51,9 +58,15 @@ def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
 
         Args:
             synthesizer_class (string):
-                The name of the SDV synthesizer class. The available options are
-                ('FastMLPreset', 'GaussianCopulaSynthesizer', 'CTGANSynthesizer',
-                'CopulaGANSynthesizer', 'TVAESynthesizer', 'PARSynthesizer')
+                The name of the SDV synthesizer class. The available options are:
+
+                    * 'FastMLPreset'
+                    * 'GaussianCopulaSynthesizer'
+                    * 'CTGANSynthesizer'
+                    * 'CopulaGANSynthesizer'
+                    * 'TVAESynthesizer'
+                    * 'PARSynthesizer'
+
             synthesizer_parameters (dict):
                 A dictionary of the parameter names and values that will be used for
                 the synthesizer.
