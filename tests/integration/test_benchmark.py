@@ -11,6 +11,8 @@ def test_identity():
 
     assert not output.empty
     assert set(output['modality'].unique()) == {'single-table', 'multi-table'}
+    assert 'train_time' in output
+    assert 'sample_time' in output
 
     scores = output.groupby('synthesizer').score.mean().sort_values()
 

@@ -62,14 +62,14 @@ def _synthesize(synthesizer_dict, real_data, metadata):
 
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
-    elapsed_1 = datetime.utcnow() - now
+    train_now = datetime.utcnow()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
-    elapsed_2 = datetime.utcnow() - elapsed_1
+    sample_now = datetime.utcnow()
 
     if is_single_table:
         synthetic_data = {list(real_data.keys())[0]: synthetic_data}
 
-    return synthetic_data, elapsed_1, elapsed_2
+    return synthetic_data, train_now - now, sample_now - train_now
 
 
 def _prepare_metric_args(real_data, synthetic_data, metadata):
