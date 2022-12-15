@@ -13,7 +13,7 @@ __version__ = '0.5.1.dev0'
 import logging
 
 from sdgym import benchmark, synthesizers
-from sdgym.benchmark import run
+from sdgym.benchmark import benchmark_single_table, run
 from sdgym.collect import collect_results
 from sdgym.datasets import load_dataset
 from sdgym.summary import make_summary_spreadsheet
@@ -28,5 +28,6 @@ __all__ = [
     'run',
     'load_dataset',
     'collect_results',
-    'make_summary_spreadsheet'
+    'make_summary_spreadsheet',
+    'benchmark_single_table',
 ]

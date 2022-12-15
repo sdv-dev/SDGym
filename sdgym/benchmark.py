@@ -18,12 +18,26 @@ from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
+from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
     build_synthesizer, format_exception, get_synthesizers, import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
+DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
+DEFAULT_DATASETS = [
+    'adult',
+    'alarm',
+    'census',
+    'child',
+    'expedia_hotel_logs',
+    'insurance',
+    'intrusion',
+    'news',
+    'covtype',
+]
+DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 
 
 def _synthesize(synthesizer_dict, real_data, metadata):
@@ -86,7 +100,7 @@ def _prepare_metric_args(real_data, synthetic_data, metadata):
 
 
 def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
-    metrics = get_metrics(metrics, metadata)
+    metrics, metric_kwargs = get_metrics(metrics, metadata)
     metric_args = _prepare_metric_args(real_data, synthetic_data, metadata)
 
     scores = []
@@ -104,7 +118,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
         start = datetime.utcnow()
         try:
             LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
-            score = metric.compute(*metric_args)
+            score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
             normalized_score = metric.normalize(score)
         except Exception:
             LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
@@ -409,5 +423,143 @@ def run(synthesizers=None, datasets=None, datasets_path=None, modalities=None, b
 
     if output_path:
         write_csv(scores, output_path, aws_key, aws_secret)
+
+    return scores
+
+
+def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAULT_DATASETS,
+                           additional_datasets_folder=None, limit_dataset_size=False,
+                           evaluate_quality=True, sdmetrics=DEFAULT_METRICS,
+                           timeout=None, output_filepath=None, detailed_results_folder=None,
+                           show_progress=False, multi_processing_config=None):
+    """Run the SDGym benchmark on single-table datasets.
+
+    The ``synthesizers`` object can either be a single synthesizer or, an iterable of
+    synthesizers or a dict containing synthesizer names as keys and synthesizers as values.
+
+    Args:
+        synthesizers (list[class]):
+            The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer, FASTMLPreset,
+            CTGANSynthesizer]``. The available options are:
+
+                - ``GaussianCopulaSynthesizer``
+                - ``CTGANSynthesizer``
+                - ``CopulaGANSynthesizer``
+                - ``TVAESynthesizer``
+                - ``FASTMLPreset``
+                - any custom created synthesizer or variant
+
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to a folder (local or an S3 bucket). Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        evaluate_quality (bool):
+            Whether or not to evaluate an overall quality score.
+        sdmetrics (list[str]):
+            A list of the different SDMetrics to use. If you'd like to input specific parameters
+            into the metric, provide a tuple with the metric name followed by a dictionary of
+            the parameters.
+        timeout (bool or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+        output_filepath (str or ``None``):
+            A file path for where to write the output as a csv file. If ``None``, no output
+            is written.
+        detailed_results_folder (str or ``None``):
+            The folder for where to store the intermediary results. If ``None``, do not store
+            the intermediate results anywhere.
+        show_progress (bool):
+            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
+        multi_processing_config (dict or ``None``):
+            The config to use if multi-processing is desired. For example,
+            {
+             'package_name': 'dask' or 'multiprocessing',
+             'num_workers': 4
+            }
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
+    """
+    if detailed_results_folder and not is_s3_path(detailed_results_folder):
+        detailed_results_folder = Path(detailed_results_folder)
+        os.makedirs(detailed_results_folder, exist_ok=True)
+
+    max_rows = None
+    max_columns = None
+    if limit_dataset_size:
+        max_rows = 1000
+        max_columns = 10
+
+    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
+
+    synthesizers = get_synthesizers(synthesizers)
+    datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
+
+    job_tuples = list()
+    for dataset in datasets:
+        for synthesizer in synthesizers:
+            job_tuples.append((synthesizer, dataset, 1))
+
+    job_args = list()
+    for synthesizer, dataset, iteration in job_tuples:
+        metadata = load_dataset(dataset, max_columns=max_columns)
+        dataset_modality = metadata.modality
+        synthesizer_modalities = synthesizer.get('modalities')
+        if (dataset_modality and dataset_modality != 'single-table') or (
+            synthesizer_modalities and 'single-table' not in synthesizer_modalities
+        ):
+            continue
+
+        args = (
+            synthesizer,
+            metadata,
+            sdmetrics,
+            iteration,
+            detailed_results_folder,
+            timeout,
+            run_id,
+            None,
+            None,
+            max_rows,
+        )
+        job_args.append(args)
+
+    workers = 1
+    if multi_processing_config:
+        if multi_processing_config['package_name'] == 'dask':
+            workers = 'dask'
+            scores = _run_on_dask(job_args, show_progress)
+        else:
+            num_gpus = get_num_gpus()
+            if num_gpus > 0:
+                workers = num_gpus
+            else:
+                workers = multiprocessing.cpu_count()
+
+    if workers in (0, 1):
+        scores = map(_run_job, job_args)
+    elif workers != 'dask':
+        pool = concurrent.futures.ProcessPoolExecutor(workers)
+        scores = pool.map(_run_job, job_args)
+
+    scores = tqdm.tqdm(scores, total=len(job_args), file=TqdmLogger())
+    if show_progress:
+        scores = tqdm.tqdm(scores, total=len(job_args))
+
+    if not scores:
+        raise SDGymError("No valid Dataset/Synthesizer combination given")
+
+    scores = pd.concat(scores)
+
+    if output_filepath:
+        write_csv(scores, output_filepath)
 
     return scores
