@@ -13,7 +13,7 @@ __version__ = '0.5.1.dev0'
 import logging
 
 from sdgym import benchmark, synthesizers
-from sdgym.benchmark import benchmark_single_table, run
+from sdgym.benchmark import benchmark_single_table
 from sdgym.collect import collect_results
 from sdgym.datasets import load_dataset
 from sdgym.summary import make_summary_spreadsheet
@@ -25,7 +25,6 @@ list(map(logging.root.removeFilter, logging.root.filters))
 __all__ = [
     'benchmark',
     'synthesizers',
-    'run',
     'load_dataset',
     'collect_results',
     'make_summary_spreadsheet',
