@@ -62,13 +62,14 @@ def _synthesize(synthesizer_dict, real_data, metadata):
 
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
+    train_now = datetime.utcnow()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
-    elapsed = datetime.utcnow() - now
+    sample_now = datetime.utcnow()
 
     if is_single_table:
         synthetic_data = {list(real_data.keys())[0]: synthetic_data}
 
-    return synthetic_data, elapsed
+    return synthetic_data, train_now - now, sample_now - train_now
 
 
 def _prepare_metric_args(real_data, synthetic_data, metadata):
@@ -134,9 +135,11 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
 
         output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
-        synthetic_data, model_time = _synthesize(synthesizer, real_data.copy(), metadata)
+        synthetic_data, train_time, sample_time = _synthesize(
+            synthesizer, real_data.copy(), metadata)
         output['synthetic_data'] = synthetic_data
-        output['model_time'] = model_time.total_seconds()
+        output['train_time'] = train_time.total_seconds()
+        output['sample_time'] = sample_time.total_seconds()
 
         LOGGER.info('Scoring %s on %s dataset %s; iteration %s; %s',
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
@@ -209,7 +212,8 @@ def _run_job(args):
     scores.insert(1, 'dataset', metadata._metadata['name'])
     scores.insert(2, 'modality', metadata.modality)
     scores.insert(3, 'iteration', iteration)
-    scores['model_time'] = output.get('model_time')
+    scores['train_time'] = output.get('train_time')
+    scores['sample_time'] = output.get('sample_time')
     scores['run_id'] = run_id
 
     if 'error' in output:
