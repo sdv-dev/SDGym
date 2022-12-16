@@ -336,11 +336,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
         detailed_results_folder = Path(detailed_results_folder)
         os.makedirs(detailed_results_folder, exist_ok=True)
 
-    max_rows = None
-    max_columns = None
-    if limit_dataset_size:
-        max_rows = 1000
-        max_columns = 10
+    max_rows, max_columns = (1000, 10) if limit_dataset_size else (None, None)
 
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
