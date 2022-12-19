@@ -121,8 +121,8 @@ We can now try to evaluate this function on the `asia` and `alarm` datasets:
 ```python3
 import sdgym
 
-scores = sdgym.run(
-    synthesizers=(create_gaussian_copula, sample_gaussian_copula), datasets=['asia', 'alarm'])
+scores = sdgym.benchmark_single_table(
+    synthesizers=(create_gaussian_copula, sample_gaussian_copula), sdv_datasets=['asia', 'alarm'])
 ```
 
 |:information_source: You can learn about different arguments for `sdgym.run` function [here](BENCHMARK.md).|
