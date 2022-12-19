@@ -14,18 +14,20 @@ from sdgym.s3 import get_s3_client
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 'sdv-datasets'
+BUCKET = 'sdv-demo-datasets'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
+MODALITIES = ['single_table', 'multi_table', 'sequential']
 
 
-def download_dataset(dataset_name, datasets_path=None, bucket=None, aws_key=None, aws_secret=None):
-    datasets_path = datasets_path or DATASETS_PATH
+def download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
+                     aws_secret=None):
+    datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
     s3 = get_s3_client(aws_key, aws_secret)
-    obj = s3.get_object(Bucket=bucket, Key=f'{dataset_name}.zip')
+    obj = s3.get_object(Bucket=bucket, Key=f'{modality.upper()}/{dataset_name}.zip')
     bytes_io = io.BytesIO(obj['Body'].read())
 
     LOGGER.info('Extracting dataset into %s', datasets_path)
@@ -33,7 +35,8 @@ def download_dataset(dataset_name, datasets_path=None, bucket=None, aws_key=None
         zf.extractall(datasets_path)
 
 
-def _get_dataset_path(dataset, datasets_path, bucket=None, aws_key=None, aws_secret=None):
+def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=None,
+                      aws_secret=None):
     dataset = Path(dataset)
     if dataset.exists():
         return dataset
@@ -43,7 +46,8 @@ def _get_dataset_path(dataset, datasets_path, bucket=None, aws_key=None, aws_sec
     if dataset_path.exists():
         return dataset_path
 
-    download_dataset(dataset, datasets_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
+    download_dataset(
+        modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
 
 
@@ -61,10 +65,11 @@ def _apply_max_columns_to_metadata(metadata, max_columns):
             structure['states'] = structure['states'][:max_columns]
 
 
-def load_dataset(dataset, datasets_path=None, bucket=None, aws_key=None, aws_secret=None,
-                 max_columns=None):
-    dataset_path = _get_dataset_path(dataset, datasets_path, bucket, aws_key, aws_secret)
-    with open(dataset_path / 'metadata.json') as metadata_file:
+def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
+                 aws_secret=None, max_columns=None):
+    dataset_path = _get_dataset_path(
+        modality, dataset, datasets_path, bucket, aws_key, aws_secret)
+    with open(dataset_path / 'metadata_v0.json') as metadata_file:
         metadata_content = json.load(metadata_file)
 
     if max_columns:
@@ -113,17 +118,25 @@ def load_tables(metadata, max_rows=None):
     return real_data
 
 
-def get_available_datasets(bucket=None, aws_key=None, aws_secret=None):
+def get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
+    if modality not in MODALITIES:
+        modalities_list = ', '.join(MODALITIES)
+        raise ValueError(
+            f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
+
     s3 = get_s3_client(aws_key, aws_secret)
-    response = s3.list_objects(Bucket=bucket or BUCKET)
+    response = s3.list_objects(Bucket=bucket or BUCKET, Prefix=modality.upper())
     datasets = []
     for content in response['Contents']:
         key = content['Key']
-        size = int(content['Size'])
+        metadata = s3.head_object(Bucket=bucket, Key=key)['ResponseMetadata']['HTTPHeaders']
+        size = float(metadata['x-amz-meta-size-mb'])
+        num_tables = int(metadata['x-amz-meta-num-tables'])
         if key.endswith('.zip'):
             datasets.append({
-                'name': key[:-len('.zip')],
-                'size': size
+                'dataset_name': key[:-len('.zip')].lstrip(f'{modality.upper()}/'),
+                'size_MB': size,
+                'num_tables': num_tables,
             })
 
     return pd.DataFrame(datasets)
@@ -158,9 +171,9 @@ def get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret):
             datasets = list(datasets_path.iterdir())
 
         if not datasets:
-            datasets = get_available_datasets()['name'].tolist()
+            datasets = get_available_datasets('single_table')['dataset_name'].tolist()
 
     return [
-        _get_dataset_path(dataset, datasets_path, bucket, aws_key, aws_secret)
+        _get_dataset_path('single_table', dataset, datasets_path, bucket, aws_key, aws_secret)
         for dataset in datasets
     ]

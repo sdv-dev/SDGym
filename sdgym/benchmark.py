@@ -350,7 +350,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
 
     job_args = list()
     for synthesizer, dataset, iteration in job_tuples:
-        metadata = load_dataset(dataset, max_columns=max_columns)
+        metadata = load_dataset('single_table', dataset, max_columns=max_columns)
         dataset_modality = metadata.modality
         synthesizer_modalities = synthesizer.get('modalities')
         if (dataset_modality and dataset_modality != 'single-table') or (
