@@ -342,6 +342,9 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
 
     synthesizers = get_synthesizers(synthesizers)
     datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
+    if additional_datasets_folder:
+        additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
+        datasets.extend(additional_datasets)
 
     job_tuples = list()
     for dataset in datasets:

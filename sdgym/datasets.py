@@ -46,6 +46,10 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     if dataset_path.exists():
         return dataset_path
 
+    local_path = Path(bucket) / dataset
+    if local_path.exists():
+        return local_path
+
     download_dataset(
         modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
