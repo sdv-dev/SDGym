@@ -85,12 +85,12 @@ development_requires = [
 ]
 
 setup(
-    author='MIT Data To AI Lab',
-    author_email='dailabmit@gmail.com',
+    author='DataCebo, Inc.',
+    author_email='info@sdv.dev',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
+        'License :: Free for non-commercial use',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
@@ -100,8 +100,7 @@ setup(
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     description=(
-        'A framework to benchmark the performance of synthetic data generators '
-        'for non-temporal tabular data'
+        'Benchmark tabular synthetic data generators using a variety of datasets'
     ),
     entry_points={
         'console_scripts': [
@@ -116,7 +115,7 @@ setup(
     },
     include_package_data=True,
     install_requires=install_requires,
-    license='MIT license',
+    license='BSL-1.1',
     long_description=readme + '\n\n' + history,
     long_description_content_type='text/markdown',
     keywords='machine learning synthetic data generation benchmark generative models',

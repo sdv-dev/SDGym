@@ -58,9 +58,9 @@ requirements:
 
 about:
   home: "https://github.com/sdv-dev/SDGym"
-  license: MIT
-  license_family: MIT
-  license_file:
+  license: BUSL-1.1
+  license_family:
+  license_file: LICENSE
   summary: "A framework to benchmark the performance of synthetic data generators for non-temporal tabular data"
   doc_url:
   dev_url:
