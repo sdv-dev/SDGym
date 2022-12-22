@@ -5,7 +5,8 @@ from sdv.relational import HMA1
 from sdv.tabular import CTGAN, TVAE, CopulaGAN, GaussianCopula
 from sdv.timeseries import PAR
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import (
+    BaselineSynthesizer, MultiSingleTableBaselineSynthesizer, SingleTableBaselineSynthesizer)
 from sdgym.synthesizers.sdv import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
@@ -91,7 +92,7 @@ def create_single_table_synthesizer(get_trained_synthesizer_fn, sample_from_synt
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(BaselineSynthesizer):
+    class NewSynthesizer(SingleTableBaselineSynthesizer):
         """New Synthesizer class.
 
         Args:
@@ -101,7 +102,7 @@ def create_single_table_synthesizer(get_trained_synthesizer_fn, sample_from_synt
                 Function to replace the ``sample_from_synthesizer`` method.
         """
 
-        def get_trained_synthesizer(data, metadata):
+        def get_trained_synthesizer(self, data, metadata):
             """Create and train a synthesizer, given the real data and metadata.
 
             Args:
@@ -116,7 +117,7 @@ def create_single_table_synthesizer(get_trained_synthesizer_fn, sample_from_synt
             """
             return get_trained_synthesizer_fn(data, metadata)
 
-        def sample_from_synthesizer(synthesizer, num_samples):
+        def sample_from_synthesizer(self, synthesizer, num_samples):
             """Sample the desired number of samples from the given synthesizer.
 
             Args:
@@ -147,7 +148,7 @@ def create_multi_table_synthesizer(get_trained_synthesizer_fn, sample_from_synth
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(BaselineSynthesizer):
+    class NewSynthesizer(MultiSingleTableBaselineSynthesizer):
         """New Synthesizer class.
 
         Args:
@@ -157,7 +158,7 @@ def create_multi_table_synthesizer(get_trained_synthesizer_fn, sample_from_synth
                 Function to replace the ``sample_from_synthesizer`` method.
         """
 
-        def get_trained_synthesizer(data, metadata):
+        def get_trained_synthesizer(self, data, metadata):
             """Create and train a synthesizer, given the real data and metadata.
 
             Args:
@@ -172,7 +173,7 @@ def create_multi_table_synthesizer(get_trained_synthesizer_fn, sample_from_synth
             """
             return get_trained_synthesizer_fn(data, metadata)
 
-        def sample_from_synthesizer(synthesizer):
+        def sample_from_synthesizer(self, synthesizer):
             """Sample from the given synthesizer.
 
             Args:
@@ -211,7 +212,7 @@ def create_sequential_synthesizer(get_trained_synthesizer_fn, sample_from_synthe
                 Function to replace the ``sample_from_synthesizer`` method.
         """
 
-        def get_trained_synthesizer(data, metadata):
+        def get_trained_synthesizer(self, data, metadata):
             """Create and train a synthesizer, given the real data and metadata.
 
             Args:
@@ -226,7 +227,7 @@ def create_sequential_synthesizer(get_trained_synthesizer_fn, sample_from_synthe
             """
             return get_trained_synthesizer_fn(data, metadata)
 
-        def sample_from_synthesizer(synthesizer, n_sequences):
+        def sample_from_synthesizer(self, synthesizer, n_sequences):
             """Sample from the given synthesizer.
 
             Args:

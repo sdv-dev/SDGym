@@ -71,6 +71,8 @@ def _synthesize(synthesizer_dict, real_data, metadata):
         and 'single-table' in modalities
     )
     if is_single_table:
+        table_name = list(real_data.keys())[0]
+        metadata = metadata.get_table_meta(table_name)
         data = list(real_data.values())[0]
         num_samples = len(data)
 
