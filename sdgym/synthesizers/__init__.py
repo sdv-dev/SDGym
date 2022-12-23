@@ -13,11 +13,6 @@ from sdgym.synthesizers.sdv import (
 from sdgym.synthesizers.tablegan import TableGANSynthesizer
 from sdgym.synthesizers.uniform import UniformSynthesizer
 from sdgym.synthesizers.veegan import VEEGANSynthesizer
-from sdgym.synthesizers.ydata import (
-    CRAMERGANSynthesizer, DRAGANSynthesizer, PreprocessedCRAMERGANSynthesizer,
-    PreprocessedDRAGANSynthesizer, PreprocessedVanilllaGANSynthesizer,
-    PreprocessedWGANGPSynthesizer, PreprocessedWGANSynthesizer, VanilllaGANSynthesizer,
-    WGANGPSynthesizer, WGANSynthesizer)
 
 __all__ = (
     'CLBNSynthesizer',
@@ -34,16 +29,6 @@ __all__ = (
     'GaussianCopulaSynthesizer',
     'HMASynthesizer',
     'PARSynthesizer',
-    'VanilllaGANSynthesizer',
-    'WGANSynthesizer',
-    'WGANGPSynthesizer',
-    'DRAGANSynthesizer',
-    'CRAMERGANSynthesizer',
-    'PreprocessedVanilllaGANSynthesizer',
-    'PreprocessedWGANSynthesizer',
-    'PreprocessedWGANGPSynthesizer',
-    'PreprocessedDRAGANSynthesizer',
-    'PreprocessedCRAMERGANSynthesizer',
     'FastMLPreset',
     'SDVTabularSynthesizer',
     'SDVRelationalSynthesizer',
