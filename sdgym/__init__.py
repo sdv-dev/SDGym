@@ -4,10 +4,10 @@ SDGym is a framework to benchmark the performance of synthetic data generators f
 tabular data.
 """
 
-__author__ = 'MIT Data To AI Lab'
-__copyright__ = 'Copyright (c) 2018, MIT Data To AI Lab'
-__email__ = 'dailabmit@gmail.com'
-__license__ = 'MIT'
+__author__ = 'DataCebo, Inc.'
+__copyright__ = 'Copyright (c) 2022 DataCebo, Inc.'
+__email__ = 'info@sdv.dev'
+__license__ = 'BSL-1.1'
 __version__ = '0.5.1.dev0'
 
 import logging
