@@ -84,25 +84,6 @@ install-test: clean-build clean-compile clean-pyc compile ## install the package
 install-develop: clean-build clean-pyc clean-pyc compile ## install the package in editable mode and dependencies for development
 	pip install -e .[dev]
 
-.PHONY: install-ydata
-install-ydata: clean-build clean-compile clean-pyc compile ## install the package with ydata
-	pip install 'ydata-synthetic>=0.3.0,<0.4'
-	pip install .
-
-.PHONY: install-ydata-develop
-install-ydata-develop: clean-build clean-compile clean-pyc compile ## install the package with ydata and dependencies for development
-	pip install 'ydata-synthetic>=0.3.0,<0.4'
-	pip install -e .[dev]
-
-.PHONY: install-all
-install-all: clean-build clean-compile clean-pyc compile ## install the package with ydata
-	pip install 'ydata-synthetic==0.6.1'
-
-.PHONY: install-all-develop
-install-all-develop: clean-build clean-compile clean-pyc compile ## install the package with ydata
-	pip install 'ydata-synthetic==0.6.1'
-	pip install -e .[dev]
-
 # LINT TARGETS
 
 .PHONY: lint

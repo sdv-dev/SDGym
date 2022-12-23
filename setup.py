@@ -40,12 +40,6 @@ dask_requires = [
     'distributed',
 ]
 
-
-ydata_requires = [
-    # preferably install using make install-ydata
-    'ydata-synthetic==0.6.1',
-]
-
 setup_requires = [
     'pytest-runner>=2.11.1',
 ]
