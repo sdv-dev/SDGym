@@ -120,7 +120,7 @@ Before you submit a pull request, check that it meets these guidelines:
 4. If the pull request adds functionality, the docs should be updated. Put
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
-5. The pull request should work for Python 3.5 and 3.6. Check
+5. The pull request should work for Python 3.7, 3.8, 3.9, 3.10 and 3.11. Check
    https://travis-ci.org/sdv-dev/SDGym/pull_requests
    and make sure that all the checks pass.
 
