@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import botocore
 
-from sdgym.datasets import download_dataset
+from sdgym.datasets import _get_dataset_path, download_dataset
 
 
 class AnyConfigWith:
@@ -143,3 +143,19 @@ def test_download_dataset_private_bucket(boto3_mock, tmpdir):
         Bucket=bucket, Key=f'{modality.upper()}/{dataset}.zip')
     with open(f'{tmpdir}/{dataset}') as dataset_file:
         assert dataset_file.read() == 'test_content'
+
+
+@patch('sdgym.datasets.Path')
+def test__get_dataset_path(mock_path):
+    """Test that the path to the dataset is returned if it already exists."""
+    # Setup
+    modality = 'single_table'
+    dataset = 'test_dataset'
+    datasets_path = 'local_path'
+    mock_path.return_value.__rtruediv__.side_effect = [False, False, True]
+
+    # Run
+    path = _get_dataset_path(modality, dataset, datasets_path)
+
+    # Assert
+    assert path == mock_path.return_value

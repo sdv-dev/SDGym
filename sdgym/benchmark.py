@@ -71,6 +71,8 @@ def _synthesize(synthesizer_dict, real_data, metadata):
         and 'single-table' in modalities
     )
     if is_single_table:
+        table_name = list(real_data.keys())[0]
+        metadata = metadata.get_table_meta(table_name)
         data = list(real_data.values())[0]
         num_samples = len(data)
 
@@ -342,6 +344,9 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
 
     synthesizers = get_synthesizers(synthesizers)
     datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
+    if additional_datasets_folder:
+        additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
+        datasets.extend(additional_datasets)
 
     job_tuples = list()
     for dataset in datasets:

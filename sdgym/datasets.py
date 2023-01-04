@@ -46,6 +46,10 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     if dataset_path.exists():
         return dataset_path
 
+    local_path = Path(bucket) / dataset if bucket else Path(dataset)
+    if local_path.exists():
+        return local_path
+
     download_dataset(
         modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
@@ -125,7 +129,8 @@ def get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None)
             f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
 
     s3 = get_s3_client(aws_key, aws_secret)
-    response = s3.list_objects(Bucket=bucket or BUCKET, Prefix=modality.upper())
+    bucket = bucket or BUCKET
+    response = s3.list_objects(Bucket=bucket, Prefix=modality.upper())
     datasets = []
     for content in response['Contents']:
         key = content['Key']
