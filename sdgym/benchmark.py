@@ -4,6 +4,8 @@ import concurrent
 import logging
 import multiprocessing
 import os
+import sys
+import tracemalloc
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +14,8 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
+from sdmetrics.reports.multi_table import QualityReport as MultiTableQualityReport
+from sdmetrics.reports.single_table import QualityReport as SingleTableQualityReport
 
 from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
 from sdgym.errors import SDGymError
@@ -76,16 +80,22 @@ def _synthesize(synthesizer_dict, real_data, metadata):
         data = list(real_data.values())[0]
         num_samples = len(data)
 
+    tracemalloc.start()
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
+    synthesizer_size = sys.getsizeof(synthesizer_obj) / (1024 * 1024)
     train_now = datetime.utcnow()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
     sample_now = datetime.utcnow()
 
+    peak_memory = tracemalloc.get_traced_memory()[1] / (1024 * 1024)
+    tracemalloc.stop()
+    tracemalloc.clear_traces()
+
     if is_single_table:
         synthetic_data = {list(real_data.keys())[0]: synthetic_data}
 
-    return synthetic_data, train_now - now, sample_now - train_now
+    return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
 
 def _prepare_metric_args(real_data, synthetic_data, metadata):
@@ -101,7 +111,7 @@ def _prepare_metric_args(real_data, synthetic_data, metadata):
     return real_data, synthetic_data, metadata
 
 
-def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
+def _compute_scores(metrics, real_data, synthetic_data, metadata, output, evaluate_quality):
     metrics, metric_kwargs = get_metrics(metrics, metadata)
     metric_args = _prepare_metric_args(real_data, synthetic_data, metadata)
 
@@ -135,8 +145,25 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output):
         })
         output['scores'] = scores  # re-inject list to multiprocessing output
 
+    if evaluate_quality:
+        if metadata.modality == 'single-table':
+            quality_report = SingleTableQualityReport()
+            table_name = list(real_data.keys())[0]
+            table_metadata = metadata.get_table_meta(table_name)
+            table_real_data = list(real_data.values())[0]
+            table_synthetic_data = list(synthetic_data.values())[0]
 
-def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None):
+            quality_report = SingleTableQualityReport()
+            quality_report.generate(table_real_data, table_synthetic_data, table_metadata)
+        else:
+            quality_report = MultiTableQualityReport()
+            quality_report.generate(real_data, synthetic_data, metadata)
+
+        output['quality_score'] = quality_report.get_score()
+
+
+def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None,
+           evaluate_quality=False):
     if output is None:
         output = {}
 
@@ -146,22 +173,25 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
         real_data = load_tables(metadata, max_rows)
+        output['dataset_size'] = sys.getsizeof(real_data) / (1024 * 1024)
 
         LOGGER.info('Running %s on %s dataset %s; iteration %s; %s',
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
 
         output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
-        synthetic_data, train_time, sample_time = _synthesize(
+        synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
             synthesizer, real_data.copy(), metadata)
         output['synthetic_data'] = synthetic_data
         output['train_time'] = train_time.total_seconds()
         output['sample_time'] = sample_time.total_seconds()
+        output['synthesizer_size'] = synthesizer_size
+        output['peak_memory'] = peak_memory
 
         LOGGER.info('Scoring %s on %s dataset %s; iteration %s; %s',
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
 
         del output['error']   # No error so far. _compute_scores tracks its own errors by metric
-        _compute_scores(metrics, real_data, synthetic_data, metadata, output)
+        _compute_scores(metrics, real_data, synthetic_data, metadata, output, evaluate_quality)
 
         output['timeout'] = False  # There was no timeout
 
@@ -180,12 +210,13 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
     return output
 
 
-def _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration):
+def _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration, max_rows=None,
+                        evaluate_quality=False):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
         process = multiprocessing.Process(
             target=_score,
-            args=(synthesizer, metadata, metrics, iteration, output),
+            args=(synthesizer, metadata, metrics, iteration, output, max_rows, evaluate_quality),
         )
 
         process.start()
@@ -205,7 +236,7 @@ def _run_job(args):
     np.random.seed()
 
     synthesizer, metadata, metrics, iteration, cache_dir, \
-        timeout, run_id, aws_key, aws_secret, max_rows = args
+        timeout, run_id, max_rows, evaluate_quality = args
 
     name = synthesizer['name']
     dataset_name = metadata._metadata['name']
@@ -214,23 +245,46 @@ def _run_job(args):
                 name, metadata.modality, dataset_name, timeout, iteration, used_memory())
 
     if timeout:
-        output = _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration)
+        output = _score_with_timeout(
+            timeout,
+            synthesizer,
+            metadata,
+            metrics,
+            iteration,
+            max_rows=max_rows,
+            evaluate_quality=evaluate_quality,
+        )
     else:
-        output = _score(synthesizer, metadata, metrics, iteration, max_rows=max_rows)
+        output = _score(
+            synthesizer,
+            metadata,
+            metrics,
+            iteration,
+            max_rows=max_rows,
+            evaluate_quality=evaluate_quality,
+        )
 
-    scores = output.get('scores')
-    if not scores:
-        scores = pd.DataFrame({'score': [None]})
-    else:
-        scores = pd.DataFrame(scores)
+    evaluate_time = 0
+    for score in output.get('scores'):
+        if score['metric'] == 'NewRowSynthesis':
+            evaluate_time += score['metric_time']
 
-    scores.insert(0, 'synthesizer', name)
-    scores.insert(1, 'dataset', metadata._metadata['name'])
-    scores.insert(2, 'modality', metadata.modality)
-    scores.insert(3, 'iteration', iteration)
-    scores['train_time'] = output.get('train_time')
-    scores['sample_time'] = output.get('sample_time')
-    scores['run_id'] = run_id
+    scores = pd.DataFrame({
+        'Synthesizer': [name],
+        'Dataset': [metadata._metadata['name']],
+        'Dataset_Size_MB': [output.get('dataset_size')],
+        'Train_Time': [output.get('train_time')],
+        'Peak_Memory_MB': [output.get('peak_memory')],
+        'Synthesizer_Size_MB': [output.get('synthesizer_size')],
+        'Sample_Time': [output.get('sample_time')],
+        'Evaluate_Time': [evaluate_time],
+    })
+
+    if evaluate_quality:
+        scores.insert(len(scores.columns), 'Quality_Score', output.get('quality_score'))
+
+    for score in output.get('scores'):
+        scores.insert(len(scores.columns), score['metric'], score['normalized_score'])
 
     if 'error' in output:
         scores['error'] = output['error']
@@ -239,13 +293,13 @@ def _run_job(args):
         cache_dir_name = str(cache_dir)
         base_path = f'{cache_dir_name}/{name}_{dataset_name}_{iteration}_{run_id}'
         if scores is not None:
-            write_csv(scores, f'{base_path}_scores.csv', aws_key, aws_secret)
+            write_csv(scores, f'{base_path}_scores.csv', None, None)
         if 'synthetic_data' in output:
             synthetic_data = compress_pickle.dumps(output['synthetic_data'], compression='gzip')
-            write_file(synthetic_data, f'{base_path}.data.gz', aws_key, aws_secret)
+            write_file(synthetic_data, f'{base_path}.data.gz', None, None)
         if 'exception' in output:
             exception = output['exception'].encode('utf-8')
-            write_file(exception, f'{base_path}_error.txt', aws_key, aws_secret)
+            write_file(exception, f'{base_path}_error.txt', None, None)
 
     return scores
 
@@ -371,9 +425,8 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
             detailed_results_folder,
             timeout,
             run_id,
-            None,
-            None,
             max_rows,
+            evaluate_quality,
         )
         job_args.append(args)
 
@@ -402,7 +455,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
     if not scores:
         raise SDGymError("No valid Dataset/Synthesizer combination given")
 
-    scores = pd.concat(scores)
+    scores = pd.concat(scores, ignore_index=True)
 
     if output_filepath:
         write_csv(scores, output_filepath)

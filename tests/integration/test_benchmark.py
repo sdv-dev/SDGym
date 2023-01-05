@@ -8,11 +8,10 @@ def test_identity():
     )
 
     assert not output.empty
-    assert set(output['modality'].unique()) == {'single-table'}
-    assert 'train_time' in output
-    assert 'sample_time' in output
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
 
-    scores = output.groupby('synthesizer').score.mean().sort_values()
+    scores = output.groupby('Synthesizer').NewRowSynthesis.mean().sort_values()
 
     assert [
         'DataIdentity',
