@@ -42,6 +42,7 @@ DEFAULT_DATASETS = [
     'covtype',
 ]
 DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
+N_BYTES_IN_MB = 1024 * 1024
 
 
 def _synthesize(synthesizer_dict, real_data, metadata):
@@ -83,12 +84,12 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     tracemalloc.start()
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
-    synthesizer_size = sys.getsizeof(synthesizer_obj) / (1024 * 1024)
+    synthesizer_size = sys.getsizeof(synthesizer_obj) / N_BYTES_IN_MB
     train_now = datetime.utcnow()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
     sample_now = datetime.utcnow()
 
-    peak_memory = tracemalloc.get_traced_memory()[1] / (1024 * 1024)
+    peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
     tracemalloc.clear_traces()
 
@@ -173,7 +174,7 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
         real_data = load_tables(metadata, max_rows)
-        output['dataset_size'] = sys.getsizeof(real_data) / (1024 * 1024)
+        output['dataset_size'] = sys.getsizeof(real_data) / N_BYTES_IN_MB
 
         LOGGER.info('Running %s on %s dataset %s; iteration %s; %s',
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())

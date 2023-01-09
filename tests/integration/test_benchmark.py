@@ -18,3 +18,11 @@ def test_identity():
         'IndependentSynthesizer',
         'UniformSynthesizer',
     ] == scores.index.tolist()
+
+    quality_scores = output.groupby('Synthesizer').Quality_Score.mean().sort_values()
+
+    assert [
+        'UniformSynthesizer',
+        'IndependentSynthesizer',
+        'DataIdentity',
+    ] == quality_scores.index.tolist()
