@@ -79,7 +79,7 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
         _MODEL = synthesizer_class
         _MODEL_KWARGS = synthesizer_parameters
 
-    NewSynthesizer.__name__ == f'Variant:{display_name}'
+    NewSynthesizer.__name__ = f'Variant:{display_name}'
 
     return NewSynthesizer
 
