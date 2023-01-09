@@ -273,18 +273,19 @@ def _run_on_dask(jobs, verbose):
     return dask.compute(*persisted)
 
 
-def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAULT_DATASETS,
-                           additional_datasets_folder=None, limit_dataset_size=False,
-                           evaluate_quality=True, sdmetrics=DEFAULT_METRICS,
-                           timeout=None, output_filepath=None, detailed_results_folder=None,
-                           show_progress=False, multi_processing_config=None):
+def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
+                           sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
+                           limit_dataset_size=False, evaluate_quality=True,
+                           sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
+                           detailed_results_folder=None, show_progress=False,
+                           multi_processing_config=None):
     """Run the SDGym benchmark on single-table datasets.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
     synthesizers or a dict containing synthesizer names as keys and synthesizers as values.
 
     Args:
-        synthesizers (list[class]):
+        synthesizers (list[string]):
             The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer, FASTMLPreset,
             CTGANSynthesizer]``. The available options are:
 
@@ -295,6 +296,10 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
                 - ``FASTMLPreset``
                 - any custom created synthesizer or variant
 
+        custom_synthesizers (list[class]):
+            A list of custom synthesizer classes to use. These can be completely custom or
+            they can be synthesizer variants (the output from ``create_single_table_synthesizer``
+            or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
         sdv_datasets (list[str] or ``None``):
             Names of the SDV demo datasets to use for the benchmark. Defaults to
             ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
@@ -343,6 +348,10 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, sdv_datasets=DEFAU
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
     synthesizers = get_synthesizers(synthesizers)
+    if custom_synthesizers:
+        custom_synthesizers = get_synthesizers(custom_synthesizers)
+        synthesizers.extend(custom_synthesizers)
+
     datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
     if additional_datasets_folder:
         additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
