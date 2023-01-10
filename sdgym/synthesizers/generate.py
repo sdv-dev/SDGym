@@ -20,10 +20,13 @@ SYNTHESIZER_MAPPING = {
 }
 
 
-def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
+def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
     """Create a new synthesizer that is a variant of an SDV tabular synthesizer.
 
     Args:
+        display_name (string):
+            A string with the name of this synthesizer, used for display purposes only
+            when the results are generated.
         synthesizer_class (string):
             The name of the SDV synthesizer class. The available options are:
 
@@ -76,13 +79,19 @@ def create_sdv_synthesizer_variant(synthesizer_class, synthesizer_parameters):
         _MODEL = synthesizer_class
         _MODEL_KWARGS = synthesizer_parameters
 
+    NewSynthesizer.__name__ = f'Variant:{display_name}'
+
     return NewSynthesizer
 
 
-def create_single_table_synthesizer(get_trained_synthesizer_fn, sample_from_synthesizer_fn):
+def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
+                                    sample_from_synthesizer_fn):
     """Create a new single-table synthesizer.
 
     Args:
+        display_name(string):
+            A string with the name of this synthesizer, used for display purposes only when
+            the results are generated
         get_trained_synthesizer_fn (callable):
             A function to generate and train a synthesizer, given the real data and metadata.
         sample_from_synthesizer (callable):
@@ -132,13 +141,19 @@ def create_single_table_synthesizer(get_trained_synthesizer_fn, sample_from_synt
             """
             return sample_from_synthesizer_fn(synthesizer, num_samples)
 
+    NewSynthesizer.__name__ = f'Custom:{display_name}'
+
     return NewSynthesizer
 
 
-def create_multi_table_synthesizer(get_trained_synthesizer_fn, sample_from_synthesizer_fn):
+def create_multi_table_synthesizer(display_name, get_trained_synthesizer_fn,
+                                   sample_from_synthesizer_fn):
     """Create a new multi-table synthesizer.
 
     Args:
+        display_name(string):
+            A string with the name of this synthesizer, used for display purposes only when
+            the results are generated
         get_trained_synthesizer_fn (callable):
             A function to generate and train a synthesizer, given the real data and metadata.
         sample_from_synthesizer (callable):
@@ -186,13 +201,19 @@ def create_multi_table_synthesizer(get_trained_synthesizer_fn, sample_from_synth
             """
             return sample_from_synthesizer_fn(synthesizer)
 
+    NewSynthesizer.__name__ = f'Custom:{display_name}'
+
     return NewSynthesizer
 
 
-def create_sequential_synthesizer(get_trained_synthesizer_fn, sample_from_synthesizer_fn):
+def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
+                                  sample_from_synthesizer_fn):
     """Create a new sequential synthesizer.
 
     Args:
+        display_name(string):
+            A string with the name of this synthesizer, used for display purposes only when
+            the results are generated
         get_trained_synthesizer_fn (callable):
             A function to generate and train a synthesizer, given the real data and metadata.
         sample_from_synthesizer (callable):
@@ -241,5 +262,7 @@ def create_sequential_synthesizer(get_trained_synthesizer_fn, sample_from_synthe
                     The synthetic data. A mapping of table names to table data.
             """
             return sample_from_synthesizer_fn(synthesizer, n_sequences)
+
+    NewSynthesizer.__name__ = f'Custom:{display_name}'
 
     return NewSynthesizer
