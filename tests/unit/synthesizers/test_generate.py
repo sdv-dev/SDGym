@@ -4,8 +4,8 @@ import pytest
 
 from sdgym.synthesizers import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 from sdgym.synthesizers.generate import (
-    create_multi_table_synthesizer, create_sdv_synthesizer_variant, create_sequential_synthesizer,
-    create_single_table_synthesizer)
+    SYNTHESIZER_MAPPING, create_multi_table_synthesizer, create_sdv_synthesizer_variant,
+    create_sequential_synthesizer, create_single_table_synthesizer)
 
 
 def test_create_single_table_synthesizer():
@@ -55,7 +55,7 @@ def test_create_sdv_variant_synthesizer():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out._MODEL == synthesizer_class
+    assert out._MODEL == SYNTHESIZER_MAPPING.get(synthesizer_class)
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert issubclass(out, SDVTabularSynthesizer)
 
@@ -93,7 +93,7 @@ def test_create_sdv_variant_synthesizer_relational():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out._MODEL == synthesizer_class
+    assert out._MODEL == SYNTHESIZER_MAPPING.get(synthesizer_class)
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert issubclass(out, SDVRelationalSynthesizer)
 
@@ -112,6 +112,6 @@ def test_create_sdv_variant_synthesizer_preset():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out._MODEL == synthesizer_class
+    assert out._MODEL == SYNTHESIZER_MAPPING.get(synthesizer_class)
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert issubclass(out, FastMLPreset)
