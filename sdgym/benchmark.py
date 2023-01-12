@@ -468,6 +468,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
     scores = pd.concat(scores, ignore_index=True)
 
     if output_filepath:
-        write_csv(scores, output_filepath)
+        write_csv(scores, output_filepath, None, None)
 
     return scores
