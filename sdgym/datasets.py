@@ -135,8 +135,10 @@ def get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None)
     for content in response['Contents']:
         key = content['Key']
         metadata = s3.head_object(Bucket=bucket, Key=key)['ResponseMetadata']['HTTPHeaders']
-        size = float(metadata['x-amz-meta-size-mb'])
-        num_tables = int(metadata['x-amz-meta-num-tables'])
+        size = metadata.get('x-amz-meta-size-mb')
+        size = float(size) if size is not None else size
+        num_tables = metadata.get('x-amz-meta-num-tables')
+        num_tables = int(num_tables) if num_tables is not None else num_tables
         if key.endswith('.zip'):
             datasets.append({
                 'dataset_name': key[:-len('.zip')].lstrip(f'{modality.upper()}/'),
@@ -172,11 +174,14 @@ def get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret):
 
     datasets_path = Path(datasets_path)
     if datasets is None:
-        if datasets_path.exists():
-            datasets = list(datasets_path.iterdir())
-
-        if not datasets:
-            datasets = get_available_datasets('single_table')['dataset_name'].tolist()
+        if Path(bucket).exists():
+            datasets = [
+                dataset for dataset in list(Path(bucket).iterdir())
+                if not dataset.name.startswith('.')
+            ]
+        else:
+            datasets = get_available_datasets(
+                'single_table', bucket=bucket)['dataset_name'].tolist()
 
     return [
         _get_dataset_path('single_table', dataset, datasets_path, bucket, aws_key, aws_secret)
