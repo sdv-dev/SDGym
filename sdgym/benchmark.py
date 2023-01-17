@@ -407,7 +407,10 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         custom_synthesizers = get_synthesizers(custom_synthesizers)
         synthesizers.extend(custom_synthesizers)
 
-    datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
+    datasets = []
+    if sdv_datasets is not None:
+        datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
+
     if additional_datasets_folder:
         additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
         datasets.extend(additional_datasets)
@@ -468,6 +471,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
     scores = pd.concat(scores, ignore_index=True)
 
     if output_filepath:
-        write_csv(scores, output_filepath)
+        write_csv(scores, output_filepath, None, None)
 
     return scores
