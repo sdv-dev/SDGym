@@ -27,11 +27,12 @@ install_requires = [
     "scipy>=1.5.4,<2;python_version<'3.10'",
     "scipy>=1.9.2,<2;python_version>='3.10'",
     'tabulate>=0.8.3,<0.9',
-    'torch>=1.8.0,<2',
+    "torch>=1.8.0,<2;python_version<'3.10'",
+    "torch>=1.11.0,<2;python_version>='3.10'",
     'tqdm>=4.15,<5',
     'XlsxWriter>=1.2.8,<4',
-    'rdt>=1.2.1,<2.0',
-    'sdmetrics>=0.7.0,<1.0',
+    'rdt>=1.3.0.dev2,<2.0',
+    'sdmetrics>=0.9.0.dev0,<1.0',
     'sdv>=0.17.1',
 ]
 
@@ -46,8 +47,8 @@ setup_requires = [
 ]
 
 tests_require = [
-    'pytest>=3.4.2',
-    'pytest-cov>=2.6.0',
+    'pytest>=6.2.5,<7',
+    'pytest-cov>=2.6.0,<3',
     'jupyter>=1.0.0,<2',
     'rundoc>=0.4.3,<0.5',
 ]
@@ -92,7 +93,6 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     description=(
@@ -117,7 +117,7 @@ setup(
     keywords='machine learning synthetic data generation benchmark generative models',
     name='sdgym',
     packages=find_packages(include=['sdgym', 'sdgym.*']),
-    python_requires='>=3.7,<3.12',
+    python_requires='>=3.7,<3.11',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
