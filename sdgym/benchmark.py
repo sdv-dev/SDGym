@@ -245,28 +245,32 @@ def _run_job(args):
     LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; iteration %s; %s',
                 name, metadata.modality, dataset_name, timeout, iteration, used_memory())
 
-    if timeout:
-        output = _score_with_timeout(
-            timeout,
-            synthesizer,
-            metadata,
-            metrics,
-            iteration,
-            max_rows=max_rows,
-            evaluate_quality=evaluate_quality,
-        )
-    else:
-        output = _score(
-            synthesizer,
-            metadata,
-            metrics,
-            iteration,
-            max_rows=max_rows,
-            evaluate_quality=evaluate_quality,
-        )
+    output = {}
+    try:
+        if timeout:
+            output = _score_with_timeout(
+                timeout,
+                synthesizer,
+                metadata,
+                metrics,
+                iteration,
+                max_rows=max_rows,
+                evaluate_quality=evaluate_quality,
+            )
+        else:
+            output = _score(
+                synthesizer,
+                metadata,
+                metrics,
+                iteration,
+                max_rows=max_rows,
+                evaluate_quality=evaluate_quality,
+            )
+    except Exception as error:
+        output['exception'] = error
 
-    evaluate_time = 0
-    for score in output.get('scores'):
+    evaluate_time = 0 if 'scores' in output else None
+    for score in output.get('scores', []):
         if score['metric'] == 'NewRowSynthesis':
             evaluate_time += score['metric_time']
 
@@ -284,7 +288,7 @@ def _run_job(args):
     if evaluate_quality:
         scores.insert(len(scores.columns), 'Quality_Score', output.get('quality_score'))
 
-    for score in output.get('scores'):
+    for score in output.get('scores', []):
         scores.insert(len(scores.columns), score['metric'], score['normalized_score'])
 
     if 'error' in output:
