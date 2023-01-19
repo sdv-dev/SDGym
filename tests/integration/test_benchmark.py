@@ -29,6 +29,20 @@ def test_identity():
     ] == quality_scores.index.tolist()
 
 
+def test_benchmarking_no_metrics():
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
+        sdmetrics=[],
+    )
+
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    # Expect no metric columns.
+    assert len(output.columns) == 9
+
+
 def get_trained_synthesizer_err(data, metadata):
     return {}
 

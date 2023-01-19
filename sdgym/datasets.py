@@ -14,20 +14,22 @@ from sdgym.s3 import get_s3_client
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 'sdv-demo-datasets'
+BUCKET = 's3://sdv-demo-datasets'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
 MODALITIES = ['single_table', 'multi_table', 'sequential']
+S3_PREFIX = 's3://'
 
 
 def download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
                      aws_secret=None):
     datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
+    bucket_name = bucket[len(S3_PREFIX):] if bucket.startswith(S3_PREFIX) else bucket
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
     s3 = get_s3_client(aws_key, aws_secret)
-    obj = s3.get_object(Bucket=bucket, Key=f'{modality.upper()}/{dataset_name}.zip')
+    obj = s3.get_object(Bucket=bucket_name, Key=f'{modality.upper()}/{dataset_name}.zip')
     bytes_io = io.BytesIO(obj['Body'].read())
 
     LOGGER.info('Extracting dataset into %s', datasets_path)
@@ -46,9 +48,10 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     if dataset_path.exists():
         return dataset_path
 
-    local_path = Path(bucket) / dataset if bucket else Path(dataset)
-    if local_path.exists():
-        return local_path
+    if not bucket.startswith(S3_PREFIX):
+        local_path = Path(bucket) / dataset if bucket else Path(dataset)
+        if local_path.exists():
+            return local_path
 
     download_dataset(
         modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
@@ -130,11 +133,12 @@ def get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None)
 
     s3 = get_s3_client(aws_key, aws_secret)
     bucket = bucket or BUCKET
-    response = s3.list_objects(Bucket=bucket, Prefix=modality.upper())
+    bucket_name = bucket[len(S3_PREFIX):]
+    response = s3.list_objects(Bucket=bucket_name, Prefix=modality.upper())
     datasets = []
     for content in response['Contents']:
         key = content['Key']
-        metadata = s3.head_object(Bucket=bucket, Key=key)['ResponseMetadata']['HTTPHeaders']
+        metadata = s3.head_object(Bucket=bucket_name, Key=key)['ResponseMetadata']['HTTPHeaders']
         size = metadata.get('x-amz-meta-size-mb')
         size = float(size) if size is not None else size
         num_tables = metadata.get('x-amz-meta-num-tables')
@@ -169,12 +173,16 @@ def get_downloaded_datasets(datasets_path=None):
 
 def get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret):
     """Build the full path to datasets and ensure they exist."""
+    bucket = bucket or BUCKET
+    is_remote = bucket.startswith(S3_PREFIX)
+
     if datasets_path is None:
         datasets_path = DATASETS_PATH
 
     datasets_path = Path(datasets_path)
     if datasets is None:
-        if Path(bucket).exists():
+        # local path
+        if not is_remote and Path(bucket).exists():
             datasets = [
                 dataset for dataset in list(Path(bucket).iterdir())
                 if not dataset.name.startswith('.')
