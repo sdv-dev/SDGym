@@ -25,7 +25,7 @@ from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSyn
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_size, get_synthesizers, import_object, used_memory)
+    build_synthesizer, format_exception, get_size_of, get_synthesizers, import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
@@ -83,7 +83,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     tracemalloc.start()
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
-    synthesizer_size = get_size(synthesizer_obj) / N_BYTES_IN_MB
+    synthesizer_size = get_size_of(synthesizer_obj) / N_BYTES_IN_MB
     train_now = datetime.utcnow()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
     sample_now = datetime.utcnow()
@@ -177,7 +177,7 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
         real_data = load_tables(metadata, max_rows)
-        output['dataset_size'] = get_size(real_data) / N_BYTES_IN_MB
+        output['dataset_size'] = get_size_of(real_data) / N_BYTES_IN_MB
 
         LOGGER.info('Running %s on %s dataset %s; iteration %s; %s',
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())

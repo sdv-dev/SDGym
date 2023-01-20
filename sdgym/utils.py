@@ -233,13 +233,13 @@ def build_synthesizer(synthesizer, synthesizer_dict):
     return _synthesizer_fit_function, _synthesizer_sample_function
 
 
-def get_size(obj, seen=None):
+def get_size_of(obj, obj_ids=None):
     """Get the memory used by a given object in bytes.
 
     Args:
         obj (object):
             The object to get the size of.
-        seen (set):
+        obj_ids (set):
             The ids of the objects that have already been evaluated.
 
     Returns:
@@ -247,22 +247,20 @@ def get_size(obj, seen=None):
             The size in bytes.
     """
     size = sys.getsizeof(obj)
-    if seen is None:
-        seen = set()
-    obj_id = id(obj)
+    if obj_ids is None:
+        obj_ids = set()
 
-    if obj_id in seen:
+    obj_id = id(obj)
+    if obj_id in obj_ids:
         return 0
 
-    seen.add(obj_id)
+    obj_ids.add(obj_id)
     if isinstance(obj, dict):
-        size += sum([get_size(v, seen) for v in obj.values()])
-        size += sum([get_size(k, seen) for k in obj.keys()])
+        size += sum([get_size_of(v, obj_ids) for v in obj.values()])
+        size += sum([get_size_of(k, obj_ids) for k in obj.keys()])
     if isinstance(obj, pd.DataFrame):
         size += obj.memory_usage(index=True).sum()
-    elif hasattr(obj, '__dict__'):
-        size += get_size(obj.__dict__, seen)
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum([get_size(i, seen) for i in obj])
+        size += sum([get_size_of(i, obj_ids) for i in obj])
 
     return size
