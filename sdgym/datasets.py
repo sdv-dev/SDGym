@@ -133,7 +133,9 @@ def get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None)
 
     s3 = get_s3_client(aws_key, aws_secret)
     bucket = bucket or BUCKET
-    bucket_name = bucket[len(S3_PREFIX):]
+    if bucket.startswith(S3_PREFIX):
+        bucket_name = bucket[len(S3_PREFIX):]
+
     response = s3.list_objects(Bucket=bucket_name, Prefix=modality.upper())
     datasets = []
     for content in response['Contents']:

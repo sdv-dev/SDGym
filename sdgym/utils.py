@@ -246,7 +246,7 @@ def get_size_of(obj, obj_ids=None):
         int:
             The size in bytes.
     """
-    size = sys.getsizeof(obj)
+    size = 0
     if obj_ids is None:
         obj_ids = set()
 
@@ -257,7 +257,6 @@ def get_size_of(obj, obj_ids=None):
     obj_ids.add(obj_id)
     if isinstance(obj, dict):
         size += sum([get_size_of(v, obj_ids) for v in obj.values()])
-        size += sum([get_size_of(k, obj_ids) for k in obj.keys()])
     if isinstance(obj, pd.DataFrame):
         size += obj.memory_usage(index=True).sum()
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):

@@ -41,7 +41,7 @@ DEFAULT_DATASETS = [
     'covtype',
 ]
 DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
-N_BYTES_IN_MB = 1024 * 1024
+N_BYTES_IN_MB = 1000 * 1000
 
 
 def _synthesize(synthesizer_dict, real_data, metadata):
