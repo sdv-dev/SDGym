@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import botocore
 
-from sdgym.datasets import _get_dataset_path, download_dataset
+from sdgym.datasets import _get_bucket_name, _get_dataset_path, download_dataset
 
 
 class AnyConfigWith:
@@ -159,3 +159,27 @@ def test__get_dataset_path(mock_path):
 
     # Assert
     assert path == mock_path.return_value
+
+
+def test_get_bucket_name():
+    """Test that the bucket name is returned for s3 path."""
+    # Setup
+    bucket = 's3://bucket-name'
+
+    # Run
+    bucket_name = _get_bucket_name(bucket)
+
+    # Assert
+    assert bucket_name == 'bucket-name'
+
+
+def test_get_bucket_name_local_folder():
+    """Test that the bucket name is returned for a local path."""
+    # Setup
+    bucket = 'bucket-name'
+
+    # Run
+    bucket_name = _get_bucket_name(bucket)
+
+    # Assert
+    assert bucket_name == 'bucket-name'

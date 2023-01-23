@@ -257,9 +257,11 @@ def get_size_of(obj, obj_ids=None):
     obj_ids.add(obj_id)
     if isinstance(obj, dict):
         size += sum([get_size_of(v, obj_ids) for v in obj.values()])
-    if isinstance(obj, pd.DataFrame):
+    elif isinstance(obj, pd.DataFrame):
         size += obj.memory_usage(index=True).sum()
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size_of(i, obj_ids) for i in obj])
+    else:
+        size += sys.getsizeof(obj)
 
     return size

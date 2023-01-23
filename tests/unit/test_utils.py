@@ -12,7 +12,7 @@ def test_get_size_of():
     size = get_size_of(test_obj)
 
     # Assert
-    size == sys.getsizeof(test_obj)
+    assert size == sys.getsizeof('value')
 
 
 def test_get_size_of_nested_obj():
@@ -25,4 +25,4 @@ def test_get_size_of_nested_obj():
     size = get_size_of(test_obj)
 
     # Assert
-    size == sys.getsizeof(test_obj) + sys.getsizeof(test_inner_obj)
+    assert size == sys.getsizeof('value') + sys.getsizeof('inner_value')
