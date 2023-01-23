@@ -112,7 +112,7 @@ def _prepare_metric_args(real_data, synthetic_data, metadata):
     return real_data, synthetic_data, metadata
 
 
-def _compute_scores(metrics, real_data, synthetic_data, metadata, output, evaluate_quality):
+def _compute_scores(metrics, real_data, synthetic_data, metadata, output, compute_quality_score):
     metrics = metrics or []
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, metadata)
@@ -148,7 +148,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, evalua
             })
             output['scores'] = scores  # re-inject list to multiprocessing output
 
-    if evaluate_quality:
+    if compute_quality_score:
         start = datetime.utcnow()
         if metadata.modality == 'single-table':
             quality_report = SingleTableQualityReport()
@@ -168,7 +168,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, evalua
 
 
 def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None,
-           evaluate_quality=False):
+           compute_quality_score=False):
     if output is None:
         output = {}
 
@@ -196,7 +196,8 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
 
         del output['error']   # No error so far. _compute_scores tracks its own errors by metric
-        _compute_scores(metrics, real_data, synthetic_data, metadata, output, evaluate_quality)
+        _compute_scores(
+            metrics, real_data, synthetic_data, metadata, output, compute_quality_score)
 
         output['timeout'] = False  # There was no timeout
 
@@ -216,12 +217,20 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
 
 
 def _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration, max_rows=None,
-                        evaluate_quality=False):
+                        compute_quality_score=False):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
         process = multiprocessing.Process(
             target=_score,
-            args=(synthesizer, metadata, metrics, iteration, output, max_rows, evaluate_quality),
+            args=(
+                synthesizer,
+                metadata,
+                metrics,
+                iteration,
+                output,
+                max_rows,
+                compute_quality_score,
+            ),
         )
 
         process.start()
@@ -241,7 +250,7 @@ def _run_job(args):
     np.random.seed()
 
     synthesizer, metadata, metrics, iteration, cache_dir, \
-        timeout, run_id, max_rows, evaluate_quality = args
+        timeout, run_id, max_rows, compute_quality_score = args
 
     name = synthesizer['name']
     dataset_name = metadata._metadata['name']
@@ -259,7 +268,7 @@ def _run_job(args):
                 metrics,
                 iteration,
                 max_rows=max_rows,
-                evaluate_quality=evaluate_quality,
+                compute_quality_score=compute_quality_score,
             )
         else:
             output = _score(
@@ -268,7 +277,7 @@ def _run_job(args):
                 metrics,
                 iteration,
                 max_rows=max_rows,
-                evaluate_quality=evaluate_quality,
+                compute_quality_score=compute_quality_score,
             )
     except Exception as error:
         output['exception'] = error
@@ -292,7 +301,7 @@ def _run_job(args):
         'Evaluate_Time': [evaluate_time],
     })
 
-    if evaluate_quality:
+    if compute_quality_score:
         scores.insert(len(scores.columns), 'Quality_Score', output.get('quality_score'))
 
     for score in output.get('scores', []):
@@ -341,7 +350,7 @@ def _run_on_dask(jobs, verbose):
 
 def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
                            sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
-                           limit_dataset_size=False, evaluate_quality=True,
+                           limit_dataset_size=False, compute_quality_score=True,
                            sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
                            detailed_results_folder=None, show_progress=False,
                            multi_processing_config=None):
@@ -377,7 +386,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
             limit the size of every table to 1,000 rows (randomly sampled) and the first 10
             columns.
-        evaluate_quality (bool):
+        compute_quality_score (bool):
             Whether or not to evaluate an overall quality score.
         sdmetrics (list[str]):
             A list of the different SDMetrics to use. If you'd like to input specific parameters
@@ -405,6 +414,18 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
+    if output_filepath and os.path.exists(output_filepath):
+        raise ValueError(
+            f'{output_filepath} already exists. '
+            'Please provide a file that does not already exist.'
+        )
+
+    if detailed_results_folder and os.path.exists(detailed_results_folder):
+        raise ValueError(
+            f'{detailed_results_folder} already exists. '
+            'Please provide a folder that does not already exist.'
+        )
+
     if detailed_results_folder and not is_s3_path(detailed_results_folder):
         detailed_results_folder = Path(detailed_results_folder)
         os.makedirs(detailed_results_folder, exist_ok=True)
@@ -450,7 +471,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             timeout,
             run_id,
             max_rows,
-            evaluate_quality,
+            compute_quality_score,
         )
         job_args.append(args)
 

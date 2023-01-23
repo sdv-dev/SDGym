@@ -2,6 +2,7 @@ import io
 import itertools
 import json
 import logging
+import os
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -80,7 +81,10 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
                  aws_secret=None, max_columns=None):
     dataset_path = _get_dataset_path(
         modality, dataset, datasets_path, bucket, aws_key, aws_secret)
-    with open(dataset_path / 'metadata_v0.json') as metadata_file:
+    metadata_filename = 'metadata.json'
+    if not os.path.exists(f'{dataset_path}/{metadata_filename}'):
+        metadata_filename = 'metadata_v0.json'
+    with open(dataset_path / metadata_filename) as metadata_file:
         metadata_content = json.load(metadata_file)
 
     if max_columns:
@@ -129,7 +133,11 @@ def load_tables(metadata, max_rows=None):
     return real_data
 
 
-def get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
+def get_available_datasets():
+    return _get_available_datasets('single-table')
+
+
+def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
     if modality not in MODALITIES:
         modalities_list = ', '.join(MODALITIES)
         raise ValueError(
