@@ -21,9 +21,10 @@ install_requires = [
     "numpy>=1.23.3,<2;python_version>='3.10'",
     "pandas>=1.1.3,<2;python_version<'3.10'",
     "pandas>=1.5.0,<2;python_version>='3.10'",
-    "pomegranate>=0.14.1,<0.14.7",
+    "pomegranate>=0.14.3,<0.15",
     'psutil>=5.7,<6',
-    'scikit-learn>=0.24,<2',
+    "scikit-learn>=0.24,<2;python_version<'3.10'",
+    "scikit-learn>=1.1.3,<2;python_version>='3.10'",
     "scipy>=1.5.4,<2;python_version<'3.10'",
     "scipy>=1.9.2,<2;python_version>='3.10'",
     'tabulate>=0.8.3,<0.9',
@@ -31,9 +32,9 @@ install_requires = [
     "torch>=1.11.0,<2;python_version>='3.10'",
     'tqdm>=4.15,<5',
     'XlsxWriter>=1.2.8,<4',
-    'rdt>=1.3.0.dev2,<2.0',
-    'sdmetrics>=0.9.0.dev0,<1.0',
-    'sdv>=0.17.1',
+    'rdt>=1.3.0,<2.0',
+    'sdmetrics>=0.9.0,<1.0',
+    'sdv>=0.18.0.dev0',
 ]
 
 
