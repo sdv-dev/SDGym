@@ -4,7 +4,7 @@ import concurrent
 import logging
 import multiprocessing
 import os
-import sys
+import pickle
 import tracemalloc
 import uuid
 from datetime import datetime
@@ -26,7 +26,7 @@ from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSyn
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_synthesizers, import_object, used_memory)
+    build_synthesizer, format_exception, get_size_of, get_synthesizers, import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
@@ -42,7 +42,7 @@ DEFAULT_DATASETS = [
     'covtype',
 ]
 DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
-N_BYTES_IN_MB = 1024 * 1024
+N_BYTES_IN_MB = 1000 * 1000
 
 
 def _synthesize(synthesizer_dict, real_data, metadata):
@@ -84,7 +84,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     tracemalloc.start()
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
-    synthesizer_size = sys.getsizeof(synthesizer_obj) / N_BYTES_IN_MB
+    synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
     train_now = datetime.utcnow()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
     sample_now = datetime.utcnow()
@@ -113,40 +113,43 @@ def _prepare_metric_args(real_data, synthetic_data, metadata):
 
 
 def _compute_scores(metrics, real_data, synthetic_data, metadata, output, evaluate_quality):
-    metrics, metric_kwargs = get_metrics(metrics, metadata)
-    metric_args = _prepare_metric_args(real_data, synthetic_data, metadata)
+    metrics = metrics or []
+    if len(metrics) > 0:
+        metrics, metric_kwargs = get_metrics(metrics, metadata)
+        metric_args = _prepare_metric_args(real_data, synthetic_data, metadata)
 
-    scores = []
-    output['scores'] = scores
-    for metric_name, metric in metrics.items():
-        scores.append({
-            'metric': metric_name,
-            'error': 'Metric Timeout',
-        })
-        output['scores'] = scores  # re-inject list to multiprocessing output
+        scores = []
+        output['scores'] = scores
+        for metric_name, metric in metrics.items():
+            scores.append({
+                'metric': metric_name,
+                'error': 'Metric Timeout',
+            })
+            output['scores'] = scores  # re-inject list to multiprocessing output
 
-        error = None
-        score = None
-        normalized_score = None
-        start = datetime.utcnow()
-        try:
-            LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
-            score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
-            normalized_score = metric.normalize(score)
-        except Exception:
-            LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
-                             metric_name, metadata._metadata['name'])
-            _, error = format_exception()
+            error = None
+            score = None
+            normalized_score = None
+            start = datetime.utcnow()
+            try:
+                LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
+                score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
+                normalized_score = metric.normalize(score)
+            except Exception:
+                LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
+                                 metric_name, metadata._metadata['name'])
+                _, error = format_exception()
 
-        scores[-1].update({
-            'score': score,
-            'normalized_score': normalized_score,
-            'error': error,
-            'metric_time': (datetime.utcnow() - start).total_seconds()
-        })
-        output['scores'] = scores  # re-inject list to multiprocessing output
+            scores[-1].update({
+                'score': score,
+                'normalized_score': normalized_score,
+                'error': error,
+                'metric_time': (datetime.utcnow() - start).total_seconds()
+            })
+            output['scores'] = scores  # re-inject list to multiprocessing output
 
     if evaluate_quality:
+        start = datetime.utcnow()
         if metadata.modality == 'single-table':
             quality_report = SingleTableQualityReport()
             table_name = list(real_data.keys())[0]
@@ -160,6 +163,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, evalua
             quality_report = MultiTableQualityReport()
             quality_report.generate(real_data, synthetic_data, metadata)
 
+        output['quality_score_time'] = (datetime.utcnow() - start).total_seconds()
         output['quality_score'] = quality_report.get_score()
 
 
@@ -174,7 +178,7 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
         real_data = load_tables(metadata, max_rows)
-        output['dataset_size'] = sys.getsizeof(real_data) / N_BYTES_IN_MB
+        output['dataset_size'] = get_size_of(real_data) / N_BYTES_IN_MB
 
         LOGGER.info('Running %s on %s dataset %s; iteration %s; %s',
                     name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
@@ -269,7 +273,10 @@ def _run_job(args):
     except Exception as error:
         output['exception'] = error
 
-    evaluate_time = 0 if 'scores' in output else None
+    evaluate_time = None
+    if 'scores' in output or 'quality_score_time' in output:
+        evaluate_time = output.get('quality_score_time', 0)
+
     for score in output.get('scores', []):
         if score['metric'] == 'NewRowSynthesis':
             evaluate_time += score['metric_time']

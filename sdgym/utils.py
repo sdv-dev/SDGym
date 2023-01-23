@@ -10,6 +10,7 @@ import traceback
 import types
 
 import humanfriendly
+import pandas as pd
 import psutil
 
 from sdgym.errors import SDGymError
@@ -230,3 +231,37 @@ def build_synthesizer(synthesizer, synthesizer_dict):
         return sampled
 
     return _synthesizer_fit_function, _synthesizer_sample_function
+
+
+def get_size_of(obj, obj_ids=None):
+    """Get the memory used by a given object in bytes.
+
+    Args:
+        obj (object):
+            The object to get the size of.
+        obj_ids (set):
+            The ids of the objects that have already been evaluated.
+
+    Returns:
+        int:
+            The size in bytes.
+    """
+    size = 0
+    if obj_ids is None:
+        obj_ids = set()
+
+    obj_id = id(obj)
+    if obj_id in obj_ids:
+        return 0
+
+    obj_ids.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size_of(v, obj_ids) for v in obj.values()])
+    elif isinstance(obj, pd.DataFrame):
+        size += obj.memory_usage(index=True).sum()
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size_of(i, obj_ids) for i in obj])
+    else:
+        size += sys.getsizeof(obj)
+
+    return size

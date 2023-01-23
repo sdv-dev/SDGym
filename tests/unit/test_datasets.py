@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import botocore
 
-from sdgym.datasets import _get_dataset_path, download_dataset
+from sdgym.datasets import _get_bucket_name, _get_dataset_path, download_dataset
 
 
 class AnyConfigWith:
@@ -43,7 +43,7 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
     # setup
     modality = 'single_table'
     dataset = 'my_dataset'
-    bucket = 'my_bucket'
+    bucket = 's3://my_bucket'
     bytesio = io.BytesIO()
 
     with ZipFile(bytesio, mode='w') as zf:
@@ -73,7 +73,7 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
         config=AnyConfigWith(botocore.UNSIGNED)
     )
     s3_mock.get_object.assert_called_once_with(
-        Bucket=bucket, Key=f'{modality.upper()}/{dataset}.zip')
+        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip')
     with open(f'{tmpdir}/{dataset}') as dataset_file:
         assert dataset_file.read() == 'test_content'
 
@@ -106,7 +106,7 @@ def test_download_dataset_private_bucket(boto3_mock, tmpdir):
     # setup
     modality = 'single_table'
     dataset = 'my_dataset'
-    bucket = 'my_bucket'
+    bucket = 's3://my_bucket'
     aws_key = 'my_key'
     aws_secret = 'my_secret'
     bytesio = io.BytesIO()
@@ -140,7 +140,7 @@ def test_download_dataset_private_bucket(boto3_mock, tmpdir):
         aws_secret_access_key=aws_secret
     )
     s3_mock.get_object.assert_called_once_with(
-        Bucket=bucket, Key=f'{modality.upper()}/{dataset}.zip')
+        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip')
     with open(f'{tmpdir}/{dataset}') as dataset_file:
         assert dataset_file.read() == 'test_content'
 
@@ -159,3 +159,27 @@ def test__get_dataset_path(mock_path):
 
     # Assert
     assert path == mock_path.return_value
+
+
+def test_get_bucket_name():
+    """Test that the bucket name is returned for s3 path."""
+    # Setup
+    bucket = 's3://bucket-name'
+
+    # Run
+    bucket_name = _get_bucket_name(bucket)
+
+    # Assert
+    assert bucket_name == 'bucket-name'
+
+
+def test_get_bucket_name_local_folder():
+    """Test that the bucket name is returned for a local path."""
+    # Setup
+    bucket = 'bucket-name'
+
+    # Run
+    bucket_name = _get_bucket_name(bucket)
+
+    # Assert
+    assert bucket_name == 'bucket-name'
