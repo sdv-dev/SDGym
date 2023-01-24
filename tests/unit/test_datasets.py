@@ -4,7 +4,8 @@ from zipfile import ZipFile
 
 import botocore
 
-from sdgym.datasets import _get_bucket_name, _get_dataset_path, download_dataset
+from sdgym.datasets import (
+    _get_bucket_name, _get_dataset_path, download_dataset, get_available_datasets)
 
 
 class AnyConfigWith:
@@ -183,3 +184,13 @@ def test_get_bucket_name_local_folder():
 
     # Assert
     assert bucket_name == 'bucket-name'
+
+
+@patch('sdgym.datasets._get_available_datasets')
+def test_get_available_datasets(helper_mock):
+    """Test that the modality is set to single-table."""
+    # Run
+    get_available_datasets()
+
+    # Assert
+    helper_mock.assert_called_once_with('single-table')
