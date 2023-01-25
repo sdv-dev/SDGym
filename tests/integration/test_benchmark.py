@@ -1,3 +1,6 @@
+import contextlib
+import io
+
 import sdgym
 from sdgym.synthesizers import create_single_table_synthesizer
 
@@ -41,6 +44,18 @@ def test_benchmarking_no_metrics():
     assert 'Sample_Time' in output
     # Expect no metric columns.
     assert len(output.columns) == 9
+
+
+def test_benchmarking_no_report_output():
+    """Test that the benchmarking printing does not include report progress."""
+    prints = io.StringIO()
+    with contextlib.redirect_stderr(prints):
+        sdgym.benchmark_single_table(
+            synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+            sdv_datasets=['student_placements'],
+        )
+
+    assert 'Creating report:' not in prints
 
 
 def get_trained_synthesizer_err(data, metadata):
