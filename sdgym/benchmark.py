@@ -167,7 +167,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, comput
         output['quality_score'] = quality_report.get_score()
 
 
-def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None,
+def _score(synthesizer, metadata, metrics, output=None, max_rows=None,
            compute_quality_score=False):
     if output is None:
         output = {}
@@ -180,8 +180,8 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
         real_data = load_tables(metadata, max_rows)
         output['dataset_size'] = get_size_of(real_data) / N_BYTES_IN_MB
 
-        LOGGER.info('Running %s on %s dataset %s; iteration %s; %s',
-                    name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
+        LOGGER.info('Running %s on %s dataset %s; %s',
+                    name, metadata.modality, metadata._metadata['name'], used_memory())
 
         output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
@@ -192,8 +192,8 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
         output['synthesizer_size'] = synthesizer_size
         output['peak_memory'] = peak_memory
 
-        LOGGER.info('Scoring %s on %s dataset %s; iteration %s; %s',
-                    name, metadata.modality, metadata._metadata['name'], iteration, used_memory())
+        LOGGER.info('Scoring %s on %s dataset %s; %s',
+                    name, metadata.modality, metadata._metadata['name'], used_memory())
 
         del output['error']   # No error so far. _compute_scores tracks its own errors by metric
         _compute_scores(
@@ -202,21 +202,21 @@ def _score(synthesizer, metadata, metrics, iteration, output=None, max_rows=None
         output['timeout'] = False  # There was no timeout
 
     except Exception:
-        LOGGER.exception('Error running %s on dataset %s; iteration %s',
-                         name, metadata._metadata['name'], iteration)
+        LOGGER.exception('Error running %s on dataset %s;',
+                         name, metadata._metadata['name'])
         exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
         output['timeout'] = False  # There was no timeout
 
     finally:
-        LOGGER.info('Finished %s on dataset %s; iteration %s; %s',
-                    name, metadata._metadata['name'], iteration, used_memory())
+        LOGGER.info('Finished %s on dataset %s; %s',
+                    name, metadata._metadata['name'], used_memory())
 
     return output
 
 
-def _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration, max_rows=None,
+def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
                         compute_quality_score=False):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
@@ -226,7 +226,6 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration, max_
                 synthesizer,
                 metadata,
                 metrics,
-                iteration,
                 output,
                 max_rows,
                 compute_quality_score,
@@ -239,8 +238,8 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, iteration, max_
 
         output = dict(output)
         if output['timeout']:
-            LOGGER.error('Timeout running %s on dataset %s; iteration %s',
-                         synthesizer['name'], metadata._metadata['name'], iteration)
+            LOGGER.error('Timeout running %s on dataset %s;',
+                         synthesizer['name'], metadata._metadata['name'])
 
         return output
 
@@ -249,14 +248,14 @@ def _run_job(args):
     # Reset random seed
     np.random.seed()
 
-    synthesizer, metadata, metrics, iteration, cache_dir, \
+    synthesizer, metadata, metrics, cache_dir, \
         timeout, run_id, max_rows, compute_quality_score = args
 
     name = synthesizer['name']
     dataset_name = metadata._metadata['name']
 
-    LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; iteration %s; %s',
-                name, metadata.modality, dataset_name, timeout, iteration, used_memory())
+    LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; %s',
+                name, metadata.modality, dataset_name, timeout, used_memory())
 
     output = {}
     try:
@@ -266,7 +265,6 @@ def _run_job(args):
                 synthesizer,
                 metadata,
                 metrics,
-                iteration,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
             )
@@ -275,7 +273,6 @@ def _run_job(args):
                 synthesizer,
                 metadata,
                 metrics,
-                iteration,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
             )
@@ -312,7 +309,7 @@ def _run_job(args):
 
     if cache_dir:
         cache_dir_name = str(cache_dir)
-        base_path = f'{cache_dir_name}/{name}_{dataset_name}_{iteration}_{run_id}'
+        base_path = f'{cache_dir_name}/{name}_{dataset_name}'
         if scores is not None:
             write_csv(scores, f'{base_path}_scores.csv', None, None)
         if 'synthetic_data' in output:
@@ -426,6 +423,18 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             'Please provide a folder that does not already exist.'
         )
 
+    if synthesizers:
+        seen = set()
+        duplicates = set(
+            synthesizer for synthesizer in synthesizers
+            if synthesizer in seen or seen.add(synthesizer)
+        )
+        if len(duplicates) > 0:
+            raise ValueError(
+                'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
+                'and `custom_synthesizers` parameters.'
+            )
+
     if detailed_results_folder and not is_s3_path(detailed_results_folder):
         detailed_results_folder = Path(detailed_results_folder)
         os.makedirs(detailed_results_folder, exist_ok=True)
@@ -450,10 +459,10 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
     job_tuples = list()
     for dataset in datasets:
         for synthesizer in synthesizers:
-            job_tuples.append((synthesizer, dataset, 1))
+            job_tuples.append((synthesizer, dataset))
 
     job_args = list()
-    for synthesizer, dataset, iteration in job_tuples:
+    for synthesizer, dataset in job_tuples:
         metadata = load_dataset('single_table', dataset, max_columns=max_columns)
         dataset_modality = metadata.modality
         synthesizer_modalities = synthesizer.get('modalities')
@@ -466,7 +475,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             synthesizer,
             metadata,
             sdmetrics,
-            iteration,
             detailed_results_folder,
             timeout,
             run_id,
