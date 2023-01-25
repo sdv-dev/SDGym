@@ -1,3 +1,5 @@
+import pytest
+
 import sdgym
 from sdgym.synthesizers import create_single_table_synthesizer
 
@@ -79,3 +81,19 @@ def test_compute_quality_score():
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
     assert 'Quality_Score' not in output
+
+
+def test_duplicate_synthesizers():
+    custom_synthesizer = create_single_table_synthesizer(
+        'my_synth', get_trained_synthesizer_err, sample_from_synthesizer_err)
+    with pytest.raises(
+        ValueError,
+        match=(
+            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
+            'and `custom_synthesizers` parameters.'
+        )
+    ):
+        sdgym.benchmark_single_table(
+            synthesizers=['GaussianCopulaSynthesizer', 'GaussianCopulaSynthesizer'],
+            custom_synthesizers=[custom_synthesizer, custom_synthesizer]
+        )
