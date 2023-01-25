@@ -265,3 +265,21 @@ def get_size_of(obj, obj_ids=None):
         size += sys.getsizeof(obj)
 
     return size
+
+
+def get_duplicates(items):
+    """Get any duplicate items in the given list.
+
+    Args:
+        items (list):
+            The list of items to de-deduplicate.
+
+    Returns:
+        set:
+            The duplicate items.
+    """
+    seen = set()
+    return set(
+        item for item in items
+        if item in seen or seen.add(item)
+    )

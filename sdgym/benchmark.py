@@ -26,7 +26,8 @@ from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSyn
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_size_of, get_synthesizers, import_object, used_memory)
+    build_synthesizer, format_exception, get_duplicates, get_size_of, get_synthesizers,
+    import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
@@ -423,17 +424,14 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             'Please provide a folder that does not already exist.'
         )
 
-    if synthesizers:
-        seen = set()
-        duplicates = set(
-            synthesizer for synthesizer in synthesizers
-            if synthesizer in seen or seen.add(synthesizer)
+    duplicates = get_duplicates(synthesizers) if synthesizers else {}
+    if custom_synthesizers:
+        duplicates.update(get_duplicates(custom_synthesizers))
+    if len(duplicates) > 0:
+        raise ValueError(
+            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
+            'and `custom_synthesizers` parameters.'
         )
-        if len(duplicates) > 0:
-            raise ValueError(
-                'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
-                'and `custom_synthesizers` parameters.'
-            )
 
     if detailed_results_folder and not is_s3_path(detailed_results_folder):
         detailed_results_folder = Path(detailed_results_folder)
