@@ -27,7 +27,8 @@ class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
             if kind == 'O':
                 values = column.sample(self.length, replace=True).values
             else:
-                model = GaussianMixture(5)
+                num_components = min(column.nunique(), 5)
+                model = GaussianMixture(num_components)
                 model.fit(column.values.reshape(-1, 1))
                 values = model.sample(self.length)[0].ravel().clip(column.min(), column.max())
 

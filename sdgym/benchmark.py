@@ -159,10 +159,11 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, comput
             table_synthetic_data = list(synthetic_data.values())[0]
 
             quality_report = SingleTableQualityReport()
-            quality_report.generate(table_real_data, table_synthetic_data, table_metadata)
+            quality_report.generate(
+                table_real_data, table_synthetic_data, table_metadata, verbose=False)
         else:
             quality_report = MultiTableQualityReport()
-            quality_report.generate(real_data, synthetic_data, metadata)
+            quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
 
         output['quality_score_time'] = (datetime.utcnow() - start).total_seconds()
         output['quality_score'] = quality_report.get_score()
