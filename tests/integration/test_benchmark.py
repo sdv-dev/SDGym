@@ -66,3 +66,16 @@ def test_error_handling():
     assert (
         output[output['Synthesizer'] == 'Custom:my_synth'][['Train_Time', 'Sample_Time']]
     ).isna().all(1).all()
+
+
+def test_compute_quality_score():
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
+        compute_quality_score=False,
+    )
+
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    assert 'Quality_Score' not in output
