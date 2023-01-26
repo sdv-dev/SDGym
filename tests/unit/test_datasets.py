@@ -1,11 +1,13 @@
 import io
-from unittest.mock import Mock, patch
+from pathlib import Path
+from unittest.mock import Mock, call, patch
 from zipfile import ZipFile
 
 import botocore
 
 from sdgym.datasets import (
-    _get_bucket_name, _get_dataset_path, download_dataset, get_available_datasets)
+    _get_bucket_name, _get_dataset_path, download_dataset, get_available_datasets,
+    get_dataset_paths)
 
 
 class AnyConfigWith:
@@ -194,3 +196,43 @@ def test_get_available_datasets(helper_mock):
 
     # Assert
     helper_mock.assert_called_once_with('single-table')
+
+
+@patch('sdgym.datasets._get_dataset_path')
+@patch('sdgym.datasets.ZipFile')
+@patch('sdgym.datasets.Path')
+def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
+    """Test that the dataset paths are generated correctly."""
+    # Setup
+    path_mock.return_value.exists.return_value = True
+    local_path = 'test_local_path'
+    dataset_path_mock = Mock()
+    path_mock.return_value = dataset_path_mock
+    path_mock.return_value.iterdir.return_value = [
+        Path('test_local_path/dataset_1.zip'),
+        Path('test_local_path/dataset_2'),
+    ]
+
+    # Run
+    get_dataset_paths(None, None, local_path, None, None)
+
+    # Assert
+    zipfile_mock.return_value.extractall.assert_called_once_with('test_local_path/dataset_1')
+    helper_mock.assert_has_calls([
+        call(
+            'single_table',
+            'test_local_path/dataset_1',
+            dataset_path_mock,
+            'test_local_path',
+            None,
+            None,
+        ),
+        call(
+            'single_table',
+            Path('test_local_path/dataset_2'),
+            dataset_path_mock,
+            'test_local_path',
+            None,
+            None,
+        ),
+    ])

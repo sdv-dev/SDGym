@@ -196,20 +196,18 @@ def get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret):
     if datasets is None:
         # local path
         if not is_remote and Path(bucket).exists():
-            datasets = [
-                dataset for dataset in list(Path(bucket).iterdir())
-                if not dataset.name.startswith('.')
-            ]
-            for dataset in list(Path(bucket).iterdir()):
+            datasets = []
+            folder_items = list(Path(bucket).iterdir())
+            for dataset in folder_items:
                 if not dataset.name.startswith('.'):
                     if dataset.name.endswith('zip'):
                         dataset_path = os.path.splitext(dataset)[0]
-                        ZipFile(dataset).extract_all(dataset_path)
+                        ZipFile(dataset).extractall(dataset_path)
                         datasets.append(dataset_path)
                     else:
                         datasets.append(dataset)
         else:
-            datasets = get_available_datasets(
+            datasets = _get_available_datasets(
                 'single_table', bucket=bucket)['dataset_name'].tolist()
 
     return [
