@@ -202,9 +202,11 @@ def get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret):
                 if not dataset.name.startswith('.'):
                     if dataset.name.endswith('zip'):
                         dataset_path = Path(os.path.splitext(dataset)[0])
-                        ZipFile(dataset).extractall(dataset_path)
+                        if not dataset_path.exists():
+                            ZipFile(dataset).extractall(dataset_path)
+
                         datasets.append(dataset_path)
-                    else:
+                    elif dataset not in datasets:
                         datasets.append(dataset)
         else:
             datasets = _get_available_datasets(

@@ -204,11 +204,12 @@ def test_get_available_datasets(helper_mock):
 def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
     """Test that the dataset paths are generated correctly."""
     # Setup
-    path_mock.return_value.exists.return_value = True
     local_path = 'test_local_path'
     datasets_path_mock = Mock()
     dataset_path_mock = Mock()
+    dataset_path_mock.exists.return_value = False
     bucket_path_mock = Mock()
+    bucket_path_mock.exists.return_value = True
     path_mock.side_effect = [
         datasets_path_mock, bucket_path_mock, bucket_path_mock, dataset_path_mock]
     bucket_path_mock.iterdir.return_value = [
