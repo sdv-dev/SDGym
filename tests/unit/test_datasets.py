@@ -206,9 +206,12 @@ def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
     # Setup
     path_mock.return_value.exists.return_value = True
     local_path = 'test_local_path'
+    datasets_path_mock = Mock()
     dataset_path_mock = Mock()
-    path_mock.return_value = dataset_path_mock
-    path_mock.return_value.iterdir.return_value = [
+    bucket_path_mock = Mock()
+    path_mock.side_effect = [
+        datasets_path_mock, bucket_path_mock, bucket_path_mock, dataset_path_mock]
+    bucket_path_mock.iterdir.return_value = [
         Path('test_local_path/dataset_1.zip'),
         Path('test_local_path/dataset_2'),
     ]
@@ -217,12 +220,12 @@ def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
     get_dataset_paths(None, None, local_path, None, None)
 
     # Assert
-    zipfile_mock.return_value.extractall.assert_called_once_with('test_local_path/dataset_1')
+    zipfile_mock.return_value.extractall.assert_called_once_with(dataset_path_mock)
     helper_mock.assert_has_calls([
         call(
             'single_table',
-            'test_local_path/dataset_1',
             dataset_path_mock,
+            datasets_path_mock,
             'test_local_path',
             None,
             None,
@@ -230,7 +233,7 @@ def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
         call(
             'single_table',
             Path('test_local_path/dataset_2'),
-            dataset_path_mock,
+            datasets_path_mock,
             'test_local_path',
             None,
             None,
