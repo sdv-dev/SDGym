@@ -1,6 +1,6 @@
 import sys
 
-from sdgym.utils import get_size_of
+from sdgym.utils import get_duplicates, get_size_of
 
 
 def test_get_size_of():
@@ -26,3 +26,15 @@ def test_get_size_of_nested_obj():
 
     # Assert
     assert size == sys.getsizeof('value') + sys.getsizeof('inner_value')
+
+
+def test_get_duplicates():
+    """Test that the correct duplicates are returned."""
+    # Setup
+    items = ['a', 'a', 'b', 'c', 'd', 'd', 'd']
+
+    # Run
+    duplicates = get_duplicates(items)
+
+    # Assert
+    assert duplicates == {'a', 'd'}
