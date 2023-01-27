@@ -134,7 +134,7 @@ def load_tables(metadata, max_rows=None):
 
 
 def get_available_datasets():
-    return _get_available_datasets('single-table')
+    return _get_available_datasets('single_table')
 
 
 def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):

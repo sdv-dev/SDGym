@@ -195,7 +195,7 @@ def test_get_available_datasets(helper_mock):
     get_available_datasets()
 
     # Assert
-    helper_mock.assert_called_once_with('single-table')
+    helper_mock.assert_called_once_with('single_table')
 
 
 @patch('sdgym.datasets._get_dataset_path')
