@@ -61,7 +61,7 @@ to use as baselines.
 
 ```python
 # these synthesizers come from the SDV library
-# each use different modeling techniques
+# each one uses different modeling techniques
 sdv_synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
 
 # these basic synthesizers are available in SDGym
