@@ -38,7 +38,6 @@ class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
                 values = column.sample(self.length, replace=True).values
             else:
                 model = gm_models.get(name)
-                model.fit(column.values.reshape(-1, 1))
                 values = model.sample(self.length)[0].ravel().clip(column.min(), column.max())
 
             sampled[name] = values
