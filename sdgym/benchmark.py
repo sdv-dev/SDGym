@@ -500,9 +500,10 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         pool = concurrent.futures.ProcessPoolExecutor(workers)
         scores = pool.map(_run_job, job_args)
 
-    scores = tqdm.tqdm(scores, total=len(job_args), file=TqdmLogger(), position=0, leave=True)
     if show_progress:
         scores = tqdm.tqdm(scores, total=len(job_args), position=0, leave=True)
+    else:
+        scores = tqdm.tqdm(scores, total=len(job_args), file=TqdmLogger(), position=0, leave=True)
 
     if not scores:
         raise SDGymError("No valid Dataset/Synthesizer combination given")
