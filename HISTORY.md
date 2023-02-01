@@ -1,6 +1,6 @@
 # History
 
-## v0.6.0 - 2021-02-01
+## v0.6.0 - 2023-02-01
 This release introduces methods for benchmarking single table data and creating custom synthesizers, which can be based on existing SDGym-defined synthesizers or on user-defined functions. This release also adds support for Python 3.10 and drops support for Python 3.6.
 
 ### New Features
