@@ -9,7 +9,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader, TensorDataset
 
 from sdgym.constants import CATEGORICAL
-from sdgym.synthesizers.base import LegacySingleTableBaseline
+from sdgym.synthesizers.base import LegacySingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import TableganTransformer, select_device
 
 
@@ -116,8 +116,8 @@ def weights_init(m):
         init.constant_(m.bias.data, 0)
 
 
-class TableGAN(LegacySingleTableBaseline):
-    """docstring for TableganSynthesizer??"""
+class TableGANSynthesizer(LegacySingleTableBaselineSynthesizer):
+    """docstring for TableganSynthesizer"""
 
     def __init__(self,
                  random_dim=100,

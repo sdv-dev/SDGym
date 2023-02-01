@@ -10,10 +10,11 @@ import traceback
 import types
 
 import humanfriendly
+import pandas as pd
 import psutil
 
 from sdgym.errors import SDGymError
-from sdgym.synthesizers.base import Baseline
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ def _get_synthesizer_name(synthesizer):
     if isinstance(synthesizer, types.MethodType):
         synthesizer_name = synthesizer.__self__.__class__.__name__
     else:
-        synthesizer_name = synthesizer.__name__
+        synthesizer_name = getattr(synthesizer, '__name__', 'undefined')
 
     return synthesizer_name
 
@@ -82,7 +83,7 @@ def _get_synthesizer(synthesizer, name=None):
             with open(synthesizer, 'r') as json_file:
                 return json.load(json_file)
 
-        baselines = Baseline.get_subclasses(include_parents=True)
+        baselines = BaselineSynthesizer.get_subclasses(include_parents=True)
         if synthesizer in baselines:
             LOGGER.info('Trying to import synthesizer by name.')
             synthesizer = baselines[synthesizer]
@@ -110,16 +111,17 @@ def _get_synthesizer(synthesizer, name=None):
     }
 
 
-def get_synthesizers(synthesizers):
+def get_synthesizers(synthesizers=None):
     """Get the dict of synthesizers from the input value.
 
     If the input is a synthesizer or an iterable of synthesizers, get their names
-    and put them on a dict.
+    and put them on a dict. If None is given, get all the available synthesizers.
 
     Args:
-        synthesizers (function, class, list, tuple or dict):
+        synthesizers (function, class, list, tuple, dict or None):
             A synthesizer (function or method or class) or an iterable of synthesizers
             or a dict containing synthesizer names as keys and synthesizers as values.
+            If no synthesizers are given, all the available ones are returned.
 
     Returns:
         dict[str, function]:
@@ -129,10 +131,13 @@ def get_synthesizers(synthesizers):
         TypeError:
             if neither a synthesizer or an iterable or a dict is passed.
     """
-    if callable(synthesizers):
+    if callable(synthesizers) or isinstance(synthesizers, tuple):
         return [_get_synthesizer(synthesizers)]
 
-    if isinstance(synthesizers, (list, tuple)):
+    if not synthesizers:
+        synthesizers = BaselineSynthesizer.get_baselines()
+
+    if isinstance(synthesizers, list):
         return [
             _get_synthesizer(synthesizer)
             for synthesizer in synthesizers
@@ -191,7 +196,7 @@ def build_synthesizer(synthesizer, synthesizer_dict):
 
     _synthesizer_dict = copy.deepcopy(synthesizer_dict)
 
-    def _synthesizer_function(real_data, metadata):
+    def _synthesizer_fit_function(real_data, metadata):
         metadata_keyword = _synthesizer_dict.get('metadata', '$metadata')
         real_data_keyword = _synthesizer_dict.get('real_data', '$real_data')
         device_keyword = _synthesizer_dict.get('device', '$device')
@@ -218,11 +223,63 @@ def build_synthesizer(synthesizer, synthesizer_dict):
             setattr(instance, device_attribute, device)
 
         instance.fit(**fit_kwargs)
+        return instance
 
+    def _synthesizer_sample_function(instance, n_samples=None):
         sampled = instance.sample()
-        if not multi_table:
-            sampled = {table: sampled}
 
         return sampled
 
-    return _synthesizer_function
+    return _synthesizer_fit_function, _synthesizer_sample_function
+
+
+def get_size_of(obj, obj_ids=None):
+    """Get the memory used by a given object in bytes.
+
+    Args:
+        obj (object):
+            The object to get the size of.
+        obj_ids (set):
+            The ids of the objects that have already been evaluated.
+
+    Returns:
+        int:
+            The size in bytes.
+    """
+    size = 0
+    if obj_ids is None:
+        obj_ids = set()
+
+    obj_id = id(obj)
+    if obj_id in obj_ids:
+        return 0
+
+    obj_ids.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size_of(v, obj_ids) for v in obj.values()])
+    elif isinstance(obj, pd.DataFrame):
+        size += obj.memory_usage(index=True).sum()
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size_of(i, obj_ids) for i in obj])
+    else:
+        size += sys.getsizeof(obj)
+
+    return size
+
+
+def get_duplicates(items):
+    """Get any duplicate items in the given list.
+
+    Args:
+        items (list):
+            The list of items to de-deduplicate.
+
+    Returns:
+        set:
+            The duplicate items.
+    """
+    seen = set()
+    return set(
+        item for item in items
+        if item in seen or seen.add(item)
+    )

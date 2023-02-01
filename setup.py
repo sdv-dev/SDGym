@@ -17,39 +17,30 @@ install_requires = [
     'botocore>=1.18,<2',
     'compress-pickle>=1.2.0,<3',
     'humanfriendly>=8.2,<11',
-    "numpy>=1.18.0,<1.20.0;python_version<'3.7'",
-    "numpy>=1.20.0,<2;python_version>='3.7'",
-    'pandas>=1.1.3,<2',
-    "pomegranate>=0.13.4,<0.14.2;python_version<'3.7'",
-    "pomegranate>=0.14.1,<0.15;python_version>='3.7'",
+    "numpy>=1.20.0,<2;python_version<'3.10'",
+    "numpy>=1.23.3,<2;python_version>='3.10'",
+    "pandas>=1.1.3,<2;python_version<'3.10'",
+    "pandas>=1.5.0,<2;python_version>='3.10'",
+    "pomegranate>=0.14.3,<0.15",
     'psutil>=5.7,<6',
-    'scikit-learn>=0.24,<2',
-    'scipy>=1.5.4,<2',
+    "scikit-learn>=0.24,<2;python_version<'3.10'",
+    "scikit-learn>=1.1.3,<2;python_version>='3.10'",
+    "scipy>=1.5.4,<2;python_version<'3.10'",
+    "scipy>=1.9.2,<2;python_version>='3.10'",
     'tabulate>=0.8.3,<0.9',
-    'torch>=1.8.0,<2',
+    "torch>=1.8.0,<2;python_version<'3.10'",
+    "torch>=1.11.0,<2;python_version>='3.10'",
     'tqdm>=4.15,<5',
     'XlsxWriter>=1.2.8,<4',
-    'rdt>=0.6.1,<0.7',
-    'sdmetrics>=0.4.1,<0.5',
-    'sdv>=0.13.0',
+    'rdt>=1.3.0,<2.0',
+    'sdmetrics>=0.9.0,<1.0',
+    'sdv>=0.18.0',
 ]
 
 
 dask_requires = [
     'dask',
     'distributed',
-]
-
-
-ydata_requires = [
-    # preferably install using make install-ydata
-    'ydata-synthetic>=0.3.0,<0.4',
-]
-
-gretel_requires = [
-    'gretel-synthetics>=0.15.4,<0.16',
-    'tensorflow==2.4.0rc1',
-    'wheel~=0.35',
 ]
 
 setup_requires = [
@@ -91,23 +82,22 @@ development_requires = [
 ]
 
 setup(
-    author='MIT Data To AI Lab',
-    author_email='dailabmit@gmail.com',
+    author='DataCebo, Inc.',
+    author_email='info@sdv.dev',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
+        'License :: Free for non-commercial use',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     description=(
-        'A framework to benchmark the performance of synthetic data generators '
-        'for non-temporal tabular data'
+        'Benchmark tabular synthetic data generators using a variety of datasets'
     ),
     entry_points={
         'console_scripts': [
@@ -115,25 +105,24 @@ setup(
         ],
     },
     extras_require={
-        'all': development_requires + tests_require + dask_requires + gretel_requires,
+        'all': development_requires + tests_require + dask_requires,
         'dev': development_requires + tests_require + dask_requires,
         'test': tests_require,
-        'gretel': gretel_requires,
         'dask': dask_requires,
     },
     include_package_data=True,
     install_requires=install_requires,
-    license='MIT license',
+    license='BSL-1.1',
     long_description=readme + '\n\n' + history,
     long_description_content_type='text/markdown',
     keywords='machine learning synthetic data generation benchmark generative models',
     name='sdgym',
     packages=find_packages(include=['sdgym', 'sdgym.*']),
-    python_requires='>=3.6,<3.10',
+    python_requires='>=3.7,<3.11',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.5.0',
+    version='0.6.0.dev2',
     zip_safe=False,
 )

@@ -2,32 +2,43 @@ import pandas as pd
 from sdv.metadata import Table
 from sklearn.mixture import GaussianMixture
 
-from sdgym.synthesizers.base import MultiSingleTableBaseline
+from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
 
 
-class Independent(MultiSingleTableBaseline):
+class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
     """Synthesizer that learns each column independently.
 
     Categorical columns are sampled using empirical frequencies.
     Continuous columns are learned and sampled using a GMM.
     """
 
-    @staticmethod
-    def _fit_sample(real_data, metadata):
+    def _get_trained_synthesizer(self, real_data, metadata):
         metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
         metadata.fit(real_data)
         transformed = metadata.transform(real_data)
+        self.length = len(real_data)
 
+        gm_models = {}
+        for name, column in transformed.items():
+            kind = column.dtype.kind
+            if kind != 'O':
+                num_components = min(column.nunique(), 5)
+                model = GaussianMixture(num_components)
+                model.fit(column.values.reshape(-1, 1))
+                gm_models[name] = model
+
+        return (metadata, transformed, gm_models)
+
+    def _sample_from_synthesizer(self, synthesizer, n_samples):
+        metadata, transformed, gm_models = synthesizer
         sampled = pd.DataFrame()
-        length = len(real_data)
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'O':
-                values = column.sample(length, replace=True).values
+                values = column.sample(self.length, replace=True).values
             else:
-                model = GaussianMixture(5)
-                model.fit(column.values.reshape(-1, 1))
-                values = model.sample(length)[0].ravel().clip(column.min(), column.max())
+                model = gm_models.get(name)
+                values = model.sample(self.length)[0].ravel().clip(column.min(), column.max())
 
             sampled[name] = values
 

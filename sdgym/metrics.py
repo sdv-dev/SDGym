@@ -12,6 +12,9 @@ class WithKWargs:
     def compute(self, real_data, synthetic_data, metadata):
         return self._metric.compute(real_data, synthetic_data, metadata, **self._kwargs)
 
+    def normalize(self, raw_score):
+        return self._metric.normalize(raw_score)
+
 
 # Metrics to use by default for specific problem types and data
 # modalities if no metrics have been explicitly specified.
@@ -47,16 +50,11 @@ PROBLEM_TYPE_METRICS = {
 DATA_MODALITY_METRICS = {
     'single-table': [
         'CSTest',
-        'KSTest',
-        'KSTestExtended',
-        'LogisticDetection',
+        'KSComplement',
     ],
     'multi-table': [
         'CSTest',
-        'KSTest',
-        'KSTestExtended',
-        'LogisticDetection',
-        'LogisticParentChildDetection',
+        'KSComplement',
     ],
     'timeseries': [
         'TSFClassifierEfficacy',
@@ -84,10 +82,12 @@ def get_metrics(metrics, metadata):
             metrics = DATA_MODALITY_METRICS[modality]
 
     final_metrics = {}
+    metric_kwargs = {}
     for metric in metrics:
+        metric_args = None
         if isinstance(metric, tuple):
-            metric_name, metric = metric
-        elif isinstance(metric, str):
+            metric, metric_args = metric
+        if isinstance(metric, str):
             metric_name = metric
             try:
                 metric = metric_classes[metric]
@@ -98,5 +98,7 @@ def get_metrics(metrics, metadata):
             metric_name = metric.__name__
 
         final_metrics[metric_name] = metric
+        if metric_args:
+            metric_kwargs[metric_name] = metric_args
 
-    return final_metrics
+    return final_metrics, metric_kwargs

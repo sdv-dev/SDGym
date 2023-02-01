@@ -1,5 +1,50 @@
 # History
 
+## v0.6.0 - 2021-02-01
+This release introduces methods for benchmarking single table data and creating custom synthesizers, which can be based on existing SDGym-defined synthesizers or on user-defined functions. This release also adds support for Python 3.10 and drops support for Python 3.6.
+
+### New Features
+* Benchmarking progress bar should update on one line - Issue [#204](https://github.com/sdv-dev/SDGym/issues/204) by @katxiao
+* Support local additional datasets folder with zip files - Issue [#186](https://github.com/sdv-dev/SDGym/issues/186) by @katxiao
+* Enforce that each synthesizer is unique in benchmark_single_table - Issue [#190](https://github.com/sdv-dev/SDGym/issues/190) by @katxiao
+* Simplify the file names inside the detailed_results_folder - Issue [#191](https://github.com/sdv-dev/SDGym/issues/191) by @katxiao
+* Use SDMetrics silent report generation - Issue [#179](https://github.com/sdv-dev/SDGym/issues/179) by @katxiao
+* Remove arguments in get_available_datasets - Issue [#197](https://github.com/sdv-dev/SDGym/issues/197) by @katxiao
+* Accept metadata.json as valid metadata file - Issue [#194](https://github.com/sdv-dev/SDGym/issues/194) by @katxiao
+* Check if file or folder exists before writing benchmarking results - Issue [#196](https://github.com/sdv-dev/SDGym/issues/196) by @katxiao
+* Rename benchmarking argument "evaluate_quality" to "compute_quality_score" - Issue [#195](https://github.com/sdv-dev/SDGym/issues/195) by @katxiao
+* Add option to disable sdmetrics in benchmarking - Issue [#182](https://github.com/sdv-dev/SDGym/issues/182) by @katxiao
+* Prefix remote bucket with 's3' - Issue [#183](https://github.com/sdv-dev/SDGym/issues/183) by @katxiao
+* Benchmarking error handling - Issue [#177](https://github.com/sdv-dev/SDGym/issues/177) by @katxiao
+* Allow users to specify custom synthesizers' display names - Issue [#174](https://github.com/sdv-dev/SDGym/issues/174) by @katxiao
+* Update benchmarking results columns - Issue [#172](https://github.com/sdv-dev/SDGym/issues/172) by @katxiao
+* Allow custom datasets - Issue [#166](https://github.com/sdv-dev/SDGym/issues/166) by @katxiao
+* Use new datasets s3 bucket - Issue [#161](https://github.com/sdv-dev/SDGym/issues/161) by @katxiao
+* Create benchmark_single_table method - Issue [#151](https://github.com/sdv-dev/SDGym/issues/151) by @katxiao
+* Update summary metrics - Issue [#134](https://github.com/sdv-dev/SDGym/issues/134) by @katxiao
+* Benchmark individual methods - Issue [#159](https://github.com/sdv-dev/SDGym/issues/159) by @katxiao
+* Add method to create a sdv variant synthesizer - Issue [#152](https://github.com/sdv-dev/SDGym/issues/152) by @katxiao
+* Add method to generate a multi table synthesizer - Issue [#149](https://github.com/sdv-dev/SDGym/issues/149) by @katxiao
+* Add method to create single table synthesizers - Issue [#148](https://github.com/sdv-dev/SDGym/issues/148) by @katxiao
+* Updating existing synthesizers to new API - Issue [#154](https://github.com/sdv-dev/SDGym/issues/154) by @katxiao
+
+### Bug Fixes
+* Pip encounters dependency issues with ipython - Issue [#187](https://github.com/sdv-dev/SDGym/issues/187) by @katxiao
+* IndependentSynthesizer is printing out ConvergeWarning too many times - Issue [#192](https://github.com/sdv-dev/SDGym/issues/192) by @katxiao
+* Size values in benchmarking results seems inaccurate - Issue [#184](https://github.com/sdv-dev/SDGym/issues/184) by @katxiao
+* Import error in the example for benchmarking the synthesizers - Issue [#139](https://github.com/sdv-dev/SDGym/issues/139) by @katxiao
+* Updates and bugfixes - Issue [#132](https://github.com/sdv-dev/SDGym/issues/132) by @csala
+
+### Maintenance
+* Update README - Issue [#203](https://github.com/sdv-dev/SDGym/issues/203) by @katxiao
+* Support Python Versions >=3.7 and <3.11 - Issue [#170](https://github.com/sdv-dev/SDGym/issues/170) by @katxiao
+* SDGym Package Maintenance Updates documentation  - Issue [#163](https://github.com/sdv-dev/SDGym/issues/163) by @katxiao
+* Remove YData - Issue [#168](https://github.com/sdv-dev/SDGym/issues/168) by @katxiao
+* Update to newest SDV - Issue [#157](https://github.com/sdv-dev/SDGym/issues/157) by @katxiao
+* Update slack invite link. - Issue [#144](https://github.com/sdv-dev/SDGym/issues/144) by @pvk-developer
+* updating workflows to work with windows - Issue [#136](https://github.com/sdv-dev/SDGym/issues/136) by @amontanez24
+* Update conda dependencies - Issue [#130](https://github.com/sdv-dev/SDGym/issues/130) by @katxiao
+
 ## v0.5.0 - 2021-12-13
 This release adds support for Python 3.9, and updates dependencies to accept the latest versions when possible.
 

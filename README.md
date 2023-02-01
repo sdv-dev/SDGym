@@ -1,167 +1,158 @@
-<p align="left">
-  <a href="https://dai.lids.mit.edu">
-    <img width=15% src="https://dai.lids.mit.edu/wp-content/uploads/2018/06/Logo_DAI_highres.png" alt="DAI-Lab" />
-  </a>
-  <i>An Open Source Project from the <a href="https://dai.lids.mit.edu">Data to AI Lab, at MIT</a></i>
+<div align="center">
+<br/>
+<p align="center">
+    <i>This repository is part of <a href="https://sdv.dev">The Synthetic Data Vault Project</a>, a project from <a href="https://datacebo.com">DataCebo</a>.</i>
 </p>
 
 [![Development Status](https://img.shields.io/badge/Development%20Status-2%20--%20Pre--Alpha-yellow)](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
 [![Travis](https://travis-ci.org/sdv-dev/SDGym.svg?branch=master)](https://travis-ci.org/sdv-dev/SDGym)
 [![PyPi Shield](https://img.shields.io/pypi/v/sdgym.svg)](https://pypi.python.org/pypi/sdgym)
 [![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
+[![Slack](https://img.shields.io/badge/Community-Slack-blue?style=plastic&logo=slack)](https://bit.ly/sdv-slack-invite)
 
-<img align="center" width=30% src="https://user-images.githubusercontent.com/41479552/143880769-fde8b853-b42c-49bf-8544-97ef4b85ed6f.png">
+<div align="left">
+<br/>
+<p align="center">
+<a href="https://github.com/sdv-dev/SDGym">
+<img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/SDGym-DataCebo.png"></img>
+</a>
+</p>
+</div>
 
-Benchmarking framework for Synthetic Data Generators
-
-* Website: https://sdv.dev
-* Documentation: https://sdv.dev/SDV
-* Repository: https://github.com/sdv-dev/SDGym
-* License: [MIT](https://github.com/sdv-dev/SDGym/blob/master/LICENSE)
-* Development Status: [Pre-Alpha](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
+</div>
 
 # Overview
 
-Synthetic Data Gym (SDGym) is a framework to benchmark the performance of synthetic data
-generators based on [SDV](https://github.com/sdv-dev/SDV) and [SDMetrics](
-https://github.com/sdv-dev/SDMetrics).
+The Synthetic Data Gym (SDGym) is a benchmarking framework for modeling and generating
+synthetic data. Measure performance and memory usage across different synthetic data modeling
+techniques – classical statistics, deep learning and more!
 
-SDGym is a part of the [The Synthetic Data Vault](https://sdv.dev/) project.
+<img align="center" src="docs/images/SDGym_Results.png"></img>
 
-## What is a Synthetic Data Generator?
+The SDGym library integrates with the Synthetic Data Vault ecosystem. You can use any of its
+synthesizers, datasets or metrics for benchmarking. You also customize the process to include
+your own work.
 
-A **Synthetic Data Generator** is a Python function (or method) that takes as input some
-data, which we call the *real* data, learns a model from it, and outputs new *synthetic* data that
-has the same structure and similar mathematical properties as the *real* one.
-
-Please refer to the [synthesizers documentation](SYNTHESIZERS.md) for instructions about how to
-implement your own Synthetic Data Generator and integrate with SDGym. You can also read about how
-to use the ones already included in **SDGym** and see how to run them.
-
-## Benchmark datasets
-
-**SDGym** evaluates the performance of **Synthetic Data Generators** using *single table*,
-*multi table* and *timeseries* datasets stored as CSV files alongside an [SDV Metadata](
-https://sdv.dev/SDV/user_guides/relational/relational_metadata.html) JSON file.
-
-Further details about the list of available datasets and how to add your own datasets to
-the collection can be found in the [datasets documentation](DATASETS.md).
+* **Datasets**: Select any of the publicly available datasets from the SDV project, or input your own data.
+* **Synthesizers**: Choose from any of the SDV synthesizers and baselines. Or write your own custom
+machine learning model.
+* **Evaluation**: In addition to performance and memory usage, you can also measure synthetic data
+quality and privacy through a variety of metrics
 
 # Install
 
-**SDGym** can be installed using the following commands:
-
-**Using `pip`:**
+Install SDGym using pip or conda. We recommend using a virtual environment to avoid conflicts with other software on your device.
 
 ```bash
 pip install sdgym
 ```
 
-**Using `conda`:**
-
 ```bash
-conda install -c sdv-dev -c conda-forge sdgym
+conda install -c conda-forge sdgym
 ```
 
-For more installation options please visit the [SDGym installation Guide](INSTALL.md)
+For more information about using SDGym, visit the [SDGym Documentation](https://docs.sdv.dev/sdgym).
 
 # Usage
 
-## Benchmarking your own Synthesizer
-
-SDGym evaluates **Synthetic Data Generators**, which are Python functions (or classes) that take
-as input some data, which we call the *real* data, learn a model from it, and output new
-*synthetic* data that has the same structure and similar mathematical properties as the *real* one.
-
-As an example, let use define a synthesizer function that applies the [GaussianCopula model from SDV
-](https://sdv.dev/SDV/user_guides/single_table/gaussian_copula.html) with `gaussian` distribution.
-
-```python3
-import numpy as np
-from sdv.tabular import GaussianCopula
-
-
-def gaussian_copula(real_data, metadata):
-    gc = GaussianCopula(default_distribution='gaussian')
-    table_name = metadata.get_tables()[0]
-    gc.fit(real_data[table_name])
-    return {table_name: gc.sample()}
-```
-
-|:information_source: You can learn how to create your own synthesizer function [here](SYNTHESIZERS.md).|
-|:-|
-
-We can now try to evaluate this function on the `asia` and `alarm` datasets:
-
-```python3
-import sdgym
-
-scores = sdgym.run(synthesizers=gaussian_copula, datasets=['asia', 'alarm'])
-```
-
-|:information_source: You can learn about different arguments for `sdgym.run` function [here](BENCHMARK.md).|
-|:-|
-
-The output of the `sdgym.run` function will be a `pd.DataFrame` containing the results obtained
-by your synthesizer on each dataset.
-
-| synthesizer     | dataset | modality     | metric          |      score | metric_time | model_time |
-|-----------------|---------|--------------|-----------------|------------|-------------|------------|
-| gaussian_copula | asia    | single-table | BNLogLikelihood |  -2.842690 |    2.762427 |   0.752364 |
-| gaussian_copula | alarm   | single-table | BNLogLikelihood | -20.223178 |    7.009401 |   3.173832 |
-
-## Benchmarking the SDGym Synthesizers
-
-If you want to run the SDGym benchmark on the SDGym Synthesizers you can directly pass the
-corresponding class, or a list of classes, to the `sdgym.run` function.
-
-For example, if you want to run the complete benchmark suite to evaluate all the existing
-synthesizers you can run (:warning: this will take a lot of time to run!):
+Let's benchmark synthetic data generation for single tables. First, let's define which modeling
+techniques we want to use. Let's choose a few synthesizers from the SDV library and a few others
+to use as baselines.
 
 ```python
-from sdgym.synthesizers import (
-    CLBN, CopulaGAN, CTGAN, HMA1, Identity, Independent,
-    MedGAN, PAR, PrivBN, SDV, TableGAN, TVAE,
-    Uniform, VEEGAN)
+# these synthesizers come from the SDV library
+# each one uses different modeling techniques
+sdv_synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
 
-all_synthesizers = [
-    CLBN,
-    CTGAN,
-    CopulaGAN,
-    HMA1,
-    Identity,
-    Independent,
-    MedGAN,
-    PAR,
-    PrivBN,
-    SDV,
-    TVAE,
-    TableGAN,
-    Uniform,
-    VEEGAN,
-]
-scores = sdgym.run(synthesizers=all_synthesizers)
+# these basic synthesizers are available in SDGym
+# as baselines
+baseline_synthesizers = ['UniformSynthesizer']
 ```
 
-For further details about all the arguments and possibilities that the `benchmark` function offers
-please refer to the [benchmark documentation](BENCHMARK.md)
+Now, we can benchmark the different techniques:
+```python
+import sdgym
 
-# Additional References
+sdgym.benchmark_single_table(
+    synthesizers=(sdv_synthesizers + baseline_synthesizers)
+)
+```
 
-* Datasets used in SDGym are detailed [here](DATASETS.md).
-* How to write a synthesizer is detailed [here](SYNTHESIZERS.md).
-* How to use benchmark function is detailed [here](BENCHMARK.md).
-* Detailed leaderboard results for all the releases are available [here](
-https://docs.google.com/spreadsheets/d/1iNJDVG_tIobcsGUG5Gn4iLa565vVhz2U/edit).
+The result is a detailed performance, memory and quality evaluation across the synthesizers
+on a variety of publicly available datasets.
 
-# The Synthetic Data Vault
+## Supplying a custom synthesizer
 
-<p>
-  <a href="https://sdv.dev">
-    <img width=30% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/SDV-Logo-Color-Tagline.png?raw=true">
-  </a>
-  <p><i>This repository is part of <a href="https://sdv.dev">The Synthetic Data Vault Project</a></i></p>
-</p>
+Benchmark your own synthetic data generation techniques. Define your synthesizer by
+specifying the training logic (using machine learning) and the sampling logic.
 
-* Website: https://sdv.dev
-* Documentation: https://sdv.dev/SDV
+```python
+def my_training_logic(data, metadata):
+    # create an object to represent your synthesizer
+    # train it using the data
+    return synthesizer
+
+def my_sampling_logic(trained_synthesizer, num_rows):
+    # use the trained synthesizer to create
+    # num_rows of synthetic data
+    return synthetic_data
+```
+
+Learn more in the [Custom Synthesizers Guide](https://docs.sdv.dev/sdgym/customization/synthesizers/custom-synthesizers).
+
+## Customizing your datasets
+
+The SDGym library includes many publicly available datasets that you can include right away.
+List these using the ``get_available_datasets`` feature.
+
+```python
+sdgym.get_available_datasets()
+```
+
+```
+dataset_name   size_MB     num_tables
+KRK_v1         0.072128    1
+adult          3.907448    1
+alarm          4.520128    1
+asia           1.280128    1
+...
+```
+
+You can also include any custom, private datasets that are stored on your computer on an
+Amazon S3 bucket.
+
+```
+my_datasets_folder = 's3://my-datasets-bucket'
+```
+
+For more information, see the docs for [Customized Datasets](https://docs.sdv.dev/sdgym/customization/datasets).
+
+# What's next?
+
+Visit the [SDGym Documentation](https://docs.sdv.dev/sdgym) to learn more!
+
+---
+
+
+<div align="center">
+<a href="https://datacebo.com"><img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/DataCebo.png"></img></a>
+</div>
+<br/>
+<br/>
+
+[The Synthetic Data Vault Project](https://sdv.dev) was first created at MIT's [Data to AI Lab](
+https://dai.lids.mit.edu/) in 2016. After 4 years of research and traction with enterprise, we
+created [DataCebo](https://datacebo.com) in 2020 with the goal of growing the project.
+Today, DataCebo is the proud developer of SDV, the largest ecosystem for
+synthetic data generation & evaluation. It is home to multiple libraries that support synthetic
+data, including:
+
+* 🔄 Data discovery & transformation. Reverse the transforms to reproduce realistic data.
+* 🧠 Multiple machine learning models -- ranging from Copulas to Deep Learning -- to create tabular,
+  multi table and time series data.
+* 📊 Measuring quality and privacy of synthetic data, and comparing different synthetic data
+  generation models.
+
+[Get started using the SDV package](https://sdv.dev/SDV/getting_started/install.html) -- a fully
+integrated solution and your one-stop shop for synthetic data. Or, use the standalone libraries
+for specific needs.

@@ -2,6 +2,7 @@ import io
 import itertools
 import json
 import logging
+import os
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -14,18 +15,26 @@ from sdgym.s3 import get_s3_client
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 'sdv-datasets'
+BUCKET = 's3://sdv-demo-datasets'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
+MODALITIES = ['single_table', 'multi_table', 'sequential']
+S3_PREFIX = 's3://'
 
 
-def download_dataset(dataset_name, datasets_path=None, bucket=None, aws_key=None, aws_secret=None):
-    datasets_path = datasets_path or DATASETS_PATH
+def _get_bucket_name(bucket):
+    return bucket[len(S3_PREFIX):] if bucket.startswith(S3_PREFIX) else bucket
+
+
+def download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
+                     aws_secret=None):
+    datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
+    bucket_name = _get_bucket_name(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
     s3 = get_s3_client(aws_key, aws_secret)
-    obj = s3.get_object(Bucket=bucket, Key=f'{dataset_name}.zip')
+    obj = s3.get_object(Bucket=bucket_name, Key=f'{modality.upper()}/{dataset_name}.zip')
     bytes_io = io.BytesIO(obj['Body'].read())
 
     LOGGER.info('Extracting dataset into %s', datasets_path)
@@ -33,7 +42,8 @@ def download_dataset(dataset_name, datasets_path=None, bucket=None, aws_key=None
         zf.extractall(datasets_path)
 
 
-def _get_dataset_path(dataset, datasets_path, bucket=None, aws_key=None, aws_secret=None):
+def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=None,
+                      aws_secret=None):
     dataset = Path(dataset)
     if dataset.exists():
         return dataset
@@ -43,7 +53,13 @@ def _get_dataset_path(dataset, datasets_path, bucket=None, aws_key=None, aws_sec
     if dataset_path.exists():
         return dataset_path
 
-    download_dataset(dataset, datasets_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
+    if not bucket.startswith(S3_PREFIX):
+        local_path = Path(bucket) / dataset if bucket else Path(dataset)
+        if local_path.exists():
+            return local_path
+
+    download_dataset(
+        modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
 
 
@@ -61,10 +77,14 @@ def _apply_max_columns_to_metadata(metadata, max_columns):
             structure['states'] = structure['states'][:max_columns]
 
 
-def load_dataset(dataset, datasets_path=None, bucket=None, aws_key=None, aws_secret=None,
-                 max_columns=None):
-    dataset_path = _get_dataset_path(dataset, datasets_path, bucket, aws_key, aws_secret)
-    with open(dataset_path / 'metadata.json') as metadata_file:
+def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
+                 aws_secret=None, max_columns=None):
+    dataset_path = _get_dataset_path(
+        modality, dataset, datasets_path, bucket, aws_key, aws_secret)
+    metadata_filename = 'metadata.json'
+    if not os.path.exists(f'{dataset_path}/{metadata_filename}'):
+        metadata_filename = 'metadata_v0.json'
+    with open(dataset_path / metadata_filename) as metadata_file:
         metadata_content = json.load(metadata_file)
 
     if max_columns:
@@ -113,17 +133,34 @@ def load_tables(metadata, max_rows=None):
     return real_data
 
 
-def get_available_datasets(bucket=None, aws_key=None, aws_secret=None):
+def get_available_datasets():
+    return _get_available_datasets('single_table')
+
+
+def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
+    if modality not in MODALITIES:
+        modalities_list = ', '.join(MODALITIES)
+        raise ValueError(
+            f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
+
     s3 = get_s3_client(aws_key, aws_secret)
-    response = s3.list_objects(Bucket=bucket or BUCKET)
+    bucket = bucket or BUCKET
+    bucket_name = _get_bucket_name(bucket)
+
+    response = s3.list_objects(Bucket=bucket_name, Prefix=modality.upper())
     datasets = []
     for content in response['Contents']:
         key = content['Key']
-        size = int(content['Size'])
+        metadata = s3.head_object(Bucket=bucket_name, Key=key)['ResponseMetadata']['HTTPHeaders']
+        size = metadata.get('x-amz-meta-size-mb')
+        size = float(size) if size is not None else size
+        num_tables = metadata.get('x-amz-meta-num-tables')
+        num_tables = int(num_tables) if num_tables is not None else num_tables
         if key.endswith('.zip'):
             datasets.append({
-                'name': key[:-len('.zip')],
-                'size': size
+                'dataset_name': key[:-len('.zip')].lstrip(f'{modality.upper()}/'),
+                'size_MB': size,
+                'num_tables': num_tables,
             })
 
     return pd.DataFrame(datasets)
@@ -149,18 +186,33 @@ def get_downloaded_datasets(datasets_path=None):
 
 def get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret):
     """Build the full path to datasets and ensure they exist."""
+    bucket = bucket or BUCKET
+    is_remote = bucket.startswith(S3_PREFIX)
+
     if datasets_path is None:
         datasets_path = DATASETS_PATH
 
     datasets_path = Path(datasets_path)
     if datasets is None:
-        if datasets_path.exists():
-            datasets = list(datasets_path.iterdir())
+        # local path
+        if not is_remote and Path(bucket).exists():
+            datasets = []
+            folder_items = list(Path(bucket).iterdir())
+            for dataset in folder_items:
+                if not dataset.name.startswith('.'):
+                    if dataset.name.endswith('zip'):
+                        dataset_name = os.path.splitext(dataset.name)[0]
+                        dataset_path = datasets_path / dataset_name
+                        ZipFile(dataset).extractall(dataset_path)
 
-        if not datasets:
-            datasets = get_available_datasets()['name'].tolist()
+                        datasets.append(dataset_path)
+                    elif dataset not in datasets:
+                        datasets.append(dataset)
+        else:
+            datasets = _get_available_datasets(
+                'single_table', bucket=bucket)['dataset_name'].tolist()
 
     return [
-        _get_dataset_path(dataset, datasets_path, bucket, aws_key, aws_secret)
+        _get_dataset_path('single_table', dataset, datasets_path, bucket, aws_key, aws_secret)
         for dataset in datasets
     ]

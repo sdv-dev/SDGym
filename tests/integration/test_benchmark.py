@@ -1,82 +1,114 @@
-import json
+import contextlib
+import io
+
+import pytest
 
 import sdgym
+from sdgym.synthesizers import create_single_table_synthesizer
 
 
 def test_identity():
-    output = sdgym.run(
-        synthesizers=['Identity', 'Independent', 'Uniform'],
-        datasets=['trains_v1', 'KRK_v1'],
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
     )
 
     assert not output.empty
-    assert set(output['modality'].unique()) == {'single-table', 'multi-table'}
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
 
-    scores = output.groupby('synthesizer').score.mean().sort_values()
+    scores = output.groupby('Synthesizer').NewRowSynthesis.mean().sort_values()
 
-    assert ['Uniform', 'Independent', 'Identity'] == scores.index.tolist()
+    assert [
+        'DataIdentity',
+        'IndependentSynthesizer',
+        'UniformSynthesizer',
+    ] == scores.index.tolist()
+
+    quality_scores = output.groupby('Synthesizer').Quality_Score.mean().sort_values()
+
+    assert [
+        'UniformSynthesizer',
+        'IndependentSynthesizer',
+        'DataIdentity',
+    ] == quality_scores.index.tolist()
 
 
-def test_identity_jobs():
-    jobs = [
-        ('Identity', 'trains_v1', 0),
-        ('Independent', 'trains_v1', 1),
-        ('Uniform', 'KRK_v1', 1),
-    ]
-    output = sdgym.run(jobs=jobs)
+def test_benchmarking_no_metrics():
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
+        sdmetrics=[],
+    )
 
     assert not output.empty
-    assert set(output['modality'].unique()) == {'single-table', 'multi-table'}
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    # Expect no metric columns.
+    assert len(output.columns) == 9
 
-    columns = ['synthesizer', 'dataset', 'iteration']
-    combinations = set(
-        tuple(record)
-        for record in output[columns].drop_duplicates().to_records(index=False)
+
+def test_benchmarking_no_report_output():
+    """Test that the benchmarking printing does not include report progress."""
+    prints = io.StringIO()
+    with contextlib.redirect_stderr(prints):
+        sdgym.benchmark_single_table(
+            synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+            sdv_datasets=['student_placements'],
+        )
+
+    assert 'Creating report:' not in prints
+
+
+def get_trained_synthesizer_err(data, metadata):
+    return {}
+
+
+def sample_from_synthesizer_err(synthesizer, num_rows):
+    raise ValueError('random error')
+
+
+def test_error_handling():
+    erroring_synthesizer = create_single_table_synthesizer(
+        'my_synth', get_trained_synthesizer_err, sample_from_synthesizer_err)
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        custom_synthesizers=[erroring_synthesizer],
+        sdv_datasets=['student_placements'],
     )
 
-    assert combinations == set(jobs)
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    assert (
+        output[output['Synthesizer'] == 'Custom:my_synth'][['Train_Time', 'Sample_Time']]
+    ).isna().all(1).all()
 
 
-def test_json_synthesizer():
-    synthesizer = {
-        'name': 'synthesizer_name',
-        'synthesizer': 'sdgym.synthesizers.ydata.PreprocessedVanillaGAN',
-        'modalities': ['single-table'],
-        'init_kwargs': {'categorical_transformer': 'label_encoding'},
-        'fit_kwargs': {'data': '$real_data'}
-    }
-
-    output = sdgym.run(
-        synthesizers=[json.dumps(synthesizer)],
-        datasets=['KRK_v1'],
-        iterations=1,
+def test_compute_quality_score():
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
+        compute_quality_score=False,
     )
 
-    assert set(output['synthesizer']) == {'synthesizer_name'}
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    assert 'Quality_Score' not in output
 
 
-def test_json_synthesizer_multi_table():
-    synthesizer = {
-        'name': 'HMA1',
-        'synthesizer': 'sdv.relational.HMA1',
-        'modalities': [
-            'multi-table'
-        ],
-        'init_kwargs': {
-            'metadata': '$metadata'
-        },
-        'fit_kwargs': {
-            'tables': '$real_data'
-        }
-    }
-
-    output = sdgym.run(
-        synthesizers=[json.dumps(synthesizer)],
-        datasets=['university_v1', 'trains_v1'],
-        iterations=1,
-    )
-
-    # CSTest for `university_v1` is not valid because there are no categorical columns.
-    valid_out = output.loc[~((output.dataset == 'university_v1') & (output.metric == 'CSTest'))]
-
-    assert not valid_out.error.any()
+def test_duplicate_synthesizers():
+    custom_synthesizer = create_single_table_synthesizer(
+        'my_synth', get_trained_synthesizer_err, sample_from_synthesizer_err)
+    with pytest.raises(
+        ValueError,
+        match=(
+            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
+            'and `custom_synthesizers` parameters.'
+        )
+    ):
+        sdgym.benchmark_single_table(
+            synthesizers=['GaussianCopulaSynthesizer', 'GaussianCopulaSynthesizer'],
+            custom_synthesizers=[custom_synthesizer, custom_synthesizer]
+        )
