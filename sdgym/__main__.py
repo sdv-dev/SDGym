@@ -281,8 +281,8 @@ def _get_parser():
 
 
 def main():
-    pd.set_option('max_columns', 1000)
-    pd.set_option('max_rows', 1000)
+    pd.set_option('display.max_columns', 1000)
+    pd.set_option('display.max_rows', 1000)
 
     parser = _get_parser()
     if len(sys.argv) < 2:
