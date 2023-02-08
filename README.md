@@ -48,7 +48,7 @@ pip install sdgym
 ```
 
 ```bash
-conda install -c conda-forge sdgym
+conda install -c pytorch -c conda-forge sdgym
 ```
 
 For more information about using SDGym, visit the [SDGym Documentation](https://docs.sdv.dev/sdgym).
