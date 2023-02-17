@@ -352,7 +352,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
                            limit_dataset_size=False, compute_quality_score=True,
                            sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
                            detailed_results_folder=None, show_progress=False,
-                           multi_processing_config=None, aws_key=None, aws_secret=None):
+                           multi_processing_config=None):
     """Run the SDGym benchmark on single-table datasets.
 
     The ``synthesizers`` object can either be a single synthesizer or, an iterable of
@@ -510,6 +510,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
     scores = pd.concat(scores, ignore_index=True)
 
     if output_filepath:
-        write_csv(scores, output_filepath, aws_key, aws_secret)
+        write_csv(scores, output_filepath, None, None)
 
     return scores

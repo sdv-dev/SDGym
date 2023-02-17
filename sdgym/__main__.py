@@ -95,8 +95,7 @@ def _run(args):
         timeout=args.timeout,
         show_progress=args.progress,
         output_filepath=args.output_path,
-        aws_key=args.aws_key,
-        aws_secret=args.aws_secret,
+        
     )
 
     if args.groupby:
