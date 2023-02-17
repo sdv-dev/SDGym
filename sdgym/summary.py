@@ -7,10 +7,10 @@ import pandas as pd
 
 from sdgym.s3 import read_csv, write_file
 
-KNOWN_ERRORS = (
-    ('Synthesizer Timeout', 'timeout'),
-    ('MemoryError', 'memory_error'),
-)
+#KNOWN_ERRORS = (
+#    ('Synthesizer Timeout', 'timeout'),
+#    ('MemoryError', 'memory_error'),
+#)
 
 MODALITY_BASELINES = {
     'single-table': ['Uniform', 'Independent', 'CLBN', 'PrivBN'],
@@ -28,52 +28,50 @@ def preprocess(data):
     if isinstance(data, str):
         data = pd.read_csv(data)
 
-    del data['run_id']
-    del data['iteration']
+    #del data['run_id']
+    #del data['iteration']
 
-    grouped = data.groupby(['synthesizer', 'dataset', 'modality'])
+    grouped = data.groupby(['Synthesizer', 'Dataset'])
     bydataset = grouped.mean()
-    model_errors = grouped.error.first()[bydataset.metric_time.isnull()].fillna('')
-    bydataset['error'] = model_errors
     data = bydataset.reset_index()
 
-    errors = data.error.fillna('')
-    for message, column in KNOWN_ERRORS:
-        data[column] = errors.str.contains(message)
-        data.loc[data[column], 'error'] = np.nan
+    #errors = data.error.fillna('')
+    #for message, column in KNOWN_ERRORS:
+        #data[column] = errors.str.contains(message)
+        #data.loc[data[column], 'error'] = np.nan
 
     return data
 
 
 def _coverage(data):
-    total = len(data.dataset.unique())
-    scores = data.groupby('synthesizer').apply(lambda x: x.normalized_score.notnull().sum())
+    total = len(data.Dataset.unique())
+    scores = data.groupby('Synthesizer').apply(lambda x: x.Quality_Score.notnull().sum())
     coverage_perc = scores / total
     coverage_str = (scores.astype(str) + f' / {total}')
     return coverage_perc, coverage_str
 
 
 def _mean_score(data):
-    return data.groupby('synthesizer').normalized_score.mean()
+    return data.groupby('Synthesizer').Quality_Score.mean()
 
 
 def _best(data, rank, field, ascending):
-    ranks = data.groupby('dataset').rank(method='dense', ascending=ascending)[field] == rank
-    return ranks.groupby(data.synthesizer).sum()
+    ranks = data.groupby('Dataset').rank(method='dense', ascending=ascending)[field] == rank
+    return ranks.groupby(data.Synthesizer).sum()
 
 
 def _seconds(data):
-    return data.groupby('synthesizer').model_time.mean().round()
+    return data.groupby('Synthesizer').Train_Time.mean().round()
 
 
 def _synthesizer_beat_baseline(synthesizer_data, baseline_scores):
-    synthesizer_scores = synthesizer_data.set_index('dataset').normalized_score
+    synthesizer_scores = synthesizer_data.set_index('Dataset').Quality_Score
     synthesizer_scores = synthesizer_scores.reindex(baseline_scores.index)
     return (synthesizer_scores.fillna(-np.inf) >= baseline_scores.fillna(-np.inf)).sum()
 
 
 def _beat_baseline(data, baseline_scores):
-    return data.groupby('synthesizer').apply(
+    return data.groupby('Synthesizer').apply(
         _synthesizer_beat_baseline, baseline_scores=baseline_scores)
 
 
@@ -95,45 +93,46 @@ def summarize(data, baselines=(), datasets=None):
         pandas.DataFrame
     """
     if datasets is not None:
-        data = data[data.dataset.isin(datasets)]
+        data = data[data.Dataset.isin(datasets)]
 
-    baselines_data = data[data.synthesizer.isin(baselines)]
-    data = data[~data.synthesizer.isin(baselines)]
-    no_identity = data[data.synthesizer != 'DataIdentity']
+    baselines_data = data[data.Synthesizer.isin(baselines)]
+    data = data[~data.Synthesizer.isin(baselines)]
+    no_identity = data[data.Synthesizer != 'DataIdentity']
 
     coverage_perc, coverage_str = _coverage(data)
-    solved = data.groupby('synthesizer').apply(lambda x: x.normalized_score.notnull().sum())
+    solved = data.groupby('Synthesizer').apply(lambda x: x.Quality_Score.notnull().sum())
 
     results = {
-        'total': len(data.dataset.unique()),
+        'total': len(data.Dataset.unique()),
         'solved': solved,
         'coverage': coverage_str,
         'coverage_perc': coverage_perc,
         'time': _seconds(data),
-        'best': _best(no_identity, 1, 'normalized_score', False),
+        'best': _best(no_identity, 1, 'Quality_Score', False),
         'avg score': _mean_score(data),
-        'best_time': _best(no_identity, 1, 'model_time', True),
-        'second_best_time': _best(no_identity, 2, 'model_time', True),
-        'third_best_time': _best(no_identity, 3, 'model_time', True),
+        'best_time': _best(no_identity, 1, 'Train_Time', True),
+        'second_best_time': _best(no_identity, 2, 'Train_Time', True),
+        'third_best_time': _best(no_identity, 3, 'Train_Time', True),
     }
 
     for baseline in baselines:
-        baseline_data = baselines_data[baselines_data.synthesizer == baseline]
-        baseline_scores = baseline_data.set_index('dataset').normalized_score
+        baseline_data = baselines_data[baselines_data.Synthesizer == baseline]
+        baseline_scores = baseline_data.set_index('Dataset').Quality_Score
         results[f'beat_{baseline.lower()}'] = _beat_baseline(data, baseline_scores)
 
-    grouped = data.groupby('synthesizer')
-    for _, error_column in KNOWN_ERRORS:
+    grouped = data.groupby('Synthesizer')
+    for _, error_column in []:
         results[error_column] = grouped[error_column].sum()
 
-    results['errors'] = grouped.error.apply(lambda x: x.notnull().sum())
-    total_errors = results['errors'] + results['memory_error'] + results['timeout']
-    results['metric_errors'] = results['total'] - results['solved'] - total_errors
+    #results['errors'] = grouped.error.apply(lambda x: x.notnull().sum())
+    #total_errors = results['errors']
+    #results['metric_errors'] = results['total'] - results['solved'] - total_errors
 
     return pd.DataFrame(results)
 
 
 def _error_counts(data):
+    return
     return data.error.value_counts()
 
 
@@ -155,8 +154,10 @@ def errors_summary(data):
     Returns:
         pandas.DataFrame
     """
+    return
+
     all_errors = pd.DataFrame(_error_counts(data)).rename(columns={'error': 'all'})
-    synthesizer_errors = data.groupby('synthesizer').apply(_error_counts).unstack(level=0)
+    synthesizer_errors = data.groupby('Synthesizer').apply(_error_counts).unstack(level=0)
     for synthesizer, errors in synthesizer_errors.items():
         all_errors[synthesizer] = errors.fillna(0).astype(int)
 
@@ -234,15 +235,14 @@ def _add_summary(data, modality, baselines, writer):
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
     performance = total_summary[['time']]
-    error_details = errors_summary(data)
+    #error_details = errors_summary(data)
     error_summary = total_summary[[
-        'total', 'solved', 'coverage', 'coverage_perc', 'timeout',
-        'memory_error', 'errors', 'metric_errors'
+        'total', 'solved', 'coverage', 'coverage_perc',
     ]]
     summary.index.name = ''
     quality.index.name = ''
     performance.index.name = ''
-    error_details.index.name = ''
+    #error_details.index.name = ''
     error_summary.index.name = ''
 
     cell_fmt = writer.book.add_format({
@@ -268,8 +268,7 @@ def _add_summary(data, modality, baselines, writer):
     add_sheet(performance, f'Performance ({modality})', writer, cell_fmt, index_fmt, header_fmt)
     add_sheet(error_summary, f'Errors Summary ({modality})', writer, cell_fmt, index_fmt,
               header_fmt)
-    add_sheet(error_details, f'Errors Detail ({modality})', writer, cell_fmt, index_fmt,
-              header_fmt)
+    #add_sheet(error_details, f'Errors Detail ({modality})', writer, cell_fmt, index_fmt, header_fmt)
 
 
 def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
@@ -298,9 +297,10 @@ def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
     output = io.BytesIO()
     writer = pd.ExcelWriter(output)
 
-    for modality, df in data.groupby('modality'):
-        modality_baselines = baselines[modality]
-        _add_summary(df, modality, modality_baselines, writer)
+    modality = 'single-table'
+    #for modality, df in data.groupby('modality'):
+    modality_baselines = baselines[modality]
+    _add_summary(data, modality, modality_baselines, writer)
 
     writer.save()
     write_file(output.getvalue(), output_path, aws_key, aws_secret)

@@ -86,24 +86,17 @@ def _run(args):
     if args.jobs:
         args.jobs = json.loads(args.jobs)
 
-    scores = sdgym.run(
-        synthesizers=args.synthesizers,
-        datasets=args.datasets,
-        datasets_path=args.datasets_path,
-        modalities=args.modalities,
-        metrics=args.metrics,
-        bucket=args.bucket,
-        iterations=args.iterations,
-        cache_dir=args.cache_dir,
-        workers=workers,
-        show_progress=args.progress,
+    synthesizers = [args.jobs[0][0]['name']]
+    datasets = [args.jobs[0][1]]
+    scores = sdgym.benchmark_single_table(
+        synthesizers=synthesizers,
+        sdv_datasets=datasets,
+        sdmetrics=args.metrics,
         timeout=args.timeout,
-        output_path=args.output_path,
+        show_progress=args.progress,
+        output_filepath=args.output_path,
         aws_key=args.aws_key,
         aws_secret=args.aws_secret,
-        jobs=args.jobs,
-        max_rows=args.max_rows,
-        max_columns=args.max_columns,
     )
 
     if args.groupby:
