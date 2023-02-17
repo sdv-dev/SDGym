@@ -7,10 +7,10 @@ import pandas as pd
 
 from sdgym.s3 import read_csv, write_file
 
-#KNOWN_ERRORS = (
-#    ('Synthesizer Timeout', 'timeout'),
-#    ('MemoryError', 'memory_error'),
-#)
+KNOWN_ERRORS = (
+    ('Synthesizer Timeout', 'timeout'),
+    ('MemoryError', 'memory_error'),
+)
 
 MODALITY_BASELINES = {
     'single-table': ['Uniform', 'Independent', 'CLBN', 'PrivBN'],
@@ -20,7 +20,7 @@ MODALITY_BASELINES = {
 
 LIBRARIES = {
     'SDV': ['ctgan', 'copulagan', 'gaussiancopula', 'tvae', 'hma1', 'par'],
-    'YData': ['dragan', 'vanilllagan', 'wgan'],
+    'YData': ['dragan', 'vanillagan', 'wgan'],
 }
 
 
@@ -35,10 +35,11 @@ def preprocess(data):
     bydataset = grouped.mean()
     data = bydataset.reset_index()
 
-    #errors = data.error.fillna('')
-    #for message, column in KNOWN_ERRORS:
-        #data[column] = errors.str.contains(message)
-        #data.loc[data[column], 'error'] = np.nan
+    if 'error' in data.columns:
+        errors = data.error.fillna('')
+        for message, column in KNOWN_ERRORS:
+            data[column] = errors.str.contains(message)
+            data.loc[data[column], 'error'] = np.nan
 
     return data
 
@@ -120,20 +121,22 @@ def summarize(data, baselines=(), datasets=None):
         baseline_scores = baseline_data.set_index('Dataset').Quality_Score
         results[f'beat_{baseline.lower()}'] = _beat_baseline(data, baseline_scores)
 
-    grouped = data.groupby('Synthesizer')
-    for _, error_column in []:
-        results[error_column] = grouped[error_column].sum()
+    if 'error' in data.columns:
+        grouped = data.groupby('Synthesizer')
+        for _, error_column in KNOWN_ERRORS:
+            results[error_column] = grouped[error_column].sum()
 
-    #results['errors'] = grouped.error.apply(lambda x: x.notnull().sum())
-    #total_errors = results['errors']
-    #results['metric_errors'] = results['total'] - results['solved'] - total_errors
+        results['errors'] = grouped.error.apply(lambda x: x.notnull().sum())
+        total_errors = results['errors']
+        results['metric_errors'] = results['total'] - results['solved'] - total_errors
 
     return pd.DataFrame(results)
 
 
 def _error_counts(data):
-    return
-    return data.error.value_counts()
+    if 'error' in data.columns:
+        return data.error.value_counts()
+    return 0
 
 
 def errors_summary(data):
@@ -154,14 +157,15 @@ def errors_summary(data):
     Returns:
         pandas.DataFrame
     """
-    return
+    if 'error' in data.columns:
+        all_errors = pd.DataFrame(_error_counts(data)).rename(columns={'error': 'all'})
+        synthesizer_errors = data.groupby('Synthesizer').apply(_error_counts).unstack(level=0)
+        for synthesizer, errors in synthesizer_errors.items():
+            all_errors[synthesizer] = errors.fillna(0).astype(int)
 
-    all_errors = pd.DataFrame(_error_counts(data)).rename(columns={'error': 'all'})
-    synthesizer_errors = data.groupby('Synthesizer').apply(_error_counts).unstack(level=0)
-    for synthesizer, errors in synthesizer_errors.items():
-        all_errors[synthesizer] = errors.fillna(0).astype(int)
-
-    return all_errors
+        return all_errors
+    
+    return pd.DataFrame()
 
 
 def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
@@ -235,14 +239,14 @@ def _add_summary(data, modality, baselines, writer):
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
     performance = total_summary[['time']]
-    #error_details = errors_summary(data)
+    error_details = errors_summary(data)
     error_summary = total_summary[[
         'total', 'solved', 'coverage', 'coverage_perc',
     ]]
     summary.index.name = ''
     quality.index.name = ''
     performance.index.name = ''
-    #error_details.index.name = ''
+    error_details.index.name = ''
     error_summary.index.name = ''
 
     cell_fmt = writer.book.add_format({
@@ -268,7 +272,7 @@ def _add_summary(data, modality, baselines, writer):
     add_sheet(performance, f'Performance ({modality})', writer, cell_fmt, index_fmt, header_fmt)
     add_sheet(error_summary, f'Errors Summary ({modality})', writer, cell_fmt, index_fmt,
               header_fmt)
-    #add_sheet(error_details, f'Errors Detail ({modality})', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(error_details, f'Errors Detail ({modality})', writer, cell_fmt, index_fmt, header_fmt)
 
 
 def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
