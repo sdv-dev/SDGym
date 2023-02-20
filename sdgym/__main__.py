@@ -86,16 +86,13 @@ def _run(args):
     if args.jobs:
         args.jobs = json.loads(args.jobs)
 
-    synthesizers = [args.jobs[0][0]['name']]
-    datasets = [args.jobs[0][1]]
     scores = sdgym.benchmark_single_table(
-        synthesizers=synthesizers,
-        sdv_datasets=datasets,
+        synthesizers=args.synthesizers,
+        sdv_datasets=args.datasets,
         sdmetrics=args.metrics,
         timeout=args.timeout,
         show_progress=args.progress,
-        output_filepath=args.output_path,
-        
+        output_filepath=args.output_path
     )
 
     if args.groupby:
@@ -152,18 +149,18 @@ def _get_parser():
     run = action.add_parser('run', help='Run the SDGym Benchmark.')
     run.set_defaults(action=_run)
 
+    run.add_argument('-s', '--synthesizers', nargs='*', type=str, required=False,
+                     help='List of synthesizers to benchmark.')
+    run.add_argument('-d', '--datasets', nargs='*', type=str, required=False,
+                     help='List of datasets to benchmark.')
     run.add_argument('-c', '--cache-dir', type=str, required=False,
                      help='Directory where the intermediate results will be stored.')
     run.add_argument('-o', '--output-path', type=str, required=False,
                      help='Path to the CSV file where the report will be dumped')
-    run.add_argument('-s', '--synthesizers', nargs='+',
-                     help='Synthesizer/s to be benchmarked. Accepts multiple names.')
     run.add_argument('-m', '--metrics', nargs='+',
                      help='Metrics to apply. Accepts multiple names.')
     run.add_argument('-b', '--bucket',
                      help='Bucket from which to download the datasets.')
-    run.add_argument('-d', '--datasets', nargs='+',
-                     help='Datasets/s to be used. Accepts multiple names.')
     run.add_argument('-dp', '--datasets-path',
                      help='Path where datasets can be found.')
     run.add_argument('-dm', '--modalities', nargs='+',
