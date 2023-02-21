@@ -28,9 +28,6 @@ def preprocess(data):
     if isinstance(data, str):
         data = pd.read_csv(data)
 
-    #del data['run_id']
-    #del data['iteration']
-
     grouped = data.groupby(['Synthesizer', 'Dataset'])
     bydataset = grouped.mean()
     data = bydataset.reset_index()
@@ -302,7 +299,6 @@ def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
     writer = pd.ExcelWriter(output)
 
     modality = 'single-table'
-    #for modality, df in data.groupby('modality'):
     modality_baselines = baselines[modality]
     _add_summary(data, modality, modality_baselines, writer)
 

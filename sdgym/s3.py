@@ -235,7 +235,6 @@ def read_csv_from_path(path, aws_key, aws_secret):
         resp = s3.list_objects(Bucket=bucket_name, Prefix=key_prefix)
         csv_files = [f for f in resp['Contents'] if f['Key'].endswith('.csv')]
         for csv_file in csv_files:
-            print(csv_file)
             csv_file_key = csv_file['Key']
             csv_contents.append(
                 read_csv(f's3://{bucket_name}/{csv_file_key}', aws_key, aws_secret))
