@@ -1,10 +1,8 @@
-FROM nvidia/cuda:11.0.3-cudnn8-devel-ubuntu18.04
+FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
 CMD nvidia-smi
 
-RUN apt-get update && apt-get install -y build-essential curl python3.7 python3.7-dev \
-    python3-distutils && ln -s /usr/bin/python3.7 /usr/bin/python
-RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-    python get-pip.py && ln -s /usr/bin/pip3 /usr/bin/pip
+RUN apt-get update && apt-get install -y build-essential curl python3.9 python3-pip \
+    python3-distutils && ln -s /usr/bin/python3.9 /usr/bin/python
 
 RUN mkdir /SDGym && \
     mkdir /SDGym/sdgym && \

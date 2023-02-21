@@ -1,0 +1,35 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+   Use the NVIDIA Container Toolkit to start this container with GPU support; see
+   https://docs.nvidia.com/datacenter/cloud-native/ .
+
+Running sdgym
+| Synthesizer               | Dataset   |   Dataset_Size_MB |   Train_Time |   Peak_Memory_MB |   Synthesizer_Size_MB |   Sample_Time |   Evaluate_Time |   Quality_Score |
+|---------------------------|-----------|-------------------|--------------|------------------|-----------------------|---------------|-----------------|-----------------|
+| GaussianCopulaSynthesizer | adult     |           3.90745 |      12.7178 |          44.8826 |              0.151444 |        7.2267 |          24.149 |        0.830934 |
+| Synthesizer               | Dataset   |   Dataset_Size_MB |   Train_Time |   Peak_Memory_MB |   Synthesizer_Size_MB |   Sample_Time |   Evaluate_Time |   Quality_Score |
+|---------------------------|-----------|-------------------|--------------|------------------|-----------------------|---------------|-----------------|-----------------|
+| GaussianCopulaSynthesizer | KRK_v1    |          0.072128 |      2.38845 |          1.32528 |              0.079809 |      0.591343 |           1.053 |         0.94836 |
+Finished running
+Collecting results
+Reading results from s3://datacebo/20230221T00421676968930
+{'Key': '20230221T00421676968930/219ba8b2-275e-4822-b8ee-1e877353528b.csv', 'LastModified': datetime.datetime(2023, 2, 21, 1, 36, 27, tzinfo=tzlocal()), 'ETag': '"e2aaa0700ba3335ccae747c077e7b3e9"', 'Size': 230, 'StorageClass': 'STANDARD', 'Owner': {'DisplayName': 'admin', 'ID': 'd622ccbc3ac7813e3ce486c40b91fd43da14e839703ad882537835234899443b'}}
+{'Key': '20230221T00421676968930/dbcf4d5b-24f6-4748-8d78-1c591fff0f63.csv', 'LastModified': datetime.datetime(2023, 2, 21, 1, 36, 50, tzinfo=tzlocal()), 'ETag': '"2e53cff76c41749edf37869b24b0674c"', 'Size': 228, 'StorageClass': 'STANDARD', 'Owner': {'DisplayName': 'admin', 'ID': 'd622ccbc3ac7813e3ce486c40b91fd43da14e839703ad882537835234899443b'}}
+Storing results at s3://datacebo/20230221T00421676968930/results.csv
+Finished collecting results
+Compiling summary
+Finished compiling summary
