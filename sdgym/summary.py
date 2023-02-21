@@ -161,7 +161,7 @@ def errors_summary(data):
             all_errors[synthesizer] = errors.fillna(0).astype(int)
 
         return all_errors
-    
+
     return pd.DataFrame()
 
 
@@ -269,7 +269,13 @@ def _add_summary(data, modality, baselines, writer):
     add_sheet(performance, f'Performance ({modality})', writer, cell_fmt, index_fmt, header_fmt)
     add_sheet(error_summary, f'Errors Summary ({modality})', writer, cell_fmt, index_fmt,
               header_fmt)
-    add_sheet(error_details, f'Errors Detail ({modality})', writer, cell_fmt, index_fmt, header_fmt)
+    add_sheet(
+        error_details,
+        f'Errors Detail ({modality})',
+        writer,
+        cell_fmt,
+        index_fmt,
+        header_fmt)
 
 
 def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,

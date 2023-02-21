@@ -79,10 +79,6 @@ def _run(args):
         )
         client.register_worker_callbacks(lambda: _env_setup(args.logfile, args.verbose))
 
-        workers = 'dask'
-    else:
-        workers = args.workers
-
     if args.jobs:
         args.jobs = json.loads(args.jobs)
 
