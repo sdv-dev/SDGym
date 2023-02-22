@@ -65,7 +65,7 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     errors_summary_mock.return_value = errors
 
     # Run
-    make_summary_spreadsheet('file_path.csv', 'output_path.xlsx', None, 'aws_key', 'aws_secret')
+    make_summary_spreadsheet('file_path.csv', 'output_path.xlsx', None, None, None)
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -100,7 +100,7 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     }, index=['synth1', 'synth2'])
     expected_errors.index.name = ''
     add_sheet_calls = add_sheet_mock.mock_calls
-    read_csv_mock.assert_called_once_with('file_path.csv', 'aws_key', 'aws_secret')
+    read_csv_mock.assert_called_once_with('file_path.csv', None, None)
     assert isinstance(excel_writer_mock.mock_calls[0][1][0], io.BytesIO)
     excel_writer_mock.return_value.save.assert_called_once()
     assert len(add_sheet_calls) == 5
@@ -109,7 +109,7 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     pd.testing.assert_frame_equal(add_sheet_calls[2][1][0], expected_performance)
     pd.testing.assert_frame_equal(add_sheet_calls[3][1][0], expected_errors)
     pd.testing.assert_frame_equal(add_sheet_calls[4][1][0], errors)
-    write_file_mock.assert_called_once_with(b'', 'output_path.xlsx', 'aws_key', 'aws_secret')
+    write_file_mock.assert_called_once_with(b'', 'output_path.xlsx', None, None)
 
 
 @patch('sdgym.summary.write_file')
@@ -146,11 +146,11 @@ def test_make_summary_spreadsheet_no_output_path(add_sheet_mock, excel_writer_mo
     add_sheet_mock.return_value = None
 
     # Run
-    make_summary_spreadsheet('file_path.csv', None, None, 'aws_key', 'aws_secret')
+    make_summary_spreadsheet('file_path.csv', None, None, None, None)
 
     # Assert
-    read_csv_mock.assert_called_once_with('file_path.csv', 'aws_key', 'aws_secret')
+    read_csv_mock.assert_called_once_with('file_path.csv', None, None)
     assert isinstance(excel_writer_mock.mock_calls[0][1][0], io.BytesIO)
     excel_writer_mock.return_value.save.assert_called_once()
     add_summary_mock.assert_called_once()
-    write_file_mock.assert_called_once_with(b'', 'file_path.xlsx', 'aws_key', 'aws_secret')
+    write_file_mock.assert_called_once_with(b'', 'file_path.xlsx', None, None)

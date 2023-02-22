@@ -238,7 +238,8 @@ def _add_summary(data, modality, baselines, writer):
     performance = total_summary[['time']]
     error_details = errors_summary(data)
     error_summary = total_summary[[
-        'total', 'solved', 'coverage', 'coverage_perc',
+        'total', 'solved', 'coverage', 'coverage_perc', 'timeout',
+        'memory_error', 'errors', 'metric_errors'
     ]]
     summary.index.name = ''
     quality.index.name = ''
@@ -304,9 +305,9 @@ def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
     output = io.BytesIO()
     writer = pd.ExcelWriter(output)
 
-    modality = 'single-table'
-    modality_baselines = baselines[modality]
-    _add_summary(data, modality, modality_baselines, writer)
+    for modality, df in data.groupby('modality'):
+        modality_baselines = baselines[modality]
+        _add_summary(df, modality, modality_baselines, writer)
 
     writer.save()
     write_file(output.getvalue(), output_path, aws_key, aws_secret)
