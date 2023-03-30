@@ -79,31 +79,16 @@ def _run(args):
         )
         client.register_worker_callbacks(lambda: _env_setup(args.logfile, args.verbose))
 
-        workers = 'dask'
-    else:
-        workers = args.workers
-
     if args.jobs:
         args.jobs = json.loads(args.jobs)
 
-    scores = sdgym.run(
+    scores = sdgym.benchmark_single_table(
         synthesizers=args.synthesizers,
-        datasets=args.datasets,
-        datasets_path=args.datasets_path,
-        modalities=args.modalities,
-        metrics=args.metrics,
-        bucket=args.bucket,
-        iterations=args.iterations,
-        cache_dir=args.cache_dir,
-        workers=workers,
-        show_progress=args.progress,
+        sdv_datasets=args.datasets,
+        sdmetrics=args.metrics,
         timeout=args.timeout,
-        output_path=args.output_path,
-        aws_key=args.aws_key,
-        aws_secret=args.aws_secret,
-        jobs=args.jobs,
-        max_rows=args.max_rows,
-        max_columns=args.max_columns,
+        show_progress=args.progress,
+        output_filepath=args.output_path
     )
 
     if args.groupby:
@@ -160,18 +145,18 @@ def _get_parser():
     run = action.add_parser('run', help='Run the SDGym Benchmark.')
     run.set_defaults(action=_run)
 
+    run.add_argument('-s', '--synthesizers', nargs='*', type=str, required=False,
+                     help='List of synthesizers to benchmark.')
+    run.add_argument('-d', '--datasets', nargs='*', type=str, required=False,
+                     help='List of datasets to benchmark.')
     run.add_argument('-c', '--cache-dir', type=str, required=False,
                      help='Directory where the intermediate results will be stored.')
     run.add_argument('-o', '--output-path', type=str, required=False,
                      help='Path to the CSV file where the report will be dumped')
-    run.add_argument('-s', '--synthesizers', nargs='+',
-                     help='Synthesizer/s to be benchmarked. Accepts multiple names.')
     run.add_argument('-m', '--metrics', nargs='+',
                      help='Metrics to apply. Accepts multiple names.')
     run.add_argument('-b', '--bucket',
                      help='Bucket from which to download the datasets.')
-    run.add_argument('-d', '--datasets', nargs='+',
-                     help='Datasets/s to be used. Accepts multiple names.')
     run.add_argument('-dp', '--datasets-path',
                      help='Path where datasets can be found.')
     run.add_argument('-dm', '--modalities', nargs='+',

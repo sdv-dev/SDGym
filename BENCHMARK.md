@@ -121,7 +121,7 @@ In [9]: from sdgym.synthesizers import BaselineSynthesizer
 In [10]: scores = sdgym.run(BaselineSynthesizer.get_subclasses())
 ```
 
-#### Customizing the Synthesizer names.
+#### Customizing the Synthesizer names
 
 Sometimes we might want to customize the name that we give to the function or class that we are
 passing to the benchmark, so they show up nicer in the output leaderboard.

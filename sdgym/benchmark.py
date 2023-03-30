@@ -441,7 +441,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
     max_rows, max_columns = (1000, 10) if limit_dataset_size else (None, None)
 
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
-
     synthesizers = get_synthesizers(synthesizers)
     if custom_synthesizers:
         custom_synthesizers = get_synthesizers(custom_synthesizers)
