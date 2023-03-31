@@ -224,7 +224,7 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(BaselineSynthesizer):
+    class NewSynthesizer(BaselineSynthesizer):  # Why not inherit from SDVTimeseries?
         """New Synthesizer class.
 
         Args:
@@ -240,8 +240,8 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
             Args:
                 data (dict):
                     The real data. A mapping of table names to table data.
-                metadata (sdv.metadata.multi_table.MultiTableMetadata):
-                    The multi table metadata.
+                metadata (sdv.metadata.single_table.SingleTableMetadata):
+                    The metadata.
 
             Returns:
                 obj:

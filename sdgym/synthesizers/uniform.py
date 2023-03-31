@@ -2,20 +2,25 @@ import numpy as np
 import pandas as pd
 
 from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
+from rdt.hyper_transformer import HyperTransformer
 
 
 class UniformSynthesizer(MultiSingleTableBaselineSynthesizer):
     """Synthesizer that samples each column using a Uniform distribution."""
 
     def _get_trained_synthesizer(self, real_data, metadata):
-        #metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
-        metadata.fit(real_data)
-        transformed = metadata.transform(real_data)
+        hyper_transformer = HyperTransformer()
+        hyper_transformer.detect_initial_config(real_data)
+        hyper_transformer.update_transformers_by_sdtype('categorical')  # not sure if we can pass transformer=None like this?
+        hyper_transformer.update_transformers_by_sdtype('numerical')
+        hyper_transformer.fit(real_data)
+        transformed = hyper_transformer.transform(real_data)
+
         self.length = len(real_data)
         return (metadata, transformed)
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
-        metadata, transformed = synthesizer
+        hyper_transformer, transformed = synthesizer
         sampled = pd.DataFrame()
         for name, column in transformed.items():
             kind = column.dtype.kind
@@ -28,4 +33,4 @@ class UniformSynthesizer(MultiSingleTableBaselineSynthesizer):
 
             sampled[name] = values
 
-        return metadata.reverse_transform(sampled)
+        return hyper_transformer.reverse_transform(sampled)

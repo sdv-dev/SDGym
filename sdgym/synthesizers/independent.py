@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.mixture import GaussianMixture
 
 from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
+from rdt.hyper_transformer import HyperTransformer
 
 
 class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
@@ -12,11 +13,14 @@ class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
     """
 
     def _get_trained_synthesizer(self, real_data, metadata):
-        #metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
-        metadata.fit(real_data)
-        transformed = metadata.transform(real_data)
-        self.length = len(real_data)
+        hyper_transformer = HyperTransformer()
+        hyper_transformer.detect_initial_config(real_data)
+        hyper_transformer.update_transformers_by_sdtype('categorical')  # not sure if we can pass transformer=None like this?
+        hyper_transformer.update_transformers_by_sdtype('numerical')
+        hyper_transformer.fit(real_data)
+        transformed = hyper_transformer.transform(real_data)
 
+        self.length = len(real_data)
         gm_models = {}
         for name, column in transformed.items():
             kind = column.dtype.kind
@@ -26,10 +30,10 @@ class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
                 model.fit(column.values.reshape(-1, 1))
                 gm_models[name] = model
 
-        return (metadata, transformed, gm_models)
+        return (hyper_transformer, transformed, gm_models)
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
-        metadata, transformed, gm_models = synthesizer
+        hyper_transformer, transformed, gm_models = synthesizer
         sampled = pd.DataFrame()
         for name, column in transformed.items():
             kind = column.dtype.kind
@@ -41,4 +45,4 @@ class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
 
             sampled[name] = values
 
-        return metadata.reverse_transform(sampled)
+        return hyper_transformer.reverse_transform(sampled)

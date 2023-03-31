@@ -17,8 +17,7 @@ class FastMLPreset(SingleTableBaselineSynthesizer):
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
-        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = sdv.lite.SingleTablePreset(name='FAST_ML', metadata=metadata, **model_kwargs)
+        model = sdv.lite.SingleTablePreset(name='FAST_ML', metadata=metadata)
         model.fit(data)
 
         return model
@@ -36,7 +35,7 @@ class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -56,7 +55,7 @@ class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model_kwargs.setdefault('cuda', select_device())
         LOGGER.info('Fitting %s with kwargs %s', self.__class__.__name__, model_kwargs)
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -112,7 +111,7 @@ class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -125,7 +124,7 @@ class PARSynthesizer(SDVTimeseriesSynthesizer):
 
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
-        model = sdv.sequential.PARSynthesizer(table_metadata=metadata, epochs=1024, verbose=False)
+        model = sdv.sequential.PARSynthesizer(metadata=metadata, epochs=1024, verbose=False)
         model.device = select_device()
         model.fit(data)
         return model
