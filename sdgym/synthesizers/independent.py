@@ -1,5 +1,4 @@
 import pandas as pd
-from sdv.metadata import Table
 from sklearn.mixture import GaussianMixture
 
 from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
@@ -13,7 +12,7 @@ class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
     """
 
     def _get_trained_synthesizer(self, real_data, metadata):
-        metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
+        #metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
         metadata.fit(real_data)
         transformed = metadata.transform(real_data)
         self.length = len(real_data)

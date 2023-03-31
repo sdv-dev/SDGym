@@ -8,7 +8,8 @@ from zipfile import ZipFile
 
 import appdirs
 import pandas as pd
-from sdv import Metadata
+from sdv.metadata.multi_table import MultiTableMetadata
+from sdv.metadata.single_table import SingleTableMetadata
 
 from sdgym.s3 import get_s3_client
 
@@ -93,7 +94,11 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
 
         _apply_max_columns_to_metadata(metadata_content, max_columns)
 
-    metadata = Metadata(metadata_content, dataset_path)
+    if modality == 'multi_table':
+        metadata = MultiTableMetadata(metadata_content, dataset_path)
+    else:
+        metadata = SingleTableMetadata(metadata_content, dataset_path)
+
     tables = metadata.get_tables()
     if not hasattr(metadata, 'modality'):
         if len(tables) > 1:

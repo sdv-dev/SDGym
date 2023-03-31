@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from sdv.metadata import Table
 
 from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
 
@@ -9,7 +8,7 @@ class UniformSynthesizer(MultiSingleTableBaselineSynthesizer):
     """Synthesizer that samples each column using a Uniform distribution."""
 
     def _get_trained_synthesizer(self, real_data, metadata):
-        metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
+        #metadata = Table(metadata, dtype_transformers={'O': None, 'i': None})
         metadata.fit(real_data)
         transformed = metadata.transform(real_data)
         self.length = len(real_data)

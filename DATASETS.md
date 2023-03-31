@@ -12,7 +12,7 @@
 The **SDV Datasets** are comprised of two elements:
 
 * A `metadata.json` file which describes the data found in the dataset. This file follows the
-  [SDV Metadata schema](https://sdv.dev/SDV/developer_guides/sdv/metadata.html)
+  [SDV Single Table Metadata schema](https://docs.sdv.dev/sdv/single-table-data/data-preparation/single-table-metadata-api)
 * A collection of `CSV` files stored in a format which can be loaded by the `pandas.read_csv`
   function without any additional arguments than the csv path.
 
