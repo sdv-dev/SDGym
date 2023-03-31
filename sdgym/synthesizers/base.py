@@ -148,7 +148,7 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
     randomly choose ids from the parent tables to form the relationships.
     """
 
-    MODALITIES = ('multi-table',)
+    MODALITIES = ('multi-table', 'single_table')
 
     def get_trained_synthesizer(self, data, metadata):
         """Get the trained synthesizer.
@@ -174,7 +174,7 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
 
     def _get_foreign_keys(self, metadata, table_name, child_name):
         foreign_keys = []
-        for relation in self.metadata.relationships:
+        for relation in metadata.relationships:
             if table_name == relation['parent_table_name'] and \
                child_name == relation['child_table_name']:
                 foreign_keys.append(relation['child_foreign_key'])
@@ -226,17 +226,15 @@ class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.A
     def _get_columns(self, real_data, table_metadata):
         model_columns = []
         categorical_columns = []
-
-        fields_meta = table_metadata['fields']
-
+        fields_meta = table_metadata.columns
         for column in real_data.columns:
             field_meta = fields_meta[column]
-            field_type = field_meta['type']
-            if field_type == 'id':
+            field_sdtype = field_meta['sdtype']
+            if field_sdtype == 'id':
                 continue
 
             index = len(model_columns)
-            if field_type == 'categorical':
+            if field_sdtype == 'categorical':
                 categorical_columns.append(index)
 
             model_columns.append(column)
@@ -249,8 +247,8 @@ class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.A
         Args:
             data (dict):
                 A dict mapping table name to table data.
-            metadata (sdv.metadata.multi_table.MultiTableMetadata):
-                The multi-table metadata.
+            metadata (sdv.metadata.single_table.SingleTableMetadata):
+                The single-table metadata.
 
         Returns:
             dict:
