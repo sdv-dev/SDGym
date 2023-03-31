@@ -11,8 +11,6 @@ class UniformSynthesizer(MultiSingleTableBaselineSynthesizer):
     def _get_trained_synthesizer(self, real_data, metadata):
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(real_data)
-        hyper_transformer.update_transformers_by_sdtype('categorical')  # not sure if we can pass transformer=None like this?
-        hyper_transformer.update_transformers_by_sdtype('numerical')
         hyper_transformer.fit(real_data)
         transformed = hyper_transformer.transform(real_data)
 

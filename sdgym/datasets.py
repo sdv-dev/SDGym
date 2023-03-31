@@ -94,10 +94,8 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
 
         _apply_max_columns_to_metadata(metadata_content, max_columns)
 
-    if modality == 'multi_table':
-        metadata = MultiTableMetadata(metadata_content, dataset_path)
-    else:
-        metadata = SingleTableMetadata(metadata_content, dataset_path)
+    metadata = MultiTableMetadata() if modality == 'multi_table' else SingleTableMetadata()
+    metadata = metadata.load_from_dict(metadata_content)
 
     tables = metadata.get_tables()
     if not hasattr(metadata, 'modality'):
