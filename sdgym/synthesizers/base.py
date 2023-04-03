@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
-    MODALITIES = ()
+    MODALITIES = ()  # Delete this, it can be added back when multi-table actually gets tested
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -141,7 +141,7 @@ class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
             self.CONVERT_TO_NUMERIC) else self._sample_from_synthesizer(synthesizer, n_samples)
 
 
-class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
+class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):  # delete
     """Base class for SingleTableBaselines that are used on multi table scenarios.
 
     These classes model and sample each table independently and then just
@@ -214,7 +214,7 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
         return tables
 
 
-class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
+class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):  # ignore, rm from defaults
     """Single table baseline which passes ordinals and categoricals down.
 
     This class exists here to support the legacy baselines which do not operate
