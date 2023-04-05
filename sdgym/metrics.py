@@ -65,8 +65,7 @@ DATA_MODALITY_METRICS = {
 }
 
 
-def get_metrics(metrics, metadata):
-    modality = metadata._metadata['modality']
+def get_metrics(metrics, metadata, modality):
     if modality == 'multi-table':
         metric_classes = sdmetrics.multi_table.MultiTableMetric.get_subclasses()
     elif modality == 'single-table':
@@ -75,11 +74,7 @@ def get_metrics(metrics, metadata):
         metric_classes = sdmetrics.timeseries.TimeSeriesMetric.get_subclasses()
 
     if not metrics:
-        problem_type = metadata._metadata.get('problem_type')
-        if problem_type:
-            metrics = PROBLEM_TYPE_METRICS[problem_type]
-        else:
-            metrics = DATA_MODALITY_METRICS[modality]
+        metrics = DATA_MODALITY_METRICS[modality]
 
     final_metrics = {}
     metric_kwargs = {}

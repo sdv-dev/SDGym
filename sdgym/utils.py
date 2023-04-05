@@ -205,8 +205,8 @@ def build_synthesizer(synthesizer, synthesizer_dict):
 
         multi_table = 'multi-table' in _synthesizer_dict['modalities']
         if not multi_table:
-            table = metadata.get_tables()[0]
-            metadata = metadata.get_table_meta(table)
+            table = metadata.tables.keys()[0]
+            metadata = metadata.tables[table]
             real_data = real_data[table]
 
         replace = [

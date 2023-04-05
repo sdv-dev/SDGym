@@ -80,42 +80,25 @@ def _apply_max_columns_to_metadata(metadata, max_columns):
 
 def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
                  aws_secret=None, max_columns=None):
-    dataset_path = _get_dataset_path(
-        modality, dataset, datasets_path, bucket, aws_key, aws_secret)
+    """Get the data and metadata of a dataset."""
+    dataset_path = _get_dataset_path(modality, dataset, datasets_path, bucket, aws_key, aws_secret)
+    with open(dataset_path / f'{dataset_path.name}.csv') as data_csv:
+        data = pd.read_csv(data_csv)
+
     metadata_filename = 'metadata.json'
     if not os.path.exists(f'{dataset_path}/{metadata_filename}'):
         metadata_filename = 'metadata_v0.json'
+
     with open(dataset_path / metadata_filename) as metadata_file:
         metadata_content = json.load(metadata_file)
 
     if max_columns:
-        if len(metadata_content['tables']) > 1:
+        if 'tables' in metadata_content.keys():
             raise ValueError('max_columns is not supported for multi-table datasets')
 
         _apply_max_columns_to_metadata(metadata_content, max_columns)
 
-    metadata = MultiTableMetadata() if modality == 'multi_table' else SingleTableMetadata()
-    metadata = metadata.load_from_dict(metadata_content)
-
-    tables = metadata.get_tables()
-    if not hasattr(metadata, 'modality'):
-        if len(tables) > 1:
-            modality = 'multi-table'
-        else:
-            table = metadata.get_table_meta(tables[0])
-            if any(table.get(field) for field in TIMESERIES_FIELDS):
-                modality = 'timeseries'
-            else:
-                modality = 'single-table'
-
-        metadata._metadata['modality'] = modality
-        metadata.modality = modality
-
-    if not hasattr(metadata, 'name'):
-        metadata._metadata['name'] = dataset_path.name
-        metadata.name = dataset_path.name
-
-    return metadata
+    return data, metadata_content
 
 
 def load_tables(metadata, max_rows=None):

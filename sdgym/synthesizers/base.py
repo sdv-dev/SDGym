@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
-    MODALITIES = ()  # Delete this, it can be added back when multi-table actually gets tested
+    MODALITIES = ('single-table', )  # Delete this, it can be added back when multi-table actually gets tested
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -148,7 +148,7 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):  # dele
     randomly choose ids from the parent tables to form the relationships.
     """
 
-    MODALITIES = ('multi-table', 'single_table')
+    MODALITIES = ('single-table', )
 
     def get_trained_synthesizer(self, data, metadata):
         """Get the trained synthesizer.

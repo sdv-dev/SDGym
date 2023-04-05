@@ -1,11 +1,11 @@
 import pandas as pd
 from sklearn.mixture import GaussianMixture
 
-from sdgym.synthesizers.base import MultiSingleTableBaselineSynthesizer
+from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
 from rdt.hyper_transformer import HyperTransformer
 
 
-class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
+class IndependentSynthesizer(SingleTableBaselineSynthesizer):
     """Synthesizer that learns each column independently.
 
     Categorical columns are sampled using empirical frequencies.
@@ -13,7 +13,7 @@ class IndependentSynthesizer(MultiSingleTableBaselineSynthesizer):
     """
 
     def _get_trained_synthesizer(self, real_data, metadata):
-        hyper_transformer = HyperTransformer()
+        hyper_transformer = HyperTransformer()  # TODO: Update this to match original synthesizer
         hyper_transformer.detect_initial_config(real_data)
         hyper_transformer.fit(real_data)
         transformed = hyper_transformer.transform(real_data)

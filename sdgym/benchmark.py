@@ -16,6 +16,7 @@ import pandas as pd
 import tqdm
 from sdmetrics.reports.multi_table import QualityReport as MultiTableQualityReport
 from sdmetrics.reports.single_table import QualityReport as SingleTableQualityReport
+from sdv.metadata.single_table import SingleTableMetadata
 
 from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
 from sdgym.errors import SDGymError
@@ -77,9 +78,6 @@ def _synthesize(synthesizer_dict, real_data, metadata):
         and 'single-table' in modalities
     )
     if is_single_table:
-        table_name = list(real_data.keys())[0]
-        metadata = metadata.get_table_meta(table_name)
-        data = list(real_data.values())[0]
         num_samples = len(data)
 
     tracemalloc.start()
@@ -94,31 +92,16 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     tracemalloc.stop()
     tracemalloc.clear_traces()
 
-    if is_single_table:
-        synthetic_data = {list(real_data.keys())[0]: synthetic_data}
+    #if is_single_table:
+    #    synthetic_data = {synthesizer_dict['name']: synthetic_data}
 
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
 
-def _prepare_metric_args(real_data, synthetic_data, metadata):
-    modality = metadata.modality
-    if modality == 'multi-table':
-        metadata = metadata.to_dict()
-    else:
-        table = metadata.get_tables()[0]
-        metadata = metadata.get_table_meta(table)
-        real_data = real_data[table]
-        synthetic_data = synthetic_data[table]
-
-    return real_data, synthetic_data, metadata
-
-
-def _compute_scores(metrics, real_data, synthetic_data, metadata, output, compute_quality_score):
+def _compute_scores(metrics, real_data, synthetic_data, metadata, output, compute_quality_score, modality):
     metrics = metrics or []
     if len(metrics) > 0:
-        metrics, metric_kwargs = get_metrics(metrics, metadata)
-        metric_args = _prepare_metric_args(real_data, synthetic_data, metadata)
-
+        metrics, metric_kwargs = get_metrics(metrics, metadata, modality='single-table')
         scores = []
         output['scores'] = scores
         for metric_name, metric in metrics.items():
@@ -133,12 +116,10 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, comput
             normalized_score = None
             start = datetime.utcnow()
             try:
-                LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
+                metric_args = (real_data, synthetic_data, metadata)
                 score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
                 normalized_score = metric.normalize(score)
             except Exception:
-                LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
-                                 metric_name, metadata._metadata['name'])
                 _, error = format_exception()
 
             scores[-1].update({
@@ -151,75 +132,53 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, comput
 
     if compute_quality_score:
         start = datetime.utcnow()
-        if metadata.modality == 'single-table':
+        if modality == 'single_table':
             quality_report = SingleTableQualityReport()
-            table_name = list(real_data.keys())[0]
-            table_metadata = metadata.get_table_meta(table_name)
-            table_real_data = list(real_data.values())[0]
-            table_synthetic_data = list(synthetic_data.values())[0]
-
-            quality_report = SingleTableQualityReport()
-            quality_report.generate(
-                table_real_data, table_synthetic_data, table_metadata, verbose=False)
         else:
             quality_report = MultiTableQualityReport()
-            quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
-
+        
+        quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
         output['quality_score_time'] = (datetime.utcnow() - start).total_seconds()
         output['quality_score'] = quality_report.get_score()
+        print('hi')
 
 
-def _score(synthesizer, metadata, metrics, output=None, max_rows=None,
-           compute_quality_score=False):
+def _score(synthesizer, data, metadata, metrics, output=None, max_rows=None,
+           compute_quality_score=False, modality=None):
     if output is None:
         output = {}
-
-    name = synthesizer['name']
 
     output['timeout'] = True  # To be deleted if there is no error
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
-        real_data = load_tables(metadata, max_rows)
-        output['dataset_size'] = get_size_of(real_data) / N_BYTES_IN_MB
-
-        LOGGER.info('Running %s on %s dataset %s; %s',
-                    name, metadata.modality, metadata._metadata['name'], used_memory())
+        output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
 
         output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, real_data.copy(), metadata)
+            synthesizer, data.copy(), metadata)
         output['synthetic_data'] = synthetic_data
         output['train_time'] = train_time.total_seconds()
         output['sample_time'] = sample_time.total_seconds()
         output['synthesizer_size'] = synthesizer_size
         output['peak_memory'] = peak_memory
 
-        LOGGER.info('Scoring %s on %s dataset %s; %s',
-                    name, metadata.modality, metadata._metadata['name'], used_memory())
-
         del output['error']   # No error so far. _compute_scores tracks its own errors by metric
         _compute_scores(
-            metrics, real_data, synthetic_data, metadata, output, compute_quality_score)
+            metrics, data, synthetic_data, metadata, output, compute_quality_score, modality)
 
         output['timeout'] = False  # There was no timeout
 
     except Exception:
-        LOGGER.exception('Error running %s on dataset %s;',
-                         name, metadata._metadata['name'])
         exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
         output['timeout'] = False  # There was no timeout
 
-    finally:
-        LOGGER.info('Finished %s on dataset %s; %s',
-                    name, metadata._metadata['name'], used_memory())
-
     return output
 
 
 def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
-                        compute_quality_score=False):
+                        compute_quality_score=False, modality=None):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
         process = multiprocessing.Process(
@@ -250,14 +209,12 @@ def _run_job(args):
     # Reset random seed
     np.random.seed()
 
-    synthesizer, metadata, metrics, cache_dir, \
-        timeout, run_id, max_rows, compute_quality_score = args
+    synthesizer, data, metadata, metrics, cache_dir, \
+        timeout, run_id, max_rows, compute_quality_score, dataset_name, modality = args
 
     name = synthesizer['name']
-    dataset_name = metadata._metadata['name']
-
-    LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; %s',
-                name, metadata.modality, dataset_name, timeout, used_memory())
+    LOGGER.info('Evaluating %s on dataset %s with timeout %ss; %s',
+                name, dataset_name, timeout, used_memory())
 
     output = {}
     try:
@@ -269,14 +226,17 @@ def _run_job(args):
                 metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
+                modality=modality
             )
         else:
             output = _score(
                 synthesizer,
+                data,
                 metadata,
                 metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
+                modality=modality
             )
     except Exception as error:
         output['exception'] = error
@@ -291,7 +251,7 @@ def _run_job(args):
 
     scores = pd.DataFrame({
         'Synthesizer': [name],
-        'Dataset': [metadata._metadata['name']],
+        'Dataset': [dataset_name],
         'Dataset_Size_MB': [output.get('dataset_size')],
         'Train_Time': [output.get('train_time')],
         'Peak_Memory_MB': [output.get('peak_memory')],
@@ -461,23 +421,20 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
 
     job_args = list()
     for synthesizer, dataset in job_tuples:
-        metadata = load_dataset('single_table', dataset, max_columns=max_columns)
-        dataset_modality = metadata.modality
-        synthesizer_modalities = synthesizer.get('modalities')
-        if (dataset_modality and dataset_modality != 'single-table') or (
-            synthesizer_modalities and 'single-table' not in synthesizer_modalities
-        ):
-            continue
-
+        data, metadata_content = load_dataset('single_table', dataset, max_columns=max_columns)
+        dataset_name = dataset.name
         args = (
             synthesizer,
-            metadata,
+            data,
+            metadata_content,
             sdmetrics,
             detailed_results_folder,
             timeout,
             run_id,
             max_rows,
             compute_quality_score,
+            dataset_name,
+            'single_table'
         )
         job_args.append(args)
 
