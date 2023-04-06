@@ -8,8 +8,6 @@ from zipfile import ZipFile
 
 import appdirs
 import pandas as pd
-from sdv.metadata.multi_table import MultiTableMetadata
-from sdv.metadata.single_table import SingleTableMetadata
 
 from sdgym.s3 import get_s3_client
 
@@ -87,7 +85,7 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
 
     metadata_filename = 'metadata.json'
     if not os.path.exists(f'{dataset_path}/{metadata_filename}'):
-        metadata_filename = 'metadata_v0.json'
+        metadata_filename = 'metadata_v1.json'
 
     with open(dataset_path / metadata_filename) as metadata_file:
         metadata_content = json.load(metadata_file)

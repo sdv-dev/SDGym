@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
+from rdt.hyper_transformer import HyperTransformer
 
 from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
-from rdt.hyper_transformer import HyperTransformer
 
 
 class UniformSynthesizer(SingleTableBaselineSynthesizer):

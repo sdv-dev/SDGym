@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
-    MODALITIES = ('single-table', )  # Delete this, it can be added back when multi-table actually gets tested
+    MODALITIES = ('single-table', )
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -141,14 +141,16 @@ class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
             self.CONVERT_TO_NUMERIC) else self._sample_from_synthesizer(synthesizer, n_samples)
 
 
-class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):  # delete
+class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
     """Base class for SingleTableBaselines that are used on multi table scenarios.
 
     These classes model and sample each table independently and then just
     randomly choose ids from the parent tables to form the relationships.
+
+    NOTE: doesn't currently work.
     """
 
-    MODALITIES = ('single-table', )
+    MODALITIES = ('multi-table', 'single-table')
 
     def get_trained_synthesizer(self, data, metadata):
         """Get the trained synthesizer.
@@ -214,11 +216,13 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):  # dele
         return tables
 
 
-class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):  # ignore, rm from defaults
+class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     """Single table baseline which passes ordinals and categoricals down.
 
     This class exists here to support the legacy baselines which do not operate
     on metadata and instead expect lists of categorical and ordinal columns.
+
+    NOTE: doesn't work with SDV 1.0.
     """
 
     MODALITIES = ('single-table', )
@@ -229,12 +233,12 @@ class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.A
         fields_meta = table_metadata.columns
         for column in real_data.columns:
             field_meta = fields_meta[column]
-            field_sdtype = field_meta['sdtype']
-            if field_sdtype == 'id':
+            field_type = field_meta['type']
+            if field_type == 'id':
                 continue
 
             index = len(model_columns)
-            if field_sdtype == 'categorical':
+            if field_type == 'categorical':
                 categorical_columns.append(index)
 
             model_columns.append(column)
@@ -247,8 +251,8 @@ class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.A
         Args:
             data (dict):
                 A dict mapping table name to table data.
-            metadata (sdv.metadata.single_table.SingleTableMetadata):
-                The single-table metadata.
+            metadata (sdv.Metadata):
+                The multi-table metadata.
 
         Returns:
             dict:

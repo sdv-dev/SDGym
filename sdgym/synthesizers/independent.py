@@ -1,8 +1,8 @@
 import pandas as pd
+from rdt.hyper_transformer import HyperTransformer
 from sklearn.mixture import GaussianMixture
 
 from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
-from rdt.hyper_transformer import HyperTransformer
 
 
 class IndependentSynthesizer(SingleTableBaselineSynthesizer):

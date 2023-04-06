@@ -3,6 +3,7 @@ import logging
 
 import sdv
 import sdv.sequential
+from sdv.metadata.single_table import SingleTableMetadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import select_device
@@ -17,6 +18,7 @@ class FastMLPreset(SingleTableBaselineSynthesizer):
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
+        metadata = SingleTableMetadata().load_from_dict(metadata)
         model = sdv.lite.SingleTablePreset(name='FAST_ML', metadata=metadata)
         model.fit(data)
 
@@ -33,6 +35,7 @@ class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
+        metadata = SingleTableMetadata().load_from_dict(metadata)
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = self._MODEL(metadata=metadata, **model_kwargs)
@@ -52,6 +55,7 @@ class GaussianCopulaSynthesizer(SDVTabularSynthesizer):
 class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
 
     def _get_trained_synthesizer(self, data, metadata):
+        metadata = SingleTableMetadata().load_from_dict(metadata)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model_kwargs.setdefault('cuda', select_device())
         LOGGER.info('Fitting %s with kwargs %s', self.__class__.__name__, model_kwargs)

@@ -16,9 +16,8 @@ import pandas as pd
 import tqdm
 from sdmetrics.reports.multi_table import QualityReport as MultiTableQualityReport
 from sdmetrics.reports.single_table import QualityReport as SingleTableQualityReport
-from sdv.metadata.single_table import SingleTableMetadata
 
-from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
+from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
@@ -92,13 +91,11 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     tracemalloc.stop()
     tracemalloc.clear_traces()
 
-    #if is_single_table:
-    #    synthetic_data = {synthesizer_dict['name']: synthetic_data}
-
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
 
-def _compute_scores(metrics, real_data, synthetic_data, metadata, output, compute_quality_score, modality):
+def _compute_scores(metrics, real_data, synthetic_data, metadata,
+                    output, compute_quality_score, modality):
     metrics = metrics or []
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, metadata, modality='single-table')
@@ -136,11 +133,10 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, comput
             quality_report = SingleTableQualityReport()
         else:
             quality_report = MultiTableQualityReport()
-        
+
         quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
         output['quality_score_time'] = (datetime.utcnow() - start).total_seconds()
         output['quality_score'] = quality_report.get_score()
-        print('hi')
 
 
 def _score(synthesizer, data, metadata, metrics, output=None, max_rows=None,
@@ -198,9 +194,6 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
         process.terminate()
 
         output = dict(output)
-        if output['timeout']:
-            LOGGER.error('Timeout running %s on dataset %s;',
-                         synthesizer['name'], metadata._metadata['name'])
 
         return output
 
