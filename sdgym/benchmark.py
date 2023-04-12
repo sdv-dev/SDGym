@@ -95,7 +95,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
 
 
 def _compute_scores(metrics, real_data, synthetic_data, metadata,
-                    output, compute_quality_score, modality):
+                    output, compute_quality_score, modality, dataset_name):
     metrics = metrics or []
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, metadata, modality='single-table')
@@ -113,10 +113,13 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata,
             normalized_score = None
             start = datetime.utcnow()
             try:
+                LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
                 metric_args = (real_data, synthetic_data, metadata)
                 score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
                 normalized_score = metric.normalize(score)
             except Exception:
+                LOGGER.exception(
+                    'Metric %s failed on dataset %s. Skipping.', metric_name, dataset_name)
                 _, error = format_exception()
 
             scores[-1].update({
@@ -140,41 +143,64 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata,
 
 
 def _score(synthesizer, data, metadata, metrics, output=None, max_rows=None,
-           compute_quality_score=False, modality=None):
+           compute_quality_score=False, modality=None, dataset_name=None):
     if output is None:
         output = {}
 
     output['timeout'] = True  # To be deleted if there is no error
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
-        output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
+        LOGGER.info(
+            'Running %s on %s dataset %s; %s',
+            synthesizer['name'], modality, dataset_name, used_memory()
+        )
 
+        output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
         output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
             synthesizer, data.copy(), metadata)
+
         output['synthetic_data'] = synthetic_data
         output['train_time'] = train_time.total_seconds()
         output['sample_time'] = sample_time.total_seconds()
         output['synthesizer_size'] = synthesizer_size
         output['peak_memory'] = peak_memory
 
+        LOGGER.info(
+            'Scoring %s on %s dataset %s; %s',
+            synthesizer['name'], modality, dataset_name, used_memory()
+        )
+
         del output['error']   # No error so far. _compute_scores tracks its own errors by metric
         _compute_scores(
-            metrics, data, synthetic_data, metadata, output, compute_quality_score, modality)
+            metrics,
+            data,
+            synthetic_data,
+            metadata, output,
+            compute_quality_score,
+            modality,
+            dataset_name
+        )
 
         output['timeout'] = False  # There was no timeout
 
     except Exception:
+        LOGGER.exception('Error running %s on dataset %s;', synthesizer['name'], dataset_name)
+
         exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
         output['timeout'] = False  # There was no timeout
 
+    finally:
+        LOGGER.info(
+            'Finished %s on dataset %s; %s', synthesizer['name'], dataset_name, used_memory())
+
     return output
 
 
 def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
-                        compute_quality_score=False, modality=None):
+                        compute_quality_score=False, modality=None, dataset_name=None):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
         process = multiprocessing.Process(
@@ -186,6 +212,7 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
                 output,
                 max_rows,
                 compute_quality_score,
+                dataset_name
             ),
         )
 
@@ -194,6 +221,8 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
         process.terminate()
 
         output = dict(output)
+        if output['timeout']:
+            LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
 
         return output
 
@@ -219,7 +248,8 @@ def _run_job(args):
                 metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
-                modality=modality
+                modality=modality,
+                dataset_name=dataset_name
             )
         else:
             output = _score(
@@ -229,7 +259,8 @@ def _run_job(args):
                 metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
-                modality=modality
+                modality=modality,
+                dataset_name=dataset_name
             )
     except Exception as error:
         output['exception'] = error
