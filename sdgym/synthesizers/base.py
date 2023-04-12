@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
-    MODALITIES = ()
+    MODALITIES = ('single-table', )
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -48,7 +48,7 @@ class BaselineSynthesizer(abc.ABC):
         Args:
             data (pandas.DataFrame or dict):
                 The data to train on.
-            metadata (sdv.Metadata):
+            metadata (SingleTableMetadata or MultiTableMetadata):
                 The metadata.
 
         Returns:
@@ -88,10 +88,10 @@ class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
     def _get_transformed_trained_synthesizer(self, real_data, metadata):
         self.ht = rdt.HyperTransformer()
         columns_to_transform = list()
-        fields_metadata = metadata['fields']
+        fields_metadata = list(metadata.columns.keys())
         self.id_fields = list()
         for field in fields_metadata:
-            if fields_metadata.get(field).get('type') != 'id':
+            if fields_metadata.get(field).get('sdtype') != 'id':
                 columns_to_transform.append(field)
             else:
                 self.id_fields.append(field)
@@ -114,7 +114,7 @@ class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
         Args:
             data (pandas.DataFrame):
                 The data to train on.
-            metadata (sdv.Metadata):
+            metadata (sdv.metadata.single_table.SingleTableMetadata):
                 The metadata.
 
         Returns:
@@ -146,6 +146,8 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
 
     These classes model and sample each table independently and then just
     randomly choose ids from the parent tables to form the relationships.
+
+    NOTE: doesn't currently work.
     """
 
     MODALITIES = ('multi-table', 'single-table')
@@ -156,7 +158,7 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
         Args:
             data (dict):
                 A dict mapping table name to table data.
-            metadata (sdv.Metadata):
+            metadata (sdv.metadata.multi_table.MultiTableMetadata):
                 The multi-table metadata.
 
         Returns:
@@ -165,12 +167,21 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
         """
         self.metadata = metadata
         synthesizers = {
-            table_name: self._get_trained_synthesizer(table, metadata.get_table_meta(table_name))
+            table_name: self._get_trained_synthesizer(table, metadata.tables[table_name])
             for table_name, table in data.items()
         }
         self.table_columns = {table_name: data[table_name].columns for table_name in data.keys()}
 
         return synthesizers
+
+    def _get_foreign_keys(self, metadata, table_name, child_name):
+        foreign_keys = []
+        for relation in metadata.relationships:
+            if table_name == relation['parent_table_name'] and \
+               child_name == relation['child_table_name']:
+                foreign_keys.append(relation['child_foreign_key'])
+
+        return foreign_keys
 
     def sample_from_synthesizer(self, synthesizers, n_samples):
         """Sample from the given synthesizers.
@@ -191,11 +202,11 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
         }
 
         for table_name, table in tables.items():
-            parents = self.metadata.get_parents(table_name)
+            parents = list(self.metadata.tables[table_name]._get_parent_map().keys())
             for parent_name in parents:
                 parent = tables[parent_name]
-                primary_key = self.metadata.get_primary_key(parent_name)
-                foreign_keys = self.metadata.get_foreign_keys(parent_name, table_name)
+                primary_key = self.metadata.tables[table_name].primary_key
+                foreign_keys = self._get_foreign_keys(self.metadata, parent_name, table_name)
                 for foreign_key in foreign_keys:
                     foreign_key_values = parent[primary_key].sample(len(table), replace=True)
                     table[foreign_key] = foreign_key_values.values
@@ -210,6 +221,8 @@ class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.A
 
     This class exists here to support the legacy baselines which do not operate
     on metadata and instead expect lists of categorical and ordinal columns.
+
+    NOTE: doesn't work with SDV 1.0.
     """
 
     MODALITIES = ('single-table', )
@@ -217,9 +230,7 @@ class LegacySingleTableBaselineSynthesizer(SingleTableBaselineSynthesizer, abc.A
     def _get_columns(self, real_data, table_metadata):
         model_columns = []
         categorical_columns = []
-
-        fields_meta = table_metadata['fields']
-
+        fields_meta = table_metadata.columns
         for column in real_data.columns:
             field_meta = fields_meta[column]
             field_type = field_meta['type']

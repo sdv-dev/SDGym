@@ -203,12 +203,6 @@ def build_synthesizer(synthesizer, synthesizer_dict):
         device_attribute = _synthesizer_dict.get('device_attribute')
         device = select_device()
 
-        multi_table = 'multi-table' in _synthesizer_dict['modalities']
-        if not multi_table:
-            table = metadata.get_tables()[0]
-            metadata = metadata.get_table_meta(table)
-            real_data = real_data[table]
-
         replace = [
             (metadata_keyword, metadata),
             (real_data_keyword, real_data),

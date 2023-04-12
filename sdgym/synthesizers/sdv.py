@@ -2,7 +2,8 @@ import abc
 import logging
 
 import sdv
-import sdv.timeseries
+import sdv.sequential
+from sdv.metadata.single_table import SingleTableMetadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
 from sdgym.synthesizers.utils import select_device
@@ -17,8 +18,8 @@ class FastMLPreset(SingleTableBaselineSynthesizer):
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
-        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = sdv.lite.TabularPreset(name='FAST_ML', metadata=metadata, **model_kwargs)
+        metadata = SingleTableMetadata().load_from_dict(metadata)
+        model = sdv.lite.SingleTablePreset(name='FAST_ML', metadata=metadata)
         model.fit(data)
 
         return model
@@ -34,9 +35,10 @@ class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
+        metadata = SingleTableMetadata().load_from_dict(metadata)
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -47,16 +49,17 @@ class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
 class GaussianCopulaSynthesizer(SDVTabularSynthesizer):
 
-    _MODEL = sdv.tabular.GaussianCopula
+    _MODEL = sdv.single_table.GaussianCopulaSynthesizer
 
 
 class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
 
     def _get_trained_synthesizer(self, data, metadata):
+        metadata = SingleTableMetadata().load_from_dict(metadata)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model_kwargs.setdefault('cuda', select_device())
         LOGGER.info('Fitting %s with kwargs %s', self.__class__.__name__, model_kwargs)
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -67,17 +70,17 @@ class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
 
 class CTGANSynthesizer(CUDATabularSynthesizer):
 
-    _MODEL = sdv.tabular.CTGAN
+    _MODEL = sdv.single_table.CTGANSynthesizer
 
 
 class TVAESynthesizer(CUDATabularSynthesizer):
 
-    _MODEL = sdv.tabular.TVAE
+    _MODEL = sdv.single_table.TVAESynthesizer
 
 
 class CopulaGANSynthesizer(CUDATabularSynthesizer):
 
-    _MODEL = sdv.tabular.CopulaGAN
+    _MODEL = sdv.single_table.CopulaGANSynthesizer
 
 
 class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
@@ -100,7 +103,7 @@ class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
 
 class HMASynthesizer(SDVRelationalSynthesizer):
 
-    _MODEL = sdv.relational.HMA1
+    _MODEL = sdv.multi_table.hma.HMASynthesizer
 
 
 class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
@@ -112,7 +115,7 @@ class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -125,7 +128,7 @@ class PARSynthesizer(SDVTimeseriesSynthesizer):
 
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
-        model = sdv.timeseries.PAR(table_metadata=metadata, epochs=1024, verbose=False)
+        model = sdv.sequential.PARSynthesizer(metadata=metadata, epochs=1024, verbose=False)
         model.device = select_device()
         model.fit(data)
         return model

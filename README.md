@@ -30,14 +30,14 @@ techniques – classical statistics, deep learning and more!
 <img align="center" src="docs/images/SDGym_Results.png"></img>
 
 The SDGym library integrates with the Synthetic Data Vault ecosystem. You can use any of its
-synthesizers, datasets or metrics for benchmarking. You also customize the process to include
+synthesizers, datasets or metrics for benchmarking. You can also customize the process to include
 your own work.
 
 * **Datasets**: Select any of the publicly available datasets from the SDV project, or input your own data.
 * **Synthesizers**: Choose from any of the SDV synthesizers and baselines. Or write your own custom
 machine learning model.
 * **Evaluation**: In addition to performance and memory usage, you can also measure synthetic data
-quality and privacy through a variety of metrics
+quality and privacy through a variety of metrics.
 
 # Install
 
