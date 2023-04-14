@@ -6,7 +6,7 @@ import sdv.sequential
 from sdv.metadata.single_table import SingleTableMetadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
-from sdgym.synthesizers.utils import select_device
+from sdgym.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
 

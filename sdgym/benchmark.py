@@ -24,10 +24,9 @@ from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
-from sdgym.synthesizers.utils import get_num_gpus
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_duplicates, get_size_of, get_synthesizers,
-    import_object, used_memory)
+    build_synthesizer, format_exception, get_duplicates, get_num_gpus, get_size_of,
+    get_synthesizers, import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
