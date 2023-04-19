@@ -5,17 +5,18 @@ import importlib
 import json
 import logging
 import os
+import subprocess
 import sys
 import traceback
 import types
 
 import humanfriendly
+import numpy as np
 import pandas as pd
 import psutil
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
 
@@ -277,3 +278,23 @@ def get_duplicates(items):
         item for item in items
         if item in seen or seen.add(item)
     )
+
+
+def get_num_gpus():
+    try:
+        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+        output = subprocess.run(command, stdout=subprocess.PIPE)
+        return len(output.stdout.decode().split())
+    except Exception:
+        return 0
+
+
+def select_device():
+    try:
+        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+        output = subprocess.run(command, stdout=subprocess.PIPE)
+        loads = np.array(output.stdout.decode().split()).astype(float)
+        device = loads.argmin()
+        return f'cuda:{device}'
+    except Exception:
+        return 'cpu'
