@@ -9,8 +9,6 @@ LOGGER = logging.getLogger(__name__)
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
-    MODALITIES = ('single-table', )
-
     @classmethod
     def get_subclasses(cls, include_parents=False):
         """Recursively find subclasses of this Baseline.
@@ -79,7 +77,6 @@ class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
     dataset metadata dicts.
     """
 
-    MODALITIES = ('single-table', )
     CONVERT_TO_NUMERIC = False
 
     def _get_transformed_trained_synthesizer(self, real_data, metadata):
@@ -146,8 +143,6 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
 
     NOTE: doesn't currently work.
     """
-
-    MODALITIES = ('multi-table', 'single-table')
 
     def get_trained_synthesizer(self, data, metadata):
         """Get the trained synthesizer.
