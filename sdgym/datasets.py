@@ -17,6 +17,7 @@ DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
 BUCKET = 's3://sdv-demo-datasets'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
+MODALITIES = ['single_table', 'multi_table', 'sequential']
 S3_PREFIX = 's3://'
 
 
@@ -121,6 +122,11 @@ def get_available_datasets():
 
 
 def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
+    if modality not in MODALITIES:
+        modalities_list = ', '.join(MODALITIES)
+        raise ValueError(
+            f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
+
     s3 = get_s3_client(aws_key, aws_secret)
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
