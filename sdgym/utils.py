@@ -108,7 +108,6 @@ def _get_synthesizer(synthesizer, name=None):
     return {
         'name': name,
         'synthesizer': synthesizer,
-        'modalities': getattr(synthesizer, 'MODALITIES', []),
     }
 
 

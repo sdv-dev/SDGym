@@ -13,7 +13,6 @@ LOGGER = logging.getLogger(__name__)
 
 class FastMLPreset(SingleTableBaselineSynthesizer):
 
-    MODALITIES = ('single-table', )
     _MODEL = None
     _MODEL_KWARGS = None
 
@@ -30,7 +29,6 @@ class FastMLPreset(SingleTableBaselineSynthesizer):
 
 class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
-    MODALITIES = ('single-table', )
     _MODEL = None
     _MODEL_KWARGS = None
 
@@ -85,7 +83,6 @@ class CopulaGANSynthesizer(CUDATabularSynthesizer):
 
 class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
 
-    MODALITIES = ('single-table', 'multi-table')
     _MODEL = None
     _MODEL_KWARGS = None
 
@@ -108,7 +105,6 @@ class HMASynthesizer(SDVRelationalSynthesizer):
 
 class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
-    MODALITIES = ('timeseries', )
     _MODEL = None
     _MODEL_KWARGS = None
 

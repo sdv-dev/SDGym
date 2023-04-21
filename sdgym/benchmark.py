@@ -67,13 +67,9 @@ def _synthesize(synthesizer_dict, real_data, metadata):
 
     data = real_data.copy()
     num_samples = None
-    modalities = getattr(synthesizer, 'MODALITIES', [])
     is_single_table = (
         isinstance(synthesizer, type)
         and issubclass(synthesizer, SingleTableBaselineSynthesizer)
-    ) or (
-        len(modalities) == 1
-        and 'single-table' in modalities
     )
     if is_single_table:
         num_samples = len(data)
