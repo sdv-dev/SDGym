@@ -1,8 +1,6 @@
 import abc
 import logging
 
-import rdt
-
 LOGGER = logging.getLogger(__name__)
 
 
