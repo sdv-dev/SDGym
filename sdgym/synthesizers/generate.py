@@ -1,24 +1,17 @@
 """Synthesizers module."""
 
-from sdv.lite import SingleTablePreset
-from sdv.multi_table.hma import HMASynthesizer
-from sdv.sequential import PARSynthesizer
-from sdv.single_table import (
-    CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
-
 from sdgym.synthesizers.base import (
     BaselineSynthesizer, MultiSingleTableBaselineSynthesizer, SingleTableBaselineSynthesizer)
 from sdgym.synthesizers.sdv import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 
-SYNTHESIZER_MAPPING = {
-    'FastMLPreset': SingleTablePreset,
-    'GaussianCopulaSynthesizer': GaussianCopulaSynthesizer,
-    'CTGANSynthesizer': CTGANSynthesizer,
-    'CopulaGANSynthesizer': CopulaGANSynthesizer,
-    'TVAESynthesizer': TVAESynthesizer,
-    'PARSynthesizer': PARSynthesizer,
-    'HMASynthesizer': HMASynthesizer,
-}
+SYNTHESIZERS = [
+    'FastMLPreset',
+    'GaussianCopulaSynthesizer',
+    'CTGANSynthesizer',
+    'CopulaGANSynthesizer',
+    'TVAESynthesizer',
+    'PARSynthesizer',
+    'HMASynthesizer']
 
 
 def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
@@ -46,10 +39,10 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
         class:
             The synthesizer class.
     """
-    if synthesizer_class not in SYNTHESIZER_MAPPING.keys():
+    if synthesizer_class not in SYNTHESIZERS:
         raise ValueError(
             f'Synthesizer class {synthesizer_class} is not recognized. '
-            f"The supported options are {', '.join(SYNTHESIZER_MAPPING.keys())}"
+            f"The supported options are {SYNTHESIZERS}."
         )
 
     baseclass = SDVTabularSynthesizer
@@ -77,7 +70,7 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
                 the synthesizer.
         """
 
-        _MODEL = SYNTHESIZER_MAPPING.get(synthesizer_class)
+        _MODEL = synthesizer_class
         _MODEL_KWARGS = synthesizer_parameters
 
     NewSynthesizer.__name__ = f'Variant:{display_name}'
@@ -224,7 +217,7 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(BaselineSynthesizer):  # Why not inherit from SDVTimeseries?
+    class NewSynthesizer(BaselineSynthesizer):
         """New Synthesizer class.
 
         Args:
