@@ -2,10 +2,10 @@ import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
 from sklearn.mixture import GaussianMixture
 
-from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer
 
 
-class IndependentSynthesizer(SingleTableBaselineSynthesizer):
+class IndependentSynthesizer(BaselineSynthesizer):
     """Synthesizer that learns each column independently.
 
     Categorical columns are sampled using empirical frequencies.

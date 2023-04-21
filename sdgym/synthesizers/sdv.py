@@ -5,13 +5,13 @@ import sdv
 import sdv.sequential
 from sdv.metadata.single_table import SingleTableMetadata
 
-from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer, BaselineSynthesizer
 from sdgym.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
 
 
-class FastMLPreset(SingleTableBaselineSynthesizer):
+class FastMLPreset(BaselineSynthesizer):
 
     _MODEL = None
     _MODEL_KWARGS = None
@@ -27,7 +27,7 @@ class FastMLPreset(SingleTableBaselineSynthesizer):
         return synthesizer.sample(n_samples)
 
 
-class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
+class SDVTabularSynthesizer(BaselineSynthesizer, abc.ABC):
 
     _MODEL = None
     _MODEL_KWARGS = None
@@ -103,7 +103,7 @@ class HMASynthesizer(SDVRelationalSynthesizer):
     _MODEL = sdv.multi_table.hma.HMASynthesizer
 
 
-class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
+class SDVTimeseriesSynthesizer(BaselineSynthesizer, abc.ABC):
 
     _MODEL = None
     _MODEL_KWARGS = None
