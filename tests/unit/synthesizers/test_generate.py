@@ -4,8 +4,8 @@ import pytest
 
 from sdgym.synthesizers import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 from sdgym.synthesizers.generate import (
-    create_multi_table_synthesizer, create_sdv_synthesizer_variant,
-    create_sequential_synthesizer, create_single_table_synthesizer)
+    create_multi_table_synthesizer, create_sdv_synthesizer_variant, create_sequential_synthesizer,
+    create_single_table_synthesizer)
 
 
 def test_create_single_table_synthesizer():

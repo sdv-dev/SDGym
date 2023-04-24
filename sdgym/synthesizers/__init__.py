@@ -1,6 +1,6 @@
 from sdgym.synthesizers.generate import (
-    create_multi_table_synthesizer, create_sdv_synthesizer_variant,
-    create_sequential_synthesizer, create_single_table_synthesizer)
+    create_multi_table_synthesizer, create_sdv_synthesizer_variant, create_sequential_synthesizer,
+    create_single_table_synthesizer)
 from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.independent import IndependentSynthesizer
 from sdgym.synthesizers.sdv import (
