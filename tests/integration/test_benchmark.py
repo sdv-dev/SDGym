@@ -2,6 +2,7 @@ import contextlib
 import io
 
 import pytest
+import pandas as pd
 
 import sdgym
 from sdgym.synthesizers import create_single_table_synthesizer
@@ -112,3 +113,9 @@ def test_duplicate_synthesizers():
             synthesizers=['GaussianCopulaSynthesizer', 'GaussianCopulaSynthesizer'],
             custom_synthesizers=[custom_synthesizer, custom_synthesizer]
         )
+
+
+def test_benchmark_single_table():
+    pd.set_option('display.max_columns', None)
+    print(sdgym.benchmark_single_table(sdv_datasets=['student_placements'], show_progress=True))
+    assert 0
