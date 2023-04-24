@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from sdgym.summary import make_summary_spreadsheet
+from sdgym.cli.summary import make_summary_spreadsheet
 
 
 @patch('sdgym.summary.write_file')
