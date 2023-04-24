@@ -1,4 +1,9 @@
 """Synthesizers module."""
+from sdv.lite import SingleTablePreset
+from sdv.multi_table.hma import HMASynthesizer
+from sdv.sequential import PARSynthesizer
+from sdv.single_table import (
+    CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
 
 from sdgym.synthesizers.base import (
     BaselineSynthesizer, MultiSingleTableBaselineSynthesizer, SingleTableBaselineSynthesizer)
@@ -70,7 +75,7 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
                 the synthesizer.
         """
 
-        _MODEL = synthesizer_class
+        _MODEL = globals()[synthesizer_class]
         _MODEL_KWARGS = synthesizer_parameters
 
     NewSynthesizer.__name__ = f'Variant:{display_name}'
