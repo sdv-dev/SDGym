@@ -6,7 +6,8 @@ from sdv.sequential import PARSynthesizer
 from sdv.single_table import (
     CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
 
-from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
+from sdgym.synthesizers.base import (
+    BaselineSynthesizer, MultiSingleTableBaselineSynthesizer, SingleTableBaselineSynthesizer)
 from sdgym.synthesizers.sdv import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
@@ -101,7 +102,7 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(BaselineSynthesizer):
+    class NewSynthesizer(SingleTableBaselineSynthesizer):
         """New Synthesizer class.
 
         Args:

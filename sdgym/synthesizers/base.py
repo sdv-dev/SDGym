@@ -48,7 +48,7 @@ class BaselineSynthesizer(abc.ABC):
             obj:
                 The synthesizer object
         """
-        return self._get_trained_synthesizer(data, metadata)
+        raise NotImplementedError()
 
     def sample_from_synthesizer(self, synthesizer, n_samples):
         """Sample data from the provided synthesizer.
@@ -63,6 +63,47 @@ class BaselineSynthesizer(abc.ABC):
             pandas.DataFrame or dict:
                 The sampled data. If single-table, should be a DataFrame. If multi-table,
                 should be a dict mapping table name to DataFrame.
+        """
+        return NotImplementedError()
+
+
+class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
+    """Base class for all the SingleTable Baselines.
+
+    Subclasses can choose to implement ``_fit_sample``, which will
+    always be called with DataFrames and Table metadata dicts, or
+    to overwrite the ``fit_sample`` method, which may be called with
+    either DataFrames and Table dicts, or with dicts of tables and
+    dataset metadata dicts.
+    """
+
+    def get_trained_synthesizer(self, data, metadata):
+        """Get a synthesizer that has been trained on the provided data and metadata.
+
+        Args:
+            data (pandas.DataFrame):
+                The data to train on.
+            metadata (sdv.metadata.single_table.SingleTableMetadata):
+                The metadata.
+
+        Returns:
+            obj:
+                The synthesizer object
+        """
+        return self._get_trained_synthesizer(data, metadata)
+
+    def sample_from_synthesizer(self, synthesizer, n_samples):
+        """Sample data from the provided synthesizer.
+
+        Args:
+            synthesizer (obj):
+                The synthesizer object to sample data from.
+            n_samples (int):
+                The number of samples to create.
+
+        Returns:
+            pandas.DataFrame:
+                The sampled data.
         """
         return self._sample_from_synthesizer(synthesizer, n_samples)
 
