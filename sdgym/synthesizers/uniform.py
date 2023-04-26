@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
 
-from sdgym.synthesizers.base import SingleTableBaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer
 
 
-class UniformSynthesizer(SingleTableBaselineSynthesizer):
+class UniformSynthesizer(BaselineSynthesizer):
     """Synthesizer that samples each column using a Uniform distribution."""
 
     def _get_trained_synthesizer(self, real_data, metadata):

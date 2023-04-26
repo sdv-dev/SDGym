@@ -23,7 +23,7 @@ from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
-from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
     build_synthesizer, format_exception, get_duplicates, get_num_gpus, get_size_of,
     get_synthesizers, import_object, used_memory)
@@ -66,13 +66,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
         get_synthesizer, sample_from_synthesizer = synthesizer
 
     data = real_data.copy()
-    is_single_table = (
-        isinstance(synthesizer, type)
-        and issubclass(synthesizer, SingleTableBaselineSynthesizer)
-    )
-    num_samples = None
-    if is_single_table:
-        num_samples = len(data)
+    num_samples = len(data)
 
     tracemalloc.start()
     now = datetime.utcnow()
