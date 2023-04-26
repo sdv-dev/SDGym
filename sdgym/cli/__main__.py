@@ -127,12 +127,13 @@ def _list_synthesizers(args):
 
 
 def _collect(args):
-    sdgym.collect.collect_results(args.input_path, args.output_file, args.aws_key, args.aws_secret)
+    sdgym.cli.collect.collect_results(
+        args.input_path, args.output_file, args.aws_key, args.aws_secret)
 
 
 def _summary(args):
-    sdgym.summary.make_summary_spreadsheet(args.input_path, output_path=args.output_file,
-                                           aws_key=args.aws_key, aws_secret=args.aws_secret)
+    sdgym.cli.summary.make_summary_spreadsheet(args.input_path, output_path=args.output_file,
+                                               aws_key=args.aws_key, aws_secret=args.aws_secret)
 
 
 def _get_parser():

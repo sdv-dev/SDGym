@@ -15,8 +15,8 @@ import logging
 from sdgym import benchmark, synthesizers
 from sdgym.benchmark import benchmark_single_table
 from sdgym.cli.collect import collect_results
-from sdgym.datasets import load_dataset
 from sdgym.cli.summary import make_summary_spreadsheet
+from sdgym.datasets import load_dataset
 
 # Clear the logging wrongfully configured by tensorflow/absl
 list(map(logging.root.removeHandler, logging.root.handlers))
