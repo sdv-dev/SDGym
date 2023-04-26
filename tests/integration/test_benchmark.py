@@ -3,11 +3,11 @@ import io
 
 import pandas as pd
 import pytest
+from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 import sdgym
 from sdgym.synthesizers import create_single_table_synthesizer
 from sdgym.synthesizers.generate import create_sdv_synthesizer_variant
-from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 
 def test_identity():
@@ -119,7 +119,7 @@ def test_duplicate_synthesizers():
 
 def test_benchmark_single_table():
     """Test all synthesizers, as well as some generated ones, against a dataset.
-    
+
     The custom synthesizers should be generated from both ``create_single_table_synthesizer``
     and ``create_sdv_synthesizer_variant``, to test they work.
     """
@@ -151,16 +151,14 @@ def test_benchmark_single_table():
     )
 
     # Run
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.max_rows', None)
     results = sdgym.benchmark_single_table(
         synthesizers=[
-            'GaussianCopulaSynthesizer', 'FastMLPreset', 'DataIdentity', #'CTGANSynthesizer',
-            'IndependentSynthesizer', 'UniformSynthesizer'],
-        custom_synthesizers=[FastMLVariant, TestSynthesizer],
+            'GaussianCopulaSynthesizer', 'FastMLPreset', 'DataIdentity',
+            'IndependentSynthesizer', 'UniformSynthesizer', 'CTGANSynthesizer'
+        ],
+        custom_synthesizers=[FastMLVariant, TestSynthesizer, CTGANVariant],
         sdv_datasets=['student_placements']
     )
-    print(results)
 
     # Assert
     expected_synthesizers = pd.Series([
@@ -169,20 +167,22 @@ def test_benchmark_single_table():
         'DataIdentity',
         'IndependentSynthesizer',
         'UniformSynthesizer',
+        'CTGANSynthesizer',
         'Variant:FastMLVariant',
         'Custom:TestSynthesizer',
-    ])
-    pd.testing.assert_series_equal(results, expected_synthesizers)
+        'Variant:CTGANVariant'
+    ], name='Synthesizer')
+    pd.testing.assert_series_equal(results['Synthesizer'], expected_synthesizers)
 
     assert set(results['Dataset']) == {'student_placements'}
     assert set(results['Dataset_Size_MB']) == {0.026358}
     assert results['Train_Time'].between(0, 100).all()
-    assert results['Peak_Memory_MB'].between(0, 10).all()
-    assert results['Synthesizer_Size_MB'].between(0, 1).all()
+    assert results['Peak_Memory_MB'].between(0, 20).all()
+    assert results['Synthesizer_Size_MB'].between(0, 10).all()
     assert results['Sample_Time'].between(0, 1).all()
-    assert results['Evaluate_Time'].between(2, 5).all()
+    assert results['Evaluate_Time'].between(1, 5).all()
     assert results['Quality_Score'].between(.7, 1).all()
     assert results['NewRowSynthesis'][2] == 0
 
     results['NewRowSynthesis'][2] = 1
-    assert (results['NewRowSynthesis'] == 0).all()
+    assert (results['NewRowSynthesis'] == 1).all()

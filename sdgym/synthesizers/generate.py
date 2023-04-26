@@ -1,13 +1,12 @@
 """Synthesizers module."""
 
 from sdv.lite import SingleTablePreset
+from sdv.metadata.multi_table import MultiTableMetadata
+from sdv.metadata.single_table import SingleTableMetadata
 from sdv.multi_table.hma import HMASynthesizer
 from sdv.sequential import PARSynthesizer
 from sdv.single_table import (
     CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
-from sdv.metadata.single_table import SingleTableMetadata
-from sdv.metadata.multi_table import MultiTableMetadata
-
 
 from sdgym.synthesizers.base import (
     BaselineSynthesizer, MultiSingleTableBaselineSynthesizer, SingleTableBaselineSynthesizer)

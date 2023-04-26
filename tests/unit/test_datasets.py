@@ -1,13 +1,13 @@
 import io
-import pandas as pd
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 from zipfile import ZipFile
 
 import botocore
+import pandas as pd
 
 from sdgym.datasets import (
-    _get_bucket_name, _get_dataset_path, _download_dataset, get_available_datasets,
+    _download_dataset, _get_bucket_name, _get_dataset_path, get_available_datasets,
     get_dataset_paths)
 
 
