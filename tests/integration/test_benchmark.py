@@ -1,11 +1,12 @@
 import contextlib
 import io
 
-import pytest
 import pandas as pd
+import pytest
 
 import sdgym
 from sdgym.synthesizers import create_single_table_synthesizer
+from sdgym.synthesizers.generate import create_sdv_synthesizer_variant
 
 
 def test_identity():
@@ -116,6 +117,29 @@ def test_duplicate_synthesizers():
 
 
 def test_benchmark_single_table():
+    """Test all synthesizers, as well as some generated ones, against a dataset."""
+    # Setup
+    CTGANVariant = create_sdv_synthesizer_variant(
+        'CTGANVariant',
+        'CTGANSynthesizer',
+        synthesizer_parameters={
+            'epochs': 100})
+    FastMLVariant = create_sdv_synthesizer_variant(
+        'FastMLVariant',
+        'FastMLPreset',
+        synthesizer_parameters={
+            'name': 'FAST_ML'})
+
+    # Run
     pd.set_option('display.max_columns', None)
-    print(sdgym.benchmark_single_table(sdv_datasets=['student_placements'], show_progress=True))
+    pd.set_option('display.max_rows', None)
+    print(sdgym.benchmark_single_table(
+        synthesizers=[
+            'GaussianCopulaSynthesizer', 'FastMLPreset', 'CTGANSynthesizer', 'DataIdentity',
+            'IndependentSynthesizer', 'UniformSynthesizer'],
+        custom_synthesizers=[CTGANVariant, FastMLVariant],
+        sdv_datasets=['student_placements']
+    ))
+
+    # Assert
     assert 0
