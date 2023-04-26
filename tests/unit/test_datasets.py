@@ -7,7 +7,7 @@ import botocore
 import pandas as pd
 
 from sdgym.datasets import (
-    _download_dataset, _get_bucket_name, _get_dataset_path, get_available_datasets,
+    download_dataset, _get_bucket_name, _get_dataset_path, get_available_datasets,
     get_dataset_paths)
 
 
@@ -64,7 +64,7 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
     boto3_mock.Session().get_credentials.return_value = None
 
     # run
-    _download_dataset(
+    download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),
@@ -128,7 +128,7 @@ def test_download_dataset_private_bucket(boto3_mock, tmpdir):
     boto3_mock.client.return_value = s3_mock
 
     # run
-    _download_dataset(
+    download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),

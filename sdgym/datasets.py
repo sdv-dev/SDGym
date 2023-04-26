@@ -25,8 +25,8 @@ def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX):] if bucket.startswith(S3_PREFIX) else bucket
 
 
-def _download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
-                      aws_secret=None):
+def download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
+                     aws_secret=None):
     datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
@@ -57,7 +57,7 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
         if local_path.exists():
             return local_path
 
-    _download_dataset(
+    download_dataset(
         modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
 
@@ -99,6 +99,28 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
     return data, metadata_content
 
 
+def load_tables(metadata, max_rows=None):
+    if max_rows and len(metadata.get_tables()) > 1:
+        raise ValueError('max_rows is not supported for multi-table datasets')
+
+    real_data = metadata.load_tables()
+    for table_name, table in real_data.items():
+        table = table.head(max_rows)
+        fields = metadata.get_fields(table_name)
+        columns = [
+            column
+            for column in table.columns
+            if column in fields
+        ]
+        real_data[table_name] = table[columns]
+
+    return real_data
+
+
+def get_available_datasets():
+    return _get_available_datasets('single_table')
+
+
 def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
     if modality not in MODALITIES:
         modalities_list = ', '.join(MODALITIES)
@@ -126,10 +148,6 @@ def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None
             })
 
     return pd.DataFrame(datasets)
-
-
-def get_available_datasets():
-    return _get_available_datasets('single_table')
 
 
 def get_downloaded_datasets(datasets_path=None):
