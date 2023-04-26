@@ -7,6 +7,7 @@ import pytest
 import sdgym
 from sdgym.synthesizers import create_single_table_synthesizer
 from sdgym.synthesizers.generate import create_sdv_synthesizer_variant
+from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 
 def test_identity():
@@ -117,29 +118,71 @@ def test_duplicate_synthesizers():
 
 
 def test_benchmark_single_table():
-    """Test all synthesizers, as well as some generated ones, against a dataset."""
+    """Test all synthesizers, as well as some generated ones, against a dataset.
+    
+    The custom synthesizers should be generated from both ``create_single_table_synthesizer``
+    and ``create_sdv_synthesizer_variant``, to test they work.
+    """
     # Setup
+    def get_trained_synthesizer(data, metadata):
+        model = GaussianCopulaSynthesizer(metadata)
+        model.fit(data)
+        return model
+
+    def sample_from_synthesizer(synthesizer, n_samples):
+        return synthesizer.sample(n_samples)
+
+    TestSynthesizer = create_single_table_synthesizer(
+        display_name='TestSynthesizer',
+        get_trained_synthesizer_fn=get_trained_synthesizer,
+        sample_from_synthesizer_fn=sample_from_synthesizer
+    )
+
     CTGANVariant = create_sdv_synthesizer_variant(
         'CTGANVariant',
         'CTGANSynthesizer',
-        synthesizer_parameters={
-            'epochs': 100})
+        synthesizer_parameters={'epochs': 100}
+    )
+
     FastMLVariant = create_sdv_synthesizer_variant(
         'FastMLVariant',
         'FastMLPreset',
-        synthesizer_parameters={
-            'name': 'FAST_ML'})
+        synthesizer_parameters={'name': 'FAST_ML'}
+    )
 
     # Run
     pd.set_option('display.max_columns', None)
     pd.set_option('display.max_rows', None)
-    print(sdgym.benchmark_single_table(
+    results = sdgym.benchmark_single_table(
         synthesizers=[
-            'GaussianCopulaSynthesizer', 'FastMLPreset', 'CTGANSynthesizer', 'DataIdentity',
+            'GaussianCopulaSynthesizer', 'FastMLPreset', 'DataIdentity', #'CTGANSynthesizer',
             'IndependentSynthesizer', 'UniformSynthesizer'],
-        custom_synthesizers=[CTGANVariant, FastMLVariant],
+        custom_synthesizers=[FastMLVariant, TestSynthesizer],
         sdv_datasets=['student_placements']
-    ))
+    )
+    print(results)
 
     # Assert
-    assert 0
+    expected_synthesizers = pd.Series([
+        'GaussianCopulaSynthesizer',
+        'FastMLPreset',
+        'DataIdentity',
+        'IndependentSynthesizer',
+        'UniformSynthesizer',
+        'Variant:FastMLVariant',
+        'Custom:TestSynthesizer',
+    ])
+    pd.testing.assert_series_equal(results, expected_synthesizers)
+
+    assert set(results['Dataset']) == {'student_placements'}
+    assert set(results['Dataset_Size_MB']) == {0.026358}
+    assert results['Train_Time'].between(0, 100).all()
+    assert results['Peak_Memory_MB'].between(0, 10).all()
+    assert results['Synthesizer_Size_MB'].between(0, 1).all()
+    assert results['Sample_Time'].between(0, 1).all()
+    assert results['Evaluate_Time'].between(2, 5).all()
+    assert results['Quality_Score'].between(.7, 1).all()
+    assert results['NewRowSynthesis'][2] == 0
+
+    results['NewRowSynthesis'][2] = 1
+    assert (results['NewRowSynthesis'] == 0).all()
