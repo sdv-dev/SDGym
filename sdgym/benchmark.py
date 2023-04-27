@@ -334,9 +334,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
                            multi_processing_config=None):
     """Run the SDGym benchmark on single-table datasets.
 
-    The ``synthesizers`` object can either be a single synthesizer or, an iterable of
-    synthesizers or a dict containing synthesizer names as keys and synthesizers as values.
-
     Args:
         synthesizers (list[string]):
             The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer, FASTMLPreset,
