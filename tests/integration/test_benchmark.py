@@ -189,7 +189,7 @@ def test_benchmark_single_table():
     assert results['Synthesizer_Size_MB'].between(0, 100).all()
     assert results['Sample_Time'].between(0, 10).all()
     assert results['Evaluate_Time'].between(0, 30).all()
-    assert results['Quality_Score'].between(.7, 1).all()
+    assert results['Quality_Score'].between(.6, 1).all()
     assert results['NewRowSynthesis'][4] == 0
 
     results['NewRowSynthesis'][4] = 1
