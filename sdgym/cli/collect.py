@@ -1,4 +1,5 @@
-from sdgym.s3 import read_csv_from_path, write_csv
+from sdgym.cli.utils import read_csv_from_path
+from sdgym.s3 import write_csv
 
 
 def collect_results(input_path, output_file=None, aws_key=None, aws_secret=None):

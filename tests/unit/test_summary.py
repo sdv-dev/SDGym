@@ -3,20 +3,20 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from sdgym.summary import make_summary_spreadsheet
+from sdgym.cli.summary import make_summary_spreadsheet
 
 
-@patch('sdgym.summary.write_file')
-@patch('sdgym.summary.read_csv')
-@patch('sdgym.summary.preprocess')
-@patch('sdgym.summary.errors_summary')
-@patch('sdgym.summary.summarize')
-@patch('sdgym.summary.pd.ExcelWriter')
-@patch('sdgym.summary.add_sheet')
+@patch('sdgym.cli.summary.write_file')
+@patch('sdgym.cli.summary.read_csv')
+@patch('sdgym.cli.summary.preprocess')
+@patch('sdgym.cli.summary.errors_summary')
+@patch('sdgym.cli.summary.summarize')
+@patch('sdgym.cli.summary.pd.ExcelWriter')
+@patch('sdgym.cli.summary.add_sheet')
 def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_mock,
                                   errors_summary_mock, preprocess_mock, read_csv_mock,
                                   write_file_mock):
-    """Test the ``sdgym.summary.make_summary_spreadsheet`` function.
+    """Test the ``sdgym.cli.summary.make_summary_spreadsheet`` function.
 
     The ``make_summary_spreadsheet`` function is expected to extract the correct
     columns from the input file and add them to the correct sheets. It should
@@ -112,18 +112,18 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     write_file_mock.assert_called_once_with(b'', 'output_path.xlsx', None, None)
 
 
-@patch('sdgym.summary.write_file')
-@patch('sdgym.summary._add_summary')
-@patch('sdgym.summary.read_csv')
-@patch('sdgym.summary.preprocess')
-@patch('sdgym.summary.errors_summary')
-@patch('sdgym.summary.summarize')
-@patch('sdgym.summary.pd.ExcelWriter')
-@patch('sdgym.summary.add_sheet')
+@patch('sdgym.cli.summary.write_file')
+@patch('sdgym.cli.summary._add_summary')
+@patch('sdgym.cli.summary.read_csv')
+@patch('sdgym.cli.summary.preprocess')
+@patch('sdgym.cli.summary.errors_summary')
+@patch('sdgym.cli.summary.summarize')
+@patch('sdgym.cli.summary.pd.ExcelWriter')
+@patch('sdgym.cli.summary.add_sheet')
 def test_make_summary_spreadsheet_no_output_path(add_sheet_mock, excel_writer_mock, summarize_mock,
                                                  errors_summary_mock, preprocess_mock,
                                                  read_csv_mock, add_summary_mock, write_file_mock):
-    """Test the ``sdgym.summary.make_summary_spreadsheet`` function.
+    """Test the ``sdgym.cli.summary.make_summary_spreadsheet`` function.
 
     The ``make_summary_spreadsheet`` function is expected to use the
     input file path to create the output file path if none is provided.
