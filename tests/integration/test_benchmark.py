@@ -153,8 +153,14 @@ def test_benchmark_single_table():
     # Run
     results = sdgym.benchmark_single_table(
         synthesizers=[
-            'GaussianCopulaSynthesizer', 'FastMLPreset', 'DataIdentity',
-            'IndependentSynthesizer', 'UniformSynthesizer', 'CTGANSynthesizer'
+            'TVAESynthesizer',
+            'CopulaGANSynthesizer',
+            'GaussianCopulaSynthesizer',
+            'FastMLPreset',
+            'DataIdentity',
+            'IndependentSynthesizer',
+            'UniformSynthesizer',
+            'CTGANSynthesizer'
         ],
         custom_synthesizers=[FastMLVariant, TestSynthesizer, CTGANVariant],
         sdv_datasets=['student_placements']
@@ -162,6 +168,8 @@ def test_benchmark_single_table():
 
     # Assert
     expected_synthesizers = pd.Series([
+        'TVAESynthesizer',
+        'CopulaGANSynthesizer',
         'GaussianCopulaSynthesizer',
         'FastMLPreset',
         'DataIdentity',
@@ -176,13 +184,13 @@ def test_benchmark_single_table():
 
     assert set(results['Dataset']) == {'student_placements'}
     assert set(results['Dataset_Size_MB']) == {0.026358}
-    assert results['Train_Time'].between(0, 100).all()
+    assert results['Train_Time'].between(0, 200).all()
     assert results['Peak_Memory_MB'].between(0, 100).all()
     assert results['Synthesizer_Size_MB'].between(0, 100).all()
     assert results['Sample_Time'].between(0, 10).all()
     assert results['Evaluate_Time'].between(0, 10).all()
     assert results['Quality_Score'].between(.7, 1).all()
-    assert results['NewRowSynthesis'][2] == 0
+    assert results['NewRowSynthesis'][4] == 0
 
-    results['NewRowSynthesis'][2] = 1
+    results['NewRowSynthesis'][4] = 1
     assert (results['NewRowSynthesis'] == 1).all()
