@@ -20,7 +20,7 @@ def test_uniform_synthesizer():
     uniform_synthesizer = UniformSynthesizer()
 
     # Run
-    trained_synthesizer = uniform_synthesizer.get_trained_synthesizer(data, metadata)
+    trained_synthesizer = uniform_synthesizer.get_trained_synthesizer(data, metadata.to_dict())
     samples = uniform_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples)
 
     # Assert numerical values are uniform
@@ -31,9 +31,6 @@ def test_uniform_synthesizer():
     n_values_interval1 = sum(samples['num'].between(min_val, min_val + interval))
     n_values_interval2 = sum(samples['num'].between(min_val + interval, max_val - interval))
     n_values_interval3 = sum(samples['num'].between(max_val - interval, max_val))
-    print(n_values_interval1)
-    print(n_values_interval2)
-    print(n_values_interval3)
 
     assert n_values_interval2 * .9 < n_values_interval1 < n_values_interval2 * 1.1
     assert n_values_interval3 * .9 < n_values_interval1 < n_values_interval3 * 1.1
@@ -45,7 +42,3 @@ def test_uniform_synthesizer():
 
     assert b_values * .9 < a_values < b_values * 1.1
     assert c_values * .9 < a_values < c_values * 1.1
-    print(a_values)
-    print(b_values)
-    print(c_values)
-    assert 0

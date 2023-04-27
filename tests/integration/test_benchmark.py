@@ -26,6 +26,7 @@ def test_identity():
     ] == scores.index.tolist()
 
     quality_scores = output.groupby('Synthesizer').Quality_Score.mean().sort_values()
+    print(quality_scores)
 
     assert [
         'UniformSynthesizer',
