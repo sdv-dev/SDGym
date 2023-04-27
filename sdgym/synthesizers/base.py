@@ -1,8 +1,6 @@
 import abc
 import logging
 
-import rdt
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -50,8 +48,9 @@ class BaselineSynthesizer(abc.ABC):
             obj:
                 The synthesizer object
         """
+        return self._get_trained_synthesizer(data, metadata)
 
-    def sample_from_synthesizer(synthesizer, n_samples):
+    def sample_from_synthesizer(self, synthesizer, n_samples):
         """Sample data from the provided synthesizer.
 
         Args:
@@ -65,74 +64,7 @@ class BaselineSynthesizer(abc.ABC):
                 The sampled data. If single-table, should be a DataFrame. If multi-table,
                 should be a dict mapping table name to DataFrame.
         """
-
-
-class SingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
-    """Base class for all the SingleTable Baselines.
-
-    Subclasses can choose to implement ``_fit_sample``, which will
-    always be called with DataFrames and Table metadata dicts, or
-    to overwrite the ``fit_sample`` method, which may be called with
-    either DataFrames and Table dicts, or with dicts of tables and
-    dataset metadata dicts.
-    """
-
-    CONVERT_TO_NUMERIC = False
-
-    def _get_transformed_trained_synthesizer(self, real_data, metadata):
-        self.ht = rdt.HyperTransformer()
-        columns_to_transform = list()
-        fields_metadata = list(metadata.columns.keys())
-        self.id_fields = list()
-        for field in fields_metadata:
-            if fields_metadata.get(field).get('sdtype') != 'id':
-                columns_to_transform.append(field)
-            else:
-                self.id_fields.append(field)
-
-        self.id_field_values = real_data[self.id_fields]
-
-        self.ht.fit(real_data[columns_to_transform])
-        transformed_data = self.ht.transform(real_data)
-        return self._get_trained_synthesizer(transformed_data, metadata)
-
-    def _get_reverse_transformed_samples(self, data):
-        synthetic_data = self._sample_from_synthesizer(data)
-        reverse_transformed_synthetic_data = self.ht.reverse_transform(synthetic_data)
-        reverse_transformed_synthetic_data[self.id_fields] = self.id_field_values
-        return reverse_transformed_synthetic_data
-
-    def get_trained_synthesizer(self, data, metadata):
-        """Get a synthesizer that has been trained on the provided data and metadata.
-
-        Args:
-            data (pandas.DataFrame):
-                The data to train on.
-            metadata (sdv.metadata.single_table.SingleTableMetadata):
-                The metadata.
-
-        Returns:
-            obj:
-                The synthesizer object
-        """
-        return self._get_transformed_trained_synthesizer(data, metadata) if (
-            self.CONVERT_TO_NUMERIC) else self._get_trained_synthesizer(data, metadata)
-
-    def sample_from_synthesizer(self, synthesizer, n_samples):
-        """Sample data from the provided synthesizer.
-
-        Args:
-            synthesizer (obj):
-                The synthesizer object to sample data from.
-            n_samples (int):
-                The number of samples to create.
-
-        Returns:
-            pandas.DataFrame:
-                The sampled data.
-        """
-        return self._get_reverse_transformed_samples(synthesizer, n_samples) if (
-            self.CONVERT_TO_NUMERIC) else self._sample_from_synthesizer(synthesizer, n_samples)
+        return self._sample_from_synthesizer(synthesizer, n_samples)
 
 
 class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
