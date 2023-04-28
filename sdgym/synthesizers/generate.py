@@ -223,7 +223,7 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(BaselineSynthesizer):  # Why not inherit from SDVTimeseries?
+    class NewSynthesizer(BaselineSynthesizer):
         """New Synthesizer class.
 
         Args:
