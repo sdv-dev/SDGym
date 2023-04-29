@@ -193,6 +193,6 @@ def test_benchmark_single_table():
 
     # The IdentitySynthesizer never returns new rows, so its score is 0
     # Every other synthesizer should only return new rows, so their score is 1
-    assert results['NewRowSynthesis'][4] == 0 
+    assert results['NewRowSynthesis'][4] == 0
     results['NewRowSynthesis'][4] = 1
     assert (results['NewRowSynthesis'] == 1).all()
