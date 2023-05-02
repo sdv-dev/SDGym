@@ -29,7 +29,6 @@ def used_memory():
 
 def import_object(object_name):
     """Import an object from its Fully Qualified Name."""
-
     if isinstance(object_name, str):
         parent_name, attribute = object_name.rsplit('.', 1)
         try:
@@ -266,7 +265,7 @@ def get_duplicates(items):
 
     Args:
         items (list):
-            The list of items to de-deduplicate.
+            The list of items to de-duplicate.
 
     Returns:
         set:

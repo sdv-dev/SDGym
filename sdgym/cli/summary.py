@@ -285,9 +285,8 @@ def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
     """Create a spreadsheet document organizing information from results.
 
     This function creates a ``.xlsx`` file containing information from
-    the results of running ``sdgym.run``. The file contains five sheets
-    for each modality: summary, quality, performance, error summary and
-    error details.
+    the results of running ``sdgym.benchmark_single_table``. The file contains five sheets
+    for each modality: summary, quality, performance, error summary and error details.
 
     Args:
         results_csv_path (str):

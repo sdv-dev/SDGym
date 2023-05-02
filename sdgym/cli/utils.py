@@ -16,11 +16,9 @@ def read_file(path, aws_key, aws_secret):
         path (str):
             The path to the file.
         aws_key (str):
-            The access key id that will be used to communicate with s3,
-            if provided.
+            The access key id that will be used to communicate with s3, if provided.
         aws_secret (str):
-            The secret access key that will be used to communicate with
-            s3, if provided.
+            The secret access key that will be used to communicate with s3, if provided.
 
     Returns:
         bytes:
@@ -47,11 +45,9 @@ def read_csv(path, aws_key, aws_secret):
         path (str):
             The path to the csv file.
         aws_key (str):
-            The access key id that will be used to communicate with s3,
-            if provided.
+            The access key id that will be used to communicate with s3, if provided.
         aws_secret (str):
-            The secret access key that will be used to communicate with
-            s3, if provided.
+            The secret access key that will be used to communicate with s3, if provided.
 
     Returns:
         pandas.DataFrame:
@@ -69,14 +65,11 @@ def read_csv_from_path(path, aws_key, aws_secret):
 
     args:
         path (str):
-            The path to read from, which can be either local or an
-            s3 path.
+            The path to read from, which can be either local or an s3 path.
         aws_key (str):
-            The access key id that will be used to communicate with s3,
-            if provided.
+            The access key id that will be used to communicate with s3, if provided.
         aws_secret (str):
-            The secret access key that will be used to communicate with
-            s3, if provided.
+            The secret access key that will be used to communicate with s3, if provided.
 
     Returns:
         pandas.DataFrame:
