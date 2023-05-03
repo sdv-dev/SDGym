@@ -2,7 +2,6 @@ import abc
 import logging
 
 import sdv
-import sdv.sequential
 from sdv.metadata.single_table import SingleTableMetadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer
