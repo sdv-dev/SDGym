@@ -11,10 +11,14 @@ class UniformSynthesizer(SingleTableBaselineSynthesizer):
     def _get_trained_synthesizer(self, real_data, metadata):
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(real_data)
-        hyper_transformer.update_transformers_by_sdtype(
-            'categorical',
-            transformer_name='LabelEncoder',
-        )
+
+        # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
+        columns_to_remove = [
+            column_name for column_name, data in real_data.items()
+            if data.dtype.kind in {'O', 'i'}
+        ]
+        hyper_transformer.remove_transformers(columns_to_remove)
+
         hyper_transformer.fit(real_data)
         transformed = hyper_transformer.transform(real_data)
 
@@ -28,6 +32,8 @@ class UniformSynthesizer(SingleTableBaselineSynthesizer):
             kind = column.dtype.kind
             if kind == 'i':
                 values = np.random.randint(column.min(), column.max() + 1, size=self.length)
+            elif kind == 'O':
+                values = np.random.choice(column.unique(), size=self.length)
             else:
                 values = np.random.uniform(column.min(), column.max(), size=self.length)
 
