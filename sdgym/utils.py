@@ -5,17 +5,18 @@ import importlib
 import json
 import logging
 import os
+import subprocess
 import sys
 import traceback
 import types
 
 import humanfriendly
+import numpy as np
 import pandas as pd
 import psutil
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +29,6 @@ def used_memory():
 
 def import_object(object_name):
     """Import an object from its Fully Qualified Name."""
-
     if isinstance(object_name, str):
         parent_name, attribute = object_name.rsplit('.', 1)
         try:
@@ -107,7 +107,6 @@ def _get_synthesizer(synthesizer, name=None):
     return {
         'name': name,
         'synthesizer': synthesizer,
-        'modalities': getattr(synthesizer, 'MODALITIES', []),
     }
 
 
@@ -266,7 +265,7 @@ def get_duplicates(items):
 
     Args:
         items (list):
-            The list of items to de-deduplicate.
+            The list of items to de-duplicate.
 
     Returns:
         set:
@@ -277,3 +276,23 @@ def get_duplicates(items):
         item for item in items
         if item in seen or seen.add(item)
     )
+
+
+def get_num_gpus():
+    try:
+        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+        output = subprocess.run(command, stdout=subprocess.PIPE)
+        return len(output.stdout.decode().split())
+    except Exception:
+        return 0
+
+
+def select_device():
+    try:
+        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+        output = subprocess.run(command, stdout=subprocess.PIPE)
+        loads = np.array(output.stdout.decode().split()).astype(float)
+        device = loads.argmin()
+        return f'cuda:{device}'
+    except Exception:
+        return 'cpu'

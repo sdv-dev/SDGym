@@ -1,13 +1,14 @@
 """Synthesizers module."""
 
 from sdv.lite import SingleTablePreset
+from sdv.metadata.multi_table import MultiTableMetadata
+from sdv.metadata.single_table import SingleTableMetadata
 from sdv.multi_table.hma import HMASynthesizer
 from sdv.sequential import PARSynthesizer
 from sdv.single_table import (
     CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
 
-from sdgym.synthesizers.base import (
-    BaselineSynthesizer, MultiSingleTableBaselineSynthesizer, SingleTableBaselineSynthesizer)
+from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
 from sdgym.synthesizers.sdv import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
@@ -102,7 +103,7 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(SingleTableBaselineSynthesizer):
+    class NewSynthesizer(BaselineSynthesizer):
         """New Synthesizer class.
 
         Args:
@@ -125,6 +126,7 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
                 obj:
                     The trained synthesizer.
             """
+            metadata = SingleTableMetadata().load_from_dict(metadata)
             return get_trained_synthesizer_fn(data, metadata)
 
         def sample_from_synthesizer(self, synthesizer, num_samples):
@@ -187,6 +189,7 @@ def create_multi_table_synthesizer(display_name, get_trained_synthesizer_fn,
                 obj:
                     The trained synthesizer.
             """
+            metadata = MultiTableMetadata().load_from_dict(metadata)
             return get_trained_synthesizer_fn(data, metadata)
 
         def sample_from_synthesizer(self, synthesizer):
@@ -224,7 +227,7 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(BaselineSynthesizer):  # Why not inherit from SDVTimeseries?
+    class NewSynthesizer(BaselineSynthesizer):
         """New Synthesizer class.
 
         Args:
@@ -247,6 +250,7 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
                 obj:
                     The trained synthesizer.
             """
+            metadata = SingleTableMetadata().load_from_dict(metadata)
             return get_trained_synthesizer_fn(data, metadata)
 
         def sample_from_synthesizer(self, synthesizer, n_sequences):

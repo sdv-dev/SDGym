@@ -19,8 +19,8 @@ The **SDV Datasets** are comprised of two elements:
 ## Using the datasets
 
 All the datasets can also be found for download inside the [sdv-datasets S3 bucket](
-http://sdv-datasets.s3.amazonaws.com/index.html) in the form of a `.zip` file that contains
-both the `metadata.json` and the `CSV` file collection.
+http://sdv-demo-datasets.s3.amazonaws.com) in the form of a `.zip` file that contains
+both the `metadata_v1.json` and the `CSV` file collection.
 
 In order to load these datasets in the same format as they will be passed to your synthesizer
 you can use the `sdgym.load_dataset` function passing the name of the dataset to load.
@@ -30,18 +30,7 @@ In this example, we will load the `adult` dataset:
 ```python3
 In [1]: from sdgym.datasets import load_dataset
 
-In [2]: metadata = load_dataset('adult')
-```
-
-This will read the `metadata.json` file and return it as a `sdv.Metadata` instance.
-
-```python
-In [3]: metadata
-Out[3]:
-Metadata
-  root_path: /home/xals/.local/share/SDGym/datasets/adult
-  tables: ['adult']
-  relationships:
+In [2]: data, metadata = load_dataset('adult')
 ```
 
 Afterwards, you can load the tables from the dataset passing the loaded `metadata` to the
@@ -84,22 +73,27 @@ In [7]: from sdgym.datasets import get_available_datasets
 
 In [8]: get_available_datasets()
 Out[8]:
-                          name      size
-0                 Accidents_v1  44717026
-1    ArticularyWordRecognition   1928334
-2           Atherosclerosis_v1    521308
-3           AtrialFibrillation    111036
-4        AustralianFootball_v1   3500419
-..                         ...       ...
-99      student_placements_pii     11602
-100                  trains_v1      1772
-101              university_v1      3226
-102                    walmart   3566966
-103                   world_v1    110291
-
-[104 rows x 2 columns]
+              dataset_name     size_MB  num_tables
+0                   KRK_v1    0.072128           1
+1                    adult    3.907448           1
+2                    alarm    4.520128           1
+3                     asia    1.280128           1
+4                   census   98.165608           1
+5          census_extended    4.949400           1
+6                    child    3.200128           1
+7                  covtype  255.645408           1
+8                   credit   68.353808           1
+9       expedia_hotel_logs    0.200128           1
+10          fake_companies    0.001280           1
+11       fake_hotel_guests    0.032628           1
+12                    grid    0.320128           1
+13                   gridr    0.320128           1
+14               insurance    3.340128           1
+15               intrusion  162.039016           1
+16                 mnist12   81.200128           1
+17                 mnist28  439.600128           1
+18                    news   18.712096           1
+19                    ring    0.320128           1
+20      student_placements    0.026358           1
+21  student_placements_pii    0.028078           1
 ```
-
-## How to add your own dataset to SDGym?
-
-Coming soon!

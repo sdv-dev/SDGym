@@ -23,11 +23,10 @@ from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
-from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
-from sdgym.synthesizers.utils import get_num_gpus
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_duplicates, get_size_of, get_synthesizers,
-    import_object, used_memory)
+    build_synthesizer, format_exception, get_duplicates, get_num_gpus, get_size_of,
+    get_synthesizers, import_object, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
@@ -44,6 +43,81 @@ DEFAULT_DATASETS = [
 ]
 DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 N_BYTES_IN_MB = 1000 * 1000
+
+
+def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
+    if output_filepath and os.path.exists(output_filepath):
+        raise ValueError(
+            f'{output_filepath} already exists. '
+            'Please provide a file that does not already exist.'
+        )
+
+    if detailed_results_folder and os.path.exists(detailed_results_folder):
+        raise ValueError(
+            f'{detailed_results_folder} already exists. '
+            'Please provide a folder that does not already exist.'
+        )
+
+    duplicates = get_duplicates(synthesizers) if synthesizers else {}
+    if custom_synthesizers:
+        duplicates.update(get_duplicates(custom_synthesizers))
+    if len(duplicates) > 0:
+        raise ValueError(
+            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
+            'and `custom_synthesizers` parameters.'
+        )
+
+
+def _create_detailed_results_directory(detailed_results_folder):
+    if detailed_results_folder and not is_s3_path(detailed_results_folder):
+        detailed_results_folder = Path(detailed_results_folder)
+        os.makedirs(detailed_results_folder, exist_ok=True)
+
+
+def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_datasets_folder,
+                            sdmetrics, detailed_results_folder, timeout,
+                            compute_quality_score, synthesizers, custom_synthesizers):
+    max_rows, max_columns = (1000, 10) if limit_dataset_size else (None, None)
+    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
+
+    synthesizers = get_synthesizers(synthesizers)
+    if custom_synthesizers:
+        custom_synthesizers = get_synthesizers(custom_synthesizers)
+        synthesizers.extend(custom_synthesizers)
+
+    datasets = []
+    if sdv_datasets is not None:
+        datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
+
+    if additional_datasets_folder:
+        additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
+        datasets.extend(additional_datasets)
+
+    job_tuples = list()
+    for dataset in datasets:
+        for synthesizer in synthesizers:
+            job_tuples.append((synthesizer, dataset))
+
+    job_args_list = list()
+    for synthesizer, dataset in job_tuples:
+        data, metadata_content = load_dataset('single_table', dataset, max_columns=max_columns)
+        dataset_name = dataset.name
+        args = (
+            synthesizer,
+            data,
+            metadata_content,
+            sdmetrics,
+            detailed_results_folder,
+            timeout,
+            run_id,
+            max_rows,
+            compute_quality_score,
+            dataset_name,
+            'single_table'
+        )
+        job_args_list.append(args)
+
+    return job_args_list
 
 
 def _synthesize(synthesizer_dict, real_data, metadata):
@@ -67,17 +141,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
         get_synthesizer, sample_from_synthesizer = synthesizer
 
     data = real_data.copy()
-    num_samples = None
-    modalities = getattr(synthesizer, 'MODALITIES', [])
-    is_single_table = (
-        isinstance(synthesizer, type)
-        and issubclass(synthesizer, SingleTableBaselineSynthesizer)
-    ) or (
-        len(modalities) == 1
-        and 'single-table' in modalities
-    )
-    if is_single_table:
-        num_samples = len(data)
+    num_samples = len(data)
 
     tracemalloc.start()
     now = datetime.utcnow()
@@ -227,44 +291,7 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
         return output
 
 
-def _run_job(args):
-    # Reset random seed
-    np.random.seed()
-
-    synthesizer, data, metadata, metrics, cache_dir, \
-        timeout, run_id, max_rows, compute_quality_score, dataset_name, modality = args
-
-    name = synthesizer['name']
-    LOGGER.info('Evaluating %s on dataset %s with timeout %ss; %s',
-                name, dataset_name, timeout, used_memory())
-
-    output = {}
-    try:
-        if timeout:
-            output = _score_with_timeout(
-                timeout,
-                synthesizer,
-                metadata,
-                metrics,
-                max_rows=max_rows,
-                compute_quality_score=compute_quality_score,
-                modality=modality,
-                dataset_name=dataset_name
-            )
-        else:
-            output = _score(
-                synthesizer,
-                data,
-                metadata,
-                metrics,
-                max_rows=max_rows,
-                compute_quality_score=compute_quality_score,
-                modality=modality,
-                dataset_name=dataset_name
-            )
-    except Exception as error:
-        output['exception'] = error
-
+def _format_output(output, name, dataset_name, compute_quality_score, cache_dir):
     evaluate_time = None
     if 'scores' in output or 'quality_score_time' in output:
         evaluate_time = output.get('quality_score_time', 0)
@@ -308,6 +335,49 @@ def _run_job(args):
     return scores
 
 
+def _run_job(args):
+    # Reset random seed
+    np.random.seed()
+
+    synthesizer, data, metadata, metrics, cache_dir, \
+        timeout, run_id, max_rows, compute_quality_score, dataset_name, modality = args
+
+    name = synthesizer['name']
+    LOGGER.info('Evaluating %s on dataset %s with timeout %ss; %s',
+                name, dataset_name, timeout, used_memory())
+
+    output = {}
+    try:
+        if timeout:
+            output = _score_with_timeout(
+                timeout,
+                synthesizer,
+                metadata,
+                metrics,
+                max_rows=max_rows,
+                compute_quality_score=compute_quality_score,
+                modality=modality,
+                dataset_name=dataset_name
+            )
+        else:
+            output = _score(
+                synthesizer,
+                data,
+                metadata,
+                metrics,
+                max_rows=max_rows,
+                compute_quality_score=compute_quality_score,
+                modality=modality,
+                dataset_name=dataset_name
+            )
+    except Exception as error:
+        output['exception'] = error
+
+    scores = _format_output(output, name, dataset_name, compute_quality_score, cache_dir)
+
+    return scores
+
+
 def _run_on_dask(jobs, verbose):
     """Run the tasks in parallel using dask."""
     try:
@@ -331,6 +401,39 @@ def _run_on_dask(jobs, verbose):
     return dask.compute(*persisted)
 
 
+def _run_jobs(multi_processing_config, job_args_list, show_progress):
+    workers = 1
+    if multi_processing_config:
+        if multi_processing_config['package_name'] == 'dask':
+            workers = 'dask'
+            scores = _run_on_dask(job_args_list, show_progress)
+        else:
+            num_gpus = get_num_gpus()
+            if num_gpus > 0:
+                workers = num_gpus
+            else:
+                workers = multiprocessing.cpu_count()
+
+    if workers in (0, 1):
+        scores = map(_run_job, job_args_list)
+    elif workers != 'dask':
+        pool = concurrent.futures.ProcessPoolExecutor(workers)
+        scores = pool.map(_run_job, job_args_list)
+
+    if show_progress:
+        scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
+    else:
+        scores = tqdm.tqdm(
+            scores, total=len(job_args_list), file=TqdmLogger(), position=0, leave=True)
+
+    if not scores:
+        raise SDGymError('No valid Dataset/Synthesizer combination given.')
+
+    scores = pd.concat(scores, ignore_index=True)
+
+    return scores
+
+
 def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
                            sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
                            limit_dataset_size=False, compute_quality_score=True,
@@ -338,9 +441,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
                            detailed_results_folder=None, show_progress=False,
                            multi_processing_config=None):
     """Run the SDGym benchmark on single-table datasets.
-
-    The ``synthesizers`` object can either be a single synthesizer or, an iterable of
-    synthesizers or a dict containing synthesizer names as keys and synthesizers as values.
 
     Args:
         synthesizers (list[string]):
@@ -352,9 +452,8 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
                 - ``CopulaGANSynthesizer``
                 - ``TVAESynthesizer``
                 - ``FASTMLPreset``
-                - any custom created synthesizer or variant
 
-        custom_synthesizers (list[class]):
+        custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
             or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
@@ -397,99 +496,15 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
-    if output_filepath and os.path.exists(output_filepath):
-        raise ValueError(
-            f'{output_filepath} already exists. '
-            'Please provide a file that does not already exist.'
-        )
+    _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
 
-    if detailed_results_folder and os.path.exists(detailed_results_folder):
-        raise ValueError(
-            f'{detailed_results_folder} already exists. '
-            'Please provide a folder that does not already exist.'
-        )
+    _create_detailed_results_directory(detailed_results_folder)
 
-    duplicates = get_duplicates(synthesizers) if synthesizers else {}
-    if custom_synthesizers:
-        duplicates.update(get_duplicates(custom_synthesizers))
-    if len(duplicates) > 0:
-        raise ValueError(
-            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
-            'and `custom_synthesizers` parameters.'
-        )
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size, sdv_datasets, additional_datasets_folder, sdmetrics,
+        detailed_results_folder, timeout, compute_quality_score, synthesizers, custom_synthesizers)
 
-    if detailed_results_folder and not is_s3_path(detailed_results_folder):
-        detailed_results_folder = Path(detailed_results_folder)
-        os.makedirs(detailed_results_folder, exist_ok=True)
-
-    max_rows, max_columns = (1000, 10) if limit_dataset_size else (None, None)
-
-    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
-    synthesizers = get_synthesizers(synthesizers)
-    if custom_synthesizers:
-        custom_synthesizers = get_synthesizers(custom_synthesizers)
-        synthesizers.extend(custom_synthesizers)
-
-    datasets = []
-    if sdv_datasets is not None:
-        datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
-
-    if additional_datasets_folder:
-        additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
-        datasets.extend(additional_datasets)
-
-    job_tuples = list()
-    for dataset in datasets:
-        for synthesizer in synthesizers:
-            job_tuples.append((synthesizer, dataset))
-
-    job_args = list()
-    for synthesizer, dataset in job_tuples:
-        data, metadata_content = load_dataset('single_table', dataset, max_columns=max_columns)
-        dataset_name = dataset.name
-        args = (
-            synthesizer,
-            data,
-            metadata_content,
-            sdmetrics,
-            detailed_results_folder,
-            timeout,
-            run_id,
-            max_rows,
-            compute_quality_score,
-            dataset_name,
-            'single_table'
-        )
-        job_args.append(args)
-
-    workers = 1
-    if multi_processing_config:
-        if multi_processing_config['package_name'] == 'dask':
-            workers = 'dask'
-            scores = _run_on_dask(job_args, show_progress)
-        else:
-            num_gpus = get_num_gpus()
-            if num_gpus > 0:
-                workers = num_gpus
-            else:
-                workers = multiprocessing.cpu_count()
-
-    if workers in (0, 1):
-        scores = map(_run_job, job_args)
-    elif workers != 'dask':
-        pool = concurrent.futures.ProcessPoolExecutor(workers)
-        scores = pool.map(_run_job, job_args)
-
-    if show_progress:
-        scores = tqdm.tqdm(scores, total=len(job_args), position=0, leave=True)
-    else:
-        scores = tqdm.tqdm(scores, total=len(job_args), file=TqdmLogger(), position=0, leave=True)
-
-    if not scores:
-        raise SDGymError("No valid Dataset/Synthesizer combination given")
-
-    scores = pd.concat(scores, ignore_index=True)
-
+    scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
 

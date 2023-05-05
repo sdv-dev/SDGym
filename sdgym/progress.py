@@ -25,8 +25,8 @@ def progress(*futures):
     its dependencies if not used.
     """
     # Import distributed only when used
-    from distributed.client import futures_of  # pylint: disable=C0415
-    from distributed.diagnostics.progressbar import TextProgressBar  # pylint: disable=c0415
+    from distributed.client import futures_of
+    from distributed.diagnostics.progressbar import TextProgressBar
 
     class LogProgressBar(TextProgressBar):
         """Dask progress bar based on logging instead of stdout."""
@@ -34,7 +34,7 @@ def progress(*futures):
         last = 0
         logger = logging.getLogger('distributed')
 
-        def _draw_bar(self, remaining, all, **kwargs):   # pylint: disable=W0221,W0622
+        def _draw_bar(self, remaining, all, **kwargs):
             done = all - remaining
             frac = (done / all) if all else 0
 

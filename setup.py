@@ -101,7 +101,7 @@ setup(
     ),
     entry_points={
         'console_scripts': [
-            'sdgym=sdgym.__main__:main'
+            'sdgym=sdgym.cli.__main__:main'
         ],
     },
     extras_require={

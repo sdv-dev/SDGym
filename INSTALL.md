@@ -24,7 +24,7 @@ This will pull and install the latest stable release from [PyPi](https://pypi.or
 **SDGym** can also be installed using [conda](https://docs.conda.io/en/latest/):
 
 ```bash
-conda install -c sdv-dev -c conda-forge sdgym
+conda install -c pytorch -c conda-forge sdgym
 ```
 
 This will pull and install the latest stable release from [Anaconda](https://anaconda.org/).
@@ -58,39 +58,6 @@ make install-develp
 
 For more details about how to contribute to the project please visit the [Contributing Guide](
 CONTRIBUTING.rst).
-
-## Compile C++ dependencies
-
-Some of the third party synthesizers that SDGym offers, like the `PrivBN`, require
-dependencies written in C++ that need to be compiled before they can be used.
-
-In order to be able to use them, please do:
-
-1. Clone or download the SDGym repository to your local machine:
-
-```bash
-git clone git@github.com:sdv-dev/SDGym.git
-cd SDGym
-```
-
-2. make sure to have installed all the necessary dependencies to compile C++. In Linux
-distributions based on Ubuntu, this can be done with the following command:
-
-```bash
-sudo apt-get install build-essential
-```
-
-3. Trigger the C++ compilation:
-
-```bash
-make compile
-```
-
-4. Add the path to the created `privBayes.bin` binary to the `PRIVBAYES_BIN` environment variable:
-
-```bash
-export PRIVBAYES_BIN=$(pwd)/privBayes.bin
-```
 
 ## Run using Docker
 
