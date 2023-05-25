@@ -6,8 +6,7 @@ import pytest
 from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 import sdgym
-from sdgym.synthesizers import create_single_table_synthesizer
-from sdgym.synthesizers.generate import create_sdv_synthesizer_variant
+from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesizer
 
 
 def test_identity():
