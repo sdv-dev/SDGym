@@ -66,10 +66,10 @@ Out[6]:
 ## Getting the list of all the datasets
 
 If you want to obtain the list of all the available datasets you can use the
-`sdgym.datasets.get_available_datasets` function:
+`sdgym.get_available_datasets` function:
 
 ```python
-In [7]: from sdgym.datasets import get_available_datasets
+In [7]: from sdgym import get_available_datasets
 
 In [8]: get_available_datasets()
 Out[8]:
