@@ -25,8 +25,7 @@ from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_duplicates, get_num_gpus, get_size_of,
-    get_synthesizers, import_object, used_memory)
+    format_exception, get_duplicates, get_num_gpus, get_size_of, get_synthesizers, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
@@ -80,18 +79,16 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
     max_rows, max_columns = (1000, 10) if limit_dataset_size else (None, None)
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
-    synthesizers = get_synthesizers(synthesizers)
-    if custom_synthesizers:
-        custom_synthesizers = get_synthesizers(custom_synthesizers)
-        synthesizers.extend(custom_synthesizers)
+    # Get list of synthesizer objects
+    synthesizers = DEFAULT_SYNTHESIZERS if synthesizers is None else synthesizers
+    custom_synthesizers = [] if custom_synthesizers is None else custom_synthesizers
+    synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
 
-    datasets = []
-    if sdv_datasets is not None:
-        datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
-
-    if additional_datasets_folder:
-        additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
-        datasets.extend(additional_datasets)
+    # Get list of dataset paths
+    sdv_datasets = [] if sdv_datasets is None else get_dataset_paths(datasets=sdv_datasets)
+    additional_datasets = [] if additional_datasets_folder is None else get_dataset_paths(
+        bucket=additional_datasets_folder)
+    datasets = sdv_datasets + additional_datasets
 
     job_tuples = list()
     for dataset in datasets:
@@ -122,24 +119,12 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
 
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
-    get_synthesizer = None
-    sample_from_synthesizer = None
+    assert issubclass(
+        synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
 
-    if isinstance(synthesizer, str):
-        synthesizer = import_object(synthesizer)
-
-    if isinstance(synthesizer, type):
-        if issubclass(synthesizer, BaselineSynthesizer):
-            s_obj = synthesizer()
-            get_synthesizer = s_obj.get_trained_synthesizer
-            sample_from_synthesizer = s_obj.sample_from_synthesizer
-        else:
-            get_synthesizer, sample_from_synthesizer = build_synthesizer(
-                synthesizer, synthesizer_dict)
-
-    if isinstance(synthesizer, tuple):
-        get_synthesizer, sample_from_synthesizer = synthesizer
-
+    synthesizer_object = synthesizer()
+    get_synthesizer = synthesizer_object.get_trained_synthesizer
+    sample_from_synthesizer = synthesizer_object.sample_from_synthesizer
     data = real_data.copy()
     num_samples = len(data)
 
