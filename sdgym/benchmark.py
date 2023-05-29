@@ -80,7 +80,6 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
     # Get list of synthesizer objects
-    synthesizers = DEFAULT_SYNTHESIZERS if synthesizers is None else synthesizers
     custom_synthesizers = [] if custom_synthesizers is None else custom_synthesizers
     synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
 
