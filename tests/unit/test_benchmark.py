@@ -42,3 +42,35 @@ def test_progress_bar_updates(tqdm_mock):
 
     # Assert
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
+
+
+@patch('sdgym.benchmark._score_with_timeout')
+def test_benchmark_with_timeout(mock__score_with_timeout):
+    """Test that benchmark runs with timeout."""
+    # Setup
+    mock__score_with_timeout.return_value = {
+        'timeout': True,
+        'error': 'Synthesizer Timeout',
+        'dataset_size': 0.026358
+    }
+    # Run
+    scores = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer'],
+        sdv_datasets=['student_placements'],
+        timeout=1,
+    )
+
+    # Assert
+    expected_scores = pd.DataFrame({
+        'Synthesizer': {0: 'GaussianCopulaSynthesizer'},
+        'Dataset': {0: 'student_placements'},
+        'Dataset_Size_MB': {0: 0.026358},
+        'Train_Time': {0: None},
+        'Peak_Memory_MB': {0: None},
+        'Synthesizer_Size_MB': {0: None},
+        'Sample_Time': {0: None},
+        'Evaluate_Time': {0: None},
+        'Quality_Score': {0: None},
+        'error': {0: 'Synthesizer Timeout'}
+    })
+    pd.testing.assert_frame_equal(scores, expected_scores)
