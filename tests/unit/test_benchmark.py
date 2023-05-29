@@ -6,6 +6,33 @@ import pytest
 from sdgym.benchmark import benchmark_single_table
 
 
+def test_benchmark_single_table_only_datasets():
+    """Test it works when only the ``sdv_datasets`` argument is passed.
+
+    This is the simplest possible test, since removing the ``sdv_datasets``
+    argument could take days to run.
+    """
+    # Run
+    scores = benchmark_single_table(sdv_datasets=['fake_companies'])
+
+    # Assert
+    assert len(scores.columns) == 10
+    assert list(scores['Synthesizer']) == [
+        'GaussianCopulaSynthesizer',
+        'FastMLPreset',
+        'CTGANSynthesizer'
+    ]
+    assert list(scores['Dataset']) == ['fake_companies'] * 3
+    assert list(scores['Dataset_Size_MB']) == [.00128] * 3
+    assert scores['Train_Time'].between(0, 100).all()
+    assert scores['Peak_Memory_MB'].between(0, 10).all()
+    assert scores['Synthesizer_Size_MB'].between(0, 2).all()
+    assert scores['Sample_Time'].between(0, 1).all()
+    assert scores['Evaluate_Time'].between(0, 1).all()
+    assert scores['Quality_Score'].between(.6, 1).all()
+    assert list(scores['NewRowSynthesis']) == [1.0] * 3
+
+
 @patch('sdgym.benchmark.os.path')
 def test_output_file_exists(path_mock):
     """Test the benchmark function when the output path already exists."""
