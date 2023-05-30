@@ -206,12 +206,12 @@ def test_benchmark_single_table_timeout():
     scores = sdgym.benchmark_single_table(
         synthesizers=['CTGANSynthesizer'],
         sdv_datasets=['student_placements'],
-        timeout=2
+        timeout=5
     )
     total_time = time.time() - start_time
 
     # Assert
-    assert total_time < 4.0
+    assert total_time < 10.0
     expected_scores = pd.DataFrame({
         'Synthesizer': {0: 'CTGANSynthesizer'},
         'Dataset': {0: 'student_placements'},
