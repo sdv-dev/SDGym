@@ -353,11 +353,11 @@ def _run_job(args):
     try:
         if timeout:
             output = _score_with_timeout(
-                timeout,
-                synthesizer,
-                data,
-                metadata,
-                metrics,
+                timeout=timeout,
+                synthesizer=synthesizer,
+                data=data,
+                metadata=metadata,
+                metrics=metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
                 modality=modality,
@@ -365,10 +365,10 @@ def _run_job(args):
             )
         else:
             output = _score(
-                synthesizer,
-                data,
-                metadata,
-                metrics,
+                synthesizer=synthesizer,
+                data=data,
+                metadata=metadata,
+                metrics=metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
                 modality=modality,

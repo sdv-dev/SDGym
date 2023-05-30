@@ -204,7 +204,7 @@ def test_benchmark_single_table_timeout():
     start_time = time.time()
     # Run
     scores = sdgym.benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer'],
+        synthesizers=['CTGANSynthesizer'],
         sdv_datasets=['student_placements'],
         timeout=2
     )
@@ -213,7 +213,7 @@ def test_benchmark_single_table_timeout():
     # Assert
     assert total_time < 4.0
     expected_scores = pd.DataFrame({
-        'Synthesizer': {0: 'GaussianCopulaSynthesizer'},
+        'Synthesizer': {0: 'CTGANSynthesizer'},
         'Dataset': {0: 'student_placements'},
         'Dataset_Size_MB': {0: 0.026358},
         'Train_Time': {0: None},
