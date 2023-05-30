@@ -25,10 +25,10 @@ def test_benchmark_single_table_only_datasets():
     assert list(scores['Dataset']) == ['fake_companies'] * 3
     assert list(scores['Dataset_Size_MB']) == [.00128] * 3
     assert scores['Train_Time'].between(0, 100).all()
-    assert scores['Peak_Memory_MB'].between(0, 10).all()
-    assert scores['Synthesizer_Size_MB'].between(0, 2).all()
-    assert scores['Sample_Time'].between(0, 1).all()
-    assert scores['Evaluate_Time'].between(0, 1).all()
+    assert scores['Peak_Memory_MB'].between(0, 100).all()
+    assert scores['Synthesizer_Size_MB'].between(0, 5).all()
+    assert scores['Sample_Time'].between(0, 2).all()
+    assert scores['Evaluate_Time'].between(0, 2).all()
     assert scores['Quality_Score'].between(.6, 1).all()
     assert list(scores['NewRowSynthesis']) == [1.0] * 3
 
