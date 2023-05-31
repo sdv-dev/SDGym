@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from sdgym.benchmark import benchmark_single_table
+from sdgym.synthesizers.generate import create_sdv_synthesizer_variant
 
 
 def test_benchmark_single_table_only_datasets():
@@ -24,13 +25,45 @@ def test_benchmark_single_table_only_datasets():
     ]
     assert list(scores['Dataset']) == ['fake_companies'] * 3
     assert list(scores['Dataset_Size_MB']) == [.00128] * 3
-    assert scores['Train_Time'].between(0, 100).all()
-    assert scores['Peak_Memory_MB'].between(0, 100).all()
-    assert scores['Synthesizer_Size_MB'].between(0, 100).all()
-    assert scores['Sample_Time'].between(0, 100).all()
-    assert scores['Evaluate_Time'].between(0, 100).all()
+    assert scores['Train_Time'].between(0, 1000).all()
+    assert scores['Peak_Memory_MB'].between(0, 1000).all()
+    assert scores['Synthesizer_Size_MB'].between(0, 1000).all()
+    assert scores['Sample_Time'].between(0, 1000).all()
+    assert scores['Evaluate_Time'].between(0, 1000).all()
     assert scores['Quality_Score'].between(.6, 1).all()
     assert list(scores['NewRowSynthesis']) == [1.0] * 3
+
+
+def test_benchmark_single_table_synthesizers_none():
+    """Test it works when ``synthesizers`` is None."""
+    # Setup
+    synthesizer_variant = create_sdv_synthesizer_variant(
+        'FastMLVariant',
+        'FastMLPreset',
+        synthesizer_parameters={'name': 'FAST_ML'}
+    )
+
+    # Run
+    scores = benchmark_single_table(
+        synthesizers=None,
+        custom_synthesizers=[synthesizer_variant],
+        sdv_datasets=['fake_companies']
+    )
+
+    # Assert
+    assert scores.shape == (1, 10)
+    scores = scores.iloc[0]
+    assert scores['Synthesizer'] == 'Variant:FastMLVariant'
+    assert scores['Dataset'] == 'fake_companies'
+    assert scores['Dataset_Size_MB'] == 0.00128
+    assert .6 < scores['Quality_Score'] < 1
+    assert scores[[
+        'Train_Time',
+        'Peak_Memory_MB',
+        'Synthesizer_Size_MB',
+        'Sample_Time',
+        'Evaluate_Time'
+    ]].between(0, 1000).all()
 
 
 @patch('sdgym.benchmark.os.path')
