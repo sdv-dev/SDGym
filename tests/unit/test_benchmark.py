@@ -3,7 +3,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pandas as pd
 import pytest
 
-from sdgym.benchmark import benchmark_single_table, _score_with_timeout
+from sdgym.benchmark import benchmark_single_table
 
 
 @patch('sdgym.benchmark.os.path')
@@ -47,56 +47,37 @@ def test_progress_bar_updates(tqdm_mock):
 @patch('sdgym.benchmark._score')
 @patch('sdgym.benchmark.multiprocessing')
 def test__score_with_timeout(mock_multiprocessing, mock__score):
-    """Test ``_score_with_timeout``.
-
-    Test that when ``_score_with_timeout`` is being called with timeout, this creates a process
-    that has as ``target``  the ``_score`` function, then this process is started by getting called
-    its ``start`` method and then it's ``join`` method is called with the given ``timeout`` and
-    finally is being terminated by ``terminate``.
-    """
+    """Test that benchmark runs with timeout."""
     # Setup
-    timeout = 10
-    synthesizer = 'GaussianCopulaSynthesizer'
-    data = 'data'
-    metadata = 'metadata'
-    metrics = 'metrics'
-    max_rows = 10
-    compute_quality_score = True
-    modality = 'single_table'
-    dataset_name = 'students'
-    manager = mock_multiprocessing.Manager.return_value
-    manager_dict = manager.__enter__.return_value.dict.return_value
     mocked_process = mock_multiprocessing.Process.return_value
+    manager = mock_multiprocessing.Manager.return_value
+    manager_dict = {
+        'timeout': True,
+        'error': 'Synthesizer Timeout'
+    }
+    manager.__enter__.return_value.dict.return_value = manager_dict
 
     # Run
-    result = _score_with_timeout(
-        timeout=timeout,
-        synthesizer=synthesizer,
-        data=data,
-        metadata=metadata,
-        metrics=metrics,
-        max_rows=max_rows,
-        compute_quality_score=compute_quality_score,
-        modality=modality,
-        dataset_name=dataset_name,
+    scores = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer'],
+        sdv_datasets=['student_placements'],
+        timeout=1,
     )
 
     # Assert
-    assert result == {}
-    mock_multiprocessing.Process.assert_called_once_with(
-        target=mock__score,
-        args=(
-            'GaussianCopulaSynthesizer',
-            'data',
-            'metadata',
-            'metrics',
-            manager_dict,
-            10,
-            True,
-            'single_table',
-            'students'
-        )
-    )
     mocked_process.start.assert_called_once_with()
-    mocked_process.join.assert_called_once_with(10)
+    mocked_process.join.assert_called_once_with(1)
     mocked_process.terminate.assert_called_once_with()
+    expected_scores = pd.DataFrame({
+        'Synthesizer': {0: 'GaussianCopulaSynthesizer'},
+        'Dataset': {0: 'student_placements'},
+        'Dataset_Size_MB': {0: None},
+        'Train_Time': {0: None},
+        'Peak_Memory_MB': {0: None},
+        'Synthesizer_Size_MB': {0: None},
+        'Sample_Time': {0: None},
+        'Evaluate_Time': {0: None},
+        'Quality_Score': {0: None},
+        'error': {0: 'Synthesizer Timeout'}
+    })
+    pd.testing.assert_frame_equal(scores, expected_scores)
