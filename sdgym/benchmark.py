@@ -288,7 +288,7 @@ def _score_with_timeout(timeout, synthesizer, data, metadata, metrics, max_rows=
         process.terminate()
 
         output = dict(output)
-        if output['timeout']:
+        if output.get('timeout'):
             LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
 
         return output
