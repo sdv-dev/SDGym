@@ -168,7 +168,8 @@ def get_downloaded_datasets(datasets_path=None):
     return pd.DataFrame(datasets)
 
 
-def get_dataset_paths(datasets, datasets_path, bucket, aws_key, aws_secret):
+def get_dataset_paths(datasets=None, datasets_path=None,
+                      bucket=None, aws_key=None, aws_secret=None):
     """Build the full path to datasets and ensure they exist."""
     bucket = bucket or BUCKET
     is_remote = bucket.startswith(S3_PREFIX)
