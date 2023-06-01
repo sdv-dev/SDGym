@@ -90,6 +90,30 @@ def test_benchmark_single_table_no_synthesizers():
     pd.testing.assert_frame_equal(result, expected)
 
 
+def test_benchmark_single_table_no_datasets():
+    """Test it works when no datasets are passed.
+
+    It should return an empty dataframe.
+    """
+    # Run
+    result = benchmark_single_table(sdv_datasets=None)
+
+    # Assert
+    expected = pd.DataFrame({
+        'Synthesizer': [],
+        'Dataset': [],
+        'Dataset_Size_MB': [],
+        'Train_Time': [],
+        'Peak_Memory_MB': [],
+        'Synthesizer_Size_MB': [],
+        'Sample_Time': [],
+        'Evaluate_Time': [],
+        'Quality_Score': [],
+        'NewRowSynthesis': [],
+    })
+    pd.testing.assert_frame_equal(result, expected)
+
+
 def test_benchmark_single_table_no_synthesizers_with_parameters():
     """Test it works when no synthesizers are passed but other parameters are."""
     # Run

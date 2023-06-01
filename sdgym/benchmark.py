@@ -7,6 +7,7 @@ import os
 import pickle
 import tracemalloc
 import uuid
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -420,6 +421,8 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
 
 
 def _empty_dataframe(compute_quality_score, sdmetrics):
+    warnings.warn('No datasets/synthesizers found.')
+
     scores = pd.DataFrame({
         'Synthesizer': [],
         'Dataset': [],
@@ -512,6 +515,8 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
 
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+
+    # If no synthesizers/datasets are passed, return an empty dataframe
     else:
         scores = _empty_dataframe(compute_quality_score, sdmetrics)
 
