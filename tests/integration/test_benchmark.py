@@ -4,6 +4,7 @@ import time
 
 import pandas as pd
 import pytest
+from sdv.metadata.single_table import SingleTableMetadata
 from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 import sdgym
@@ -125,7 +126,8 @@ def test_benchmark_single_table():
     """
     # Setup
     def get_trained_synthesizer(data, metadata):
-        model = GaussianCopulaSynthesizer(metadata)
+        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)
         return model
 
@@ -163,7 +165,7 @@ def test_benchmark_single_table():
             'CTGANSynthesizer'
         ],
         custom_synthesizers=[FastMLVariant, TestSynthesizer, CTGANVariant],
-        sdv_datasets=['student_placements']
+        sdv_datasets=['fake_companies']
     )
 
     # Assert
@@ -182,8 +184,8 @@ def test_benchmark_single_table():
     ], name='Synthesizer')
     pd.testing.assert_series_equal(results['Synthesizer'], expected_synthesizers)
 
-    assert set(results['Dataset']) == {'student_placements'}
-    assert set(results['Dataset_Size_MB']) == {0.026358}
+    assert set(results['Dataset']) == {'fake_companies'}
+    assert set(results['Dataset_Size_MB']) == {0.00128}
     assert results['Train_Time'].between(0, 1000).all()
     assert results['Peak_Memory_MB'].between(0, 100).all()
     assert results['Synthesizer_Size_MB'].between(0, 100).all()
