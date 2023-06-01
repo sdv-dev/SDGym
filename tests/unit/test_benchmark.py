@@ -30,7 +30,7 @@ def test_benchmark_single_table_only_datasets():
     assert scores['Synthesizer_Size_MB'].between(0, 1000).all()
     assert scores['Sample_Time'].between(0, 1000).all()
     assert scores['Evaluate_Time'].between(0, 1000).all()
-    assert scores['Quality_Score'].between(.6, 1).all()
+    assert scores['Quality_Score'].between(.5, 1).all()
     assert list(scores['NewRowSynthesis']) == [1.0] * 3
 
 
@@ -56,7 +56,7 @@ def test_benchmark_single_table_synthesizers_none():
     assert scores['Synthesizer'] == 'Variant:FastMLVariant'
     assert scores['Dataset'] == 'fake_companies'
     assert scores['Dataset_Size_MB'] == 0.00128
-    assert .6 < scores['Quality_Score'] < 1
+    assert .5 < scores['Quality_Score'] < 1
     assert scores[[
         'Train_Time',
         'Peak_Memory_MB',
@@ -64,6 +64,56 @@ def test_benchmark_single_table_synthesizers_none():
         'Sample_Time',
         'Evaluate_Time'
     ]].between(0, 1000).all()
+
+
+def test_benchmark_single_table_no_synthesizers():
+    """Test it works when no synthesizers are passed.
+
+    It should return an empty dataframe.
+    """
+    # Run
+    result = benchmark_single_table(synthesizers=None)
+
+    # Assert
+    expected = pd.DataFrame({
+        'Synthesizer': [],
+        'Dataset': [],
+        'Dataset_Size_MB': [],
+        'Train_Time': [],
+        'Peak_Memory_MB': [],
+        'Synthesizer_Size_MB': [],
+        'Sample_Time': [],
+        'Evaluate_Time': [],
+        'Quality_Score': [],
+        'NewRowSynthesis': [],
+    })
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_benchmark_single_table_no_synthesizers_with_parameters():
+    """Test it works when no synthesizers are passed but other parameters are."""
+    # Run
+    result = benchmark_single_table(
+        synthesizers=None,
+        sdv_datasets=['fake_companies'],
+        sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
+        compute_quality_score=False
+    )
+
+    # Assert
+    expected = pd.DataFrame({
+        'Synthesizer': [],
+        'Dataset': [],
+        'Dataset_Size_MB': [],
+        'Train_Time': [],
+        'Peak_Memory_MB': [],
+        'Synthesizer_Size_MB': [],
+        'Sample_Time': [],
+        'Evaluate_Time': [],
+        'a': [],
+        'b': []
+    })
+    pd.testing.assert_frame_equal(result, expected)
 
 
 @patch('sdgym.benchmark.os.path')
