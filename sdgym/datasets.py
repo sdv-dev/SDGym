@@ -62,11 +62,17 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     return dataset_path
 
 
-def _apply_max_columns_to_metadata(metadata_dict, max_columns):
+def _apply_max_columns(data, metadata_dict, max_columns):
+    if 'tables' in metadata_dict.keys():
+        raise ValueError('max_columns is not supported for multi-table datasets')
+
     columns = metadata_dict['columns']
     if len(columns) > max_columns:
         columns = dict(itertools.islice(columns.items(), max_columns))
         metadata_dict['columns'] = columns
+        data = data[columns.keys()]
+
+    return data, metadata_dict
 
 
 def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
@@ -81,15 +87,12 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
         metadata_filename = 'metadata_v1.json'
 
     with open(dataset_path / metadata_filename) as metadata_file:
-        metadata_content = json.load(metadata_file)
+        metadata_dict = json.load(metadata_file)
 
     if max_columns:
-        if 'tables' in metadata_content.keys():
-            raise ValueError('max_columns is not supported for multi-table datasets')
+        data, metadata_dict = _apply_max_columns(data, metadata_dict, max_columns)
 
-        _apply_max_columns_to_metadata(metadata_content, max_columns)
-
-    return data, metadata_content
+    return data, metadata_dict
 
 
 def load_tables(metadata, max_rows=None):
