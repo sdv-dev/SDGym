@@ -420,7 +420,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
     return scores
 
 
-def _empty_dataframe(compute_quality_score, sdmetrics):
+def _get_empty_dataframe(compute_quality_score, sdmetrics):
     warnings.warn('No datasets/synthesizers found.')
 
     scores = pd.DataFrame({
@@ -518,7 +518,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
 
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
-        scores = _empty_dataframe(compute_quality_score, sdmetrics)
+        scores = _get_empty_dataframe(compute_quality_score, sdmetrics)
 
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
