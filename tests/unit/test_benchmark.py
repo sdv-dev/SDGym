@@ -2,9 +2,10 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
 import pytest
+from sdv.metadata.single_table import SingleTableMetadata
+from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.benchmark import benchmark_single_table
-from sdgym.synthesizers.generate import create_sdv_synthesizer_variant
+from sdgym import benchmark_single_table, create_single_table_synthesizer, create_sdv_synthesizer_variant
 
 
 def test_benchmark_single_table_only_datasets():
@@ -215,3 +216,43 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'error': {0: 'Synthesizer Timeout'}
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
+
+
+def test_benchmark_single_table_custom_synthesizer():
+    """Test it works with the ``create_single_table_synthesizer`` method."""
+    # Setup
+    def get_trained_synthesizer(data, metadata):
+        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        model = GaussianCopulaSynthesizer(metadata_obj)
+        model.fit(data)
+        return model
+
+    def sample_from_synthesizer(synthesizer, n_samples):
+        return synthesizer.sample(n_samples)
+
+    TestSynthesizer = create_single_table_synthesizer(
+        display_name='TestSynthesizer',
+        get_trained_synthesizer_fn=get_trained_synthesizer,
+        sample_from_synthesizer_fn=sample_from_synthesizer
+    )
+
+    # Run
+    results = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer'],
+        custom_synthesizers=[TestSynthesizer],
+        sdv_datasets=['fake_companies']
+    )
+
+    # Assert
+    results = results.iloc[1]  # TODO: delete after PR 233 is merged
+    assert results['Synthesizer'] == 'Custom:TestSynthesizer'
+    assert results['Dataset'] == 'fake_companies'
+    assert results['Dataset_Size_MB'] == 0.00128
+    assert .6 < results['Quality_Score'] < 1
+    assert results[[
+        'Train_Time',
+        'Peak_Memory_MB',
+        'Synthesizer_Size_MB',
+        'Sample_Time',
+        'Evaluate_Time'
+    ]].between(0, 1000).all()
