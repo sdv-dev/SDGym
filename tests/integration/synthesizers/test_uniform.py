@@ -27,7 +27,7 @@ def test_uniform_synthesizer():
     uniform_synthesizer = UniformSynthesizer()
 
     # Run
-    trained_synthesizer = uniform_synthesizer.get_trained_synthesizer(data, None)
+    trained_synthesizer = uniform_synthesizer.get_trained_synthesizer(data, {})
     samples = uniform_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples)
 
     # Assert numerical values are uniform

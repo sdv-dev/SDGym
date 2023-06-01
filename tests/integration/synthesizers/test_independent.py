@@ -25,7 +25,7 @@ def test_independent_synthesizer():
     independent_synthesizer = IndependentSynthesizer()
 
     # Run
-    trained_synthesizer = independent_synthesizer.get_trained_synthesizer(data, None)
+    trained_synthesizer = independent_synthesizer.get_trained_synthesizer(data, {})
     samples = independent_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples)
 
     # Assert

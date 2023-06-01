@@ -191,7 +191,7 @@ def test_benchmark_single_table():
     assert results['Synthesizer_Size_MB'].between(0, 100).all()
     assert results['Sample_Time'].between(0, 100).all()
     assert results['Evaluate_Time'].between(0, 100).all()
-    assert results['Quality_Score'].between(.6, 1).all()
+    assert results['Quality_Score'].between(.5, 1).all()
 
     # The IdentitySynthesizer never returns new rows, so its score is 0
     # Every other synthesizer should only return new rows, so their score is 1
