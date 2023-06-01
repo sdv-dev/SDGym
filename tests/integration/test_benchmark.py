@@ -202,20 +202,21 @@ def test_benchmark_single_table_timeout():
     """Test that benchmark times out if the ``timeout`` argument is given."""
     # Setup
     start_time = time.time()
+
     # Run
     scores = sdgym.benchmark_single_table(
-        synthesizers=['CTGANSynthesizer'],
-        sdv_datasets=['student_placements'],
-        timeout=5
+        synthesizers=['GaussianCopulaSynthesizer'],
+        sdv_datasets=['insurance'],
+        timeout=2
     )
     total_time = time.time() - start_time
 
     # Assert
     assert total_time < 10.0
     expected_scores = pd.DataFrame({
-        'Synthesizer': {0: 'CTGANSynthesizer'},
-        'Dataset': {0: 'student_placements'},
-        'Dataset_Size_MB': {0: 0.026358},
+        'Synthesizer': {0: 'GaussianCopulaSynthesizer'},
+        'Dataset': {0: 'insurance'},
+        'Dataset_Size_MB': {0: 3.340128},
         'Train_Time': {0: None},
         'Peak_Memory_MB': {0: None},
         'Synthesizer_Size_MB': {0: None},
