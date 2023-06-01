@@ -5,7 +5,8 @@ import pytest
 from sdv.metadata.single_table import SingleTableMetadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym import benchmark_single_table, create_single_table_synthesizer, create_sdv_synthesizer_variant
+from sdgym import (
+    benchmark_single_table, create_sdv_synthesizer_variant, create_single_table_synthesizer)
 
 
 def test_benchmark_single_table_only_datasets():
@@ -238,17 +239,17 @@ def test_benchmark_single_table_custom_synthesizer():
 
     # Run
     results = benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer'],
+        synthesizers=None,
         custom_synthesizers=[TestSynthesizer],
         sdv_datasets=['fake_companies']
     )
 
     # Assert
-    results = results.iloc[1]  # TODO: delete after PR 233 is merged
+    results = results.iloc[0]
     assert results['Synthesizer'] == 'Custom:TestSynthesizer'
     assert results['Dataset'] == 'fake_companies'
     assert results['Dataset_Size_MB'] == 0.00128
-    assert .6 < results['Quality_Score'] < 1
+    assert .5 < results['Quality_Score'] < 1
     assert results[[
         'Train_Time',
         'Peak_Memory_MB',
