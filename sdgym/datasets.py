@@ -62,21 +62,24 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     return dataset_path
 
 
-def _apply_max_columns(data, metadata_dict, max_columns):
+def _get_dataset_subset(data, metadata_dict):
     if 'tables' in metadata_dict.keys():
         raise ValueError('max_columns is not supported for multi-table datasets')
 
+    max_rows, max_columns = (1000, 10)
     columns = metadata_dict['columns']
     if len(columns) > max_columns:
         columns = dict(itertools.islice(columns.items(), max_columns))
         metadata_dict['columns'] = columns
         data = data[columns.keys()]
 
+    data = data.head(max_rows)
+
     return data, metadata_dict
 
 
 def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
-                 aws_secret=None, max_columns=None):
+                 aws_secret=None, limit_dataset_size=None):
     """Get the data and metadata of a dataset."""
     dataset_path = _get_dataset_path(modality, dataset, datasets_path, bucket, aws_key, aws_secret)
     with open(dataset_path / f'{dataset_path.name}.csv') as data_csv:
@@ -89,28 +92,10 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
     with open(dataset_path / metadata_filename) as metadata_file:
         metadata_dict = json.load(metadata_file)
 
-    if max_columns:
-        data, metadata_dict = _apply_max_columns(data, metadata_dict, max_columns)
+    if limit_dataset_size:
+        data, metadata_dict = _get_dataset_subset(data, metadata_dict)
 
     return data, metadata_dict
-
-
-def load_tables(metadata, max_rows=None):
-    if max_rows and len(metadata.get_tables()) > 1:
-        raise ValueError('max_rows is not supported for multi-table datasets')
-
-    real_data = metadata.load_tables()
-    for table_name, table in real_data.items():
-        table = table.head(max_rows)
-        fields = metadata.get_fields(table_name)
-        columns = [
-            column
-            for column in table.columns
-            if column in fields
-        ]
-        real_data[table_name] = table[columns]
-
-    return real_data
 
 
 def get_available_datasets():

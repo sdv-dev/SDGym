@@ -77,9 +77,6 @@ def _create_detailed_results_directory(detailed_results_folder):
 def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_datasets_folder,
                             sdmetrics, detailed_results_folder, timeout,
                             compute_quality_score, synthesizers, custom_synthesizers):
-    max_rows, max_columns = (1000, 10) if limit_dataset_size else (None, None)
-    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
-
     # Get list of synthesizer objects
     synthesizers = [] if synthesizers is None else synthesizers
     custom_synthesizers = [] if custom_synthesizers is None else custom_synthesizers
@@ -98,19 +95,21 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
 
     job_args_list = list()
     for synthesizer, dataset in job_tuples:
-        data, metadata_content = load_dataset('single_table', dataset, max_columns=max_columns)
-        dataset_name = dataset.name
+        data, metadata_dict = load_dataset(
+            'single_table',
+            dataset,
+            limit_dataset_size=limit_dataset_size
+        )
+
         args = (
             synthesizer,
             data,
-            metadata_content,
+            metadata_dict,
             sdmetrics,
             detailed_results_folder,
             timeout,
-            run_id,
-            max_rows,
             compute_quality_score,
-            dataset_name,
+            dataset.name,
             'single_table'
         )
         job_args_list.append(args)
@@ -192,7 +191,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata,
         output['quality_score'] = quality_report.get_score()
 
 
-def _score(synthesizer, data, metadata, metrics, output=None, max_rows=None,
+def _score(synthesizer, data, metadata, metrics, output=None,
            compute_quality_score=False, modality=None, dataset_name=None):
     if output is None:
         output = {}
@@ -250,7 +249,7 @@ def _score(synthesizer, data, metadata, metrics, output=None, max_rows=None,
     return output
 
 
-def _score_with_timeout(timeout, synthesizer, data, metadata, metrics, max_rows=None,
+def _score_with_timeout(timeout, synthesizer, data, metadata, metrics,
                         compute_quality_score=False, modality=None, dataset_name=None):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
@@ -262,7 +261,6 @@ def _score_with_timeout(timeout, synthesizer, data, metadata, metrics, max_rows=
                 metadata,
                 metrics,
                 output,
-                max_rows,
                 compute_quality_score,
                 modality,
                 dataset_name
@@ -329,7 +327,7 @@ def _run_job(args):
     np.random.seed()
 
     synthesizer, data, metadata, metrics, cache_dir, \
-        timeout, run_id, max_rows, compute_quality_score, dataset_name, modality = args
+        timeout, compute_quality_score, dataset_name, modality = args
 
     name = synthesizer['name']
     LOGGER.info('Evaluating %s on dataset %s with timeout %ss; %s',
@@ -344,7 +342,6 @@ def _run_job(args):
                 data=data,
                 metadata=metadata,
                 metrics=metrics,
-                max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
                 modality=modality,
                 dataset_name=dataset_name
@@ -355,7 +352,6 @@ def _run_job(args):
                 data=data,
                 metadata=metadata,
                 metrics=metrics,
-                max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
                 modality=modality,
                 dataset_name=dataset_name
