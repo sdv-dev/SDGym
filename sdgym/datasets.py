@@ -62,18 +62,11 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     return dataset_path
 
 
-def _apply_max_columns_to_metadata(metadata, max_columns):
-    tables = metadata['tables']
-    for table in tables.values():
-        fields = table['fields']
-        if len(fields) > max_columns:
-            fields = dict(itertools.islice(fields.items(), max_columns))
-            table['fields'] = fields
-
-        structure = table.get('structure')
-        if structure:
-            structure['structure'] = structure['structure'][:max_columns]
-            structure['states'] = structure['states'][:max_columns]
+def _apply_max_columns_to_metadata(metadata_dict, max_columns):
+    columns = metadata_dict['columns']
+    if len(columns) > max_columns:
+        columns = dict(itertools.islice(columns.items(), max_columns))
+        metadata_dict['columns'] = columns
 
 
 def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
