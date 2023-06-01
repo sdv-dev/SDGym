@@ -7,6 +7,7 @@ import os
 import pickle
 import tracemalloc
 import uuid
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -80,6 +81,7 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
     run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
 
     # Get list of synthesizer objects
+    synthesizers = [] if synthesizers is None else synthesizers
     custom_synthesizers = [] if custom_synthesizers is None else custom_synthesizers
     synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
 
@@ -418,6 +420,29 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
     return scores
 
 
+def _get_empty_dataframe(compute_quality_score, sdmetrics):
+    warnings.warn('No datasets/synthesizers found.')
+
+    scores = pd.DataFrame({
+        'Synthesizer': [],
+        'Dataset': [],
+        'Dataset_Size_MB': [],
+        'Train_Time': [],
+        'Peak_Memory_MB': [],
+        'Synthesizer_Size_MB': [],
+        'Sample_Time': [],
+        'Evaluate_Time': [],
+    })
+
+    if compute_quality_score:
+        scores['Quality_Score'] = []
+    if sdmetrics:
+        for metric in sdmetrics:
+            scores[metric[0]] = []
+
+    return scores
+
+
 def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
                            sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
                            limit_dataset_size=False, compute_quality_score=True,
@@ -488,7 +513,13 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         limit_dataset_size, sdv_datasets, additional_datasets_folder, sdmetrics,
         detailed_results_folder, timeout, compute_quality_score, synthesizers, custom_synthesizers)
 
-    scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+    if job_args_list:
+        scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+
+    # If no synthesizers/datasets are passed, return an empty dataframe
+    else:
+        scores = _get_empty_dataframe(compute_quality_score, sdmetrics)
+
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
 
