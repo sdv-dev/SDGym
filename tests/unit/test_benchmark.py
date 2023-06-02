@@ -176,3 +176,42 @@ def test_progress_bar_updates(tqdm_mock):
 
     # Assert
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
+
+
+@patch('sdgym.benchmark._score')
+@patch('sdgym.benchmark.multiprocessing')
+def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
+    """Test that benchmark runs with timeout."""
+    # Setup
+    mocked_process = mock_multiprocessing.Process.return_value
+    manager = mock_multiprocessing.Manager.return_value
+    manager_dict = {
+        'timeout': True,
+        'error': 'Synthesizer Timeout'
+    }
+    manager.__enter__.return_value.dict.return_value = manager_dict
+
+    # Run
+    scores = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer'],
+        sdv_datasets=['student_placements'],
+        timeout=1,
+    )
+
+    # Assert
+    mocked_process.start.assert_called_once_with()
+    mocked_process.join.assert_called_once_with(1)
+    mocked_process.terminate.assert_called_once_with()
+    expected_scores = pd.DataFrame({
+        'Synthesizer': {0: 'GaussianCopulaSynthesizer'},
+        'Dataset': {0: 'student_placements'},
+        'Dataset_Size_MB': {0: None},
+        'Train_Time': {0: None},
+        'Peak_Memory_MB': {0: None},
+        'Synthesizer_Size_MB': {0: None},
+        'Sample_Time': {0: None},
+        'Evaluate_Time': {0: None},
+        'Quality_Score': {0: None},
+        'error': {0: 'Synthesizer Timeout'}
+    })
+    pd.testing.assert_frame_equal(scores, expected_scores)

@@ -226,7 +226,8 @@ def _score(synthesizer, data, metadata, metrics, output=None, max_rows=None,
             metrics,
             data,
             synthetic_data,
-            metadata, output,
+            metadata,
+            output,
             compute_quality_score,
             modality,
             dataset_name
@@ -249,7 +250,7 @@ def _score(synthesizer, data, metadata, metrics, output=None, max_rows=None,
     return output
 
 
-def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
+def _score_with_timeout(timeout, synthesizer, data, metadata, metrics, max_rows=None,
                         compute_quality_score=False, modality=None, dataset_name=None):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
@@ -257,11 +258,13 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
             target=_score,
             args=(
                 synthesizer,
+                data,
                 metadata,
                 metrics,
                 output,
                 max_rows,
                 compute_quality_score,
+                modality,
                 dataset_name
             ),
         )
@@ -271,7 +274,7 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
         process.terminate()
 
         output = dict(output)
-        if output['timeout']:
+        if output.get('timeout'):
             LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
 
         return output
@@ -336,10 +339,11 @@ def _run_job(args):
     try:
         if timeout:
             output = _score_with_timeout(
-                timeout,
-                synthesizer,
-                metadata,
-                metrics,
+                timeout=timeout,
+                synthesizer=synthesizer,
+                data=data,
+                metadata=metadata,
+                metrics=metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
                 modality=modality,
@@ -347,10 +351,10 @@ def _run_job(args):
             )
         else:
             output = _score(
-                synthesizer,
-                data,
-                metadata,
-                metrics,
+                synthesizer=synthesizer,
+                data=data,
+                metadata=metadata,
+                metrics=metrics,
                 max_rows=max_rows,
                 compute_quality_score=compute_quality_score,
                 modality=modality,
@@ -483,7 +487,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             A list of the different SDMetrics to use. If you'd like to input specific parameters
             into the metric, provide a tuple with the metric name followed by a dictionary of
             the parameters.
-        timeout (bool or ``None``):
+        timeout (int or ``None``):
             The maximum number of seconds to wait for synthetic data creation. If ``None``, no
             timeout is enforced.
         output_filepath (str or ``None``):
