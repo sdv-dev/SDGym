@@ -7,7 +7,7 @@ import botocore
 import pandas as pd
 
 from sdgym import get_available_datasets
-from sdgym.datasets import _get_bucket_name, _get_dataset_path, download_dataset, get_dataset_paths
+from sdgym.datasets import _get_bucket_name, _get_dataset_path, download_dataset, get_dataset_paths, load_dataset
 
 
 class AnyConfigWith:
@@ -259,3 +259,42 @@ def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
             None,
         ),
     ])
+
+
+def test_load_dataset_limit_dataset_size():
+    """Test ``limit_dataset_size`` selects a slice of the metadata and data."""
+    # Run
+    data, metadata_dict = load_dataset(
+        modality='single_table',
+        dataset='adult',
+        limit_dataset_size=True
+    )
+
+    # Assert
+    assert list(data.columns) == [
+        'age',
+        'workclass',
+        'fnlwgt',
+        'education',
+        'education-num',
+        'marital-status',
+        'occupation',
+        'relationship',
+        'race',
+        'sex'
+    ]
+    assert data.shape == (1000, 10)
+    assert metadata_dict == {
+        'columns': {
+            'age': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
+            'workclass': {'sdtype': 'categorical'},
+            'fnlwgt': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
+            'education': {'sdtype': 'categorical'},
+            'education-num': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
+            'marital-status': {'sdtype': 'categorical'},
+            'occupation': {'sdtype': 'categorical'},
+            'relationship': {'sdtype': 'categorical'},
+            'race': {'sdtype': 'categorical'},
+            'sex': {'sdtype': 'categorical'}},
+        'METADATA_SPEC_VERSION': 'SINGLE_TABLE_V1'
+    }
