@@ -402,3 +402,27 @@ def test_benchmark_single_table_custom_synthesizer():
         'Sample_Time',
         'Evaluate_Time'
     ]].between(0, 1000).all()
+
+
+def test_benchmark_single_table_limit_dataset_size():
+    """Test it works with ``limit_dataset_size``."""
+    # Run
+    results = benchmark_single_table(
+        synthesizers=['FastMLPreset'],
+        sdv_datasets=['adult'],
+        limit_dataset_size=True
+    )
+
+    # Assert
+    results = results.iloc[0]
+    assert results['Synthesizer'] == 'FastMLPreset'
+    assert results['Dataset'] == 'adult'
+    assert results['Dataset_Size_MB'] == 0.080128
+    assert .5 < results['Quality_Score'] < 1
+    assert results[[
+        'Train_Time',
+        'Peak_Memory_MB',
+        'Synthesizer_Size_MB',
+        'Sample_Time',
+        'Evaluate_Time'
+    ]].between(0, 1000).all()

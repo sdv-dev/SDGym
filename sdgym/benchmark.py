@@ -6,7 +6,6 @@ import multiprocessing
 import os
 import pickle
 import tracemalloc
-import uuid
 import warnings
 from datetime import datetime
 from pathlib import Path
