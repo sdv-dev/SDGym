@@ -1,8 +1,6 @@
 """Synthesizers module."""
 
 from sdv.lite import SingleTablePreset
-from sdv.metadata.multi_table import MultiTableMetadata
-from sdv.metadata.single_table import SingleTableMetadata
 from sdv.multi_table.hma import HMASynthesizer
 from sdv.sequential import PARSynthesizer
 from sdv.single_table import (
@@ -119,14 +117,13 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
             Args:
                 data (pandas.DataFrame):
                     The real data.
-                metadata (sdv.metadata.single_table.SingleTableMetadata):
-                    The single table metadata.
+                metadata (dict):
+                    The single table metadata dictionary.
 
             Returns:
                 obj:
                     The trained synthesizer.
             """
-            metadata = SingleTableMetadata().load_from_dict(metadata)
             return get_trained_synthesizer_fn(data, metadata)
 
         def sample_from_synthesizer(self, synthesizer, num_samples):
@@ -182,14 +179,13 @@ def create_multi_table_synthesizer(display_name, get_trained_synthesizer_fn,
             Args:
                 data (dict):
                     The real data. A mapping of table names to table data.
-                metadata (sdv.metadata.multi_table.MultiTableMetadata):
-                    The multi table metadata.
+                metadata (dict):
+                    The multi table metadata dictionary.
 
             Returns:
                 obj:
                     The trained synthesizer.
             """
-            metadata = MultiTableMetadata().load_from_dict(metadata)
             return get_trained_synthesizer_fn(data, metadata)
 
         def sample_from_synthesizer(self, synthesizer):
@@ -243,14 +239,13 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
             Args:
                 data (dict):
                     The real data. A mapping of table names to table data.
-                metadata (sdv.metadata.single_table.SingleTableMetadata):
-                    The metadata.
+                metadata (dict):
+                    The metadata dictionary.
 
             Returns:
                 obj:
                     The trained synthesizer.
             """
-            metadata = SingleTableMetadata().load_from_dict(metadata)
             return get_trained_synthesizer_fn(data, metadata)
 
         def sample_from_synthesizer(self, synthesizer, n_sequences):

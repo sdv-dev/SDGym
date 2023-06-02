@@ -1,6 +1,9 @@
 import abc
 import logging
 
+from sdv.metadata.multi_table import MultiTableMetadata
+from sdv.metadata.single_table import SingleTableMetadata
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -39,15 +42,17 @@ class BaselineSynthesizer(abc.ABC):
         """Get a synthesizer that has been trained on the provided data and metadata.
 
         Args:
-            data (pandas.DataFrame or dict):
+            data (pandas.DataFrame):
                 The data to train on.
-            metadata (SingleTableMetadata or MultiTableMetadata):
-                The metadata.
+            metadata (dict):
+                The metadata dictionary.
 
         Returns:
             obj:
-                The synthesizer object
+                The synthesizer object.
         """
+        metadata_class = MultiTableMetadata() if 'tables' in metadata else SingleTableMetadata()
+        metadata = metadata_class.load_from_dict(metadata)
         return self._get_trained_synthesizer(data, metadata)
 
     def sample_from_synthesizer(self, synthesizer, n_samples):
