@@ -8,7 +8,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TqdmLogger(io.StringIO):
-    """Logger."""
+    """tqdm logger."""
 
     _buffer = ''
 
@@ -17,7 +17,7 @@ class TqdmLogger(io.StringIO):
         self._buffer = buf.strip('\r\n\t ')
 
     def flush(self):
-        """Flush the buffer."""
+        """Log the buffer."""
         LOGGER.info(self._buffer)
 
 

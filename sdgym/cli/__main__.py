@@ -472,7 +472,7 @@ def _get_parser():
 
 
 def main():
-    """Main."""
+    """Run CLI."""
     pd.set_option('display.max_columns', 1000)
     pd.set_option('display.max_rows', 1000)
 

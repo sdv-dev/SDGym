@@ -68,8 +68,8 @@ DATA_MODALITY_METRICS = {
 }
 
 
-def get_metrics(metrics, metadata, modality):
-    """Get metrics."""
+def get_metrics(metrics, modality):
+    """Get metrics for a given modality."""
     if modality == 'multi-table':
         metric_classes = sdmetrics.multi_table.MultiTableMetric.get_subclasses()
     elif modality == 'single-table':

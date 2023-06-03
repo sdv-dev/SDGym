@@ -7,12 +7,8 @@ import botocore
 import pandas as pd
 
 from sdgym import get_available_datasets
-from sdgym.datasets import (
-<<<<<<< HEAD
-    _get_bucket_name, _get_dataset_path, download_dataset, get_dataset_paths, load_dataset)
-=======
-    _download_dataset, _get_bucket_name, _get_dataset_path, get_dataset_paths)
->>>>>>> d4def0a (Fix lint)
+
+from sdgym.datasets import _get_bucket_name, _get_dataset_path, download_dataset, get_dataset_paths
 
 
 class AnyConfigWith:
@@ -26,10 +22,10 @@ class AnyConfigWith:
 
 
 @patch('sdgym.s3.boto3')
-def test__download_dataset_public_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets._download_dataset`` method.
+def test_download_dataset_public_bucket(boto3_mock, tmpdir):
+    """Test the ``sdv.datasets.download_dataset`` method.
 
-    It calls `_download_dataset` with a dataset in a public bucket,
+    It calls `download_dataset` with a dataset in a public bucket,
     and does not pass in any aws credentials.
 
     Setup:
@@ -70,7 +66,7 @@ def test__download_dataset_public_bucket(boto3_mock, tmpdir):
     boto3_mock.Session().get_credentials.return_value = None
 
     # run
-    _download_dataset(
+    download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),
@@ -89,10 +85,10 @@ def test__download_dataset_public_bucket(boto3_mock, tmpdir):
 
 
 @patch('sdgym.s3.boto3')
-def test__download_dataset_private_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets._download_dataset`` method.
+def test_download_dataset_private_bucket(boto3_mock, tmpdir):
+    """Test the ``sdv.datasets.download_dataset`` method.
 
-    It calls `_download_dataset` with a dataset in a private bucket and uses aws credentials.
+    It calls `download_dataset` with a dataset in a private bucket and uses aws credentials.
 
     Setup:
     The boto3 library for s3 access is patched, and mocks are created for the
@@ -135,7 +131,7 @@ def test__download_dataset_private_bucket(boto3_mock, tmpdir):
     boto3_mock.client.return_value = s3_mock
 
     # run
-    _download_dataset(
+    download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),

@@ -113,7 +113,7 @@ def get_duplicates(items):
         set:
             The duplicate items.
     """
-    seen = {}
+    seen = set()
     return {
         item for item in items
         if item in seen or seen.add(item)

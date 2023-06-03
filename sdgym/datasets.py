@@ -26,8 +26,9 @@ def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX):] if bucket.startswith(S3_PREFIX) else bucket
 
 
-def _download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
-                      aws_secret=None):
+def download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
+                     aws_secret=None):
+    """Download a dataset and extract it into the given ``datasets_path``."""
     datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
@@ -59,7 +60,7 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
         if local_path.exists():
             return local_path
 
-    _download_dataset(
+    download_dataset(
         modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
 

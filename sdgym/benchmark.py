@@ -146,7 +146,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata,
                     output, compute_quality_score, modality, dataset_name):
     metrics = metrics or []
     if len(metrics) > 0:
-        metrics, metric_kwargs = get_metrics(metrics, metadata, modality='single-table')
+        metrics, metric_kwargs = get_metrics(metrics, modality='single-table')
         scores = []
         output['scores'] = scores
         for metric_name, metric in metrics.items():
