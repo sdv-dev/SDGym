@@ -1,3 +1,4 @@
+"""Synthesizers module."""
 from sdgym.synthesizers.generate import (
     SYNTHESIZER_MAPPING, create_multi_table_synthesizer, create_sdv_synthesizer_variant,
     create_sequential_synthesizer, create_single_table_synthesizer)

@@ -4,15 +4,18 @@ import sdmetrics
 
 
 class WithKWargs:
+    """Wrapper for sdmetrics."""
 
     def __init__(self, metric, **kwargs):
         self._metric = metric
         self._kwargs = kwargs
 
     def compute(self, real_data, synthetic_data, metadata):
+        """Compute the metric."""
         return self._metric.compute(real_data, synthetic_data, metadata, **self._kwargs)
 
     def normalize(self, raw_score):
+        """Normalize the metric."""
         return self._metric.normalize(raw_score)
 
 
@@ -66,6 +69,7 @@ DATA_MODALITY_METRICS = {
 
 
 def get_metrics(metrics, metadata, modality):
+    """Get metrics."""
     if modality == 'multi-table':
         metric_classes = sdmetrics.multi_table.MultiTableMetric.get_subclasses()
     elif modality == 'single-table':

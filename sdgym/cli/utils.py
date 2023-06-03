@@ -1,3 +1,4 @@
+"""Utils for the CLI module."""
 import io
 import pathlib
 

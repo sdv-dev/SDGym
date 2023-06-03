@@ -1,3 +1,4 @@
+"""Module to test the UniformSynthesizer."""
 import numpy as np
 import pandas as pd
 

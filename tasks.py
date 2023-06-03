@@ -111,7 +111,9 @@ def minimum(c):
 def lint(c):
     check_dependencies(c)
     c.run('flake8 sdgym')
-    c.run('flake8 tests --ignore=D,SFS2')
+    c.run('pydocstyle sdgym')
+    c.run('flake8 tests --ignore=D')
+    c.run('pydocstyle tests')
     c.run('isort -c --recursive sdgym tests')
 
 

@@ -80,8 +80,7 @@ install-develop: clean-build clean-pyc clean-pyc ## install the package in edita
 
 .PHONY: lint
 lint: ## check style with flake8 and isort
-	flake8 sdgym tests
-	isort -c --recursive sdgym tests
+	invoke lint
 
 .PHONY: fix-lint
 fix-lint: ## fix lint issues using autoflake, autopep8, and isort

@@ -1,3 +1,4 @@
+"""SDGym module to handle datasets."""
 import io
 import itertools
 import json
@@ -25,8 +26,8 @@ def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX):] if bucket.startswith(S3_PREFIX) else bucket
 
 
-def download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
-                     aws_secret=None):
+def _download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
+                      aws_secret=None):
     datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
@@ -58,7 +59,7 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
         if local_path.exists():
             return local_path
 
-    download_dataset(
+    _download_dataset(
         modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
 
@@ -100,6 +101,12 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
 
 
 def get_available_datasets():
+    """Get available single_table datasets.
+
+    Return:
+        pd.DataFrame:
+            Table of available datasets and their sizes.
+    """
     return _get_available_datasets('single_table')
 
 
@@ -133,6 +140,7 @@ def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None
 
 
 def get_downloaded_datasets(datasets_path=None):
+    """Get downloaded datatsets."""
     datasets_path = Path(datasets_path or DATASETS_PATH)
     if not datasets_path.is_dir():
         return pd.DataFrame(columns=['name', 'modality', 'tables', 'size'])

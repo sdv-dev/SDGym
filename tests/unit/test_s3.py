@@ -197,14 +197,14 @@ def test_write_csv(write_file_mock):
     - call to write_file with the correct contents and path
     """
     # setup
-    data = pd.DataFrame({"col1": [1, 2], "col2": [3, 4]})
+    data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
     path = 'tmp/path'
 
     # run
     write_csv(data, path, None, None)
 
     # asserts
-    input_data = pd.DataFrame({"col1": [1, 2], "col2": [3, 4]})
+    input_data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
     expected_content = input_data.to_csv(index=False).encode('utf-8')
     write_file_mock.assert_called_once_with(
         expected_content,

@@ -26,6 +26,7 @@ LIBRARIES = {
 
 
 def preprocess(data):
+    """Preprocess data."""
     if isinstance(data, str):
         data = pd.read_csv(data)
 
@@ -167,6 +168,7 @@ def errors_summary(data):
 
 
 def add_sheet(dfs, name, writer, cell_fmt, index_fmt, header_fmt):
+    """Add sheet."""
     startrow = 0
     widths = [0]
     if not isinstance(dfs, dict):

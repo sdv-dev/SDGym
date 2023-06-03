@@ -87,12 +87,12 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
         bucket=additional_datasets_folder)
     datasets = sdv_datasets + additional_datasets
 
-    job_tuples = list()
+    job_tuples = []
     for dataset in datasets:
         for synthesizer in synthesizers:
             job_tuples.append((synthesizer, dataset))
 
-    job_args_list = list()
+    job_args_list = []
     for synthesizer, dataset in job_tuples:
         data, metadata_dict = load_dataset(
             'single_table',
