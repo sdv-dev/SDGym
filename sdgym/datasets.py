@@ -52,6 +52,7 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     if dataset_path.exists():
         return dataset_path
 
+    bucket = bucket or BUCKET
     if not bucket.startswith(S3_PREFIX):
         local_path = Path(bucket) / dataset if bucket else Path(dataset)
         if local_path.exists():
