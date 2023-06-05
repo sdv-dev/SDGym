@@ -65,7 +65,7 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
 
 def _get_dataset_subset(data, metadata_dict):
     if 'tables' in metadata_dict.keys():
-        raise ValueError('max_columns is not supported for multi-table datasets')
+        raise ValueError('limit_dataset_size is not supported for multi-table datasets.')
 
     max_rows, max_columns = (1000, 10)
     columns = metadata_dict['columns']
