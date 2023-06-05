@@ -52,6 +52,7 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     if dataset_path.exists():
         return dataset_path
 
+    bucket = bucket or BUCKET
     if not bucket.startswith(S3_PREFIX):
         local_path = Path(bucket) / dataset if bucket else Path(dataset)
         if local_path.exists():
@@ -62,22 +63,24 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
     return dataset_path
 
 
-def _apply_max_columns_to_metadata(metadata, max_columns):
-    tables = metadata['tables']
-    for table in tables.values():
-        fields = table['fields']
-        if len(fields) > max_columns:
-            fields = dict(itertools.islice(fields.items(), max_columns))
-            table['fields'] = fields
+def _get_dataset_subset(data, metadata_dict):
+    if 'tables' in metadata_dict.keys():
+        raise ValueError('limit_dataset_size is not supported for multi-table datasets.')
 
-        structure = table.get('structure')
-        if structure:
-            structure['structure'] = structure['structure'][:max_columns]
-            structure['states'] = structure['states'][:max_columns]
+    max_rows, max_columns = (1000, 10)
+    columns = metadata_dict['columns']
+    if len(columns) > max_columns:
+        columns = dict(itertools.islice(columns.items(), max_columns))
+        metadata_dict['columns'] = columns
+        data = data[columns.keys()]
+
+    data = data.head(max_rows)
+
+    return data, metadata_dict
 
 
 def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
-                 aws_secret=None, max_columns=None):
+                 aws_secret=None, limit_dataset_size=None):
     """Get the data and metadata of a dataset."""
     dataset_path = _get_dataset_path(modality, dataset, datasets_path, bucket, aws_key, aws_secret)
     with open(dataset_path / f'{dataset_path.name}.csv') as data_csv:
@@ -88,33 +91,12 @@ def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=Non
         metadata_filename = 'metadata_v1.json'
 
     with open(dataset_path / metadata_filename) as metadata_file:
-        metadata_content = json.load(metadata_file)
+        metadata_dict = json.load(metadata_file)
 
-    if max_columns:
-        if 'tables' in metadata_content.keys():
-            raise ValueError('max_columns is not supported for multi-table datasets')
+    if limit_dataset_size:
+        data, metadata_dict = _get_dataset_subset(data, metadata_dict)
 
-        _apply_max_columns_to_metadata(metadata_content, max_columns)
-
-    return data, metadata_content
-
-
-def load_tables(metadata, max_rows=None):
-    if max_rows and len(metadata.get_tables()) > 1:
-        raise ValueError('max_rows is not supported for multi-table datasets')
-
-    real_data = metadata.load_tables()
-    for table_name, table in real_data.items():
-        table = table.head(max_rows)
-        fields = metadata.get_fields(table_name)
-        columns = [
-            column
-            for column in table.columns
-            if column in fields
-        ]
-        real_data[table_name] = table[columns]
-
-    return real_data
+    return data, metadata_dict
 
 
 def get_available_datasets():
