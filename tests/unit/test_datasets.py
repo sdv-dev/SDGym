@@ -7,8 +7,8 @@ import botocore
 import pandas as pd
 
 from sdgym import get_available_datasets
-
-from sdgym.datasets import _get_bucket_name, _get_dataset_path, download_dataset, get_dataset_paths
+from sdgym.datasets import (
+    _get_bucket_name, _get_dataset_path, download_dataset, get_dataset_paths, load_dataset)
 
 
 class AnyConfigWith:

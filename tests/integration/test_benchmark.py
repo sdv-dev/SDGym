@@ -422,7 +422,7 @@ def test_benchmark_single_table_custom_synthesizer():
     assert results['Dataset'] == 'fake_companies'
     assert results['Dataset_Size_MB'] == 0.00128
     assert .5 < results['Quality_Score'] < 1
-<<<<<<< HEAD
+
     assert results[[
         'Train_Time',
         'Peak_Memory_MB',
@@ -454,7 +454,7 @@ def test_benchmark_single_table_limit_dataset_size():
         'Sample_Time',
         'Evaluate_Time'
     ]].between(0, 1000).all()
-=======
+
     assert results[
         [
             'Train_Time',
@@ -464,4 +464,3 @@ def test_benchmark_single_table_limit_dataset_size():
             'Evaluate_Time'
         ]
     ].between(0, 1000).all()
->>>>>>> d4def0a (Fix lint)
