@@ -1,9 +1,12 @@
+"""Utils for the CLI module."""
 import io
 import pathlib
 
 import pandas as pd
 import tqdm
+from anyio import Path
 
+from sdgym.datasets import DATASETS_PATH, load_dataset
 from sdgym.s3 import get_s3_client, is_s3_path, parse_s3_path
 
 
@@ -92,3 +95,22 @@ def read_csv_from_path(path, aws_key, aws_secret):
             csv_contents.append(pd.read_csv(csv_path))
 
     return pd.concat(csv_contents)
+
+
+def get_downloaded_datasets(datasets_path=None):
+    """Get downloaded datatsets."""
+    datasets_path = Path(datasets_path or DATASETS_PATH)
+    if not datasets_path.is_dir():
+        return pd.DataFrame(columns=['name', 'modality', 'tables', 'size'])
+
+    datasets = []
+    for dataset_path in datasets_path.iterdir():
+        dataset = load_dataset(dataset_path)
+        datasets.append({
+            'name': dataset_path.name,
+            'modality': dataset._metadata['modality'],
+            'tables': len(dataset.get_tables()),
+            'size': sum(csv.stat().st_size for csv in dataset_path.glob('*.csv')),
+        })
+
+    return pd.DataFrame(datasets)

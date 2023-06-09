@@ -8,7 +8,7 @@ import pandas as pd
 
 from sdgym import get_available_datasets
 from sdgym.datasets import (
-    _get_bucket_name, _get_dataset_path, download_dataset, get_dataset_paths, load_dataset)
+    _download_dataset, _get_bucket_name, _get_dataset_path, get_dataset_paths, load_dataset)
 
 
 class AnyConfigWith:
@@ -22,9 +22,11 @@ class AnyConfigWith:
 
 
 @patch('sdgym.s3.boto3')
-def test_download_dataset_public_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
-    with a dataset in a public bucket, and does not pass in any aws credentials.
+def test__download_dataset_public_bucket(boto3_mock, tmpdir):
+    """Test the ``sdv.datasets._download_dataset`` method.
+
+    It calls `_download_dataset` with a dataset in a public bucket,
+    and does not pass in any aws credentials.
 
     Setup:
     The boto3 library for s3 access is patched, and mocks are created for the
@@ -64,7 +66,7 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
     boto3_mock.Session().get_credentials.return_value = None
 
     # run
-    download_dataset(
+    _download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),
@@ -83,9 +85,10 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
 
 
 @patch('sdgym.s3.boto3')
-def test_download_dataset_private_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
-    with a dataset in a private bucket and uses aws credentials.
+def test__download_dataset_private_bucket(boto3_mock, tmpdir):
+    """Test the ``sdv.datasets._download_dataset`` method.
+
+    It calls `_download_dataset` with a dataset in a private bucket and uses aws credentials.
 
     Setup:
     The boto3 library for s3 access is patched, and mocks are created for the
@@ -128,7 +131,7 @@ def test_download_dataset_private_bucket(boto3_mock, tmpdir):
     boto3_mock.client.return_value = s3_mock
 
     # run
-    download_dataset(
+    _download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),
@@ -230,8 +233,7 @@ def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
     local_path = 'test_local_path'
     bucket_path_mock = Mock()
     bucket_path_mock.exists.return_value = True
-    path_mock.side_effect = [
-        Path('datasets_folder'), bucket_path_mock, bucket_path_mock]
+    path_mock.side_effect = [Path('datasets_folder'), bucket_path_mock, bucket_path_mock]
     bucket_path_mock.iterdir.return_value = [
         Path('test_local_path/dataset_1.zip'),
         Path('test_local_path/dataset_2'),
@@ -296,6 +298,7 @@ def test_load_dataset_limit_dataset_size():
             'occupation': {'sdtype': 'categorical'},
             'relationship': {'sdtype': 'categorical'},
             'race': {'sdtype': 'categorical'},
-            'sex': {'sdtype': 'categorical'}},
+            'sex': {'sdtype': 'categorical'}
+        },
         'METADATA_SPEC_VERSION': 'SINGLE_TABLE_V1'
     }

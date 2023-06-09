@@ -24,6 +24,7 @@ def used_memory():
 
 
 def format_exception():
+    """Format exceptions."""
     exception = traceback.format_exc()
     exc_type, exc_value, _ = sys.exc_info()
     error = traceback.format_exception_only(exc_type, exc_value)[0].strip()
@@ -113,27 +114,38 @@ def get_duplicates(items):
             The duplicate items.
     """
     seen = set()
-    return set(
-        item for item in items
-        if item in seen or seen.add(item)
-    )
+    return {item for item in items if item in seen or seen.add(item)}
 
 
 def get_num_gpus():
+    """Get number of gpus.
+
+    Returns:
+        int:
+            Number of gpus to use.
+    """
     try:
         command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
         output = subprocess.run(command, stdout=subprocess.PIPE)
         return len(output.stdout.decode().split())
+
     except Exception:
         return 0
 
 
 def select_device():
+    """Select gpu if available, otherwise select cpu.
+
+    Returns:
+        str:
+            The cuda device if available, otherwise ``'cpu'``.
+    """
     try:
         command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
         output = subprocess.run(command, stdout=subprocess.PIPE)
         loads = np.array(output.stdout.decode().split()).astype(float)
         device = loads.argmin()
         return f'cuda:{device}'
+
     except Exception:
         return 'cpu'

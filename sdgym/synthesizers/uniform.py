@@ -1,3 +1,4 @@
+"""UniformSynthesizer module."""
 import numpy as np
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer

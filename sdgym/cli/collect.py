@@ -1,10 +1,12 @@
+"""Module to collect results."""
 from sdgym.cli.utils import read_csv_from_path
 from sdgym.s3 import write_csv
 
 
 def collect_results(input_path, output_file=None, aws_key=None, aws_secret=None):
-    """Collect the results in the given input directory, and
-    write all the results into one csv file.
+    """Collect the results in the given input directory.
+
+    Write all the results into one csv file.
 
     Args:
         input_path (str):

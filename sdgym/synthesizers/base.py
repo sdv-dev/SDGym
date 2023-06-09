@@ -1,3 +1,4 @@
+"""Base classes for synthesizers."""
 import abc
 import logging
 
@@ -19,7 +20,7 @@ class BaselineSynthesizer(abc.ABC):
                 Whether to include subclasses which are parents to
                 other classes. Defaults to ``False``.
         """
-        subclasses = dict()
+        subclasses = {}
         for child in cls.__subclasses__():
             grandchildren = child.get_subclasses(include_parents)
             subclasses.update(grandchildren)
@@ -30,6 +31,7 @@ class BaselineSynthesizer(abc.ABC):
 
     @classmethod
     def get_baselines(cls):
+        """Get baseline classes."""
         subclasses = cls.get_subclasses(include_parents=True)
         synthesizers = []
         for _, subclass in subclasses.items():
@@ -131,14 +133,15 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
         }
 
         for table_name, table in tables.items():
-            parents = list(self.metadata.tables[table_name]._get_parent_map().keys())
+            table_metadata = self.metadata.tables[table_name]
+            parents = list(table_metadata._get_parent_map().keys())
             for parent_name in parents:
                 parent = tables[parent_name]
                 primary_key = self.metadata.tables[table_name].primary_key
                 foreign_keys = self._get_foreign_keys(self.metadata, parent_name, table_name)
                 for foreign_key in foreign_keys:
                     foreign_key_values = parent[primary_key].sample(len(table), replace=True)
-                    table[foreign_key] = foreign_key_values.values
+                    table[foreign_key] = foreign_key_values.to_numpy()
 
             tables[table_name] = table[self.table_columns[table_name]]
 

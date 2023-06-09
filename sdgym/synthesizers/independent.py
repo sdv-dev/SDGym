@@ -1,3 +1,4 @@
+"""IndependentSynthesizer module."""
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
 from sklearn.mixture import GaussianMixture
@@ -33,7 +34,7 @@ class IndependentSynthesizer(BaselineSynthesizer):
             if kind != 'O':
                 num_components = min(column.nunique(), 5)
                 model = GaussianMixture(num_components)
-                model.fit(column.values.reshape(-1, 1))
+                model.fit(column.to_numpy().reshape(-1, 1))
                 gm_models[name] = model
 
         return (hyper_transformer, transformed, gm_models)
@@ -44,7 +45,7 @@ class IndependentSynthesizer(BaselineSynthesizer):
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'O':
-                values = column.sample(self.length, replace=True).values
+                values = column.sample(self.length, replace=True).to_numpy()
             else:
                 model = gm_models.get(name)
                 values = model.sample(self.length)[0].ravel().clip(column.min(), column.max())

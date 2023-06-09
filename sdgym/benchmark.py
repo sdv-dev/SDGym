@@ -87,12 +87,12 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
         bucket=additional_datasets_folder)
     datasets = sdv_datasets + additional_datasets
 
-    job_tuples = list()
+    job_tuples = []
     for dataset in datasets:
         for synthesizer in synthesizers:
             job_tuples.append((synthesizer, dataset))
 
-    job_args_list = list()
+    job_args_list = []
     for synthesizer, dataset in job_tuples:
         data, metadata_dict = load_dataset(
             'single_table',
@@ -146,7 +146,7 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata,
                     output, compute_quality_score, modality, dataset_name):
     metrics = metrics or []
     if len(metrics) > 0:
-        metrics, metric_kwargs = get_metrics(metrics, metadata, modality='single-table')
+        metrics, metric_kwargs = get_metrics(metrics, modality='single-table')
         scores = []
         output['scores'] = scores
         for metric_name, metric in metrics.items():

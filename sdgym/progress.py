@@ -8,13 +8,21 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TqdmLogger(io.StringIO):
+    """Logger for ``tqdm``."""
 
     _buffer = ''
 
     def write(self, buf):
+        """Write to buffer.
+
+        Args:
+            buf (str):
+                The buffer.
+        """
         self._buffer = buf.strip('\r\n\t ')
 
     def flush(self):
+        """Log the buffer."""
         LOGGER.info(self._buffer)
 
 
@@ -34,22 +42,24 @@ def progress(*futures):
         last = 0
         logger = logging.getLogger('distributed')
 
-        def _draw_bar(self, remaining, all, **kwargs):
-            done = all - remaining
-            frac = (done / all) if all else 0
+        def _draw_bar(self, remaining, total, **kwargs):
+            done = total - remaining
+            frac = (done / total) if total else 0
 
             if frac > self.last + 0.01:
                 self.last = int(frac * 100) / 100
-                bar = "#" * int(self.width * frac)
+                progress_bar = '#' * int(self.width * frac)
                 percent = int(100 * frac)
 
-                time_per_task = self.elapsed / (all - remaining)
+                time_per_task = self.elapsed / (total - remaining)
                 remaining_time = timedelta(seconds=time_per_task * remaining)
                 eta = datetime.utcnow() + remaining_time
 
                 elapsed = timedelta(seconds=self.elapsed)
-                msg = "[{0:<{1}}] | {2}/{3} ({4}%) Completed | {5} | {6} | {7}".format(
-                    bar, self.width, done, all, percent, elapsed, remaining_time, eta
+                msg = (  # noqa: SFS201
+                    '[{0:<{1}}] | {2}/{3} ({4}%) Completed | {5} | {6} | {7}'
+                ).format(
+                    progress_bar, self.width, done, total, percent, elapsed, remaining_time, eta
                 )
                 self.logger.info(msg)
                 LOGGER.info(msg)

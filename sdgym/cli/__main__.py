@@ -111,7 +111,7 @@ def _download_datasets(args):
 
 
 def _list_downloaded(args):
-    datasets = sdgym.datasets.get_downloaded_datasets(args.datasets_path)
+    datasets = sdgym.cli.utils.get_downloaded_datasets(args.datasets_path)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
     print(f'Found {len(datasets)} downloaded datasets')
 
@@ -472,6 +472,7 @@ def _get_parser():
 
 
 def main():
+    """Run CLI."""
     pd.set_option('display.max_columns', 1000)
     pd.set_option('display.max_rows', 1000)
 

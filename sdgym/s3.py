@@ -1,4 +1,4 @@
-
+"""S3 module."""
 import boto3
 import botocore
 
@@ -76,14 +76,14 @@ def get_s3_client(aws_key=None, aws_secret=None):
         return boto3.client('s3', config=config)
 
 
-def write_file(contents, path, aws_key, aws_secret):
+def write_file(data_contents, path, aws_key, aws_secret):
     """Write a file to the given path with the given contents.
 
     If the path is an s3 directory, we will use the given aws credentials
     to write to s3.
 
     Args:
-        contents (bytes):
+        data_contents (bytes):
             The contents that will be written to the file.
         path (str):
             The path to write the file to, which can be either local
@@ -103,7 +103,7 @@ def write_file(contents, path, aws_key, aws_secret):
     if path.endswith('gz') or path.endswith('gzip'):
         content_encoding = 'gzip'
         write_mode = 'wb'
-    elif isinstance(contents, bytes):
+    elif isinstance(data_contents, bytes):
         write_mode = 'wb'
 
     if is_s3_path(path):
@@ -112,15 +112,15 @@ def write_file(contents, path, aws_key, aws_secret):
         s3.put_object(
             Bucket=bucket_name,
             Key=key,
-            Body=contents,
+            Body=data_contents,
             ContentEncoding=content_encoding,
         )
     else:
         with open(path, write_mode) as f:
             if write_mode == 'w':
-                f.write(contents.decode('utf-8'))
+                f.write(data_contents.decode('utf-8'))
             else:
-                f.write(contents)
+                f.write(data_contents)
 
 
 def write_csv(data, path, aws_key, aws_secret):
@@ -145,5 +145,5 @@ def write_csv(data, path, aws_key, aws_secret):
     Returns:
         none
     """
-    contents = data.to_csv(index=False).encode('utf-8')
-    write_file(contents, path, aws_key, aws_secret)
+    data_contents = data.to_csv(index=False).encode('utf-8')
+    write_file(data_contents, path, aws_key, aws_secret)

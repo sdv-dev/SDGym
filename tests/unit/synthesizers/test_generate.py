@@ -1,3 +1,4 @@
+"""Tests for the generate module."""
 from unittest.mock import Mock
 
 import pytest
@@ -45,7 +46,8 @@ def test_create_sdv_variant_synthesizer():
     """Test that a sdv variant synthesizer is created.
 
     Expect that if the synthesizer class is a single-table synthesizer, the
-    new synthesizer inherits from the SDVTabularSynthesizer base class."""
+    new synthesizer inherits from the SDVTabularSynthesizer base class.
+    """
     # Setup
     synthesizer_class = 'GaussianCopulaSynthesizer'
     synthesizer_parameters = {}
@@ -64,7 +66,8 @@ def test_create_sdv_variant_synthesizer_error():
     """Test that a sdv variant synthesizer is created.
 
     Expect that if the synthesizer class is a single-table synthesizer, the
-    new synthesizer inherits from the SDVTabularSynthesizer base class."""
+    new synthesizer inherits from the SDVTabularSynthesizer base class.
+    """
     # Setup
     synthesizer_class = 'test'
     synthesizer_parameters = {}
@@ -72,9 +75,9 @@ def test_create_sdv_variant_synthesizer_error():
     # Run
     with pytest.raises(
         ValueError,
-        match=r"Synthesizer class test is not recognized. The supported options are "
-              "FastMLPreset, GaussianCopulaSynthesizer, CTGANSynthesizer, "
-              "CopulaGANSynthesizer, TVAESynthesizer, PARSynthesizer, HMASynthesizer"
+        match=r'Synthesizer class test is not recognized. The supported options are '
+              'FastMLPreset, GaussianCopulaSynthesizer, CTGANSynthesizer, '
+              'CopulaGANSynthesizer, TVAESynthesizer, PARSynthesizer, HMASynthesizer'
     ):
         create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
@@ -83,7 +86,8 @@ def test_create_sdv_variant_synthesizer_relational():
     """Test that a sdv variant synthesizer is created.
 
     Expect that if the synthesizer class is a relational synthesizer, the
-    new synthesizer inherits from the SDVRelationalSynthesizer base class."""
+    new synthesizer inherits from the SDVRelationalSynthesizer base class.
+    """
     # Setup
     synthesizer_class = 'HMASynthesizer'
     synthesizer_parameters = {}
@@ -102,7 +106,8 @@ def test_create_sdv_variant_synthesizer_preset():
     """Test that a sdv variant synthesizer is created.
 
     Expect that if the synthesizer class is a preset synthesizer, the
-    new synthesizer inherits from the FastMLPreset base class."""
+    new synthesizer inherits from the FastMLPreset base class.
+    """
     # Setup
     synthesizer_class = 'FastMLPreset'
     synthesizer_parameters = {}

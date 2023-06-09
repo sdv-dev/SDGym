@@ -1,5 +1,7 @@
+"""Tests for the benchmarking module."""
 import contextlib
 import io
+import re
 import time
 
 import pandas as pd
@@ -12,12 +14,15 @@ from sdgym import (
     benchmark_single_table, create_sdv_synthesizer_variant, create_single_table_synthesizer)
 
 
-def test_identity():
+def test_benchmark_single_table_basic_synthsizers():
+    """Test it with DataIdentity, IndependentSynthesizer and UniformSynthesizer."""
+    # Run
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
     )
 
+    # Assert
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
@@ -39,80 +44,100 @@ def test_identity():
     ] == quality_scores.index.tolist()
 
 
-def test_benchmarking_no_metrics():
+def test_benchmark_single_table_no_metrics():
+    """Test it without metrics."""
+    # Run
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
         sdmetrics=[],
     )
 
+    # Assert
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
+
     # Expect no metric columns.
     assert len(output.columns) == 9
 
 
 def test_benchmarking_no_report_output():
     """Test that the benchmarking printing does not include report progress."""
+    # Setup
     prints = io.StringIO()
+
+    # Run
     with contextlib.redirect_stderr(prints):
         sdgym.benchmark_single_table(
             synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
             sdv_datasets=['student_placements'],
         )
 
+    # Assert
     assert 'Creating report:' not in prints
 
 
 def get_trained_synthesizer_err(data, metadata):
+    """Get empty dict."""
     return {}
 
 
 def sample_from_synthesizer_err(synthesizer, num_rows):
+    """Get ValueError."""
     raise ValueError('random error')
 
 
-def test_error_handling():
+def test_benchmark_single_table_error_handling():
+    """Test it produces the correct errors."""
+    # Setup
     erroring_synthesizer = create_single_table_synthesizer(
         'my_synth', get_trained_synthesizer_err, sample_from_synthesizer_err)
+
+    # Run
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
         custom_synthesizers=[erroring_synthesizer],
         sdv_datasets=['student_placements'],
     )
 
+    # Assert
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
-    assert (
-        output[output['Synthesizer'] == 'Custom:my_synth'][['Train_Time', 'Sample_Time']]
-    ).isna().all(1).all()
+
+    output = output[output['Synthesizer'] == 'Custom:my_synth'][['Train_Time', 'Sample_Time']]
+    assert output.isna().all(1).all()
 
 
-def test_compute_quality_score():
+def test_benchmark_single_table_compute_quality_score():
+    """Test ``compute_quality_score=False`` works."""
+    # Run
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
         compute_quality_score=False,
     )
 
+    # Assert
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
     assert 'Quality_Score' not in output
 
 
-def test_duplicate_synthesizers():
+def test_benchmark_single_table_duplicate_synthesizers():
+    """Test it raises an error when passed a duplicate synthesizer."""
+    # Setup
     custom_synthesizer = create_single_table_synthesizer(
         'my_synth', get_trained_synthesizer_err, sample_from_synthesizer_err)
-    with pytest.raises(
-        ValueError,
-        match=(
-            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
-            'and `custom_synthesizers` parameters.'
-        )
-    ):
+
+    # Run and Assert
+    error_msg = re.escape(
+        'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
+        'and `custom_synthesizers` parameters.'
+    )
+    with pytest.raises(ValueError, match=error_msg):
         sdgym.benchmark_single_table(
             synthesizers=['GaussianCopulaSynthesizer', 'GaussianCopulaSynthesizer'],
             custom_synthesizers=[custom_synthesizer, custom_synthesizer]
@@ -135,19 +160,19 @@ def test_benchmark_single_table():
     def sample_from_synthesizer(synthesizer, n_samples):
         return synthesizer.sample(n_samples)
 
-    TestSynthesizer = create_single_table_synthesizer(
+    test_synthesizer = create_single_table_synthesizer(
         display_name='TestSynthesizer',
         get_trained_synthesizer_fn=get_trained_synthesizer,
         sample_from_synthesizer_fn=sample_from_synthesizer
     )
 
-    CTGANVariant = create_sdv_synthesizer_variant(
+    ctgan_variant = create_sdv_synthesizer_variant(
         'CTGANVariant',
         'CTGANSynthesizer',
         synthesizer_parameters={'epochs': 100}
     )
 
-    FastMLVariant = create_sdv_synthesizer_variant(
+    fast_ml_variant = create_sdv_synthesizer_variant(
         'FastMLVariant',
         'FastMLPreset',
         synthesizer_parameters={'name': 'FAST_ML'}
@@ -165,7 +190,7 @@ def test_benchmark_single_table():
             'UniformSynthesizer',
             'CTGANSynthesizer'
         ],
-        custom_synthesizers=[FastMLVariant, TestSynthesizer, CTGANVariant],
+        custom_synthesizers=[fast_ml_variant, test_synthesizer, ctgan_variant],
         sdv_datasets=['fake_companies']
     )
 
@@ -281,13 +306,15 @@ def test_benchmark_single_table_synthesizers_none():
     assert scores['Dataset'] == 'fake_companies'
     assert scores['Dataset_Size_MB'] == 0.00128
     assert .5 < scores['Quality_Score'] < 1
-    assert scores[[
-        'Train_Time',
-        'Peak_Memory_MB',
-        'Synthesizer_Size_MB',
-        'Sample_Time',
-        'Evaluate_Time'
-    ]].between(0, 1000).all()
+    assert scores[
+        [
+            'Train_Time',
+            'Peak_Memory_MB',
+            'Synthesizer_Size_MB',
+            'Sample_Time',
+            'Evaluate_Time'
+        ]
+    ].between(0, 1000).all()
 
 
 def test_benchmark_single_table_no_synthesizers():
@@ -376,7 +403,7 @@ def test_benchmark_single_table_custom_synthesizer():
     def sample_from_synthesizer(synthesizer, n_samples):
         return synthesizer.sample(n_samples)
 
-    TestSynthesizer = create_single_table_synthesizer(
+    test_synthesizer = create_single_table_synthesizer(
         display_name='TestSynthesizer',
         get_trained_synthesizer_fn=get_trained_synthesizer,
         sample_from_synthesizer_fn=sample_from_synthesizer
@@ -385,7 +412,7 @@ def test_benchmark_single_table_custom_synthesizer():
     # Run
     results = benchmark_single_table(
         synthesizers=None,
-        custom_synthesizers=[TestSynthesizer],
+        custom_synthesizers=[test_synthesizer],
         sdv_datasets=['fake_companies']
     )
 
@@ -395,13 +422,16 @@ def test_benchmark_single_table_custom_synthesizer():
     assert results['Dataset'] == 'fake_companies'
     assert results['Dataset_Size_MB'] == 0.00128
     assert .5 < results['Quality_Score'] < 1
-    assert results[[
-        'Train_Time',
-        'Peak_Memory_MB',
-        'Synthesizer_Size_MB',
-        'Sample_Time',
-        'Evaluate_Time'
-    ]].between(0, 1000).all()
+
+    assert results[
+        [
+            'Train_Time',
+            'Peak_Memory_MB',
+            'Synthesizer_Size_MB',
+            'Sample_Time',
+            'Evaluate_Time'
+        ]
+    ].between(0, 1000).all()
 
 
 def test_benchmark_single_table_limit_dataset_size():
@@ -419,10 +449,22 @@ def test_benchmark_single_table_limit_dataset_size():
     assert results['Dataset'] == 'adult'
     assert results['Dataset_Size_MB'] == 0.080128
     assert .5 < results['Quality_Score'] < 1
-    assert results[[
-        'Train_Time',
-        'Peak_Memory_MB',
-        'Synthesizer_Size_MB',
-        'Sample_Time',
-        'Evaluate_Time'
-    ]].between(0, 1000).all()
+    assert results[
+        [
+            'Train_Time',
+            'Peak_Memory_MB',
+            'Synthesizer_Size_MB',
+            'Sample_Time',
+            'Evaluate_Time'
+        ]
+    ].between(0, 1000).all()
+
+    assert results[
+        [
+            'Train_Time',
+            'Peak_Memory_MB',
+            'Synthesizer_Size_MB',
+            'Sample_Time',
+            'Evaluate_Time'
+        ]
+    ].between(0, 1000).all()
