@@ -111,7 +111,7 @@ def _download_datasets(args):
 
 
 def _list_downloaded(args):
-    datasets = sdgym.datasets.get_downloaded_datasets(args.datasets_path)
+    datasets = sdgym.cli.utils.get_downloaded_datasets(args.datasets_path)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
     print(f'Found {len(datasets)} downloaded datasets')
 

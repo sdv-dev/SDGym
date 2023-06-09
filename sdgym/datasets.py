@@ -26,8 +26,8 @@ def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX):] if bucket.startswith(S3_PREFIX) else bucket
 
 
-def download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
-                     aws_secret=None):
+def _download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
+                      aws_secret=None):
     """Download a dataset and extract it into the given ``datasets_path``."""
     datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
@@ -60,7 +60,7 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
         if local_path.exists():
             return local_path
 
-    download_dataset(
+    _download_dataset(
         modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
     return dataset_path
 
@@ -83,7 +83,32 @@ def _get_dataset_subset(data, metadata_dict):
 
 def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
                  aws_secret=None, limit_dataset_size=None):
-    """Get the data and metadata of a dataset."""
+    """Get the data and metadata of a dataset.
+
+    Args:
+        modality (str):
+            It must be ``'single-table'``, ``'multi-table'`` or ``'time-series'``.
+        dataset (str):
+            The path of the dataset as a string.
+        dataset_path (PurePath):
+            The path of the dataset as an object. This will only be used if the given ``dataset``
+            doesn't exist.
+        bucket (str):
+            The AWS bucket where to get the dataset. This will only be used if both ``dataset``
+            and ``dataset_path`` don't exist.
+        aws_key (str):
+            The access key id that will be used to communicate with s3, if provided.
+        aws_secret (str):
+            The secret access key that will be used to communicate with s3, if provided.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+
+    Returns:
+        pd.DataFrame, dict:
+            The data and medatata of a dataset.
+    """
     dataset_path = _get_dataset_path(modality, dataset, datasets_path, bucket, aws_key, aws_secret)
     with open(dataset_path / f'{dataset_path.name}.csv') as data_csv:
         data = pd.read_csv(data_csv)
@@ -140,28 +165,26 @@ def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None
     return pd.DataFrame(datasets)
 
 
-def get_downloaded_datasets(datasets_path=None):
-    """Get downloaded datatsets."""
-    datasets_path = Path(datasets_path or DATASETS_PATH)
-    if not datasets_path.is_dir():
-        return pd.DataFrame(columns=['name', 'modality', 'tables', 'size'])
-
-    datasets = []
-    for dataset_path in datasets_path.iterdir():
-        dataset = load_dataset(dataset_path)
-        datasets.append({
-            'name': dataset_path.name,
-            'modality': dataset._metadata['modality'],
-            'tables': len(dataset.get_tables()),
-            'size': sum(csv.stat().st_size for csv in dataset_path.glob('*.csv')),
-        })
-
-    return pd.DataFrame(datasets)
-
-
 def get_dataset_paths(datasets=None, datasets_path=None,
                       bucket=None, aws_key=None, aws_secret=None):
-    """Build the full path to datasets and ensure they exist."""
+    """Build the full path to datasets and ensure they exist.
+
+    Args:
+        datasets (list):
+            List of datasets.
+        dataset_path (str):
+            The path of the datasets.
+        bucket (str):
+            The AWS bucket where to get the dataset.
+        aws_key (str):
+            The access key id that will be used to communicate with s3, if provided.
+        aws_secret (str):
+            The secret access key that will be used to communicate with s3, if provided.
+
+    Returns:
+        list:
+            List of the full path of the datasets.
+    """
     bucket = bucket or BUCKET
     is_remote = bucket.startswith(S3_PREFIX)
 

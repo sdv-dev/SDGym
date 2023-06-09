@@ -423,13 +423,15 @@ def test_benchmark_single_table_custom_synthesizer():
     assert results['Dataset_Size_MB'] == 0.00128
     assert .5 < results['Quality_Score'] < 1
 
-    assert results[[
-        'Train_Time',
-        'Peak_Memory_MB',
-        'Synthesizer_Size_MB',
-        'Sample_Time',
-        'Evaluate_Time'
-    ]].between(0, 1000).all()
+    assert results[
+        [
+            'Train_Time',
+            'Peak_Memory_MB',
+            'Synthesizer_Size_MB',
+            'Sample_Time',
+            'Evaluate_Time'
+        ]
+    ].between(0, 1000).all()
 
 
 def test_benchmark_single_table_limit_dataset_size():
@@ -447,13 +449,15 @@ def test_benchmark_single_table_limit_dataset_size():
     assert results['Dataset'] == 'adult'
     assert results['Dataset_Size_MB'] == 0.080128
     assert .5 < results['Quality_Score'] < 1
-    assert results[[
-        'Train_Time',
-        'Peak_Memory_MB',
-        'Synthesizer_Size_MB',
-        'Sample_Time',
-        'Evaluate_Time'
-    ]].between(0, 1000).all()
+    assert results[
+        [
+            'Train_Time',
+            'Peak_Memory_MB',
+            'Synthesizer_Size_MB',
+            'Sample_Time',
+            'Evaluate_Time'
+        ]
+    ].between(0, 1000).all()
 
     assert results[
         [
