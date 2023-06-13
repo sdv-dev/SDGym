@@ -59,7 +59,7 @@ clean-test: ## remove test artifacts
 	rm -fr .pytest_cache
 
 .PHONY: clean
-clean: clean-build clean-compile clean-pyc clean-test clean-coverage ## remove all build, test, coverage and Python artifacts
+clean: clean-build clean-pyc clean-test clean-coverage ## remove all build, test, coverage and Python artifacts
 
 
 # INSTALL TARGETS
