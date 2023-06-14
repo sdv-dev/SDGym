@@ -1,5 +1,33 @@
 # History
 
+## v0.7.0 - 2023-06-13
+
+This release adds support for SDV 1.0 and PyTorch 2.0!
+
+### New Features
+
+* Add functions to top level import - Issue [#229](https://github.com/sdv-dev/SDGym/issues/229) by @fealho
+* Cleanup SDGym to the new SDV 1.0 metadata and synthesizers - Issue [#212](https://github.com/sdv-dev/SDGym/issues/212) by @fealho
+
+### Bugs Fixed
+
+* limit_dataset_size causes sdgym to crash - Issue [#231](https://github.com/sdv-dev/SDGym/issues/231) by @fealho
+* benchmark_single_table crashes with metadata dict - Issue [#232](https://github.com/sdv-dev/SDGym/issues/232) by @fealho
+* Passing None as synthesizers runs all of them - Issue [#233](https://github.com/sdv-dev/SDGym/issues/233) by @fealho
+* timeout parameter causes sdgym to crash - Issue [#234](https://github.com/sdv-dev/SDGym/issues/234) by @pvk-developer
+* SDGym is not working with latest torch - Issue [#210](https://github.com/sdv-dev/SDGym/issues/210) by @amontanez24
+* Fix sdgym --help - Issue [#206](https://github.com/sdv-dev/SDGym/issues/206) by @katxiao
+
+### Internal
+
+* Increase code style lint - Issue [#123](https://github.com/sdv-dev/SDGym/issues/123) by @fealho
+* Remove code support for synthesizers that are not strings/classes - PR [#236](https://github.com/sdv-dev/SDGym/pull/236) by @fealho
+* Code Refactoring - Issue [#215](https://github.com/sdv-dev/SDGym/issues/215) by @fealho
+
+### Maintenance
+
+* Remove pomegranate - Issue [#230](https://github.com/sdv-dev/SDGym/issues/230) by @amontanez24
+
 ## v0.6.0 - 2023-02-01
 This release introduces methods for benchmarking single table data and creating custom synthesizers, which can be based on existing SDGym-defined synthesizers or on user-defined functions. This release also adds support for Python 3.10 and drops support for Python 3.6.
 
