@@ -58,19 +58,11 @@ clean-test: ## remove test artifacts
 	rm -fr .tox/
 	rm -fr .pytest_cache
 
-.PHONY: clean-compile
-clean-compile: ## remove compile artifacts
-	rm -fr __privbn_tmp/
-
 .PHONY: clean
-clean: clean-build clean-compile clean-pyc clean-test clean-coverage ## remove all build, test, coverage and Python artifacts
+clean: clean-build clean-pyc clean-test clean-coverage ## remove all build, test, coverage and Python artifacts
 
 
 # INSTALL TARGETS
-
-.PHONY: compile
-compile: ## Compile Priv Bayes
-	$(MAKE) -C privbayes
 
 .PHONY: install
 install: clean-build clean-compile clean-pyc compile ## install the package to the active Python's site-packages
@@ -81,15 +73,14 @@ install-test: clean-build clean-compile clean-pyc compile ## install the package
 	pip install .[test]
 
 .PHONY: install-develop
-install-develop: clean-build clean-pyc clean-pyc compile ## install the package in editable mode and dependencies for development
+install-develop: clean-build clean-pyc clean-pyc ## install the package in editable mode and dependencies for development
 	pip install -e .[dev]
 
 # LINT TARGETS
 
 .PHONY: lint
 lint: ## check style with flake8 and isort
-	flake8 sdgym tests
-	isort -c --recursive sdgym tests
+	invoke lint
 
 .PHONY: fix-lint
 fix-lint: ## fix lint issues using autoflake, autopep8, and isort

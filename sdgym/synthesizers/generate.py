@@ -1,22 +1,22 @@
 """Synthesizers module."""
 
-from sdv.lite import TabularPreset
-from sdv.relational import HMA1
-from sdv.tabular import CTGAN, TVAE, CopulaGAN, GaussianCopula
-from sdv.timeseries import PAR
+from sdv.lite import SingleTablePreset
+from sdv.multi_table.hma import HMASynthesizer
+from sdv.sequential import PARSynthesizer
+from sdv.single_table import (
+    CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
 
-from sdgym.synthesizers.base import (
-    BaselineSynthesizer, MultiSingleTableBaselineSynthesizer, SingleTableBaselineSynthesizer)
+from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
 from sdgym.synthesizers.sdv import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
-    'FastMLPreset': TabularPreset,
-    'GaussianCopulaSynthesizer': GaussianCopula,
-    'CTGANSynthesizer': CTGAN,
-    'CopulaGANSynthesizer': CopulaGAN,
-    'TVAESynthesizer': TVAE,
-    'PARSynthesizer': PAR,
-    'HMASynthesizer': HMA1,
+    'FastMLPreset': SingleTablePreset,
+    'GaussianCopulaSynthesizer': GaussianCopulaSynthesizer,
+    'CTGANSynthesizer': CTGANSynthesizer,
+    'CopulaGANSynthesizer': CopulaGANSynthesizer,
+    'TVAESynthesizer': TVAESynthesizer,
+    'PARSynthesizer': PARSynthesizer,
+    'HMASynthesizer': HMASynthesizer,
 }
 
 
@@ -101,7 +101,7 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
-    class NewSynthesizer(SingleTableBaselineSynthesizer):
+    class NewSynthesizer(BaselineSynthesizer):
         """New Synthesizer class.
 
         Args:
@@ -117,8 +117,8 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
             Args:
                 data (pandas.DataFrame):
                     The real data.
-                metadata (sdv.Metadata):
-                    The single table metadata.
+                metadata (dict):
+                    The single table metadata dictionary.
 
             Returns:
                 obj:
@@ -179,8 +179,8 @@ def create_multi_table_synthesizer(display_name, get_trained_synthesizer_fn,
             Args:
                 data (dict):
                     The real data. A mapping of table names to table data.
-                metadata (sdv.Metadata):
-                    The multi table metadata.
+                metadata (dict):
+                    The multi table metadata dictionary.
 
             Returns:
                 obj:
@@ -239,8 +239,8 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
             Args:
                 data (dict):
                     The real data. A mapping of table names to table data.
-                metadata (sdv.Metadata):
-                    The multi table metadata.
+                metadata (dict):
+                    The metadata dictionary.
 
             Returns:
                 obj:

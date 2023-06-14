@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import pickle
 import tracemalloc
-import uuid
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -17,17 +17,15 @@ import tqdm
 from sdmetrics.reports.multi_table import QualityReport as MultiTableQualityReport
 from sdmetrics.reports.single_table import QualityReport as SingleTableQualityReport
 
-from sdgym.datasets import get_dataset_paths, load_dataset, load_tables
+from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
-from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
-from sdgym.synthesizers.utils import get_num_gpus
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
-    build_synthesizer, format_exception, get_duplicates, get_size_of, get_synthesizers,
-    import_object, used_memory)
+    format_exception, get_duplicates, get_num_gpus, get_size_of, get_synthesizers, used_memory)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
@@ -46,41 +44,88 @@ DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 N_BYTES_IN_MB = 1000 * 1000
 
 
+def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
+    if output_filepath and os.path.exists(output_filepath):
+        raise ValueError(
+            f'{output_filepath} already exists. '
+            'Please provide a file that does not already exist.'
+        )
+
+    if detailed_results_folder and os.path.exists(detailed_results_folder):
+        raise ValueError(
+            f'{detailed_results_folder} already exists. '
+            'Please provide a folder that does not already exist.'
+        )
+
+    duplicates = get_duplicates(synthesizers) if synthesizers else {}
+    if custom_synthesizers:
+        duplicates.update(get_duplicates(custom_synthesizers))
+    if len(duplicates) > 0:
+        raise ValueError(
+            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
+            'and `custom_synthesizers` parameters.'
+        )
+
+
+def _create_detailed_results_directory(detailed_results_folder):
+    if detailed_results_folder and not is_s3_path(detailed_results_folder):
+        detailed_results_folder = Path(detailed_results_folder)
+        os.makedirs(detailed_results_folder, exist_ok=True)
+
+
+def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_datasets_folder,
+                            sdmetrics, detailed_results_folder, timeout,
+                            compute_quality_score, synthesizers, custom_synthesizers):
+    # Get list of synthesizer objects
+    synthesizers = [] if synthesizers is None else synthesizers
+    custom_synthesizers = [] if custom_synthesizers is None else custom_synthesizers
+    synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
+
+    # Get list of dataset paths
+    sdv_datasets = [] if sdv_datasets is None else get_dataset_paths(datasets=sdv_datasets)
+    additional_datasets = [] if additional_datasets_folder is None else get_dataset_paths(
+        bucket=additional_datasets_folder)
+    datasets = sdv_datasets + additional_datasets
+
+    job_tuples = []
+    for dataset in datasets:
+        for synthesizer in synthesizers:
+            job_tuples.append((synthesizer, dataset))
+
+    job_args_list = []
+    for synthesizer, dataset in job_tuples:
+        data, metadata_dict = load_dataset(
+            'single_table',
+            dataset,
+            limit_dataset_size=limit_dataset_size
+        )
+
+        args = (
+            synthesizer,
+            data,
+            metadata_dict,
+            sdmetrics,
+            detailed_results_folder,
+            timeout,
+            compute_quality_score,
+            dataset.name,
+            'single_table'
+        )
+        job_args_list.append(args)
+
+    return job_args_list
+
+
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
-    get_synthesizer = None
-    sample_from_synthesizer = None
+    assert issubclass(
+        synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
 
-    if isinstance(synthesizer, str):
-        synthesizer = import_object(synthesizer)
-
-    if isinstance(synthesizer, type):
-        if issubclass(synthesizer, BaselineSynthesizer):
-            s_obj = synthesizer()
-            get_synthesizer = s_obj.get_trained_synthesizer
-            sample_from_synthesizer = s_obj.sample_from_synthesizer
-        else:
-            get_synthesizer, sample_from_synthesizer = build_synthesizer(
-                synthesizer, synthesizer_dict)
-
-    if isinstance(synthesizer, tuple):
-        get_synthesizer, sample_from_synthesizer = synthesizer
-
+    synthesizer_object = synthesizer()
+    get_synthesizer = synthesizer_object.get_trained_synthesizer
+    sample_from_synthesizer = synthesizer_object.sample_from_synthesizer
     data = real_data.copy()
-    num_samples = None
-    modalities = getattr(synthesizer, 'MODALITIES', [])
-    is_single_table = (
-        isinstance(synthesizer, type)
-        and issubclass(synthesizer, SingleTableBaselineSynthesizer)
-    ) or (
-        len(modalities) == 1
-        and 'single-table' in modalities
-    )
-    if is_single_table:
-        table_name = list(real_data.keys())[0]
-        metadata = metadata.get_table_meta(table_name)
-        data = list(real_data.values())[0]
-        num_samples = len(data)
+    num_samples = len(data)
 
     tracemalloc.start()
     now = datetime.utcnow()
@@ -94,31 +139,14 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     tracemalloc.stop()
     tracemalloc.clear_traces()
 
-    if is_single_table:
-        synthetic_data = {list(real_data.keys())[0]: synthetic_data}
-
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
 
-def _prepare_metric_args(real_data, synthetic_data, metadata):
-    modality = metadata.modality
-    if modality == 'multi-table':
-        metadata = metadata.to_dict()
-    else:
-        table = metadata.get_tables()[0]
-        metadata = metadata.get_table_meta(table)
-        real_data = real_data[table]
-        synthetic_data = synthetic_data[table]
-
-    return real_data, synthetic_data, metadata
-
-
-def _compute_scores(metrics, real_data, synthetic_data, metadata, output, compute_quality_score):
+def _compute_scores(metrics, real_data, synthetic_data, metadata,
+                    output, compute_quality_score, modality, dataset_name):
     metrics = metrics or []
     if len(metrics) > 0:
-        metrics, metric_kwargs = get_metrics(metrics, metadata)
-        metric_args = _prepare_metric_args(real_data, synthetic_data, metadata)
-
+        metrics, metric_kwargs = get_metrics(metrics, modality='single-table')
         scores = []
         output['scores'] = scores
         for metric_name, metric in metrics.items():
@@ -133,12 +161,13 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, comput
             normalized_score = None
             start = datetime.utcnow()
             try:
-                LOGGER.info('Computing %s on dataset %s', metric_name, metadata._metadata['name'])
+                LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
+                metric_args = (real_data, synthetic_data, metadata)
                 score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
                 normalized_score = metric.normalize(score)
             except Exception:
-                LOGGER.exception('Metric %s failed on dataset %s. Skipping.',
-                                 metric_name, metadata._metadata['name'])
+                LOGGER.exception(
+                    'Metric %s failed on dataset %s. Skipping.', metric_name, dataset_name)
                 _, error = format_exception()
 
             scores[-1].update({
@@ -151,86 +180,89 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata, output, comput
 
     if compute_quality_score:
         start = datetime.utcnow()
-        if metadata.modality == 'single-table':
+        if modality == 'single_table':
             quality_report = SingleTableQualityReport()
-            table_name = list(real_data.keys())[0]
-            table_metadata = metadata.get_table_meta(table_name)
-            table_real_data = list(real_data.values())[0]
-            table_synthetic_data = list(synthetic_data.values())[0]
-
-            quality_report = SingleTableQualityReport()
-            quality_report.generate(
-                table_real_data, table_synthetic_data, table_metadata, verbose=False)
         else:
             quality_report = MultiTableQualityReport()
-            quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
 
+        quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
         output['quality_score_time'] = (datetime.utcnow() - start).total_seconds()
         output['quality_score'] = quality_report.get_score()
 
 
-def _score(synthesizer, metadata, metrics, output=None, max_rows=None,
-           compute_quality_score=False):
+def _score(synthesizer, data, metadata, metrics, output=None,
+           compute_quality_score=False, modality=None, dataset_name=None):
     if output is None:
         output = {}
-
-    name = synthesizer['name']
 
     output['timeout'] = True  # To be deleted if there is no error
     output['error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
-        real_data = load_tables(metadata, max_rows)
-        output['dataset_size'] = get_size_of(real_data) / N_BYTES_IN_MB
+        LOGGER.info(
+            'Running %s on %s dataset %s; %s',
+            synthesizer['name'], modality, dataset_name, used_memory()
+        )
 
-        LOGGER.info('Running %s on %s dataset %s; %s',
-                    name, metadata.modality, metadata._metadata['name'], used_memory())
-
+        output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
         output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, real_data.copy(), metadata)
+            synthesizer, data.copy(), metadata)
+
         output['synthetic_data'] = synthetic_data
         output['train_time'] = train_time.total_seconds()
         output['sample_time'] = sample_time.total_seconds()
         output['synthesizer_size'] = synthesizer_size
         output['peak_memory'] = peak_memory
 
-        LOGGER.info('Scoring %s on %s dataset %s; %s',
-                    name, metadata.modality, metadata._metadata['name'], used_memory())
+        LOGGER.info(
+            'Scoring %s on %s dataset %s; %s',
+            synthesizer['name'], modality, dataset_name, used_memory()
+        )
 
         del output['error']   # No error so far. _compute_scores tracks its own errors by metric
         _compute_scores(
-            metrics, real_data, synthetic_data, metadata, output, compute_quality_score)
+            metrics,
+            data,
+            synthetic_data,
+            metadata,
+            output,
+            compute_quality_score,
+            modality,
+            dataset_name
+        )
 
         output['timeout'] = False  # There was no timeout
 
     except Exception:
-        LOGGER.exception('Error running %s on dataset %s;',
-                         name, metadata._metadata['name'])
+        LOGGER.exception('Error running %s on dataset %s;', synthesizer['name'], dataset_name)
+
         exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
         output['timeout'] = False  # There was no timeout
 
     finally:
-        LOGGER.info('Finished %s on dataset %s; %s',
-                    name, metadata._metadata['name'], used_memory())
+        LOGGER.info(
+            'Finished %s on dataset %s; %s', synthesizer['name'], dataset_name, used_memory())
 
     return output
 
 
-def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
-                        compute_quality_score=False):
+def _score_with_timeout(timeout, synthesizer, data, metadata, metrics,
+                        compute_quality_score=False, modality=None, dataset_name=None):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
         process = multiprocessing.Process(
             target=_score,
             args=(
                 synthesizer,
+                data,
                 metadata,
                 metrics,
                 output,
-                max_rows,
                 compute_quality_score,
+                modality,
+                dataset_name
             ),
         )
 
@@ -239,48 +271,13 @@ def _score_with_timeout(timeout, synthesizer, metadata, metrics, max_rows=None,
         process.terminate()
 
         output = dict(output)
-        if output['timeout']:
-            LOGGER.error('Timeout running %s on dataset %s;',
-                         synthesizer['name'], metadata._metadata['name'])
+        if output.get('timeout'):
+            LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
 
         return output
 
 
-def _run_job(args):
-    # Reset random seed
-    np.random.seed()
-
-    synthesizer, metadata, metrics, cache_dir, \
-        timeout, run_id, max_rows, compute_quality_score = args
-
-    name = synthesizer['name']
-    dataset_name = metadata._metadata['name']
-
-    LOGGER.info('Evaluating %s on %s dataset %s with timeout %ss; %s',
-                name, metadata.modality, dataset_name, timeout, used_memory())
-
-    output = {}
-    try:
-        if timeout:
-            output = _score_with_timeout(
-                timeout,
-                synthesizer,
-                metadata,
-                metrics,
-                max_rows=max_rows,
-                compute_quality_score=compute_quality_score,
-            )
-        else:
-            output = _score(
-                synthesizer,
-                metadata,
-                metrics,
-                max_rows=max_rows,
-                compute_quality_score=compute_quality_score,
-            )
-    except Exception as error:
-        output['exception'] = error
-
+def _format_output(output, name, dataset_name, compute_quality_score, cache_dir):
     evaluate_time = None
     if 'scores' in output or 'quality_score_time' in output:
         evaluate_time = output.get('quality_score_time', 0)
@@ -291,7 +288,7 @@ def _run_job(args):
 
     scores = pd.DataFrame({
         'Synthesizer': [name],
-        'Dataset': [metadata._metadata['name']],
+        'Dataset': [dataset_name],
         'Dataset_Size_MB': [output.get('dataset_size')],
         'Train_Time': [output.get('train_time')],
         'Peak_Memory_MB': [output.get('peak_memory')],
@@ -324,6 +321,48 @@ def _run_job(args):
     return scores
 
 
+def _run_job(args):
+    # Reset random seed
+    np.random.seed()
+
+    synthesizer, data, metadata, metrics, cache_dir, \
+        timeout, compute_quality_score, dataset_name, modality = args
+
+    name = synthesizer['name']
+    LOGGER.info('Evaluating %s on dataset %s with timeout %ss; %s',
+                name, dataset_name, timeout, used_memory())
+
+    output = {}
+    try:
+        if timeout:
+            output = _score_with_timeout(
+                timeout=timeout,
+                synthesizer=synthesizer,
+                data=data,
+                metadata=metadata,
+                metrics=metrics,
+                compute_quality_score=compute_quality_score,
+                modality=modality,
+                dataset_name=dataset_name
+            )
+        else:
+            output = _score(
+                synthesizer=synthesizer,
+                data=data,
+                metadata=metadata,
+                metrics=metrics,
+                compute_quality_score=compute_quality_score,
+                modality=modality,
+                dataset_name=dataset_name
+            )
+    except Exception as error:
+        output['exception'] = error
+
+    scores = _format_output(output, name, dataset_name, compute_quality_score, cache_dir)
+
+    return scores
+
+
 def _run_on_dask(jobs, verbose):
     """Run the tasks in parallel using dask."""
     try:
@@ -347,6 +386,62 @@ def _run_on_dask(jobs, verbose):
     return dask.compute(*persisted)
 
 
+def _run_jobs(multi_processing_config, job_args_list, show_progress):
+    workers = 1
+    if multi_processing_config:
+        if multi_processing_config['package_name'] == 'dask':
+            workers = 'dask'
+            scores = _run_on_dask(job_args_list, show_progress)
+        else:
+            num_gpus = get_num_gpus()
+            if num_gpus > 0:
+                workers = num_gpus
+            else:
+                workers = multiprocessing.cpu_count()
+
+    if workers in (0, 1):
+        scores = map(_run_job, job_args_list)
+    elif workers != 'dask':
+        pool = concurrent.futures.ProcessPoolExecutor(workers)
+        scores = pool.map(_run_job, job_args_list)
+
+    if show_progress:
+        scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
+    else:
+        scores = tqdm.tqdm(
+            scores, total=len(job_args_list), file=TqdmLogger(), position=0, leave=True)
+
+    if not scores:
+        raise SDGymError('No valid Dataset/Synthesizer combination given.')
+
+    scores = pd.concat(scores, ignore_index=True)
+
+    return scores
+
+
+def _get_empty_dataframe(compute_quality_score, sdmetrics):
+    warnings.warn('No datasets/synthesizers found.')
+
+    scores = pd.DataFrame({
+        'Synthesizer': [],
+        'Dataset': [],
+        'Dataset_Size_MB': [],
+        'Train_Time': [],
+        'Peak_Memory_MB': [],
+        'Synthesizer_Size_MB': [],
+        'Sample_Time': [],
+        'Evaluate_Time': [],
+    })
+
+    if compute_quality_score:
+        scores['Quality_Score'] = []
+    if sdmetrics:
+        for metric in sdmetrics:
+            scores[metric[0]] = []
+
+    return scores
+
+
 def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
                            sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
                            limit_dataset_size=False, compute_quality_score=True,
@@ -354,9 +449,6 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
                            detailed_results_folder=None, show_progress=False,
                            multi_processing_config=None):
     """Run the SDGym benchmark on single-table datasets.
-
-    The ``synthesizers`` object can either be a single synthesizer or, an iterable of
-    synthesizers or a dict containing synthesizer names as keys and synthesizers as values.
 
     Args:
         synthesizers (list[string]):
@@ -368,9 +460,8 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
                 - ``CopulaGANSynthesizer``
                 - ``TVAESynthesizer``
                 - ``FASTMLPreset``
-                - any custom created synthesizer or variant
 
-        custom_synthesizers (list[class]):
+        custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
             or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
@@ -391,7 +482,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             A list of the different SDMetrics to use. If you'd like to input specific parameters
             into the metric, provide a tuple with the metric name followed by a dictionary of
             the parameters.
-        timeout (bool or ``None``):
+        timeout (int or ``None``):
             The maximum number of seconds to wait for synthetic data creation. If ``None``, no
             timeout is enforced.
         output_filepath (str or ``None``):
@@ -413,102 +504,20 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
-    if output_filepath and os.path.exists(output_filepath):
-        raise ValueError(
-            f'{output_filepath} already exists. '
-            'Please provide a file that does not already exist.'
-        )
+    _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
 
-    if detailed_results_folder and os.path.exists(detailed_results_folder):
-        raise ValueError(
-            f'{detailed_results_folder} already exists. '
-            'Please provide a folder that does not already exist.'
-        )
+    _create_detailed_results_directory(detailed_results_folder)
 
-    duplicates = get_duplicates(synthesizers) if synthesizers else {}
-    if custom_synthesizers:
-        duplicates.update(get_duplicates(custom_synthesizers))
-    if len(duplicates) > 0:
-        raise ValueError(
-            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
-            'and `custom_synthesizers` parameters.'
-        )
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size, sdv_datasets, additional_datasets_folder, sdmetrics,
+        detailed_results_folder, timeout, compute_quality_score, synthesizers, custom_synthesizers)
 
-    if detailed_results_folder and not is_s3_path(detailed_results_folder):
-        detailed_results_folder = Path(detailed_results_folder)
-        os.makedirs(detailed_results_folder, exist_ok=True)
+    if job_args_list:
+        scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
 
-    max_rows, max_columns = (1000, 10) if limit_dataset_size else (None, None)
-
-    run_id = os.getenv('RUN_ID') or str(uuid.uuid4())[:10]
-
-    synthesizers = get_synthesizers(synthesizers)
-    if custom_synthesizers:
-        custom_synthesizers = get_synthesizers(custom_synthesizers)
-        synthesizers.extend(custom_synthesizers)
-
-    datasets = []
-    if sdv_datasets is not None:
-        datasets = get_dataset_paths(sdv_datasets, None, None, None, None)
-
-    if additional_datasets_folder:
-        additional_datasets = get_dataset_paths(None, None, additional_datasets_folder, None, None)
-        datasets.extend(additional_datasets)
-
-    job_tuples = list()
-    for dataset in datasets:
-        for synthesizer in synthesizers:
-            job_tuples.append((synthesizer, dataset))
-
-    job_args = list()
-    for synthesizer, dataset in job_tuples:
-        metadata = load_dataset('single_table', dataset, max_columns=max_columns)
-        dataset_modality = metadata.modality
-        synthesizer_modalities = synthesizer.get('modalities')
-        if (dataset_modality and dataset_modality != 'single-table') or (
-            synthesizer_modalities and 'single-table' not in synthesizer_modalities
-        ):
-            continue
-
-        args = (
-            synthesizer,
-            metadata,
-            sdmetrics,
-            detailed_results_folder,
-            timeout,
-            run_id,
-            max_rows,
-            compute_quality_score,
-        )
-        job_args.append(args)
-
-    workers = 1
-    if multi_processing_config:
-        if multi_processing_config['package_name'] == 'dask':
-            workers = 'dask'
-            scores = _run_on_dask(job_args, show_progress)
-        else:
-            num_gpus = get_num_gpus()
-            if num_gpus > 0:
-                workers = num_gpus
-            else:
-                workers = multiprocessing.cpu_count()
-
-    if workers in (0, 1):
-        scores = map(_run_job, job_args)
-    elif workers != 'dask':
-        pool = concurrent.futures.ProcessPoolExecutor(workers)
-        scores = pool.map(_run_job, job_args)
-
-    if show_progress:
-        scores = tqdm.tqdm(scores, total=len(job_args), position=0, leave=True)
+    # If no synthesizers/datasets are passed, return an empty dataframe
     else:
-        scores = tqdm.tqdm(scores, total=len(job_args), file=TqdmLogger(), position=0, leave=True)
-
-    if not scores:
-        raise SDGymError("No valid Dataset/Synthesizer combination given")
-
-    scores = pd.concat(scores, ignore_index=True)
+        scores = _get_empty_dataframe(compute_quality_score, sdmetrics)
 
     if output_filepath:
         write_csv(scores, output_filepath, None, None)

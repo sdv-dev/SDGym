@@ -4,15 +4,47 @@ import sdmetrics
 
 
 class WithKWargs:
+    """Wrapper for sdmetrics.
+
+    Args:
+        metric (sdmetric):
+            Metric object from sdmetrics.
+        kwargs (dict):
+            Key word arguments to use for the metric.
+    """
 
     def __init__(self, metric, **kwargs):
         self._metric = metric
         self._kwargs = kwargs
 
     def compute(self, real_data, synthetic_data, metadata):
+        """Compute the metric.
+
+        Args:
+            real_data (pandas.DataFrame):
+                The values from the real dataset, passed as a pandas.DataFrame.
+            synthetic_data (pandas.DataFrame):
+                The values from the synthetic dataset, passed as a pandas.DataFrame.
+            metadata (dict):
+                Metadata dict. If ``None``, it is build based on the real_data fields and dtypes.
+
+        Returns:
+            Union[float, tuple[float]]:
+                Metric output.
+        """
         return self._metric.compute(real_data, synthetic_data, metadata, **self._kwargs)
 
     def normalize(self, raw_score):
+        """Normalize the metric.
+
+        Args:
+            raw_score (float):
+                The score.
+
+        Returns:
+            float:
+                The normalized score.
+        """
         return self._metric.normalize(raw_score)
 
 
@@ -65,8 +97,19 @@ DATA_MODALITY_METRICS = {
 }
 
 
-def get_metrics(metrics, metadata):
-    modality = metadata._metadata['modality']
+def get_metrics(metrics, modality):
+    """Get metrics for a given modality.
+
+    Args:
+        metrics (list):
+            List of strings or tuples ``(metric, metric_args)`` describing the metrics.
+        modality (str):
+            It must be ``'single-table'``, ``'multi-table'`` or ``'timeseries'``.
+
+    Returns:
+        list, kwargs:
+            A list of metrics for the given modality, and their corresponding kwargs.
+    """
     if modality == 'multi-table':
         metric_classes = sdmetrics.multi_table.MultiTableMetric.get_subclasses()
     elif modality == 'single-table':
@@ -75,11 +118,7 @@ def get_metrics(metrics, metadata):
         metric_classes = sdmetrics.timeseries.TimeSeriesMetric.get_subclasses()
 
     if not metrics:
-        problem_type = metadata._metadata.get('problem_type')
-        if problem_type:
-            metrics = PROBLEM_TYPE_METRICS[problem_type]
-        else:
-            metrics = DATA_MODALITY_METRICS[modality]
+        metrics = DATA_MODALITY_METRICS[modality]
 
     final_metrics = {}
     metric_kwargs = {}

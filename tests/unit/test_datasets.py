@@ -4,10 +4,11 @@ from unittest.mock import Mock, call, patch
 from zipfile import ZipFile
 
 import botocore
+import pandas as pd
 
+from sdgym import get_available_datasets
 from sdgym.datasets import (
-    _get_bucket_name, _get_dataset_path, download_dataset, get_available_datasets,
-    get_dataset_paths)
+    _download_dataset, _get_bucket_name, _get_dataset_path, get_dataset_paths, load_dataset)
 
 
 class AnyConfigWith:
@@ -21,9 +22,11 @@ class AnyConfigWith:
 
 
 @patch('sdgym.s3.boto3')
-def test_download_dataset_public_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
-    with a dataset in a public bucket, and does not pass in any aws credentials.
+def test__download_dataset_public_bucket(boto3_mock, tmpdir):
+    """Test the ``sdv.datasets._download_dataset`` method.
+
+    It calls `_download_dataset` with a dataset in a public bucket,
+    and does not pass in any aws credentials.
 
     Setup:
     The boto3 library for s3 access is patched, and mocks are created for the
@@ -63,7 +66,7 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
     boto3_mock.Session().get_credentials.return_value = None
 
     # run
-    download_dataset(
+    _download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),
@@ -82,9 +85,10 @@ def test_download_dataset_public_bucket(boto3_mock, tmpdir):
 
 
 @patch('sdgym.s3.boto3')
-def test_download_dataset_private_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets.download_dataset`` method. It calls `download_dataset`
-    with a dataset in a private bucket and uses aws credentials.
+def test__download_dataset_private_bucket(boto3_mock, tmpdir):
+    """Test the ``sdv.datasets._download_dataset`` method.
+
+    It calls `_download_dataset` with a dataset in a private bucket and uses aws credentials.
 
     Setup:
     The boto3 library for s3 access is patched, and mocks are created for the
@@ -127,7 +131,7 @@ def test_download_dataset_private_bucket(boto3_mock, tmpdir):
     boto3_mock.client.return_value = s3_mock
 
     # run
-    download_dataset(
+    _download_dataset(
         modality,
         dataset,
         datasets_path=str(tmpdir),
@@ -198,6 +202,28 @@ def test_get_available_datasets(helper_mock):
     helper_mock.assert_called_once_with('single_table')
 
 
+def test_get_available_datasets_results():
+    # Run
+    tables_info = get_available_datasets()
+
+    # Assert
+    expected_table = pd.DataFrame({
+        'dataset_name': [
+            'adult', 'alarm', 'census',
+            'child', 'covtype', 'expedia_hotel_logs',
+            'insurance', 'intrusion', 'news'
+        ],
+        'size_MB': [
+            '3.907448', '4.520128', '98.165608',
+            '3.200128', '255.645408', '0.200128',
+            '3.340128', '162.039016', '18.712096'
+        ],
+        'num_tables': [1] * 9
+    })
+    expected_table['size_MB'] = expected_table['size_MB'].astype(float).round(2)
+    assert len(expected_table.merge(tables_info.round(2))) == len(expected_table)
+
+
 @patch('sdgym.datasets._get_dataset_path')
 @patch('sdgym.datasets.ZipFile')
 @patch('sdgym.datasets.Path')
@@ -207,8 +233,7 @@ def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
     local_path = 'test_local_path'
     bucket_path_mock = Mock()
     bucket_path_mock.exists.return_value = True
-    path_mock.side_effect = [
-        Path('datasets_folder'), bucket_path_mock, bucket_path_mock]
+    path_mock.side_effect = [Path('datasets_folder'), bucket_path_mock, bucket_path_mock]
     bucket_path_mock.iterdir.return_value = [
         Path('test_local_path/dataset_1.zip'),
         Path('test_local_path/dataset_2'),
@@ -237,3 +262,43 @@ def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
             None,
         ),
     ])
+
+
+def test_load_dataset_limit_dataset_size():
+    """Test ``limit_dataset_size`` selects a slice of the metadata and data."""
+    # Run
+    data, metadata_dict = load_dataset(
+        modality='single_table',
+        dataset='adult',
+        limit_dataset_size=True
+    )
+
+    # Assert
+    assert list(data.columns) == [
+        'age',
+        'workclass',
+        'fnlwgt',
+        'education',
+        'education-num',
+        'marital-status',
+        'occupation',
+        'relationship',
+        'race',
+        'sex'
+    ]
+    assert data.shape == (1000, 10)
+    assert metadata_dict == {
+        'columns': {
+            'age': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
+            'workclass': {'sdtype': 'categorical'},
+            'fnlwgt': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
+            'education': {'sdtype': 'categorical'},
+            'education-num': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
+            'marital-status': {'sdtype': 'categorical'},
+            'occupation': {'sdtype': 'categorical'},
+            'relationship': {'sdtype': 'categorical'},
+            'race': {'sdtype': 'categorical'},
+            'sex': {'sdtype': 'categorical'}
+        },
+        'METADATA_SPEC_VERSION': 'SINGLE_TABLE_V1'
+    }

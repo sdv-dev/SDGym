@@ -21,20 +21,19 @@ install_requires = [
     "numpy>=1.23.3,<2;python_version>='3.10'",
     "pandas>=1.1.3,<2;python_version<'3.10'",
     "pandas>=1.5.0,<2;python_version>='3.10'",
-    "pomegranate>=0.14.3,<0.15",
     'psutil>=5.7,<6',
     "scikit-learn>=0.24,<2;python_version<'3.10'",
     "scikit-learn>=1.1.3,<2;python_version>='3.10'",
     "scipy>=1.5.4,<2;python_version<'3.10'",
     "scipy>=1.9.2,<2;python_version>='3.10'",
     'tabulate>=0.8.3,<0.9',
-    "torch>=1.8.0,<2;python_version<'3.10'",
-    "torch>=1.11.0,<2;python_version>='3.10'",
+    "torch>=1.8.0,<3;python_version<'3.10'",
+    "torch>=1.11.0,<3;python_version>='3.10'",
     'tqdm>=4.15,<5',
     'XlsxWriter>=1.2.8,<4',
     'rdt>=1.3.0,<2.0',
-    'sdmetrics>=0.9.0,<1.0',
-    'sdv>=0.18.0',
+    'sdmetrics>=0.9.1,<1.0',
+    'sdv>=1.0.0,<2',
 ]
 
 
@@ -62,7 +61,27 @@ development_requires = [
 
     # style check
     'flake8>=3.7.7,<4',
+    'flake8-absolute-import>=1.0,<2',
+    'flake8-builtins>=1.5.3,<1.6',
+    'flake8-comprehensions>=3.6.1,<3.7',
+    'flake8-debugger>=4.0.0,<4.1',
+    'flake8-docstrings>=1.5.0,<2',
+    'flake8-eradicate>=1.1.0,<1.2',
+    'flake8-fixme>=1.1.1,<1.2',
+    'flake8-mock>=0.3,<0.4',
+    'flake8-multiline-containers>=0.0.18,<0.1',
+    'flake8-mutable>=1.2.0,<1.3',
+    'flake8-expression-complexity>=0.0.9,<0.1',
+    'flake8-print>=4.0.0,<4.1',
+    'flake8-pytest-style>=1.5.0,<2',
+    'flake8-quotes>=3.3.0,<4',
+    'flake8-sfs>=0.0.3,<0.1',
+    'flake8-variables-names>=0.0.4,<0.1',
+    'dlint>=0.11.0,<0.12',
     'isort>=4.3.4,<5',
+    'pandas-vet>=0.2.3,<0.3',
+    'pep8-naming>=0.12.1,<0.13',
+    'pydocstyle>=6.1.1,<6.2',
 
     # fix style issues
     'autoflake>=1.1,<2',
@@ -101,7 +120,7 @@ setup(
     ),
     entry_points={
         'console_scripts': [
-            'sdgym=sdgym.__main__:main'
+            'sdgym=sdgym.cli.__main__:main'
         ],
     },
     extras_require={
@@ -123,6 +142,6 @@ setup(
     test_suite='tests',
     tests_require=tests_require,
     url='https://github.com/sdv-dev/SDGym',
-    version='0.6.0',
+    version='0.7.0.dev1',
     zip_safe=False,
 )

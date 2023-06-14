@@ -1,10 +1,6 @@
-import io
-import pathlib
-
+"""S3 module."""
 import boto3
 import botocore
-import pandas as pd
-import tqdm
 
 S3_PREFIX = 's3://'
 
@@ -80,14 +76,14 @@ def get_s3_client(aws_key=None, aws_secret=None):
         return boto3.client('s3', config=config)
 
 
-def write_file(contents, path, aws_key, aws_secret):
+def write_file(data_contents, path, aws_key, aws_secret):
     """Write a file to the given path with the given contents.
 
     If the path is an s3 directory, we will use the given aws credentials
     to write to s3.
 
     Args:
-        contents (bytes):
+        data_contents (bytes):
             The contents that will be written to the file.
         path (str):
             The path to write the file to, which can be either local
@@ -107,7 +103,7 @@ def write_file(contents, path, aws_key, aws_secret):
     if path.endswith('gz') or path.endswith('gzip'):
         content_encoding = 'gzip'
         write_mode = 'wb'
-    elif isinstance(contents, bytes):
+    elif isinstance(data_contents, bytes):
         write_mode = 'wb'
 
     if is_s3_path(path):
@@ -116,15 +112,15 @@ def write_file(contents, path, aws_key, aws_secret):
         s3.put_object(
             Bucket=bucket_name,
             Key=key,
-            Body=contents,
+            Body=data_contents,
             ContentEncoding=content_encoding,
         )
     else:
         with open(path, write_mode) as f:
             if write_mode == 'w':
-                f.write(contents.decode('utf-8'))
+                f.write(data_contents.decode('utf-8'))
             else:
-                f.write(contents)
+                f.write(data_contents)
 
 
 def write_csv(data, path, aws_key, aws_secret):
@@ -149,99 +145,5 @@ def write_csv(data, path, aws_key, aws_secret):
     Returns:
         none
     """
-    contents = data.to_csv(index=False).encode('utf-8')
-    write_file(contents, path, aws_key, aws_secret)
-
-
-def read_file(path, aws_key, aws_secret):
-    """Read file from path.
-
-    The path can either be a local path or an s3 directory.
-
-    Args:
-        path (str):
-            The path to the file.
-        aws_key (str):
-            The access key id that will be used to communicate with s3,
-            if provided.
-        aws_secret (str):
-            The secret access key that will be used to communicate with
-            s3, if provided.
-
-    Returns:
-        bytes:
-            The content of the file in bytes.
-    """
-    if is_s3_path(path):
-        s3 = get_s3_client(aws_key, aws_secret)
-        bucket_name, key = parse_s3_path(path)
-        obj = s3.get_object(Bucket=bucket_name, Key=key)
-        contents = obj['Body'].read()
-    else:
-        with open(path, 'r') as f:
-            contents = f.read().encode('utf-8')
-
-    return contents
-
-
-def read_csv(path, aws_key, aws_secret):
-    """Read csv file from path.
-
-    The path can either be a local path or an s3 directory.
-
-    Args:
-        path (str):
-            The path to the csv file.
-        aws_key (str):
-            The access key id that will be used to communicate with s3,
-            if provided.
-        aws_secret (str):
-            The secret access key that will be used to communicate with
-            s3, if provided.
-
-    Returns:
-        pandas.DataFrame:
-            A DataFrame containing the contents of the csv file.
-    """
-    contents = read_file(path, aws_key, aws_secret)
-    return pd.read_csv(io.BytesIO(contents))
-
-
-def read_csv_from_path(path, aws_key, aws_secret):
-    """Read all csv content within a path.
-
-    All csv content within a path will be read and returned in a
-    DataFrame. The path can be either local or an s3 directory.
-
-    args:
-        path (str):
-            The path to read from, which can be either local or an
-            s3 path.
-        aws_key (str):
-            The access key id that will be used to communicate with s3,
-            if provided.
-        aws_secret (str):
-            The secret access key that will be used to communicate with
-            s3, if provided.
-
-    Returns:
-        pandas.DataFrame:
-            A DataFrame of all the csv contents in the path.
-    """
-    csv_contents = []
-    if is_s3_path(path):
-        s3 = get_s3_client(aws_key, aws_secret)
-        bucket_name, key_prefix = parse_s3_path(path)
-        resp = s3.list_objects(Bucket=bucket_name, Prefix=key_prefix)
-        csv_files = [f for f in resp['Contents'] if f['Key'].endswith('.csv')]
-        for csv_file in csv_files:
-            csv_file_key = csv_file['Key']
-            csv_contents.append(
-                read_csv(f's3://{bucket_name}/{csv_file_key}', aws_key, aws_secret))
-
-    else:
-        run_path = pathlib.Path(path)
-        for csv_path in tqdm.tqdm(list(run_path.glob('**/*.csv'))):
-            csv_contents.append(pd.read_csv(csv_path))
-
-    return pd.concat(csv_contents)
+    data_contents = data.to_csv(index=False).encode('utf-8')
+    write_file(data_contents, path, aws_key, aws_secret)

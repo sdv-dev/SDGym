@@ -1,24 +1,23 @@
+"""SDV synthesizers module."""
 import abc
 import logging
 
 import sdv
-import sdv.timeseries
 
-from sdgym.synthesizers.base import BaselineSynthesizer, SingleTableBaselineSynthesizer
-from sdgym.synthesizers.utils import select_device
+from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.utils import select_device
 
 LOGGER = logging.getLogger(__name__)
 
 
-class FastMLPreset(SingleTableBaselineSynthesizer):
+class FastMLPreset(BaselineSynthesizer):
+    """Model wrapping the ``FastMLPreset`` model."""
 
-    MODALITIES = ('single-table', )
     _MODEL = None
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
-        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = sdv.lite.TabularPreset(name='FAST_ML', metadata=metadata, **model_kwargs)
+        model = sdv.lite.SingleTablePreset(name='FAST_ML', metadata=metadata)
         model.fit(data)
 
         return model
@@ -27,16 +26,16 @@ class FastMLPreset(SingleTableBaselineSynthesizer):
         return synthesizer.sample(n_samples)
 
 
-class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
+class SDVTabularSynthesizer(BaselineSynthesizer, abc.ABC):
+    """Base class for single-table models."""
 
-    MODALITIES = ('single-table', )
     _MODEL = None
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -46,17 +45,19 @@ class SDVTabularSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
 
 class GaussianCopulaSynthesizer(SDVTabularSynthesizer):
+    """Model wrapping the ``GaussianCopulaSynthesizer`` model."""
 
-    _MODEL = sdv.tabular.GaussianCopula
+    _MODEL = sdv.single_table.GaussianCopulaSynthesizer
 
 
 class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
+    """Base class for CUDA dependent models."""
 
     def _get_trained_synthesizer(self, data, metadata):
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model_kwargs.setdefault('cuda', select_device())
         LOGGER.info('Fitting %s with kwargs %s', self.__class__.__name__, model_kwargs)
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -66,23 +67,26 @@ class CUDATabularSynthesizer(SDVTabularSynthesizer, abc.ABC):
 
 
 class CTGANSynthesizer(CUDATabularSynthesizer):
+    """Model wrapping the ``CTGANSynthesizer`` model."""
 
-    _MODEL = sdv.tabular.CTGAN
+    _MODEL = sdv.single_table.CTGANSynthesizer
 
 
 class TVAESynthesizer(CUDATabularSynthesizer):
+    """Model wrapping the ``TVAESynthesizer`` model."""
 
-    _MODEL = sdv.tabular.TVAE
+    _MODEL = sdv.single_table.TVAESynthesizer
 
 
 class CopulaGANSynthesizer(CUDATabularSynthesizer):
+    """Model wrapping the ``CopulaGANSynthesizer`` model."""
 
-    _MODEL = sdv.tabular.CopulaGAN
+    _MODEL = sdv.single_table.CopulaGANSynthesizer
 
 
 class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
+    """Base class for multi-table models."""
 
-    MODALITIES = ('single-table', 'multi-table')
     _MODEL = None
     _MODEL_KWARGS = None
 
@@ -99,20 +103,21 @@ class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
 
 
 class HMASynthesizer(SDVRelationalSynthesizer):
+    """Model wrapping the ``HMASynthesizer`` model."""
 
-    _MODEL = sdv.relational.HMA1
+    _MODEL = sdv.multi_table.hma.HMASynthesizer
 
 
-class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
+class SDVTimeseriesSynthesizer(BaselineSynthesizer, abc.ABC):
+    """Base class for time-series models."""
 
-    MODALITIES = ('timeseries', )
     _MODEL = None
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(table_metadata=metadata, **model_kwargs)
+        model = self._MODEL(metadata=metadata, **model_kwargs)
         model.fit(data)
         return model
 
@@ -122,10 +127,11 @@ class SDVTimeseriesSynthesizer(SingleTableBaselineSynthesizer, abc.ABC):
 
 
 class PARSynthesizer(SDVTimeseriesSynthesizer):
+    """Model wrapping the ``PARSynthesizer`` model."""
 
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.__class__.__name__)
-        model = sdv.timeseries.PAR(table_metadata=metadata, epochs=1024, verbose=False)
+        model = sdv.sequential.PARSynthesizer(metadata=metadata, epochs=1024, verbose=False)
         model.device = select_device()
         model.fit(data)
         return model
