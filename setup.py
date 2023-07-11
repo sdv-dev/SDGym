@@ -139,7 +139,7 @@ setup(
     keywords='machine learning synthetic data generation benchmark generative models',
     name='sdgym',
     packages=find_packages(include=['sdgym', 'sdgym.*']),
-    python_requires='>=3.8,<3.11',
+    python_requires='>=3.8,<3.12',
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,
