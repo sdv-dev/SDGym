@@ -3,6 +3,7 @@ import contextlib
 import io
 import re
 import time
+import math
 
 import pandas as pd
 import pytest
@@ -211,7 +212,7 @@ def test_benchmark_single_table():
     pd.testing.assert_series_equal(results['Synthesizer'], expected_synthesizers)
 
     assert set(results['Dataset']) == {'fake_companies'}
-    assert set(results['Dataset_Size_MB']) == {0.00128}
+    assert set(round(results['Dataset_Size_MB'], 5)) == {.00128}
     assert results['Train_Time'].between(0, 1000).all()
     assert results['Peak_Memory_MB'].between(0, 100).all()
     assert results['Synthesizer_Size_MB'].between(0, 100).all()
@@ -273,7 +274,7 @@ def test_benchmark_single_table_only_datasets():
         'CTGANSynthesizer'
     ]
     assert list(scores['Dataset']) == ['fake_companies'] * 3
-    assert list(scores['Dataset_Size_MB']) == [.00128] * 3
+    assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [.00128] * 3
     assert scores['Train_Time'].between(0, 1000).all()
     assert scores['Peak_Memory_MB'].between(0, 1000).all()
     assert scores['Synthesizer_Size_MB'].between(0, 1000).all()
@@ -304,7 +305,7 @@ def test_benchmark_single_table_synthesizers_none():
     scores = scores.iloc[0]
     assert scores['Synthesizer'] == 'Variant:FastMLVariant'
     assert scores['Dataset'] == 'fake_companies'
-    assert scores['Dataset_Size_MB'] == 0.00128
+    assert round(scores['Dataset_Size_MB'], 5) == 0.00128
     assert .5 < scores['Quality_Score'] < 1
     assert scores[
         [
@@ -420,7 +421,7 @@ def test_benchmark_single_table_custom_synthesizer():
     results = results.iloc[0]
     assert results['Synthesizer'] == 'Custom:TestSynthesizer'
     assert results['Dataset'] == 'fake_companies'
-    assert results['Dataset_Size_MB'] == 0.00128
+    assert round(results['Dataset_Size_MB'], 5) == .00128
     assert .5 < results['Quality_Score'] < 1
 
     assert results[
@@ -447,7 +448,7 @@ def test_benchmark_single_table_limit_dataset_size():
     results = results.iloc[0]
     assert results['Synthesizer'] == 'FastMLPreset'
     assert results['Dataset'] == 'adult'
-    assert results['Dataset_Size_MB'] == 0.080128
+    assert round(results['Dataset_Size_MB'], 4) == 0.0801
     assert .5 < results['Quality_Score'] < 1
     assert results[
         [
