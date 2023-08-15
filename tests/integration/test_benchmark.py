@@ -3,7 +3,6 @@ import contextlib
 import io
 import re
 import time
-import math
 
 import pandas as pd
 import pytest
