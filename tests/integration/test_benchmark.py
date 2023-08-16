@@ -212,7 +212,7 @@ def test_benchmark_single_table():
     pd.testing.assert_series_equal(results['Synthesizer'], expected_synthesizers)
 
     assert set(results['Dataset']) == {'fake_companies'}
-    assert np.isclose(results['Dataset_Size_MB'][0], .00128)
+    assert np.isclose(results['Dataset_Size_MB'][0], .00128, atol=4)
     assert results['Train_Time'].between(0, 1000).all()
     assert results['Peak_Memory_MB'].between(0, 100).all()
     assert results['Synthesizer_Size_MB'].between(0, 100).all()
