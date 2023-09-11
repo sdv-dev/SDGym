@@ -5,7 +5,7 @@
 </p>
 
 [![Development Status](https://img.shields.io/badge/Development%20Status-2%20--%20Pre--Alpha-yellow)](https://pypi.org/search/?c=Development+Status+%3A%3A+2+-+Pre-Alpha)
-[![Travis](https://travis-ci.org/sdv-dev/SDGym.svg?branch=master)](https://travis-ci.org/sdv-dev/SDGym)
+[![Travis](https://travis-ci.org/sdv-dev/SDGym.svg?branch=main)](https://travis-ci.org/sdv-dev/SDGym)
 [![PyPi Shield](https://img.shields.io/pypi/v/sdgym.svg)](https://pypi.python.org/pypi/sdgym)
 [![Downloads](https://pepy.tech/badge/sdgym)](https://pepy.tech/project/sdgym)
 [![Slack](https://img.shields.io/badge/Community-Slack-blue?style=plastic&logo=slack)](https://bit.ly/sdv-slack-invite)
@@ -14,7 +14,7 @@
 <br/>
 <p align="center">
 <a href="https://github.com/sdv-dev/SDGym">
-<img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/SDGym-DataCebo.png"></img>
+<img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/stable/docs/images/SDGym-DataCebo.png"></img>
 </a>
 </p>
 </div>
@@ -135,7 +135,7 @@ Visit the [SDGym Documentation](https://docs.sdv.dev/sdgym) to learn more!
 
 
 <div align="center">
-<a href="https://datacebo.com"><img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/master/docs/images/DataCebo.png"></img></a>
+<a href="https://datacebo.com"><img align="center" width=40% src="https://github.com/sdv-dev/SDV/blob/stable/docs/images/DataCebo.png"></img></a>
 </div>
 <br/>
 <br/>
