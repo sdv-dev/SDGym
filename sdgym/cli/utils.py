@@ -4,7 +4,6 @@ import pathlib
 
 import pandas as pd
 import tqdm
-from anyio import Path
 
 from sdgym.datasets import DATASETS_PATH, load_dataset
 from sdgym.s3 import get_s3_client, is_s3_path, parse_s3_path
