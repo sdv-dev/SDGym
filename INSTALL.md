@@ -53,7 +53,7 @@ git clone git@github.com:sdv-dev/SDGym
 cd SDGym
 git checkout main
 git checkout -b <your-branch-name>
-make install-develp
+make install-develop
 ```
 
 For more details about how to contribute to the project please visit the [Contributing Guide](
