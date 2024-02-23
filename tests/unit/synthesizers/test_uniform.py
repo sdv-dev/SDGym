@@ -10,42 +10,42 @@ class TestUniformSynthesizer:
         """Ensure that sdtypes uniform are taken from metadata instead of inferred."""
         uniform_synthesizer = UniformSynthesizer()
         metadata = {
-            "primary_key": "guest_email",
-            "METADATA_SPEC_VERSION": "SINGLE_TABLE_V1",
-            "columns": {
-                "guest_email": {
-                    "sdtype": "email",
-                    "pii": True
+            'primary_key': 'guest_email',
+            'METADATA_SPEC_VERSION': 'SINGLE_TABLE_V1',
+            'columns': {
+                'guest_email': {
+                    'sdtype': 'email',
+                    'pii': True
                 },
-                "has_rewards": {
-                    "sdtype": "boolean"
+                'has_rewards': {
+                    'sdtype': 'boolean'
                 },
-                "room_type": {
-                    "sdtype": "categorical"
+                'room_type': {
+                    'sdtype': 'categorical'
                 },
-                "amenities_fee": {
-                    "sdtype": "numerical",
-                    "computer_representation": "Float"
+                'amenities_fee': {
+                    'sdtype': 'numerical',
+                    'computer_representation': 'Float'
                 },
-                "checkin_date": {
-                    "sdtype": "datetime",
-                    "datetime_format": "%d %b %Y"
+                'checkin_date': {
+                    'sdtype': 'datetime',
+                    'datetime_format': '%d %b %Y'
                 },
-                "checkout_date": {
-                    "sdtype": "datetime",
-                    "datetime_format": "%d %b %Y"
+                'checkout_date': {
+                    'sdtype': 'datetime',
+                    'datetime_format': '%d %b %Y'
                 },
-                "room_rate": {
-                    "sdtype": "numerical",
-                    "computer_representation": "Float"
+                'room_rate': {
+                    'sdtype': 'numerical',
+                    'computer_representation': 'Float'
                 },
-                "billing_address": {
-                    "sdtype": "address",
-                    "pii": True
+                'billing_address': {
+                    'sdtype': 'address',
+                    'pii': True
                 },
-                "credit_card_number": {
-                    "sdtype": "credit_card_number",
-                    "pii": True
+                'credit_card_number': {
+                    'sdtype': 'credit_card_number',
+                    'pii': True
                 }
             }
         }
@@ -64,7 +64,8 @@ class TestUniformSynthesizer:
             'checkin_date': {
                 0: '27 Dec 2020', 1: '30 Dec 2020',
                 2: '17 Sep 2020', 3: '28 Dec 2020',
-                4: '05 Apr 2020'},
+                4: '05 Apr 2020'
+            },
             'checkout_date': {
                 0: '29 Dec 2020',
                 1: '02 Jan 2021',
@@ -84,13 +85,16 @@ class TestUniformSynthesizer:
                 1: '88394 Boyle Meadows\nConleyberg, TN 22063',
                 2: '0323 Lisa Station Apt. 208\nPort Thomas, LA 82585',
                 3: '77 Massachusetts Ave\nCambridge, MA 02139',
-                4: '1234 Corporate Drive\nBoston, MA 02116'},
+                4: '1234 Corporate Drive\nBoston, MA 02116'
+            },
             'credit_card_number': {
                 0: 4075084747483975747,
                 1: 180072822063468,
                 2: 38983476971380,
                 3: 4969551998845740,
-                4: 3558512986488983}}
+                4: 3558512986488983
+            }
+        }
 
         real_data = pd.DataFrame(data)
         synthesizer = uniform_synthesizer.get_trained_synthesizer(real_data, metadata)
@@ -98,7 +102,7 @@ class TestUniformSynthesizer:
         config_sdtypes = hyper_transformer_config['sdtypes']
         unknown_sdtypes = ['email', 'credit_card_number', 'address']
         for column in metadata['columns']:
-            metadata_sdtype = metadata["columns"][column]['sdtype']
+            metadata_sdtype = metadata['columns'][column]['sdtype']
             # Only data types that are known are overridden by metadata
             if metadata_sdtype not in unknown_sdtypes:
                 assert metadata_sdtype == config_sdtypes[column]
