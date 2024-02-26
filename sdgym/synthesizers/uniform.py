@@ -16,23 +16,18 @@ class UniformSynthesizer(BaselineSynthesizer):
     def _get_trained_synthesizer(self, real_data, metadata):
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(real_data)
-        metadata_dict = {}
-        if isinstance(metadata, dict):
-            metadata_dict = metadata
-        else:
-            metadata_dict = metadata.to_dict()
-        if 'columns' in metadata_dict:
-            supported_sdtypes = hyper_transformer._get_supported_sdtypes()
-            config = {}
-            for column in metadata_dict['columns']:
-                sdtype = metadata_dict['columns'][column]['sdtype']
-                if sdtype in supported_sdtypes:
-                    config[column] = metadata_dict['columns'][column]['sdtype']
-                else:
-                    LOGGER.info(
-                        f'Column {column} sdtype: {sdtype} is not supported, '
-                        f'defaulting to inferred type.')
-            hyper_transformer.update_sdtypes(config)
+        supported_sdtypes = hyper_transformer._get_supported_sdtypes()
+        config = {}
+        for column_name, column in metadata.columns.items():
+            sdtype = column['sdtype']
+            if sdtype in supported_sdtypes:
+                config[column_name] = sdtype
+            else:
+                LOGGER.info(
+                    f'Column {column} sdtype: {sdtype} is not supported, '
+                    f'defaulting to inferred type.')
+
+        hyper_transformer.update_sdtypes(config)
 
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
