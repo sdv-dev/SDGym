@@ -10,6 +10,7 @@ import stat
 from pathlib import Path
 
 from invoke import task
+import toml
 
 COMPARISONS = {
     '>=': operator.ge,
@@ -70,30 +71,22 @@ def _validate_python_version(line):
 
 @task
 def install_minimum(c):
-    with open('setup.py', 'r') as setup_py:
-        lines = setup_py.read().splitlines()
+    with open('pyproject.toml', 'r', encoding='utf-8') as pyproject_file:
+        pyproject_data = toml.load(pyproject_file)
 
+    dependencies = pyproject_data.get('project', {}).get('dependencies', [])
     versions = []
-    started = False
-    for line in lines:
-        if started:
-            if line == ']':
-                started = False
-                continue
-
-            line = line.strip()
-            if _validate_python_version(line):
-                requirement = re.match(r'[^>]*', line).group(0)
-                requirement = re.sub(r"""['",]""", '', requirement)
-                version = re.search(r'>=?(\d\.?)+\w*', line).group(0)
-                if version:
-                    version = re.sub(r'>=?', '==', version)
-                    version = re.sub(r"""['",]""", '', version)
-                    requirement += version
-                versions.append(requirement)
-
-        elif (line.startswith('install_requires = [')):
-            started = True
+    for line in dependencies:
+        line = line.strip()
+        if _validate_python_version(line):
+            requirement = re.match(r'[^>]*', line).group(0)
+            requirement = re.sub(r"""['",]""", '', requirement)
+            version = re.search(r'>=?(\d\.?)+\w*', line).group(0)
+            if version:
+                version = re.sub(r'>=?', '==', version)
+                version = re.sub(r"""['",]""", '', version)
+                requirement += version
+            versions.append(requirement)
 
     c.run(f'python -m pip install {" ".join(versions)}')
 
