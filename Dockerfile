@@ -8,7 +8,7 @@ RUN mkdir /SDGym && \
     mkdir /SDGym/sdgym && \
 
 # Copy code
-COPY setup.py README.md HISTORY.md MANIFEST.in LICENSE Makefile setup.cfg /SDGym/
+COPY pyproject.toml README.md HISTORY.md MANIFEST.in LICENSE Makefile setup.cfg /SDGym/
 COPY /sdgym/ /SDGym/sdgym
 
 WORKDIR /SDGym
