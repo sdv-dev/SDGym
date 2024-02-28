@@ -22,13 +22,14 @@ class UniformSynthesizer(BaselineSynthesizer):
             sdtype = column['sdtype']
             if sdtype in supported_sdtypes:
                 config[column_name] = sdtype
+            elif column.get('pii', False):
+                config[column_name] = 'pii'
             else:
                 LOGGER.info(
                     f'Column {column} sdtype: {sdtype} is not supported, '
                     f'defaulting to inferred type.')
 
         hyper_transformer.update_sdtypes(config)
-
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
             column_name for column_name, data in real_data.items()

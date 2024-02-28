@@ -106,3 +106,5 @@ class TestUniformSynthesizer:
             # Only data types that are known are overridden by metadata
             if metadata_sdtype not in unknown_sdtypes:
                 assert metadata_sdtype == config_sdtypes[column]
+            else:
+                assert config_sdtypes[column] == 'pii'
