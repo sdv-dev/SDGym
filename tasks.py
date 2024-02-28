@@ -2,13 +2,14 @@ import glob
 import inspect
 import operator
 import os
-import re
-import pkg_resources
 import platform
+import re
 import shutil
 import stat
 from pathlib import Path
 
+import pkg_resources
+import toml
 from invoke import task
 
 COMPARISONS = {
@@ -70,30 +71,23 @@ def _validate_python_version(line):
 
 @task
 def install_minimum(c):
-    with open('pyproject.toml', 'r') as pyproject:
-        lines = pyproject.read().splitlines()
+    with open('pyproject.toml', 'r', encoding='utf-8') as pyproject_file:
+        pyproject_data = toml.load(pyproject_file)
 
+    dependencies = pyproject_data.get('project', {}).get('dependencies', [])
     versions = []
-    started = False
-    for line in lines:
-        if started:
-            if line == ']':
-                started = False
-                continue
+    for line in dependencies:
+        line = line.strip()
+        if _validate_python_version(line):
+            requirement = re.match(r'[^>]*', line).group(0)
+            requirement = re.sub(r"""['",]""", '', requirement)
+            version = re.search(r'>=?(\d\.?)+\w*', line).group(0)
+            if version:
+                version = re.sub(r'>=?', '==', version)
+                version = re.sub(r"""['",]""", '', version)
+                requirement += version
 
-            line = line.strip()
-            if _validate_python_version(line):
-                requirement = re.match(r'[^>]*', line).group(0)
-                requirement = re.sub(r"""['",]""", '', requirement)
-                version = re.search(r'>=?(\d\.?)+\w*', line).group(0)
-                if version:
-                    version = re.sub(r'>=?', '==', version)
-                    version = re.sub(r"""['",]""", '', version)
-                    requirement += version
-                versions.append(requirement)
-
-        elif (line.startswith('dependencies = [')):
-            started = True
+            versions.append(requirement)
 
     c.run(f'python -m pip install {" ".join(versions)}')
 
