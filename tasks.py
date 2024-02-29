@@ -6,11 +6,14 @@ import platform
 import re
 import shutil
 import stat
+import sys
 from pathlib import Path
 
 import pkg_resources
 import toml
 from invoke import task
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 COMPARISONS = {
     '>=': operator.ge,
@@ -53,21 +56,32 @@ def readme(c):
     os.chdir(cwd)
     shutil.rmtree(test_path)
 
+def _get_minimum_versions(dependencies, python_version):
+    min_versions = {}
+    for dependency in dependencies:
+        if '@' in dependency:
+            name, url = dependency.split(' @')
+            min_versions[name] = f'{name} @ {url}'
+            continue
 
-def _validate_python_version(line):
-    is_valid = True
-    for python_version_match in re.finditer(r"python_version(<=?|>=?|==)\'(\d\.?)+\'", line):
-        python_version = python_version_match.group(0)
-        comparison = re.search(r'(>=?|<=?|==)', python_version).group(0)
-        version_number = python_version.split(comparison)[-1].replace("'", "")
-        comparison_function = COMPARISONS[comparison]
-        is_valid = is_valid and comparison_function(
-            pkg_resources.parse_version(platform.python_version()),
-            pkg_resources.parse_version(version_number),
-        )
+        req = Requirement(dependency)
+        if ';' in dependency:
+            marker = req.marker
+            if marker and not marker.evaluate({'python_version': python_version}):
+                continue  # Skip this dependency if the marker does not apply to the current Python version
 
-    return is_valid
+        if req.name not in min_versions:
+            min_version = next((spec.version for spec in req.specifier if spec.operator in ('>=', '==')), None)
+            if min_version:
+                min_versions[req.name] = f'{req.name}=={min_version}'
 
+        elif '@' not in min_versions[req.name]:
+            existing_version = Version(min_versions[req.name].split('==')[1])
+            new_version = next((spec.version for spec in req.specifier if spec.operator in ('>=', '==')), existing_version)
+            if new_version > existing_version:
+                min_versions[req.name] = f'{req.name}=={new_version}'  # Change when a valid newer version is found
+
+    return list(min_versions.values())
 
 @task
 def install_minimum(c):
@@ -75,21 +89,11 @@ def install_minimum(c):
         pyproject_data = toml.load(pyproject_file)
 
     dependencies = pyproject_data.get('project', {}).get('dependencies', [])
-    versions = []
-    for line in dependencies:
-        line = line.strip()
-        if _validate_python_version(line):
-            requirement = re.match(r'[^>]*', line).group(0)
-            requirement = re.sub(r"""['",]""", '', requirement)
-            version = re.search(r'>=?(\d\.?)+\w*', line).group(0)
-            if version:
-                version = re.sub(r'>=?', '==', version)
-                version = re.sub(r"""['",]""", '', version)
-                requirement += version
+    python_version = '.'.join(map(str, sys.version_info[:2]))
+    minimum_versions = _get_minimum_versions(dependencies, python_version)
 
-            versions.append(requirement)
-
-    c.run(f'python -m pip install {" ".join(versions)}')
+    if minimum_versions:
+        c.run(f'python -m pip install {" ".join(minimum_versions)}')
 
 
 @task
