@@ -60,7 +60,7 @@ def _get_minimum_versions(dependencies, python_version):
     min_versions = {}
     for dependency in dependencies:
         if '@' in dependency:
-            name, url = dependency.split(' @')
+            name, url = dependency.split(' @ ')
             min_versions[name] = f'{name} @ {url}'
             continue
 
