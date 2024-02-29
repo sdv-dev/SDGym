@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 import pkg_resources
-import toml
+import tomli
 from invoke import task
 from packaging.requirements import Requirement
 from packaging.version import Version
@@ -56,6 +56,7 @@ def readme(c):
     os.chdir(cwd)
     shutil.rmtree(test_path)
 
+
 def _get_minimum_versions(dependencies, python_version):
     min_versions = {}
     for dependency in dependencies:
@@ -83,10 +84,11 @@ def _get_minimum_versions(dependencies, python_version):
 
     return list(min_versions.values())
 
+
 @task
 def install_minimum(c):
-    with open('pyproject.toml', 'r', encoding='utf-8') as pyproject_file:
-        pyproject_data = toml.load(pyproject_file)
+    with open('pyproject.toml', 'rb') as pyproject_file:
+        pyproject_data = tomli.load(pyproject_file)
 
     dependencies = pyproject_data.get('project', {}).get('dependencies', [])
     python_version = '.'.join(map(str, sys.version_info[:2]))
