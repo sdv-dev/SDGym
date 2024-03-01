@@ -1,9 +1,13 @@
 """UniformSynthesizer module."""
+import logging
+
 import numpy as np
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
 
 from sdgym.synthesizers.base import BaselineSynthesizer
+
+LOGGER = logging.getLogger(__name__)
 
 
 class UniformSynthesizer(BaselineSynthesizer):
@@ -12,7 +16,20 @@ class UniformSynthesizer(BaselineSynthesizer):
     def _get_trained_synthesizer(self, real_data, metadata):
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(real_data)
+        supported_sdtypes = hyper_transformer._get_supported_sdtypes()
+        config = {}
+        for column_name, column in metadata.columns.items():
+            sdtype = column['sdtype']
+            if sdtype in supported_sdtypes:
+                config[column_name] = sdtype
+            elif column.get('pii', False):
+                config[column_name] = 'pii'
+            else:
+                LOGGER.info(
+                    f'Column {column} sdtype: {sdtype} is not supported, '
+                    f'defaulting to inferred type.')
 
+        hyper_transformer.update_sdtypes(config)
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
             column_name for column_name, data in real_data.items()
