@@ -606,7 +606,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         output_filepath (str or ``None``):
             A file path for where to write the output as a csv file. If ``None``, no output
             is written. If run_on_ec2 flag output_filepath needs to be defined and
-            the filepath should be structured as: {s3_bucket_name}/{path_to_file} 
+            the filepath should be structured as: {s3_bucket_name}/{path_to_file}
             Please make sure the path exists and permissions are given.
         detailed_results_folder (str or ``None``):
             The folder for where to store the intermediary results. If ``None``, do not store
