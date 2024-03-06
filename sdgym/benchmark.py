@@ -10,6 +10,7 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
+import boto3
 import compress_pickle
 import numpy as np
 import pandas as pd
@@ -447,7 +448,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
                            limit_dataset_size=False, compute_quality_score=True,
                            sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
                            detailed_results_folder=None, show_progress=False,
-                           multi_processing_config=None):
+                           multi_processing_config=None, run_on_ec2=False):
     """Run the SDGym benchmark on single-table datasets.
 
     Args:
@@ -487,7 +488,9 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             timeout is enforced.
         output_filepath (str or ``None``):
             A file path for where to write the output as a csv file. If ``None``, no output
-            is written.
+            is written. If run_on_ec2 flag, the filepath should be structured as:
+            {s3_bucket_name}/{path_to_file}
+            Please make sure the path exists and permissions are given.
         detailed_results_folder (str or ``None``):
             The folder for where to store the intermediary results. If ``None``, do not store
             the intermediate results anywhere.
@@ -504,6 +507,14 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
+    if run_on_ec2:
+        if output_filepath is not None:
+            script_content = _create_sdgym_script(dict(locals()), output_filepath)
+            _create_instance_on_ec2(script_content)
+        else:
+            raise ValueError('In order to run on EC2, please provide an S3 folder output.')
+        return None
+
     _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
 
     _create_detailed_results_directory(detailed_results_folder)
@@ -523,3 +534,122 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         write_csv(scores, output_filepath, None, None)
 
     return scores
+
+
+def _create_sdgym_script(params, output_filepath):
+    first_slash_index = output_filepath.find('/')  # Find the index of the first slash
+    bucket_name = ''
+    key_name = ''
+    if first_slash_index != -1:  # Check if a slash is found
+        bucket_name = output_filepath[:first_slash_index]  # Extract directory part
+        key_name = output_filepath[first_slash_index + 1:]  # Extract filename part
+    else:
+        raise ValueError("""Invalid output_filepath.
+                   The path should be structured as: <s3_bucket_name>/<path_to_file>
+                   Please make sure the path exists and permissions are given.""")
+    session = boto3.session.Session()
+    credentials = session.get_credentials()
+    synthesizer_string = 'synthesizers=['
+    for synthesizer in params['synthesizers']:
+        synthesizer_string += synthesizer.__name__
+    synthesizer_string += ']'
+    # The indentation of the string is important for the python script
+    script_content = f"""import boto3
+from io import StringIO
+import sdgym
+from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer, FastMLPreset,
+    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
+    SDVTabularSynthesizer,TVAESynthesizer)
+
+results = sdgym.benchmark_single_table(
+    {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},
+    sdv_datasets={params['sdv_datasets']},
+    additional_datasets_folder={params['additional_datasets_folder']},
+    limit_dataset_size={params['limit_dataset_size']},
+    compute_quality_score={params['compute_quality_score']},
+    sdmetrics={params['sdmetrics']}, timeout={params['timeout']},
+    detailed_results_folder={params['detailed_results_folder']},
+    multi_processing_config={params['multi_processing_config']}
+)
+
+# Convert DataFrame to CSV string
+csv_buffer = StringIO()
+results.to_csv(csv_buffer, index=False)
+s3 = boto3.client('s3',
+    aws_access_key_id='{credentials.access_key}',
+    aws_secret_access_key='{credentials.secret_key}')
+
+
+# Upload CSV to S3
+response = s3.put_object(
+    Bucket='{bucket_name}',
+    Key='{key_name}',
+    Body=csv_buffer.getvalue()
+)
+"""
+
+    return script_content
+
+
+def _create_instance_on_ec2(script_content):
+    ec2_client = boto3.client('ec2')
+    session = boto3.session.Session()
+    credentials = session.get_credentials()
+
+    # User data script to install the library
+    user_data_script = f"""#!/bin/bash
+    sudo apt update -y
+    sudo apt install python3-pip -y
+    echo "======== Install SDGYM ============"
+    sudo pip3 install sdgym
+    sudo pip3 install anyio
+    pip3 list
+    echo "======== Write Script ==========="
+    sudo touch ~/sdgym_script.py
+    echo "{script_content}" > ~/sdgym_script.py
+    echo "======== Run Script ==========="
+    sudo python3 ~/sdgym_script.py
+    echo "======== Terminate ==========="
+    sudo apt install awscli -y
+    aws configure set aws_access_key_id {credentials.access_key}
+    aws configure set aws_secret_access_key {credentials.secret_key}
+    aws configure set region {session.region_name}
+    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+    """
+
+    response = ec2_client.run_instances(
+        ImageId='ami-07d9b9ddc6cd8dd30',
+        InstanceType='t2.medium',
+        SecurityGroupIds=['sg-097d14e3efa8effb4'],
+        MinCount=1,
+        MaxCount=1,
+        KeyName='john',
+        UserData=user_data_script,
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {
+                        'Key': 'Name',
+                        'Value': 'SDGym_Temp'
+                    }
+                ]
+            }
+        ],
+        BlockDeviceMappings=[
+            {
+                'DeviceName': '/dev/sda1',
+                'Ebs': {
+                    'VolumeSize': 16,  # Specify the desired size in GB
+                    'VolumeType': 'gp2'  # Change the volume type as needed
+                }
+            }
+        ],
+    )
+
+    # Wait until the instance is running before terminating
+    instance_id = response['Instances'][0]['InstanceId']
+    waiter = ec2_client.get_waiter('instance_status_ok')
+    waiter.wait(InstanceIds=[instance_id])
+    LOGGER.info(f'Job kicked off for SDGym on {instance_id}')
