@@ -443,99 +443,6 @@ def _get_empty_dataframe(compute_quality_score, sdmetrics):
     return scores
 
 
-def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
-                           sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
-                           limit_dataset_size=False, compute_quality_score=True,
-                           sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
-                           detailed_results_folder=None, show_progress=False,
-                           multi_processing_config=None, run_on_ec2=False):
-    """Run the SDGym benchmark on single-table datasets.
-
-    Args:
-        synthesizers (list[string]):
-            The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer, FASTMLPreset,
-            CTGANSynthesizer]``. The available options are:
-
-                - ``GaussianCopulaSynthesizer``
-                - ``CTGANSynthesizer``
-                - ``CopulaGANSynthesizer``
-                - ``TVAESynthesizer``
-                - ``FASTMLPreset``
-
-        custom_synthesizers (list[class] or ``None``):
-            A list of custom synthesizer classes to use. These can be completely custom or
-            they can be synthesizer variants (the output from ``create_single_table_synthesizer``
-            or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
-        sdv_datasets (list[str] or ``None``):
-            Names of the SDV demo datasets to use for the benchmark. Defaults to
-            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
-            covtype]``. Use ``None`` to disable using any sdv datasets.
-        additional_datasets_folder (str or ``None``):
-            The path to a folder (local or an S3 bucket). Datasets found in this folder are
-            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
-        limit_dataset_size (bool):
-            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
-            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
-            columns.
-        compute_quality_score (bool):
-            Whether or not to evaluate an overall quality score.
-        sdmetrics (list[str]):
-            A list of the different SDMetrics to use. If you'd like to input specific parameters
-            into the metric, provide a tuple with the metric name followed by a dictionary of
-            the parameters.
-        timeout (int or ``None``):
-            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
-            timeout is enforced.
-        output_filepath (str or ``None``):
-            A file path for where to write the output as a csv file. If ``None``, no output
-            is written. If run_on_ec2 flag, the filepath should be structured as:
-            {s3_bucket_name}/{path_to_file}
-            Please make sure the path exists and permissions are given.
-        detailed_results_folder (str or ``None``):
-            The folder for where to store the intermediary results. If ``None``, do not store
-            the intermediate results anywhere.
-        show_progress (bool):
-            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
-        multi_processing_config (dict or ``None``):
-            The config to use if multi-processing is desired. For example,
-            {
-             'package_name': 'dask' or 'multiprocessing',
-             'num_workers': 4
-            }
-
-    Returns:
-        pandas.DataFrame:
-            A table containing one row per synthesizer + dataset + metric.
-    """
-    if run_on_ec2:
-        if output_filepath is not None:
-            script_content = _create_sdgym_script(dict(locals()), output_filepath)
-            _create_instance_on_ec2(script_content)
-        else:
-            raise ValueError('In order to run on EC2, please provide an S3 folder output.')
-        return None
-
-    _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
-
-    _create_detailed_results_directory(detailed_results_folder)
-
-    job_args_list = _generate_job_args_list(
-        limit_dataset_size, sdv_datasets, additional_datasets_folder, sdmetrics,
-        detailed_results_folder, timeout, compute_quality_score, synthesizers, custom_synthesizers)
-
-    if job_args_list:
-        scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
-
-    # If no synthesizers/datasets are passed, return an empty dataframe
-    else:
-        scores = _get_empty_dataframe(compute_quality_score, sdmetrics)
-
-    if output_filepath:
-        write_csv(scores, output_filepath, None, None)
-
-    return scores
-
-
 def _create_sdgym_script(params, output_filepath):
     first_slash_index = output_filepath.find('/')  # Find the index of the first slash
     bucket_name = ''
@@ -551,7 +458,7 @@ def _create_sdgym_script(params, output_filepath):
     credentials = session.get_credentials()
     synthesizer_string = 'synthesizers=['
     for synthesizer in params['synthesizers']:
-        synthesizer_string += synthesizer.__name__
+        synthesizer_string += synthesizer.__name__ + ', '
     synthesizer_string += ']'
     # The indentation of the string is important for the python script
     script_content = f"""import boto3
@@ -621,10 +528,8 @@ def _create_instance_on_ec2(script_content):
     response = ec2_client.run_instances(
         ImageId='ami-07d9b9ddc6cd8dd30',
         InstanceType='t2.medium',
-        SecurityGroupIds=['sg-097d14e3efa8effb4'],
         MinCount=1,
         MaxCount=1,
-        KeyName='john',
         UserData=user_data_script,
         TagSpecifications=[
             {
@@ -653,3 +558,97 @@ def _create_instance_on_ec2(script_content):
     waiter = ec2_client.get_waiter('instance_status_ok')
     waiter.wait(InstanceIds=[instance_id])
     LOGGER.info(f'Job kicked off for SDGym on {instance_id}')
+
+
+def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
+                           sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
+                           limit_dataset_size=False, compute_quality_score=True,
+                           sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
+                           detailed_results_folder=None, show_progress=False,
+                           multi_processing_config=None, run_on_ec2=False):
+    """Run the SDGym benchmark on single-table datasets.
+
+    Args:
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer, FASTMLPreset,
+            CTGANSynthesizer]``. The available options are:
+
+                - ``GaussianCopulaSynthesizer``
+                - ``CTGANSynthesizer``
+                - ``CopulaGANSynthesizer``
+                - ``TVAESynthesizer``
+                - ``FASTMLPreset``
+
+        custom_synthesizers (list[class] or ``None``):
+            A list of custom synthesizer classes to use. These can be completely custom or
+            they can be synthesizer variants (the output from ``create_single_table_synthesizer``
+            or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to a folder (local or an S3 bucket). Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score.
+        sdmetrics (list[str]):
+            A list of the different SDMetrics to use. If you'd like to input specific parameters
+            into the metric, provide a tuple with the metric name followed by a dictionary of
+            the parameters.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+        output_filepath (str or ``None``):
+            A file path for where to write the output as a csv file. If ``None``, no output
+            is written. If run_on_ec2 flag output_filepath needs to be defined and
+            the filepath should be structured as: {s3_bucket_name}/{path_to_file} 
+            Please make sure the path exists and permissions are given.
+        detailed_results_folder (str or ``None``):
+            The folder for where to store the intermediary results. If ``None``, do not store
+            the intermediate results anywhere.
+        show_progress (bool):
+            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
+        multi_processing_config (dict or ``None``):
+            The config to use if multi-processing is desired. For example,
+            {
+             'package_name': 'dask' or 'multiprocessing',
+             'num_workers': 4
+            }
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
+    """
+    if run_on_ec2:
+        LOGGER.info("This will create an instance for the current AWS user's account.")
+        if output_filepath is not None:
+            script_content = _create_sdgym_script(dict(locals()), output_filepath)
+            _create_instance_on_ec2(script_content)
+        else:
+            raise ValueError('In order to run on EC2, please provide an S3 folder output.')
+        return None
+
+    _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
+
+    _create_detailed_results_directory(detailed_results_folder)
+
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size, sdv_datasets, additional_datasets_folder, sdmetrics,
+        detailed_results_folder, timeout, compute_quality_score, synthesizers, custom_synthesizers)
+
+    if job_args_list:
+        scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+
+    # If no synthesizers/datasets are passed, return an empty dataframe
+    else:
+        scores = _get_empty_dataframe(compute_quality_score, sdmetrics)
+
+    if output_filepath:
+        write_csv(scores, output_filepath, None, None)
+
+    return scores

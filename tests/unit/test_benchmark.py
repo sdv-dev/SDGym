@@ -4,6 +4,8 @@ import pandas as pd
 import pytest
 
 from sdgym import benchmark_single_table
+from sdgym.benchmark import _create_sdgym_script
+from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 
 
 @patch('sdgym.benchmark.os.path')
@@ -81,3 +83,89 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'error': {0: 'Synthesizer Timeout'}
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
+
+
+@patch('sdgym.benchmark._create_instance_on_ec2')
+def test_run_ec2_flag(create_ec2_mock):
+    """Test that the benchmarking function updates the progress bar on one line."""
+    # Setup
+    create_ec2_mock.return_value = MagicMock()
+
+    # Run
+    benchmark_single_table(run_on_ec2=True, output_filepath="BucketName/path")
+
+    # Assert
+    create_ec2_mock.assert_called_once()
+
+    # Run
+    with pytest.raises(ValueError, match=r'In order to run on EC2, please provide an S3 folder output.'):
+        benchmark_single_table(run_on_ec2=True)
+
+    # Assert
+    create_ec2_mock.assert_called_once()
+
+    # Run
+    with pytest.raises(ValueError, match=r'''Invalid output_filepath.
+                   The path should be structured as: <s3_bucket_name>/<path_to_file>
+                   Please make sure the path exists and permissions are given.'''):
+        benchmark_single_table(run_on_ec2=True, output_filepath="Wrong_Format")
+
+    # Assert
+    create_ec2_mock.assert_called_once()
+
+
+def test__create_sdgym_script():
+    # Setup
+    test_params = {
+        'synthesizers': [GaussianCopulaSynthesizer, CTGANSynthesizer],
+        'custom_synthesizers': None,
+        'sdv_datasets': ['adult', 'alarm', 'census', 'child', 'expedia_hotel_logs', 'insurance', 'intrusion', 'news', 'covtype'],
+        'additional_datasets_folder': None,
+        'limit_dataset_size': True,
+        'compute_quality_score': False,
+        'sdmetrics': [('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+        'timeout': 600,
+        'output_filepath': 'sdgym-results/address_comments.csv',
+        'detailed_results_folder': None,
+        'show_progress': False,
+        'multi_processing_config': None,
+        'dummy': True
+    }
+
+    result = _create_sdgym_script(test_params, 'Bucket/Filepath')
+
+    expected_script = """import boto3
+from io import StringIO
+import sdgym
+from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer, FastMLPreset,
+    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
+    SDVTabularSynthesizer,TVAESynthesizer)
+
+results = sdgym.benchmark_single_table(
+    synthesizers=[GaussianCopulaSynthesizer, CTGANSynthesizer, ], custom_synthesizers=None,
+    sdv_datasets=['adult', 'alarm', 'census', 'child', 'expedia_hotel_logs', 'insurance', 'intrusion', 'news', 'covtype'],
+    additional_datasets_folder=None,
+    limit_dataset_size=True,
+    compute_quality_score=False,
+    sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})], timeout=600,
+    detailed_results_folder=None,
+    multi_processing_config=None
+)
+
+# Convert DataFrame to CSV string
+csv_buffer = StringIO()
+results.to_csv(csv_buffer, index=False)
+s3 = boto3.client('s3',
+    aws_access_key_id='AKIAYUU6OYSLCAY62IFP',
+    aws_secret_access_key='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')
+
+
+# Upload CSV to S3
+response = s3.put_object(
+    Bucket='Bucket',
+    Key='Filepath',
+    Body=csv_buffer.getvalue()
+)
+"""
+
+    assert result == expected_script
