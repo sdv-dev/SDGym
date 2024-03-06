@@ -84,6 +84,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
 
+
 @patch('sdgym.benchmark.boto3.session.Session')
 @patch('sdgym.benchmark._create_instance_on_ec2')
 def test_run_ec2_flag(create_ec2_mock, session_mock):
@@ -115,6 +116,7 @@ def test_run_ec2_flag(create_ec2_mock, session_mock):
     # Assert
     create_ec2_mock.assert_called_once()
 
+
 @patch('sdgym.benchmark.boto3.session.Session')
 def test__create_sdgym_script(session_mock):
     session_mock.get_credentials.return_value = MagicMock()
@@ -145,6 +147,6 @@ def test__create_sdgym_script(session_mock):
     assert 'detailed_results_folder=None' in result
     assert 'multi_processing_config=None' in result
     assert "sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})]" in result
-    assert "timeout=600" in result
+    assert 'timeout=600' in result
     assert 'compute_quality_score=False' in result
     assert 'import boto3' in result
