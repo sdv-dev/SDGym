@@ -247,6 +247,11 @@ def _get_parser():
         help='Print a progress bar using tqdm.'
     )
     run.add_argument(
+        'run_on_ec2',
+        action='store_true',
+        help='Run job on created ec2 instance with environment aws variables'
+    )
+    run.add_argument(
         '-t',
         '--timeout',
         type=int,

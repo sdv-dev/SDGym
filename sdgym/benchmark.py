@@ -10,6 +10,7 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
+import boto3
 import compress_pickle
 import numpy as np
 import pandas as pd
@@ -442,12 +443,160 @@ def _get_empty_dataframe(compute_quality_score, sdmetrics):
     return scores
 
 
+def _directory_exists(bucket_name, s3_file_path):
+    # Find the last occurrence of '/' in the file path
+    last_slash_index = s3_file_path.rfind('/')
+    directory_prefix = s3_file_path[:last_slash_index + 1]
+    s3_client = boto3.client('s3')
+    response = s3_client.list_objects_v2(
+        Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
+    return 'Contents' in response or 'CommonPrefixes' in response
+
+
+def _check_write_permissions(bucket_name):
+    s3 = boto3.client('s3')
+    # Check write permissions by attempting to upload an empty object to the bucket
+    try:
+        s3.put_object(Bucket=bucket_name, Key='__test__', Body=b'')
+        write_permission = True
+    except Exception:
+        write_permission = False
+    finally:
+        # Clean up the test object
+        if write_permission:
+            s3.delete_object(Bucket=bucket_name, Key='__test__')
+    return write_permission
+
+
+def _parse_s3_path(s3_path):
+    if '/' not in s3_path:
+        raise ValueError("""Invalid S3 path format.
+                         Expected '<bucket_name>/<path_to_file>'.""")
+    # Split only on the first '/'
+    bucket_name, s3_file_path = s3_path.split('/', 1)
+    if not _directory_exists(bucket_name, s3_file_path):
+        raise ValueError(f'Directories in {s3_file_path} do not exist')
+    if not _check_write_permissions(bucket_name):
+        raise ValueError('No write permissions allowed for the bucket.')
+
+    return bucket_name, s3_file_path
+
+
+def _create_sdgym_script(params, output_filepath):
+    bucket_name, key_name = _parse_s3_path(output_filepath)
+    session = boto3.session.Session()
+    credentials = session.get_credentials()
+    synthesizer_string = 'synthesizers=['
+    for synthesizer in params['synthesizers']:
+        synthesizer_string += synthesizer.__name__ + ', '
+    synthesizer_string += ']'
+    # The indentation of the string is important for the python script
+    script_content = f"""import boto3
+from io import StringIO
+import sdgym
+from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer, FastMLPreset,
+    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
+    SDVTabularSynthesizer,TVAESynthesizer)
+
+results = sdgym.benchmark_single_table(
+    {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},
+    sdv_datasets={params['sdv_datasets']},
+    additional_datasets_folder={params['additional_datasets_folder']},
+    limit_dataset_size={params['limit_dataset_size']},
+    compute_quality_score={params['compute_quality_score']},
+    sdmetrics={params['sdmetrics']}, timeout={params['timeout']},
+    detailed_results_folder={params['detailed_results_folder']},
+    multi_processing_config={params['multi_processing_config']}
+)
+
+# Convert DataFrame to CSV string
+csv_buffer = StringIO()
+results.to_csv(csv_buffer, index=False)
+s3 = boto3.client('s3',
+    aws_access_key_id='{credentials.access_key}',
+    aws_secret_access_key='{credentials.secret_key}')
+
+
+# Upload CSV to S3
+response = s3.put_object(
+    Bucket='{bucket_name}',
+    Key='{key_name}',
+    Body=csv_buffer.getvalue()
+)
+"""
+
+    return script_content
+
+
+def _create_instance_on_ec2(script_content):
+    ec2_client = boto3.client('ec2')
+    session = boto3.session.Session()
+    credentials = session.get_credentials()
+    print(f'This instance is being created in region: {session.region_name}')  # noqa
+
+    # User data script to install the library
+    user_data_script = f"""#!/bin/bash
+    sudo apt update -y
+    sudo apt install python3-pip -y
+    echo "======== Install SDGYM ============"
+    sudo pip3 install sdgym
+    sudo pip3 install anyio
+    pip3 list
+    echo "======== Write Script ==========="
+    sudo touch ~/sdgym_script.py
+    echo "{script_content}" > ~/sdgym_script.py
+    echo "======== Run Script ==========="
+    sudo python3 ~/sdgym_script.py
+    echo "======== Terminate ==========="
+    sudo apt install awscli -y
+    aws configure set aws_access_key_id {credentials.access_key}
+    aws configure set aws_secret_access_key {credentials.secret_key}
+    aws configure set region {session.region_name}
+    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+    """
+
+    response = ec2_client.run_instances(
+        ImageId='ami-07d9b9ddc6cd8dd30',
+        InstanceType='t2.medium',
+        MinCount=1,
+        MaxCount=1,
+        UserData=user_data_script,
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {
+                        'Key': 'Name',
+                        'Value': 'SDGym_Temp'
+                    }
+                ]
+            }
+        ],
+        BlockDeviceMappings=[
+            {
+                'DeviceName': '/dev/sda1',
+                'Ebs': {
+                    'VolumeSize': 16,  # Specify the desired size in GB
+                    'VolumeType': 'gp2'  # Change the volume type as needed
+                }
+            }
+        ],
+    )
+
+    # Wait until the instance is running before terminating
+    instance_id = response['Instances'][0]['InstanceId']
+    waiter = ec2_client.get_waiter('instance_status_ok')
+    waiter.wait(InstanceIds=[instance_id])
+    print(f'Job kicked off for SDGym on {instance_id}')  # noqa
+
+
 def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
                            sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
                            limit_dataset_size=False, compute_quality_score=True,
                            sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
                            detailed_results_folder=None, show_progress=False,
-                           multi_processing_config=None):
+                           multi_processing_config=None, run_on_ec2=False):
     """Run the SDGym benchmark on single-table datasets.
 
     Args:
@@ -487,7 +636,9 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             timeout is enforced.
         output_filepath (str or ``None``):
             A file path for where to write the output as a csv file. If ``None``, no output
-            is written.
+            is written. If run_on_ec2 flag output_filepath needs to be defined and
+            the filepath should be structured as: {s3_bucket_name}/{path_to_file}
+            Please make sure the path exists and permissions are given.
         detailed_results_folder (str or ``None``):
             The folder for where to store the intermediary results. If ``None``, do not store
             the intermediate results anywhere.
@@ -504,6 +655,15 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
+    if run_on_ec2:
+        print("This will create an instance for the current AWS user's account.")  # noqa
+        if output_filepath is not None:
+            script_content = _create_sdgym_script(dict(locals()), output_filepath)
+            _create_instance_on_ec2(script_content)
+        else:
+            raise ValueError('In order to run on EC2, please provide an S3 folder output.')
+        return None
+
     _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
 
     _create_detailed_results_directory(detailed_results_folder)
