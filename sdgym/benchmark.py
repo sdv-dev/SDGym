@@ -502,6 +502,7 @@ def _create_instance_on_ec2(script_content):
     ec2_client = boto3.client('ec2')
     session = boto3.session.Session()
     credentials = session.get_credentials()
+    print(f'This instance is being created in region: {session.region_name}') # noqa
 
     # User data script to install the library
     user_data_script = f"""#!/bin/bash
@@ -557,7 +558,7 @@ def _create_instance_on_ec2(script_content):
     instance_id = response['Instances'][0]['InstanceId']
     waiter = ec2_client.get_waiter('instance_status_ok')
     waiter.wait(InstanceIds=[instance_id])
-    LOGGER.info(f'Job kicked off for SDGym on {instance_id}')
+    print(f'Job kicked off for SDGym on {instance_id}') # noqa
 
 
 def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
