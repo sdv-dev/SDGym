@@ -443,17 +443,47 @@ def _get_empty_dataframe(compute_quality_score, sdmetrics):
     return scores
 
 
+def _directory_exists(bucket_name, s3_file_path):
+    # Find the last occurrence of '/' in the file path
+    last_slash_index = s3_file_path.rfind('/')
+    directory_prefix = s3_file_path[:last_slash_index + 1]
+    s3_client = boto3.client('s3')
+    response = s3_client.list_objects_v2(
+        Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
+    return 'Contents' in response or 'CommonPrefixes' in response
+
+
+def _check_write_permissions(bucket_name):
+    s3 = boto3.client('s3')
+    # Check write permissions by attempting to upload an empty object to the bucket
+    try:
+        s3.put_object(Bucket=bucket_name, Key='__test__', Body=b'')
+        write_permission = True
+    except Exception:
+        write_permission = False
+    finally:
+        # Clean up the test object
+        if write_permission:
+            s3.delete_object(Bucket=bucket_name, Key='__test__')
+    return write_permission
+
+
+def _parse_s3_path(s3_path):
+    if '/' not in s3_path:
+        raise ValueError("""Invalid S3 path format.
+                         Expected '<bucket_name>/<path_to_file>'.""")
+    # Split only on the first '/'
+    bucket_name, s3_file_path = s3_path.split('/', 1)
+    if not _directory_exists(bucket_name, s3_file_path):
+        raise ValueError(f'Directories in {s3_file_path} do not exist')
+    if not _check_write_permissions(bucket_name):
+        raise ValueError('No write permissions allowed for the bucket.')
+
+    return bucket_name, s3_file_path
+
+
 def _create_sdgym_script(params, output_filepath):
-    first_slash_index = output_filepath.find('/')  # Find the index of the first slash
-    bucket_name = ''
-    key_name = ''
-    if first_slash_index != -1:  # Check if a slash is found
-        bucket_name = output_filepath[:first_slash_index]  # Extract directory part
-        key_name = output_filepath[first_slash_index + 1:]  # Extract filename part
-    else:
-        raise ValueError("""Invalid output_filepath.
-                   The path should be structured as: <s3_bucket_name>/<path_to_file>
-                   Please make sure the path exists and permissions are given.""")
+    bucket_name, key_name = _parse_s3_path(output_filepath)
     session = boto3.session.Session()
     credentials = session.get_credentials()
     synthesizer_string = 'synthesizers=['
@@ -502,7 +532,7 @@ def _create_instance_on_ec2(script_content):
     ec2_client = boto3.client('ec2')
     session = boto3.session.Session()
     credentials = session.get_credentials()
-    print(f'This instance is being created in region: {session.region_name}') # noqa
+    print(f'This instance is being created in region: {session.region_name}')  # noqa
 
     # User data script to install the library
     user_data_script = f"""#!/bin/bash
@@ -558,7 +588,7 @@ def _create_instance_on_ec2(script_content):
     instance_id = response['Instances'][0]['InstanceId']
     waiter = ec2_client.get_waiter('instance_status_ok')
     waiter.wait(InstanceIds=[instance_id])
-    print(f'Job kicked off for SDGym on {instance_id}') # noqa
+    print(f'Job kicked off for SDGym on {instance_id}')  # noqa
 
 
 def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
@@ -626,7 +656,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
             A table containing one row per synthesizer + dataset + metric.
     """
     if run_on_ec2:
-        print("This will create an instance for the current AWS user's account.") # noqa
+        print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
             script_content = _create_sdgym_script(dict(locals()), output_filepath)
             _create_instance_on_ec2(script_content)

@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from sdgym import benchmark_single_table
-from sdgym.benchmark import _create_sdgym_script
+from sdgym.benchmark import _check_write_permissions, _create_sdgym_script, _directory_exists
 from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 
 
@@ -85,13 +85,75 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
     pd.testing.assert_frame_equal(scores, expected_scores)
 
 
+@patch('sdgym.benchmark.boto3.client')
+def test__directory_exists(mock_client):
+    # Setup
+    mock_client.return_value.list_objects_v2.return_value = {
+        'Contents': [
+            {
+                'Key': 'example.txt',
+                'ETag': '"1234567890abcdef1234567890abcdef"',
+                'Size': 1024,
+                'StorageClass': 'STANDARD'
+            },
+            {
+                'Key': 'example_folder/',
+                'ETag': '"0987654321fedcba0987654321fedcba"',
+                'Size': 0,
+                'StorageClass': 'STANDARD'
+            }
+        ],
+        'CommonPrefixes': [
+            {
+                'Prefix': 'example_folder/subfolder1/'
+            },
+            {
+                'Prefix': 'example_folder/subfolder2/'
+            }
+        ]
+    }
+
+    # Run and Assert
+    assert _directory_exists('bucket', 'file_path/mock.csv')
+
+    # Setup Failure
+    mock_client.return_value.list_objects_v2.return_value = {}
+
+    # Run and Assert
+    assert not _directory_exists('bucket', 'file_path/mock.csv')
+
+
+@patch('sdgym.benchmark.boto3.client')
+def test__check_write_permissions(mock_client):
+    # Setup
+    mock_client.return_value.put_object.side_effect = Exception('Simulated error')
+
+    # Run and Assert
+    assert not _check_write_permissions('bucket')
+
+    # Setup for success
+    mock_client.return_value.put_object.side_effect = None
+
+    # Run and Assert
+    assert _check_write_permissions('bucket')
+
+
+@patch('sdgym.benchmark._directory_exists')
+@patch('sdgym.benchmark._check_write_permissions')
 @patch('sdgym.benchmark.boto3.session.Session')
 @patch('sdgym.benchmark._create_instance_on_ec2')
-def test_run_ec2_flag(create_ec2_mock, session_mock):
+def test_run_ec2_flag(
+        create_ec2_mock,
+        session_mock,
+        mock_write_permissions,
+        mock_directory_exists
+):
     """Test that the benchmarking function updates the progress bar on one line."""
     # Setup
     create_ec2_mock.return_value = MagicMock()
     session_mock.get_credentials.return_value = MagicMock()
+    mock_write_permissions.return_value = True
+    mock_directory_exists.return_value = True
 
     # Run
     benchmark_single_table(run_on_ec2=True, output_filepath='BucketName/path')
@@ -108,19 +170,37 @@ def test_run_ec2_flag(create_ec2_mock, session_mock):
     create_ec2_mock.assert_called_once()
 
     # Run
-    with pytest.raises(ValueError, match=r"""Invalid output_filepath.
-                   The path should be structured as: <s3_bucket_name>/<path_to_file>
-                   Please make sure the path exists and permissions are given."""):
+    with pytest.raises(ValueError, match=r"""Invalid S3 path format.
+                         Expected '<bucket_name>/<path_to_file>'."""):
         benchmark_single_table(run_on_ec2=True, output_filepath='Wrong_Format')
 
     # Assert
     create_ec2_mock.assert_called_once()
 
+    # Setup for failure in permissions
+    mock_write_permissions.return_value = False
 
+    # Run
+    with pytest.raises(ValueError,
+                       match=r'No write permissions allowed for the bucket.'):
+        benchmark_single_table(run_on_ec2=True, output_filepath='BucketName/path')
+
+    # Setup for failure in directory exists
+    mock_write_permissions.return_value = True
+    mock_directory_exists.return_value = False
+
+    # Run
+    with pytest.raises(ValueError,
+                       match=r'Directories in mock/path do not exist'):
+        benchmark_single_table(run_on_ec2=True, output_filepath='BucketName/mock/path')
+
+
+@patch('sdgym.benchmark._directory_exists')
+@patch('sdgym.benchmark._check_write_permissions')
 @patch('sdgym.benchmark.boto3.session.Session')
-def test__create_sdgym_script(session_mock):
-    session_mock.get_credentials.return_value = MagicMock()
+def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directory_exists):
     # Setup
+    session_mock.get_credentials.return_value = MagicMock()
     test_params = {
         'synthesizers': [GaussianCopulaSynthesizer, CTGANSynthesizer],
         'custom_synthesizers': None,
@@ -140,9 +220,13 @@ def test__create_sdgym_script(session_mock):
         'multi_processing_config': None,
         'dummy': True
     }
+    mock_write_permissions.return_value = True
+    mock_directory_exists.return_value = True
 
+    # Run
     result = _create_sdgym_script(test_params, 'Bucket/Filepath')
 
+    # Assert
     assert 'synthesizers=[GaussianCopulaSynthesizer, CTGANSynthesizer, ]' in result
     assert 'detailed_results_folder=None' in result
     assert 'multi_processing_config=None' in result
