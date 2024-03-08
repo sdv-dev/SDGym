@@ -209,7 +209,6 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
             'child', 'expedia_hotel_logs',
             'insurance', 'intrusion', 'news', 'covtype'
         ],
-        'additional_datasets_folder': None,
         'limit_dataset_size': True,
         'compute_quality_score': False,
         'sdmetrics': [('NewRowSynthesis', {'synthetic_sample_size': 1000})],
