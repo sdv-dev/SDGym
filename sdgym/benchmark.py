@@ -501,11 +501,11 @@ from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer, Fast
 results = sdgym.benchmark_single_table(
     {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},
     sdv_datasets={params['sdv_datasets']},
-    additional_datasets_folder={params['additional_datasets_folder']},
+    additional_datasets_folder='{params['additional_datasets_folder']}',
     limit_dataset_size={params['limit_dataset_size']},
     compute_quality_score={params['compute_quality_score']},
     sdmetrics={params['sdmetrics']}, timeout={params['timeout']},
-    detailed_results_folder={params['detailed_results_folder']},
+    detailed_results_folder='{params['detailed_results_folder']}',
     multi_processing_config={params['multi_processing_config']}
 )
 
@@ -659,7 +659,8 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
             script_content = _create_sdgym_script(dict(locals()), output_filepath)
-            _create_instance_on_ec2(script_content)
+            print(script_content)
+            # _create_instance_on_ec2(script_content)
         else:
             raise ValueError('In order to run on EC2, please provide an S3 folder output.')
         return None
