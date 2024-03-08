@@ -659,8 +659,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
             script_content = _create_sdgym_script(dict(locals()), output_filepath)
-            print(script_content)
-            # _create_instance_on_ec2(script_content)
+            _create_instance_on_ec2(script_content)
         else:
             raise ValueError('In order to run on EC2, please provide an S3 folder output.')
         return None
