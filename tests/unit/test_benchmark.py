@@ -216,6 +216,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         'timeout': 600,
         'output_filepath': 'sdgym-results/address_comments.csv',
         'detailed_results_folder': None,
+        'additional_datasets_folder': 'Details/',
         'show_progress': False,
         'multi_processing_config': None,
         'dummy': True
@@ -229,6 +230,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     # Assert
     assert 'synthesizers=[GaussianCopulaSynthesizer, CTGANSynthesizer, ]' in result
     assert 'detailed_results_folder=None' in result
+    assert "additional_datasets_folder='Details/'" in result
     assert 'multi_processing_config=None' in result
     assert "sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})]" in result
     assert 'timeout=600' in result
