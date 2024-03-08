@@ -486,6 +486,10 @@ def _create_sdgym_script(params, output_filepath):
     bucket_name, key_name = _parse_s3_path(output_filepath)
     session = boto3.session.Session()
     credentials = session.get_credentials()
+    if params['additional_datasets_folder']:
+        params['additional_datasets_folder'] = "'" + params['additional_datasets_folder'] + "'"
+    if params['detailed_results_folder']:
+        params['detailed_results_folder'] = "'" + params['detailed_results_folder'] + "'"
     synthesizer_string = 'synthesizers=['
     for synthesizer in params['synthesizers']:
         synthesizer_string += synthesizer.__name__ + ', '
