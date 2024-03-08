@@ -22,7 +22,7 @@ from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
-from sdgym.s3 import is_s3_path, write_csv, write_file
+from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
@@ -468,22 +468,22 @@ def _check_write_permissions(bucket_name):
     return write_permission
 
 
-def _parse_s3_path(s3_path):
-    if '/' not in s3_path:
+def _confirm_s3_filepath(s3_path):
+    if not is_s3_path(s3_path):
         raise ValueError("""Invalid S3 path format.
-                         Expected '<bucket_name>/<path_to_file>'.""")
+                         Expected 's3://<bucket_name>/<path_to_file>'.""")
     # Split only on the first '/'
-    bucket_name, s3_file_path = s3_path.split('/', 1)
-    if not _directory_exists(bucket_name, s3_file_path):
-        raise ValueError(f'Directories in {s3_file_path} do not exist')
+    bucket_name, key_prefix = parse_s3_path(s3_path)
+    if not _directory_exists(bucket_name, key_prefix):
+        raise ValueError(f'Directories in {key_prefix} do not exist')
     if not _check_write_permissions(bucket_name):
         raise ValueError('No write permissions allowed for the bucket.')
 
-    return bucket_name, s3_file_path
+    return bucket_name, key_prefix
 
 
 def _create_sdgym_script(params, output_filepath):
-    bucket_name, key_name = _parse_s3_path(output_filepath)
+    bucket_name, key_name = _confirm_s3_filepath(output_filepath)
     session = boto3.session.Session()
     credentials = session.get_credentials()
     if params['additional_datasets_folder']:
@@ -641,7 +641,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         output_filepath (str or ``None``):
             A file path for where to write the output as a csv file. If ``None``, no output
             is written. If run_on_ec2 flag output_filepath needs to be defined and
-            the filepath should be structured as: {s3_bucket_name}/{path_to_file}
+            the filepath should be structured as: s3://{s3_bucket_name}/{path_to_file}
             Please make sure the path exists and permissions are given.
         detailed_results_folder (str or ``None``):
             The folder for where to store the intermediary results. If ``None``, do not store

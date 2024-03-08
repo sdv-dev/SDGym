@@ -13,7 +13,7 @@ def test_output_file_exists(path_mock):
     """Test the benchmark function when the output path already exists."""
     # Setup
     path_mock.exists.return_value = True
-    output_filepath = 'test_output.csv'
+    output_filepath = 's3://test_output.csv'
 
     # Run and assert
     with pytest.raises(
@@ -156,7 +156,7 @@ def test_run_ec2_flag(
     mock_directory_exists.return_value = True
 
     # Run
-    benchmark_single_table(run_on_ec2=True, output_filepath='BucketName/path')
+    benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/path')
 
     # Assert
     create_ec2_mock.assert_called_once()
@@ -171,7 +171,7 @@ def test_run_ec2_flag(
 
     # Run
     with pytest.raises(ValueError, match=r"""Invalid S3 path format.
-                         Expected '<bucket_name>/<path_to_file>'."""):
+                         Expected 's3://<bucket_name>/<path_to_file>'."""):
         benchmark_single_table(run_on_ec2=True, output_filepath='Wrong_Format')
 
     # Assert
@@ -183,7 +183,7 @@ def test_run_ec2_flag(
     # Run
     with pytest.raises(ValueError,
                        match=r'No write permissions allowed for the bucket.'):
-        benchmark_single_table(run_on_ec2=True, output_filepath='BucketName/path')
+        benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/path')
 
     # Setup for failure in directory exists
     mock_write_permissions.return_value = True
@@ -192,7 +192,7 @@ def test_run_ec2_flag(
     # Run
     with pytest.raises(ValueError,
                        match=r'Directories in mock/path do not exist'):
-        benchmark_single_table(run_on_ec2=True, output_filepath='BucketName/mock/path')
+        benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/mock/path')
 
 
 @patch('sdgym.benchmark._directory_exists')
@@ -213,7 +213,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         'compute_quality_score': False,
         'sdmetrics': [('NewRowSynthesis', {'synthetic_sample_size': 1000})],
         'timeout': 600,
-        'output_filepath': 'sdgym-results/address_comments.csv',
+        'output_filepath': 's3://sdgym-results/address_comments.csv',
         'detailed_results_folder': None,
         'additional_datasets_folder': 'Details/',
         'show_progress': False,
@@ -224,7 +224,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     mock_directory_exists.return_value = True
 
     # Run
-    result = _create_sdgym_script(test_params, 'Bucket/Filepath')
+    result = _create_sdgym_script(test_params, 's3://Bucket/Filepath')
 
     # Assert
     assert 'synthesizers=[GaussianCopulaSynthesizer, CTGANSynthesizer, ]' in result
