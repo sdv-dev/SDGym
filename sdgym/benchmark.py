@@ -22,7 +22,7 @@ from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
-from sdgym.s3 import is_s3_path, write_csv, write_file
+from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
@@ -468,28 +468,26 @@ def _check_write_permissions(bucket_name):
     return write_permission
 
 
-def _parse_s3_path(s3_path):
-    if '/' not in s3_path:
+def _create_sdgym_script(params, output_filepath):
+    # Confirm the path works
+    if not is_s3_path(output_filepath):
         raise ValueError("""Invalid S3 path format.
-                         Expected '<bucket_name>/<path_to_file>'.""")
-    # Split only on the first '/'
-    bucket_name, s3_file_path = s3_path.split('/', 1)
-    if not _directory_exists(bucket_name, s3_file_path):
-        raise ValueError(f'Directories in {s3_file_path} do not exist')
+                         Expected 's3://<bucket_name>/<path_to_file>'.""")
+    bucket_name, key_prefix = parse_s3_path(output_filepath)
+    if not _directory_exists(bucket_name, key_prefix):
+        raise ValueError(f'Directories in {key_prefix} do not exist')
     if not _check_write_permissions(bucket_name):
         raise ValueError('No write permissions allowed for the bucket.')
 
-    return bucket_name, s3_file_path
-
-
-def _create_sdgym_script(params, output_filepath):
-    bucket_name, key_name = _parse_s3_path(output_filepath)
-    session = boto3.session.Session()
-    credentials = session.get_credentials()
+    # Add quotes to parameter strings
     if params['additional_datasets_folder']:
         params['additional_datasets_folder'] = "'" + params['additional_datasets_folder'] + "'"
     if params['detailed_results_folder']:
         params['detailed_results_folder'] = "'" + params['detailed_results_folder'] + "'"
+    if params['output_filepath']:
+        params['output_filepath'] = "'" + params['output_filepath'] + "'"
+
+    # Generate the output script to run on the e2 instance
     synthesizer_string = 'synthesizers=['
     for synthesizer in params['synthesizers']:
         synthesizer_string += synthesizer.__name__ + ', '
@@ -504,28 +502,13 @@ from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer, Fast
 
 results = sdgym.benchmark_single_table(
     {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},
-    sdv_datasets={params['sdv_datasets']},
+    sdv_datasets={params['sdv_datasets']}, output_filepath={params['output_filepath']},
     additional_datasets_folder={params['additional_datasets_folder']},
     limit_dataset_size={params['limit_dataset_size']},
     compute_quality_score={params['compute_quality_score']},
     sdmetrics={params['sdmetrics']}, timeout={params['timeout']},
     detailed_results_folder={params['detailed_results_folder']},
     multi_processing_config={params['multi_processing_config']}
-)
-
-# Convert DataFrame to CSV string
-csv_buffer = StringIO()
-results.to_csv(csv_buffer, index=False)
-s3 = boto3.client('s3',
-    aws_access_key_id='{credentials.access_key}',
-    aws_secret_access_key='{credentials.secret_key}')
-
-
-# Upload CSV to S3
-response = s3.put_object(
-    Bucket='{bucket_name}',
-    Key='{key_name}',
-    Body=csv_buffer.getvalue()
 )
 """
 
@@ -542,20 +525,20 @@ def _create_instance_on_ec2(script_content):
     user_data_script = f"""#!/bin/bash
     sudo apt update -y
     sudo apt install python3-pip -y
-    echo "======== Install SDGYM ============"
+    echo "======== Install Dependencies ============"
     sudo pip3 install sdgym
     sudo pip3 install anyio
     pip3 list
+    sudo apt install awscli -y
+    aws configure set aws_access_key_id {credentials.access_key}
+    aws configure set aws_secret_access_key {credentials.secret_key}
+    aws configure set region {session.region_name}
     echo "======== Write Script ==========="
     sudo touch ~/sdgym_script.py
     echo "{script_content}" > ~/sdgym_script.py
     echo "======== Run Script ==========="
     sudo python3 ~/sdgym_script.py
     echo "======== Terminate ==========="
-    sudo apt install awscli -y
-    aws configure set aws_access_key_id {credentials.access_key}
-    aws configure set aws_secret_access_key {credentials.secret_key}
-    aws configure set region {session.region_name}
     INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
     aws ec2 terminate-instances --instance-ids $INSTANCE_ID
     """
@@ -641,7 +624,7 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
         output_filepath (str or ``None``):
             A file path for where to write the output as a csv file. If ``None``, no output
             is written. If run_on_ec2 flag output_filepath needs to be defined and
-            the filepath should be structured as: {s3_bucket_name}/{path_to_file}
+            the filepath should be structured as: s3://{s3_bucket_name}/{path_to_file}
             Please make sure the path exists and permissions are given.
         detailed_results_folder (str or ``None``):
             The folder for where to store the intermediary results. If ``None``, do not store
