@@ -141,7 +141,6 @@ namespaces = false
     '*.gif'
 ]
 'sdgym' = ['leaderboard.csv']
-'tests' = ['*']
 
 [tool.setuptools.exclude-package-data]
 '*' = [
