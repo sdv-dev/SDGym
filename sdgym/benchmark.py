@@ -538,14 +538,14 @@ def _create_instance_on_ec2(script_content):
     echo "{script_content}" > ~/sdgym_script.py
     echo "======== Run Script ==========="
     sudo python3 ~/sdgym_script.py
-    echo "======== Terminate ==========="
+    echo "======== Complete ==========="
     INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
     aws ec2 terminate-instances --instance-ids $INSTANCE_ID
     """
 
     response = ec2_client.run_instances(
-        ImageId='ami-07d9b9ddc6cd8dd30',
-        InstanceType='t2.medium',
+        ImageId='ami-080e1f13689e07408',
+        InstanceType='p2.xlarge',
         MinCount=1,
         MaxCount=1,
         UserData=user_data_script,
