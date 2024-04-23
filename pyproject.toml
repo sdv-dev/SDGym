@@ -12,38 +12,43 @@ classifiers = [
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
     'Topic :: Scientific/Engineering :: Artificial Intelligence',
 ]
 keywords = ['machine learning', 'synthetic data generation', 'benchmark', 'generative models']
 dynamic = ['version']
 license = { text = 'BSL-1.1' }
-requires-python = '>=3.8,<3.12'
+requires-python = '>=3.8,<3.13'
 readme = 'README.md'
 dependencies = [
     'appdirs>=1.3',
-    'boto3>=1.15.0,<2',
-    'botocore>=1.18,<2',
+    'boto3>=1.28,<2',
+    'botocore>=1.31,<2',
     'compress-pickle>=1.2.0',
     'humanfriendly>=8.2',
     "numpy>=1.20.0;python_version<'3.10'",
-    "numpy>=1.23.3;python_version>='3.10'",
+    "numpy>=1.23.3,<2;python_version>='3.10' and python_version<'3.12'",
+    "numpy>=1.26.0,<2;python_version>='3.12'",
     "pandas>=1.1.3;python_version<'3.10'",
     "pandas>=1.3.4;python_version>='3.10' and python_version<'3.11'",
-    "pandas>=1.5.0;python_version>='3.11'",
+    "pandas>=1.5.0;python_version>='3.11' and python_version<'3.12'",
+    "pandas>=2.1.1;python_version>='3.12'",
     'psutil>=5.7',
-    "scikit-learn>=0.24,<2;python_version<'3.10'",
-    "scikit-learn>=1.1.3,<2;python_version>='3.10'",
+    "scikit-learn>=0.24;python_version<'3.10'",
+    "scikit-learn>=1.1.3;python_version>='3.10' and python_version<'3.12'",
+    "scikit-learn>=1.3.1;python_version>='3.12'",
     "scipy>=1.5.4;python_version<'3.10'",
-    "scipy>=1.9.2;python_version>='3.10'",
+    "scipy>=1.9.2;python_version>='3.10' and python_version<'3.12'",
+    "scipy>=1.12.0;python_version>='3.12'",
     'tabulate>=0.8.3,<0.9',
     "torch>=1.8.0;python_version<'3.10'",
-    "torch>=1.11.0;python_version>='3.10' and python_version<'3.11'",
-    "torch>=2.0.0;python_version>='3.11'",
-    'tqdm>=4.15',
+    "torch>=2.0.0;python_version>='3.10' and python_version<'3.12'",
+    "torch>=2.2.0;python_version>='3.12'",
+    'tqdm>=4.29',
     'XlsxWriter>=1.2.8',
-    'rdt>=1.6.1',
-    'sdmetrics>=0.11.0',
-    'sdv>=1.3.0',
+    'rdt>=1.11.0',
+    'sdmetrics>=0.14.0',
+    'sdv>=1.12.0',
 ]
 
 [project.urls]
@@ -59,7 +64,7 @@ sdgym = { main = 'sdgym.cli.__main__:main' }
 [project.optional-dependencies]
 dask = ['dask', 'distributed']
 test = [
-    'pytest>=3.4.2',
+    'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
     'rundoc>=0.4.3,<0.5',
@@ -72,43 +77,43 @@ dev = [
     'build>=1.0.0,<2',
     'bump-my-version>=0.18.3,<1',
     'pip>=9.0.1',
-    'watchdog>=0.8.3,<0.11',
+    'watchdog>=1.0.1,<5',
 
     # style check
-    'flake8>=3.7.7,<4',
+    'flake8>=3.7.7,<8',
     'flake8-absolute-import>=1.0,<2',
-    'flake8-builtins>=1.5.3,<1.6',
-    'flake8-comprehensions>=3.6.1,<3.7',
-    'flake8-debugger>=4.0.0,<4.1',
+    'flake8-builtins>=1.5.3,<3',
+    'flake8-comprehensions>=3.6.1,<4',
+    'flake8-debugger>=4.0.0,<5',
     'flake8-docstrings>=1.5.0,<2',
-    'flake8-eradicate>=1.1.0,<1.2',
+    'flake8-eradicate>=1.1.0,<2',
     'flake8-fixme>=1.1.1,<1.2',
-    'flake8-mock>=0.3,<0.4',
+    'flake8-mock>=0.3,<1',
     'flake8-multiline-containers>=0.0.18,<0.1',
     'flake8-mutable>=1.2.0,<1.3',
     'flake8-expression-complexity>=0.0.9,<0.1',
     'flake8-print>=4.0.0,<4.1',
-    'flake8-pytest-style>=1.5.0,<2',
+    'flake8-pytest-style>=2.0.0,<3',
     'flake8-quotes>=3.3.0,<4',
-    'flake8-sfs>=0.0.3,<0.1',
+    'flake8-sfs>=0.0.3,<2',
     'flake8-variables-names>=0.0.4,<0.1',
-    'dlint>=0.11.0,<0.12',
-    'isort>=4.3.4,<5',
-    'pandas-vet>=0.2.3,<0.3',
-    'pep8-naming>=0.12.1,<0.13',
-    'pydocstyle>=6.1.1,<6.2',
+    'dlint>=0.11.0,<1',
+    'isort>=5.13.2,<6',
+    'pandas-vet>=0.2.3,<2024',
+    'pep8-naming>=0.12.1,<1',
+    'pydocstyle>=6.1.1,<7',
 
     # fix style issues
-    'autoflake>=1.1,<2',
-    'autopep8>=1.4.3,<2',
+    'autoflake>=1.1,<3',
+    'autopep8>=1.4.3,<3',
 
     # distribute on PyPI
-    'twine>=1.10.0,<4',
+    'twine>=1.10.0,<6',
     'wheel>=0.30.0',
 
     # Advanced testing
-    'coverage>=4.5.1,<6',
-    'tox>=2.9.1,<4',
+    'coverage>=4.5.12,<8',
+    'tox>=2.9.1,<5',
     'importlib-metadata>=3.6',
 
     # Invoke
@@ -156,7 +161,6 @@ version = {attr = 'sdgym.__version__'}
 line_length = 99
 lines_between_types = 0
 multi_line_output = 4
-not_skip = ['__init__.py']
 use_parentheses = true
 
 [tool.pydocstyle]

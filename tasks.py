@@ -9,7 +9,6 @@ import stat
 import sys
 from pathlib import Path
 
-import pkg_resources
 import tomli
 from invoke import task
 from packaging.requirements import Requirement
@@ -113,7 +112,7 @@ def lint(c):
     c.run('pydocstyle sdgym')
     c.run('flake8 tests --ignore=D')
     c.run('pydocstyle tests')
-    c.run('isort -c --recursive sdgym tests')
+    c.run('isort -c sdgym tests')
 
 
 def remove_readonly(func, path, _):

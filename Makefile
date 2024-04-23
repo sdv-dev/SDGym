@@ -86,7 +86,7 @@ lint: ## check style with flake8 and isort
 fix-lint: ## fix lint issues using autoflake, autopep8, and isort
 	find sdgym tests -name '*.py' | xargs autoflake --in-place --remove-all-unused-imports --remove-unused-variables
 	autopep8 --in-place --recursive --aggressive sdgym tests
-	isort --apply --atomic --recursive sdgym tests
+	isort --apply --atomic sdgym tests
 
 
 # TEST TARGETS
