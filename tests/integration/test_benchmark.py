@@ -173,25 +173,18 @@ def test_benchmark_single_table():
         synthesizer_parameters={'epochs': 100}
     )
 
-    fast_ml_variant = create_sdv_synthesizer_variant(
-        'FastMLVariant',
-        'FastMLPreset',
-        synthesizer_parameters={'name': 'FAST_ML'}
-    )
-
     # Run
     results = sdgym.benchmark_single_table(
         synthesizers=[
             'TVAESynthesizer',
             'CopulaGANSynthesizer',
             'GaussianCopulaSynthesizer',
-            'FastMLPreset',
             'DataIdentity',
             'IndependentSynthesizer',
             'UniformSynthesizer',
             'CTGANSynthesizer'
         ],
-        custom_synthesizers=[fast_ml_variant, test_synthesizer, ctgan_variant],
+        custom_synthesizers=[test_synthesizer, ctgan_variant],
         sdv_datasets=['fake_companies']
     )
 
@@ -200,12 +193,10 @@ def test_benchmark_single_table():
         'TVAESynthesizer',
         'CopulaGANSynthesizer',
         'GaussianCopulaSynthesizer',
-        'FastMLPreset',
         'DataIdentity',
         'IndependentSynthesizer',
         'UniformSynthesizer',
         'CTGANSynthesizer',
-        'Variant:FastMLVariant',
         'Custom:TestSynthesizer',
         'Variant:CTGANVariant'
     ], name='Synthesizer')
@@ -222,8 +213,8 @@ def test_benchmark_single_table():
 
     # The IdentitySynthesizer never returns new rows, so its score is 0
     # Every other synthesizer should only return new rows, so their score is 1
-    assert results['NewRowSynthesis'][4] == 0
-    results['NewRowSynthesis'][4] = 1
+    assert results['NewRowSynthesis'][3] == 0
+    results['NewRowSynthesis'][3] = 1
     assert (results['NewRowSynthesis'] == 1).all()
 
 
@@ -270,27 +261,26 @@ def test_benchmark_single_table_only_datasets():
     assert len(scores.columns) == 10
     assert list(scores['Synthesizer']) == [
         'GaussianCopulaSynthesizer',
-        'FastMLPreset',
         'CTGANSynthesizer'
     ]
-    assert list(scores['Dataset']) == ['fake_companies'] * 3
-    assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [.00128] * 3
+    assert list(scores['Dataset']) == ['fake_companies'] * 2
+    assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [.00128] * 2
     assert scores['Train_Time'].between(0, 1000).all()
     assert scores['Peak_Memory_MB'].between(0, 1000).all()
     assert scores['Synthesizer_Size_MB'].between(0, 1000).all()
     assert scores['Sample_Time'].between(0, 1000).all()
     assert scores['Evaluate_Time'].between(0, 1000).all()
     assert scores['Quality_Score'].between(.5, 1).all()
-    assert list(scores['NewRowSynthesis']) == [1.0] * 3
+    assert list(scores['NewRowSynthesis']) == [1.0] * 2
 
 
 def test_benchmark_single_table_synthesizers_none():
     """Test it works when ``synthesizers`` is None."""
     # Setup
     synthesizer_variant = create_sdv_synthesizer_variant(
-        'FastMLVariant',
-        'FastMLPreset',
-        synthesizer_parameters={'name': 'FAST_ML'}
+        'test_synth',
+        'GaussianCopulaSynthesizer',
+        synthesizer_parameters={}
     )
 
     # Run
@@ -303,7 +293,7 @@ def test_benchmark_single_table_synthesizers_none():
     # Assert
     assert scores.shape == (1, 10)
     scores = scores.iloc[0]
-    assert scores['Synthesizer'] == 'Variant:FastMLVariant'
+    assert scores['Synthesizer'] == 'Variant:test_synth'
     assert scores['Dataset'] == 'fake_companies'
     assert round(scores['Dataset_Size_MB'], 5) == 0.00128
     assert .5 < scores['Quality_Score'] < 1
@@ -439,14 +429,14 @@ def test_benchmark_single_table_limit_dataset_size():
     """Test it works with ``limit_dataset_size``."""
     # Run
     results = benchmark_single_table(
-        synthesizers=['FastMLPreset'],
+        synthesizers=['GaussianCopulaSynthesizer'],
         sdv_datasets=['adult'],
         limit_dataset_size=True
     )
 
     # Assert
     results = results.iloc[0]
-    assert results['Synthesizer'] == 'FastMLPreset'
+    assert results['Synthesizer'] == 'GaussianCopulaSynthesizer'
     assert results['Dataset'] == 'adult'
     assert round(results['Dataset_Size_MB'], 4) == 0.0801
     assert .5 < results['Quality_Score'] < 1

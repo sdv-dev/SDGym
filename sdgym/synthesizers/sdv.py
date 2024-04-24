@@ -10,22 +10,6 @@ from sdgym.utils import select_device
 LOGGER = logging.getLogger(__name__)
 
 
-class FastMLPreset(BaselineSynthesizer):
-    """Model wrapping the ``FastMLPreset`` model."""
-
-    _MODEL = None
-    _MODEL_KWARGS = None
-
-    def _get_trained_synthesizer(self, data, metadata):
-        model = sdv.lite.SingleTablePreset(name='FAST_ML', metadata=metadata)
-        model.fit(data)
-
-        return model
-
-    def _sample_from_synthesizer(self, synthesizer, n_samples):
-        return synthesizer.sample(n_samples)
-
-
 class SDVTabularSynthesizer(BaselineSynthesizer, abc.ABC):
     """Base class for single-table models."""
 
