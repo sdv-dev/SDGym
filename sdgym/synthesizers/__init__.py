@@ -5,9 +5,8 @@ from sdgym.synthesizers.generate import (
 from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.independent import IndependentSynthesizer
 from sdgym.synthesizers.sdv import (
-    CopulaGANSynthesizer, CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer,
-    HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer, SDVTabularSynthesizer,
-    TVAESynthesizer)
+    CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, HMASynthesizer,
+    PARSynthesizer, SDVRelationalSynthesizer, SDVTabularSynthesizer, TVAESynthesizer)
 from sdgym.synthesizers.uniform import UniformSynthesizer
 
 __all__ = (
@@ -20,7 +19,6 @@ __all__ = (
     'GaussianCopulaSynthesizer',
     'HMASynthesizer',
     'PARSynthesizer',
-    'FastMLPreset',
     'SDVTabularSynthesizer',
     'SDVRelationalSynthesizer',
     'create_single_table_synthesizer',

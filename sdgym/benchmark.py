@@ -23,13 +23,13 @@ from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
-from sdgym.synthesizers import CTGANSynthesizer, FastMLPreset, GaussianCopulaSynthesizer
+from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
     format_exception, get_duplicates, get_num_gpus, get_size_of, get_synthesizers, used_memory)
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, FastMLPreset, CTGANSynthesizer]
+DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
 DEFAULT_DATASETS = [
     'adult',
     'alarm',
@@ -496,7 +496,7 @@ def _create_sdgym_script(params, output_filepath):
     script_content = f"""import boto3
 from io import StringIO
 import sdgym
-from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer, FastMLPreset,
+from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer,
     GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
     SDVTabularSynthesizer,TVAESynthesizer)
 
@@ -588,14 +588,13 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
 
     Args:
         synthesizers (list[string]):
-            The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer, FASTMLPreset,
+            The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer,
             CTGANSynthesizer]``. The available options are:
 
                 - ``GaussianCopulaSynthesizer``
                 - ``CTGANSynthesizer``
                 - ``CopulaGANSynthesizer``
                 - ``TVAESynthesizer``
-                - ``FASTMLPreset``
 
         custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or

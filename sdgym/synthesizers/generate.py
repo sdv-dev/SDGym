@@ -1,16 +1,14 @@
 """Synthesizers module."""
 
-from sdv.lite import SingleTablePreset
 from sdv.multi_table.hma import HMASynthesizer
 from sdv.sequential import PARSynthesizer
 from sdv.single_table import (
     CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
 
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
-from sdgym.synthesizers.sdv import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
+from sdgym.synthesizers.sdv import SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
-    'FastMLPreset': SingleTablePreset,
     'GaussianCopulaSynthesizer': GaussianCopulaSynthesizer,
     'CTGANSynthesizer': CTGANSynthesizer,
     'CopulaGANSynthesizer': CopulaGANSynthesizer,
@@ -30,7 +28,6 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
         synthesizer_class (string):
             The name of the SDV synthesizer class. The available options are:
 
-                * 'FastMLPreset'
                 * 'GaussianCopulaSynthesizer'
                 * 'CTGANSynthesizer',
                 * 'CopulaGANSynthesizer'
@@ -54,8 +51,6 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
     baseclass = SDVTabularSynthesizer
     if synthesizer_class == 'HMASynthesizer':
         baseclass = SDVRelationalSynthesizer
-    if synthesizer_class == 'FastMLPreset':
-        baseclass = FastMLPreset
 
     class NewSynthesizer(baseclass):
         """New Synthesizer class.
@@ -64,7 +59,6 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
             synthesizer_class (string):
                 The name of the SDV synthesizer class. The available options are:
 
-                    * 'FastMLPreset'
                     * 'GaussianCopulaSynthesizer'
                     * 'CTGANSynthesizer'
                     * 'CopulaGANSynthesizer'
