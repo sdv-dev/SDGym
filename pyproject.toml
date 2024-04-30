@@ -46,9 +46,9 @@ dependencies = [
     "torch>=2.2.0;python_version>='3.12'",
     'tqdm>=4.29',
     'XlsxWriter>=1.2.8',
-    'rdt>=1.11.0',
-    'sdmetrics>=0.14.0',
-    'sdv>=1.12.0',
+    'rdt  @ git+https://github.com/sdv-dev/RDT@main',
+    'sdmetrics @ git+https://github.com/sdv-dev/SDMetrics@main',
+    'sdv @ git+https://github.com/sdv-dev/SDV@main',
 ]
 
 [project.urls]
