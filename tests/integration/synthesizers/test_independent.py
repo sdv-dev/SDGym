@@ -1,4 +1,5 @@
 """Module to test the IndependentSynthesizer."""
+
 import numpy as np
 import pandas as pd
 
@@ -10,11 +11,11 @@ def test_independent_synthesizer():
     # Setup
     n_samples = 10000
     num_values = np.random.normal(size=n_samples)
-    cat_values = np.random.choice(['a', 'b', 'c'], size=n_samples, p=[.1, .2, .7])
-    bool_values = np.random.choice([True, False], size=n_samples, p=[.3, .7])
+    cat_values = np.random.choice(['a', 'b', 'c'], size=n_samples, p=[0.1, 0.2, 0.7])
+    bool_values = np.random.choice([True, False], size=n_samples, p=[0.3, 0.7])
 
     dates = pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01'])
-    date_values = np.random.choice(dates, size=n_samples, p=[.1, .2, .7])
+    date_values = np.random.choice(dates, size=n_samples, p=[0.1, 0.2, 0.7])
 
     data = pd.DataFrame({
         'num': num_values,
@@ -33,7 +34,4 @@ def test_independent_synthesizer():
     assert samples['num'].between(-10, 10).all()
     assert ((samples['cat'] == 'a') | (samples['cat'] == 'b') | (samples['cat'] == 'c')).all()
     assert ((samples['bool'] == True) | (samples['bool'] == False)).all()  # noqa: E712
-    assert samples['date'].between(
-        pd.to_datetime('2019-01-01'),
-        pd.to_datetime('2021-01-01')
-    ).all()
+    assert samples['date'].between(pd.to_datetime('2019-01-01'), pd.to_datetime('2021-01-01')).all()

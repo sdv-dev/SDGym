@@ -1,4 +1,5 @@
 """S3 module."""
+
 import boto3
 import botocore
 
@@ -60,11 +61,7 @@ def get_s3_client(aws_key=None, aws_secret=None):
     """
     if aws_key is not None and aws_secret is not None:
         # credentials available
-        return boto3.client(
-            's3',
-            aws_access_key_id=aws_key,
-            aws_secret_access_key=aws_secret
-        )
+        return boto3.client('s3', aws_access_key_id=aws_key, aws_secret_access_key=aws_secret)
     else:
         if boto3.Session().get_credentials():
             # credentials available and will be detected automatically

@@ -1,4 +1,5 @@
 """UniformSynthesizer module."""
+
 import logging
 
 import numpy as np
@@ -27,12 +28,14 @@ class UniformSynthesizer(BaselineSynthesizer):
             else:
                 LOGGER.info(
                     f'Column {column} sdtype: {sdtype} is not supported, '
-                    f'defaulting to inferred type.')
+                    f'defaulting to inferred type.'
+                )
 
         hyper_transformer.update_sdtypes(config)
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
-            column_name for column_name, data in real_data.items()
+            column_name
+            for column_name, data in real_data.items()
             if data.dtype.kind in {'O', 'i', 'b'}
         ]
         hyper_transformer.remove_transformers(columns_to_remove)

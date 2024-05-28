@@ -6,7 +6,6 @@ from sdgym.synthesizers import IndependentSynthesizer
 
 
 class TestIndependentSynthesizer:
-
     @patch('sdgym.synthesizers.independent.GaussianMixture')
     def test__get_trained_synthesizer(self, gm_mock):
         """Expect that GaussianMixture is instantiated with 4 components."""

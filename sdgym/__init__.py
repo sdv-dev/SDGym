@@ -29,5 +29,5 @@ __all__ = [
     'benchmark_single_table',
     'get_available_datasets',
     'create_sdv_synthesizer_variant',
-    'create_single_table_synthesizer'
+    'create_single_table_synthesizer',
 ]

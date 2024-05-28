@@ -8,7 +8,12 @@ import pandas as pd
 
 from sdgym import get_available_datasets
 from sdgym.datasets import (
-    _download_dataset, _get_bucket_name, _get_dataset_path, get_dataset_paths, load_dataset)
+    _download_dataset,
+    _get_bucket_name,
+    _get_dataset_path,
+    get_dataset_paths,
+    load_dataset,
+)
 
 
 class AnyConfigWith:
@@ -58,28 +63,19 @@ def test__download_dataset_public_bucket(boto3_mock, tmpdir):
     s3_mock = Mock()
     body_mock = Mock()
     body_mock.read.return_value = bytesio.getvalue()
-    obj = {
-        'Body': body_mock
-    }
+    obj = {'Body': body_mock}
     s3_mock.get_object.return_value = obj
     boto3_mock.client.return_value = s3_mock
     boto3_mock.Session().get_credentials.return_value = None
 
     # run
-    _download_dataset(
-        modality,
-        dataset,
-        datasets_path=str(tmpdir),
-        bucket=bucket
-    )
+    _download_dataset(modality, dataset, datasets_path=str(tmpdir), bucket=bucket)
 
     # asserts
-    boto3_mock.client.assert_called_once_with(
-        's3',
-        config=AnyConfigWith(botocore.UNSIGNED)
-    )
+    boto3_mock.client.assert_called_once_with('s3', config=AnyConfigWith(botocore.UNSIGNED))
     s3_mock.get_object.assert_called_once_with(
-        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip')
+        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip'
+    )
     with open(f'{tmpdir}/{dataset}') as dataset_file:
         assert dataset_file.read() == 'test_content'
 
@@ -124,9 +120,7 @@ def test__download_dataset_private_bucket(boto3_mock, tmpdir):
     s3_mock = Mock()
     body_mock = Mock()
     body_mock.read.return_value = bytesio.getvalue()
-    obj = {
-        'Body': body_mock
-    }
+    obj = {'Body': body_mock}
     s3_mock.get_object.return_value = obj
     boto3_mock.client.return_value = s3_mock
 
@@ -137,17 +131,16 @@ def test__download_dataset_private_bucket(boto3_mock, tmpdir):
         datasets_path=str(tmpdir),
         bucket=bucket,
         aws_key=aws_key,
-        aws_secret=aws_secret
+        aws_secret=aws_secret,
     )
 
     # asserts
     boto3_mock.client.assert_called_once_with(
-        's3',
-        aws_access_key_id=aws_key,
-        aws_secret_access_key=aws_secret
+        's3', aws_access_key_id=aws_key, aws_secret_access_key=aws_secret
     )
     s3_mock.get_object.assert_called_once_with(
-        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip')
+        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip'
+    )
     with open(f'{tmpdir}/{dataset}') as dataset_file:
         assert dataset_file.read() == 'test_content'
 
@@ -209,16 +202,28 @@ def test_get_available_datasets_results():
     # Assert
     expected_table = pd.DataFrame({
         'dataset_name': [
-            'adult', 'alarm', 'census',
-            'child', 'covtype', 'expedia_hotel_logs',
-            'insurance', 'intrusion', 'news'
+            'adult',
+            'alarm',
+            'census',
+            'child',
+            'covtype',
+            'expedia_hotel_logs',
+            'insurance',
+            'intrusion',
+            'news',
         ],
         'size_MB': [
-            '3.907448', '4.520128', '98.165608',
-            '3.200128', '255.645408', '0.200128',
-            '3.340128', '162.039016', '18.712096'
+            '3.907448',
+            '4.520128',
+            '98.165608',
+            '3.200128',
+            '255.645408',
+            '0.200128',
+            '3.340128',
+            '162.039016',
+            '18.712096',
         ],
-        'num_tables': [1] * 9
+        'num_tables': [1] * 9,
     })
     expected_table['size_MB'] = expected_table['size_MB'].astype(float).round(2)
     assert len(expected_table.merge(tables_info.round(2))) == len(expected_table)
@@ -268,9 +273,7 @@ def test_load_dataset_limit_dataset_size():
     """Test ``limit_dataset_size`` selects a slice of the metadata and data."""
     # Run
     data, metadata_dict = load_dataset(
-        modality='single_table',
-        dataset='adult',
-        limit_dataset_size=True
+        modality='single_table', dataset='adult', limit_dataset_size=True
     )
 
     # Assert
@@ -284,7 +287,7 @@ def test_load_dataset_limit_dataset_size():
         'occupation',
         'relationship',
         'race',
-        'sex'
+        'sex',
     ]
     assert data.shape == (1000, 10)
     assert metadata_dict == {
@@ -298,7 +301,7 @@ def test_load_dataset_limit_dataset_size():
             'occupation': {'sdtype': 'categorical'},
             'relationship': {'sdtype': 'categorical'},
             'race': {'sdtype': 'categorical'},
-            'sex': {'sdtype': 'categorical'}
+            'sex': {'sdtype': 'categorical'},
         },
-        'METADATA_SPEC_VERSION': 'SINGLE_TABLE_V1'
+        'METADATA_SPEC_VERSION': 'SINGLE_TABLE_V1',
     }

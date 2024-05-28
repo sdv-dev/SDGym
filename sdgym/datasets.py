@@ -1,4 +1,5 @@
 """SDGym module to handle datasets."""
+
 import io
 import itertools
 import json
@@ -23,11 +24,12 @@ S3_PREFIX = 's3://'
 
 
 def _get_bucket_name(bucket):
-    return bucket[len(S3_PREFIX):] if bucket.startswith(S3_PREFIX) else bucket
+    return bucket[len(S3_PREFIX) :] if bucket.startswith(S3_PREFIX) else bucket
 
 
-def _download_dataset(modality, dataset_name, datasets_path=None, bucket=None, aws_key=None,
-                      aws_secret=None):
+def _download_dataset(
+    modality, dataset_name, datasets_path=None, bucket=None, aws_key=None, aws_secret=None
+):
     """Download a dataset and extract it into the given ``datasets_path``."""
     datasets_path = datasets_path or DATASETS_PATH / dataset_name
     bucket = bucket or BUCKET
@@ -43,8 +45,7 @@ def _download_dataset(modality, dataset_name, datasets_path=None, bucket=None, a
         zf.extractall(datasets_path)
 
 
-def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=None,
-                      aws_secret=None):
+def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=None, aws_secret=None):
     dataset = Path(dataset)
     if dataset.exists():
         return dataset
@@ -61,7 +62,8 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
             return local_path
 
     _download_dataset(
-        modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret)
+        modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret
+    )
     return dataset_path
 
 
@@ -81,8 +83,15 @@ def _get_dataset_subset(data, metadata_dict):
     return data, metadata_dict
 
 
-def load_dataset(modality, dataset, datasets_path=None, bucket=None, aws_key=None,
-                 aws_secret=None, limit_dataset_size=None):
+def load_dataset(
+    modality,
+    dataset,
+    datasets_path=None,
+    bucket=None,
+    aws_key=None,
+    aws_secret=None,
+    limit_dataset_size=None,
+):
     """Get the data and metadata of a dataset.
 
     Args:
@@ -139,8 +148,7 @@ def get_available_datasets():
 def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
     if modality not in MODALITIES:
         modalities_list = ', '.join(MODALITIES)
-        raise ValueError(
-            f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
+        raise ValueError(f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
 
     s3 = get_s3_client(aws_key, aws_secret)
     bucket = bucket or BUCKET
@@ -157,7 +165,7 @@ def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None
         num_tables = int(num_tables) if num_tables is not None else num_tables
         if key.endswith('.zip'):
             datasets.append({
-                'dataset_name': key[:-len('.zip')].lstrip(f'{modality.upper()}/'),
+                'dataset_name': key[: -len('.zip')].lstrip(f'{modality.upper()}/'),
                 'size_MB': size,
                 'num_tables': num_tables,
             })
@@ -165,8 +173,9 @@ def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None
     return pd.DataFrame(datasets)
 
 
-def get_dataset_paths(datasets=None, datasets_path=None,
-                      bucket=None, aws_key=None, aws_secret=None):
+def get_dataset_paths(
+    datasets=None, datasets_path=None, bucket=None, aws_key=None, aws_secret=None
+):
     """Build the full path to datasets and ensure they exist.
 
     Args:
@@ -208,8 +217,9 @@ def get_dataset_paths(datasets=None, datasets_path=None,
                     elif dataset not in datasets:
                         datasets.append(dataset)
         else:
-            datasets = _get_available_datasets(
-                'single_table', bucket=bucket)['dataset_name'].tolist()
+            datasets = _get_available_datasets('single_table', bucket=bucket)[
+                'dataset_name'
+            ].tolist()
 
     return [
         _get_dataset_path('single_table', dataset, datasets_path, bucket, aws_key, aws_secret)

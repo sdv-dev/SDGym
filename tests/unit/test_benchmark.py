@@ -23,7 +23,7 @@ def test_output_file_exists(path_mock):
         benchmark_single_table(
             synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
             sdv_datasets=['student_placements'],
-            output_filepath=output_filepath
+            output_filepath=output_filepath,
         )
 
 
@@ -53,10 +53,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
     # Setup
     mocked_process = mock_multiprocessing.Process.return_value
     manager = mock_multiprocessing.Manager.return_value
-    manager_dict = {
-        'timeout': True,
-        'error': 'Synthesizer Timeout'
-    }
+    manager_dict = {'timeout': True, 'error': 'Synthesizer Timeout'}
     manager.__enter__.return_value.dict.return_value = manager_dict
 
     # Run
@@ -80,7 +77,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Sample_Time': {0: None},
         'Evaluate_Time': {0: None},
         'Quality_Score': {0: None},
-        'error': {0: 'Synthesizer Timeout'}
+        'error': {0: 'Synthesizer Timeout'},
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
 
@@ -94,23 +91,19 @@ def test__directory_exists(mock_client):
                 'Key': 'example.txt',
                 'ETag': '"1234567890abcdef1234567890abcdef"',
                 'Size': 1024,
-                'StorageClass': 'STANDARD'
+                'StorageClass': 'STANDARD',
             },
             {
                 'Key': 'example_folder/',
                 'ETag': '"0987654321fedcba0987654321fedcba"',
                 'Size': 0,
-                'StorageClass': 'STANDARD'
-            }
+                'StorageClass': 'STANDARD',
+            },
         ],
         'CommonPrefixes': [
-            {
-                'Prefix': 'example_folder/subfolder1/'
-            },
-            {
-                'Prefix': 'example_folder/subfolder2/'
-            }
-        ]
+            {'Prefix': 'example_folder/subfolder1/'},
+            {'Prefix': 'example_folder/subfolder2/'},
+        ],
     }
 
     # Run and Assert
@@ -142,12 +135,7 @@ def test__check_write_permissions(mock_client):
 @patch('sdgym.benchmark._check_write_permissions')
 @patch('sdgym.benchmark.boto3.session.Session')
 @patch('sdgym.benchmark._create_instance_on_ec2')
-def test_run_ec2_flag(
-        create_ec2_mock,
-        session_mock,
-        mock_write_permissions,
-        mock_directory_exists
-):
+def test_run_ec2_flag(create_ec2_mock, session_mock, mock_write_permissions, mock_directory_exists):
     """Test that the benchmarking function updates the progress bar on one line."""
     # Setup
     create_ec2_mock.return_value = MagicMock()
@@ -162,16 +150,20 @@ def test_run_ec2_flag(
     create_ec2_mock.assert_called_once()
 
     # Run
-    with pytest.raises(ValueError,
-                       match=r'In order to run on EC2, please provide an S3 folder output.'):
+    with pytest.raises(
+        ValueError, match=r'In order to run on EC2, please provide an S3 folder output.'
+    ):
         benchmark_single_table(run_on_ec2=True)
 
     # Assert
     create_ec2_mock.assert_called_once()
 
     # Run
-    with pytest.raises(ValueError, match=r"""Invalid S3 path format.
-                         Expected 's3://<bucket_name>/<path_to_file>'."""):
+    with pytest.raises(
+        ValueError,
+        match=r"""Invalid S3 path format.
+                         Expected 's3://<bucket_name>/<path_to_file>'.""",
+    ):
         benchmark_single_table(run_on_ec2=True, output_filepath='Wrong_Format')
 
     # Assert
@@ -181,8 +173,7 @@ def test_run_ec2_flag(
     mock_write_permissions.return_value = False
 
     # Run
-    with pytest.raises(ValueError,
-                       match=r'No write permissions allowed for the bucket.'):
+    with pytest.raises(ValueError, match=r'No write permissions allowed for the bucket.'):
         benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/path')
 
     # Setup for failure in directory exists
@@ -190,8 +181,7 @@ def test_run_ec2_flag(
     mock_directory_exists.return_value = False
 
     # Run
-    with pytest.raises(ValueError,
-                       match=r'Directories in mock/path do not exist'):
+    with pytest.raises(ValueError, match=r'Directories in mock/path do not exist'):
         benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/mock/path')
 
 
@@ -205,9 +195,15 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         'synthesizers': [GaussianCopulaSynthesizer, CTGANSynthesizer],
         'custom_synthesizers': None,
         'sdv_datasets': [
-            'adult', 'alarm', 'census',
-            'child', 'expedia_hotel_logs',
-            'insurance', 'intrusion', 'news', 'covtype'
+            'adult',
+            'alarm',
+            'census',
+            'child',
+            'expedia_hotel_logs',
+            'insurance',
+            'intrusion',
+            'news',
+            'covtype',
         ],
         'limit_dataset_size': True,
         'compute_quality_score': False,
@@ -218,7 +214,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         'additional_datasets_folder': 'Details/',
         'show_progress': False,
         'multi_processing_config': None,
-        'dummy': True
+        'dummy': True,
     }
     mock_write_permissions.return_value = True
     mock_directory_exists.return_value = True
