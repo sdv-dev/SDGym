@@ -1,6 +1,8 @@
 """Utils for the CLI module."""
+
 import io
 import pathlib
+from pathlib import Path
 
 import pandas as pd
 import tqdm
@@ -85,8 +87,7 @@ def read_csv_from_path(path, aws_key, aws_secret):
         csv_files = [f for f in resp['Contents'] if f['Key'].endswith('.csv')]
         for csv_file in csv_files:
             csv_file_key = csv_file['Key']
-            csv_contents.append(
-                read_csv(f's3://{bucket_name}/{csv_file_key}', aws_key, aws_secret))
+            csv_contents.append(read_csv(f's3://{bucket_name}/{csv_file_key}', aws_key, aws_secret))
 
     else:
         run_path = pathlib.Path(path)

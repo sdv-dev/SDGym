@@ -1,4 +1,5 @@
 """Module to collect results."""
+
 from sdgym.cli.utils import read_csv_from_path
 from sdgym.s3 import write_csv
 

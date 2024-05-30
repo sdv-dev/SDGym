@@ -1,4 +1,5 @@
 """Base classes for synthesizers."""
+
 import abc
 import logging
 
@@ -108,8 +109,10 @@ class MultiSingleTableBaselineSynthesizer(BaselineSynthesizer, abc.ABC):
     def _get_foreign_keys(self, metadata, table_name, child_name):
         foreign_keys = []
         for relation in metadata.relationships:
-            if table_name == relation['parent_table_name'] and \
-               child_name == relation['child_table_name']:
+            if (
+                table_name == relation['parent_table_name']
+                and child_name == relation['child_table_name']
+            ):
                 foreign_keys.append(relation['child_foreign_key'])
 
         return foreign_keys

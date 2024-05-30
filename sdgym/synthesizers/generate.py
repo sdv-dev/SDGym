@@ -3,7 +3,11 @@
 from sdv.multi_table.hma import HMASynthesizer
 from sdv.sequential import PARSynthesizer
 from sdv.single_table import (
-    CopulaGANSynthesizer, CTGANSynthesizer, GaussianCopulaSynthesizer, TVAESynthesizer)
+    CopulaGANSynthesizer,
+    CTGANSynthesizer,
+    GaussianCopulaSynthesizer,
+    TVAESynthesizer,
+)
 
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
 from sdgym.synthesizers.sdv import SDVRelationalSynthesizer, SDVTabularSynthesizer
@@ -78,8 +82,9 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
     return NewSynthesizer
 
 
-def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
-                                    sample_from_synthesizer_fn):
+def create_single_table_synthesizer(
+    display_name, get_trained_synthesizer_fn, sample_from_synthesizer_fn
+):
     """Create a new single-table synthesizer.
 
     Args:
@@ -95,6 +100,7 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
+
     class NewSynthesizer(BaselineSynthesizer):
         """New Synthesizer class.
 
@@ -140,8 +146,9 @@ def create_single_table_synthesizer(display_name, get_trained_synthesizer_fn,
     return NewSynthesizer
 
 
-def create_multi_table_synthesizer(display_name, get_trained_synthesizer_fn,
-                                   sample_from_synthesizer_fn):
+def create_multi_table_synthesizer(
+    display_name, get_trained_synthesizer_fn, sample_from_synthesizer_fn
+):
     """Create a new multi-table synthesizer.
 
     Args:
@@ -157,6 +164,7 @@ def create_multi_table_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
+
     class NewSynthesizer(MultiSingleTableBaselineSynthesizer):
         """New Synthesizer class.
 
@@ -200,8 +208,9 @@ def create_multi_table_synthesizer(display_name, get_trained_synthesizer_fn,
     return NewSynthesizer
 
 
-def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
-                                  sample_from_synthesizer_fn):
+def create_sequential_synthesizer(
+    display_name, get_trained_synthesizer_fn, sample_from_synthesizer_fn
+):
     """Create a new sequential synthesizer.
 
     Args:
@@ -217,6 +226,7 @@ def create_sequential_synthesizer(display_name, get_trained_synthesizer_fn,
         class:
             The synthesizer class.
     """
+
     class NewSynthesizer(BaselineSynthesizer):
         """New Synthesizer class.
 

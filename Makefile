@@ -79,18 +79,15 @@ install-develop: clean-build clean-pyc clean-pyc ## install the package in edita
 # LINT TARGETS
 
 .PHONY: lint
-lint: ## check style with flake8 and isort
+lint:
 	invoke lint
 
 .PHONY: fix-lint
-fix-lint: ## fix lint issues using autoflake, autopep8, and isort
-	find sdgym tests -name '*.py' | xargs autoflake --in-place --remove-all-unused-imports --remove-unused-variables
-	autopep8 --in-place --recursive --aggressive sdgym tests
-	isort --apply --atomic sdgym tests
-
+fix-lint:
+	ruff check --fix .
+	ruff format
 
 # TEST TARGETS
-
 .PHONY: test-unit
 test-unit: ## run tests quickly with the default Python
 	python -m pytest --cov=sdgym

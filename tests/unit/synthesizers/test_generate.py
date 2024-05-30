@@ -1,4 +1,5 @@
 """Tests for the generate module."""
+
 from unittest.mock import Mock
 
 import pytest
@@ -6,7 +7,10 @@ import pytest
 from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesizer
 from sdgym.synthesizers import SDVRelationalSynthesizer, SDVTabularSynthesizer
 from sdgym.synthesizers.generate import (
-    SYNTHESIZER_MAPPING, create_multi_table_synthesizer, create_sequential_synthesizer)
+    SYNTHESIZER_MAPPING,
+    create_multi_table_synthesizer,
+    create_sequential_synthesizer,
+)
 
 
 def test_create_single_table_synthesizer():
@@ -76,8 +80,8 @@ def test_create_sdv_variant_synthesizer_error():
     with pytest.raises(
         ValueError,
         match=r'Synthesizer class test is not recognized. The supported options are '
-              'GaussianCopulaSynthesizer, CTGANSynthesizer, '
-              'CopulaGANSynthesizer, TVAESynthesizer, PARSynthesizer, HMASynthesizer'
+        'GaussianCopulaSynthesizer, CTGANSynthesizer, '
+        'CopulaGANSynthesizer, TVAESynthesizer, PARSynthesizer, HMASynthesizer',
     ):
         create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 

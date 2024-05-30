@@ -26,7 +26,13 @@ from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
-    format_exception, get_duplicates, get_num_gpus, get_size_of, get_synthesizers, used_memory)
+    format_exception,
+    get_duplicates,
+    get_num_gpus,
+    get_size_of,
+    get_synthesizers,
+    used_memory,
+)
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
@@ -74,9 +80,17 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
-def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_datasets_folder,
-                            sdmetrics, detailed_results_folder, timeout,
-                            compute_quality_score, synthesizers, custom_synthesizers):
+def _generate_job_args_list(
+    limit_dataset_size,
+    sdv_datasets,
+    additional_datasets_folder,
+    sdmetrics,
+    detailed_results_folder,
+    timeout,
+    compute_quality_score,
+    synthesizers,
+    custom_synthesizers,
+):
     # Get list of synthesizer objects
     synthesizers = [] if synthesizers is None else synthesizers
     custom_synthesizers = [] if custom_synthesizers is None else custom_synthesizers
@@ -84,8 +98,11 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
 
     # Get list of dataset paths
     sdv_datasets = [] if sdv_datasets is None else get_dataset_paths(datasets=sdv_datasets)
-    additional_datasets = [] if additional_datasets_folder is None else get_dataset_paths(
-        bucket=additional_datasets_folder)
+    additional_datasets = (
+        []
+        if additional_datasets_folder is None
+        else get_dataset_paths(bucket=additional_datasets_folder)
+    )
     datasets = sdv_datasets + additional_datasets
 
     job_tuples = []
@@ -96,9 +113,7 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
     job_args_list = []
     for synthesizer, dataset in job_tuples:
         data, metadata_dict = load_dataset(
-            'single_table',
-            dataset,
-            limit_dataset_size=limit_dataset_size
+            'single_table', dataset, limit_dataset_size=limit_dataset_size
         )
 
         args = (
@@ -110,7 +125,7 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
             timeout,
             compute_quality_score,
             dataset.name,
-            'single_table'
+            'single_table',
         )
         job_args_list.append(args)
 
@@ -119,8 +134,7 @@ def _generate_job_args_list(limit_dataset_size, sdv_datasets, additional_dataset
 
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
-    assert issubclass(
-        synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
+    assert issubclass(synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
 
     synthesizer_object = synthesizer()
     get_synthesizer = synthesizer_object.get_trained_synthesizer
@@ -143,8 +157,16 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
 
-def _compute_scores(metrics, real_data, synthetic_data, metadata,
-                    output, compute_quality_score, modality, dataset_name):
+def _compute_scores(
+    metrics,
+    real_data,
+    synthetic_data,
+    metadata,
+    output,
+    compute_quality_score,
+    modality,
+    dataset_name,
+):
     metrics = metrics or []
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, modality='single-table')
@@ -168,14 +190,15 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata,
                 normalized_score = metric.normalize(score)
             except Exception:
                 LOGGER.exception(
-                    'Metric %s failed on dataset %s. Skipping.', metric_name, dataset_name)
+                    'Metric %s failed on dataset %s. Skipping.', metric_name, dataset_name
+                )
                 _, error = format_exception()
 
             scores[-1].update({
                 'score': score,
                 'normalized_score': normalized_score,
                 'error': error,
-                'metric_time': (datetime.utcnow() - start).total_seconds()
+                'metric_time': (datetime.utcnow() - start).total_seconds(),
             })
             output['scores'] = scores  # re-inject list to multiprocessing output
 
@@ -191,8 +214,16 @@ def _compute_scores(metrics, real_data, synthetic_data, metadata,
         output['quality_score'] = quality_report.get_score()
 
 
-def _score(synthesizer, data, metadata, metrics, output=None,
-           compute_quality_score=False, modality=None, dataset_name=None):
+def _score(
+    synthesizer,
+    data,
+    metadata,
+    metrics,
+    output=None,
+    compute_quality_score=False,
+    modality=None,
+    dataset_name=None,
+):
     if output is None:
         output = {}
 
@@ -201,13 +232,17 @@ def _score(synthesizer, data, metadata, metrics, output=None,
     try:
         LOGGER.info(
             'Running %s on %s dataset %s; %s',
-            synthesizer['name'], modality, dataset_name, used_memory()
+            synthesizer['name'],
+            modality,
+            dataset_name,
+            used_memory(),
         )
 
         output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
         output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, data.copy(), metadata)
+            synthesizer, data.copy(), metadata
+        )
 
         output['synthetic_data'] = synthetic_data
         output['train_time'] = train_time.total_seconds()
@@ -217,10 +252,13 @@ def _score(synthesizer, data, metadata, metrics, output=None,
 
         LOGGER.info(
             'Scoring %s on %s dataset %s; %s',
-            synthesizer['name'], modality, dataset_name, used_memory()
+            synthesizer['name'],
+            modality,
+            dataset_name,
+            used_memory(),
         )
 
-        del output['error']   # No error so far. _compute_scores tracks its own errors by metric
+        del output['error']  # No error so far. _compute_scores tracks its own errors by metric
         _compute_scores(
             metrics,
             data,
@@ -229,7 +267,7 @@ def _score(synthesizer, data, metadata, metrics, output=None,
             output,
             compute_quality_score,
             modality,
-            dataset_name
+            dataset_name,
         )
 
         output['timeout'] = False  # There was no timeout
@@ -244,13 +282,22 @@ def _score(synthesizer, data, metadata, metrics, output=None,
 
     finally:
         LOGGER.info(
-            'Finished %s on dataset %s; %s', synthesizer['name'], dataset_name, used_memory())
+            'Finished %s on dataset %s; %s', synthesizer['name'], dataset_name, used_memory()
+        )
 
     return output
 
 
-def _score_with_timeout(timeout, synthesizer, data, metadata, metrics,
-                        compute_quality_score=False, modality=None, dataset_name=None):
+def _score_with_timeout(
+    timeout,
+    synthesizer,
+    data,
+    metadata,
+    metrics,
+    compute_quality_score=False,
+    modality=None,
+    dataset_name=None,
+):
     with multiprocessing.Manager() as manager:
         output = manager.dict()
         process = multiprocessing.Process(
@@ -263,7 +310,7 @@ def _score_with_timeout(timeout, synthesizer, data, metadata, metrics,
                 output,
                 compute_quality_score,
                 modality,
-                dataset_name
+                dataset_name,
             ),
         )
 
@@ -326,12 +373,26 @@ def _run_job(args):
     # Reset random seed
     np.random.seed()
 
-    synthesizer, data, metadata, metrics, cache_dir, \
-        timeout, compute_quality_score, dataset_name, modality = args
+    (
+        synthesizer,
+        data,
+        metadata,
+        metrics,
+        cache_dir,
+        timeout,
+        compute_quality_score,
+        dataset_name,
+        modality,
+    ) = args
 
     name = synthesizer['name']
-    LOGGER.info('Evaluating %s on dataset %s with timeout %ss; %s',
-                name, dataset_name, timeout, used_memory())
+    LOGGER.info(
+        'Evaluating %s on dataset %s with timeout %ss; %s',
+        name,
+        dataset_name,
+        timeout,
+        used_memory(),
+    )
 
     output = {}
     try:
@@ -344,7 +405,7 @@ def _run_job(args):
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
                 modality=modality,
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             )
         else:
             output = _score(
@@ -354,7 +415,7 @@ def _run_job(args):
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
                 modality=modality,
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             )
     except Exception as error:
         output['exception'] = error
@@ -410,7 +471,8 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
         scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
     else:
         scores = tqdm.tqdm(
-            scores, total=len(job_args_list), file=TqdmLogger(), position=0, leave=True)
+            scores, total=len(job_args_list), file=TqdmLogger(), position=0, leave=True
+        )
 
     if not scores:
         raise SDGymError('No valid Dataset/Synthesizer combination given.')
@@ -446,10 +508,9 @@ def _get_empty_dataframe(compute_quality_score, sdmetrics):
 def _directory_exists(bucket_name, s3_file_path):
     # Find the last occurrence of '/' in the file path
     last_slash_index = s3_file_path.rfind('/')
-    directory_prefix = s3_file_path[:last_slash_index + 1]
+    directory_prefix = s3_file_path[: last_slash_index + 1]
     s3_client = boto3.client('s3')
-    response = s3_client.list_objects_v2(
-        Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
     return 'Contents' in response or 'CommonPrefixes' in response
 
 
@@ -550,23 +611,15 @@ def _create_instance_on_ec2(script_content):
         MaxCount=1,
         UserData=user_data_script,
         TagSpecifications=[
-            {
-                'ResourceType': 'instance',
-                'Tags': [
-                    {
-                        'Key': 'Name',
-                        'Value': 'SDGym_Temp'
-                    }
-                ]
-            }
+            {'ResourceType': 'instance', 'Tags': [{'Key': 'Name', 'Value': 'SDGym_Temp'}]}
         ],
         BlockDeviceMappings=[
             {
                 'DeviceName': '/dev/sda1',
                 'Ebs': {
                     'VolumeSize': 16,  # Specify the desired size in GB
-                    'VolumeType': 'gp2'  # Change the volume type as needed
-                }
+                    'VolumeType': 'gp2',  # Change the volume type as needed
+                },
             }
         ],
     )
@@ -578,12 +631,21 @@ def _create_instance_on_ec2(script_content):
     print(f'Job kicked off for SDGym on {instance_id}')  # noqa
 
 
-def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizers=None,
-                           sdv_datasets=DEFAULT_DATASETS, additional_datasets_folder=None,
-                           limit_dataset_size=False, compute_quality_score=True,
-                           sdmetrics=DEFAULT_METRICS, timeout=None, output_filepath=None,
-                           detailed_results_folder=None, show_progress=False,
-                           multi_processing_config=None, run_on_ec2=False):
+def benchmark_single_table(
+    synthesizers=DEFAULT_SYNTHESIZERS,
+    custom_synthesizers=None,
+    sdv_datasets=DEFAULT_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    sdmetrics=DEFAULT_METRICS,
+    timeout=None,
+    output_filepath=None,
+    detailed_results_folder=None,
+    show_progress=False,
+    multi_processing_config=None,
+    run_on_ec2=False,
+):
     """Run the SDGym benchmark on single-table datasets.
 
     Args:
@@ -655,8 +717,16 @@ def benchmark_single_table(synthesizers=DEFAULT_SYNTHESIZERS, custom_synthesizer
     _create_detailed_results_directory(detailed_results_folder)
 
     job_args_list = _generate_job_args_list(
-        limit_dataset_size, sdv_datasets, additional_datasets_folder, sdmetrics,
-        detailed_results_folder, timeout, compute_quality_score, synthesizers, custom_synthesizers)
+        limit_dataset_size,
+        sdv_datasets,
+        additional_datasets_folder,
+        sdmetrics,
+        detailed_results_folder,
+        timeout,
+        compute_quality_score,
+        synthesizers,
+        custom_synthesizers,
+    )
 
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
