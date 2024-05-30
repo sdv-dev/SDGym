@@ -174,7 +174,6 @@ preview = true
 line-length = 100
 indent-width = 4
 src = ["sdgym"]
-target-version = "py38"
 exclude = [
     "docs",
     ".tox",
