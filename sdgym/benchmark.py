@@ -134,8 +134,7 @@ def _generate_job_args_list(
 
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
-    assert issubclass(
-        synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
+    assert issubclass(synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
 
     synthesizer_object = synthesizer()
     get_synthesizer = synthesizer_object.get_trained_synthesizer
@@ -511,8 +510,7 @@ def _directory_exists(bucket_name, s3_file_path):
     last_slash_index = s3_file_path.rfind('/')
     directory_prefix = s3_file_path[: last_slash_index + 1]
     s3_client = boto3.client('s3')
-    response = s3_client.list_objects_v2(
-        Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
     return 'Contents' in response or 'CommonPrefixes' in response
 
 
