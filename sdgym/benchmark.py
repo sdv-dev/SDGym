@@ -134,7 +134,8 @@ def _generate_job_args_list(
 
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
-    assert issubclass(synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
+    assert issubclass(
+        synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
 
     synthesizer_object = synthesizer()
     get_synthesizer = synthesizer_object.get_trained_synthesizer
@@ -510,7 +511,8 @@ def _directory_exists(bucket_name, s3_file_path):
     last_slash_index = s3_file_path.rfind('/')
     directory_prefix = s3_file_path[: last_slash_index + 1]
     s3_client = boto3.client('s3')
-    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
+    response = s3_client.list_objects_v2(
+        Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
     return 'Contents' in response or 'CommonPrefixes' in response
 
 
@@ -551,7 +553,11 @@ def _create_sdgym_script(params, output_filepath):
     # Generate the output script to run on the e2 instance
     synthesizer_string = 'synthesizers=['
     for synthesizer in params['synthesizers']:
-        synthesizer_string += synthesizer.__name__ + ', '
+        if isinstance(synthesizer, str):
+            synthesizer_string += synthesizer + ', '
+        else:
+            synthesizer_string += synthesizer.__name__ + ', '
+    synthesizer_string = synthesizer_string[:-2]
     synthesizer_string += ']'
     # The indentation of the string is important for the python script
     script_content = f"""import boto3
