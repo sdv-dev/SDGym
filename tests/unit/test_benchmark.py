@@ -5,7 +5,7 @@ import pytest
 
 from sdgym import benchmark_single_table
 from sdgym.benchmark import _check_write_permissions, _create_sdgym_script, _directory_exists
-from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
+from sdgym.synthesizers import GaussianCopulaSynthesizer
 
 
 @patch('sdgym.benchmark.os.path')
@@ -189,10 +189,11 @@ def test_run_ec2_flag(create_ec2_mock, session_mock, mock_write_permissions, moc
 @patch('sdgym.benchmark._check_write_permissions')
 @patch('sdgym.benchmark.boto3.session.Session')
 def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directory_exists):
+    """Test that the created SDGym script contains the expected values."""
     # Setup
     session_mock.get_credentials.return_value = MagicMock()
     test_params = {
-        'synthesizers': [GaussianCopulaSynthesizer, CTGANSynthesizer],
+        'synthesizers': [GaussianCopulaSynthesizer, 'CTGANSynthesizer'],
         'custom_synthesizers': None,
         'sdv_datasets': [
             'adult',
