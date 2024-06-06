@@ -551,7 +551,12 @@ def _create_sdgym_script(params, output_filepath):
     # Generate the output script to run on the e2 instance
     synthesizer_string = 'synthesizers=['
     for synthesizer in params['synthesizers']:
-        synthesizer_string += synthesizer.__name__ + ', '
+        if isinstance(synthesizer, str):
+            synthesizer_string += synthesizer + ', '
+        else:
+            synthesizer_string += synthesizer.__name__ + ', '
+    if params['synthesizers']:
+        synthesizer_string = synthesizer_string[:-2]
     synthesizer_string += ']'
     # The indentation of the string is important for the python script
     script_content = f"""import boto3
