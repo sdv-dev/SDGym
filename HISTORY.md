@@ -1,6 +1,6 @@
 # History
 
-## v0.8.0 - 2024-06-04
+## v0.8.0 - 2024-06-07
 
 This release adds support for both Python 3.11 and 3.12! It also drops support for Python 3.7.
 
@@ -30,6 +30,7 @@ This release adds a new parameter to `benchmark_single_table` called `run_on_ec2
 
 * The `UniformSynthesizer` should follow the sdtypes in metadata (not the data's dtypes)  - Issue [#248](https://github.com/sdv-dev/SDGym/issues/248) by @lajohn4747
 * Fix minimum version workflow when pointing to github branch - Issue [#280](https://github.com/sdv-dev/SDGym/issues/280) by @R-Palazzo
+* Passing synthesizer as string fails if run_on_ec2 is enabled - Issue [#306](https://github.com/sdv-dev/SDGym/issues/306) by @lajohn4747
 
 ### New Features
 
