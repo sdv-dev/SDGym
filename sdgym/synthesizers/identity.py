@@ -1,4 +1,5 @@
 """DataIdentity module."""
+
 import copy
 
 from sdgym.synthesizers.base import BaselineSynthesizer

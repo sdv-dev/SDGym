@@ -1,4 +1,5 @@
 """Functions to summarize the sdgym.run output."""
+
 import io
 import re
 
@@ -16,7 +17,7 @@ KNOWN_ERRORS = (
 MODALITY_BASELINES = {
     'single-table': ['Uniform', 'Independent', 'CLBN', 'PrivBN'],
     'multi-table': ['Uniform', 'Independent'],
-    'timeseries': []
+    'timeseries': [],
 }
 
 LIBRARIES = {
@@ -47,7 +48,7 @@ def _coverage(data):
     total = len(data.Dataset.unique())
     scores = data.groupby('Synthesizer').apply(lambda x: x.Quality_Score.notnull().sum())
     coverage_perc = scores / total
-    coverage_str = (scores.astype(str) + f' / {total}')
+    coverage_str = scores.astype(str) + f' / {total}'
     return coverage_perc, coverage_str
 
 
@@ -72,7 +73,8 @@ def _synthesizer_beat_baseline(synthesizer_data, baseline_scores):
 
 def _beat_baseline(data, baseline_scores):
     return data.groupby('Synthesizer').apply(
-        _synthesizer_beat_baseline, baseline_scores=baseline_scores)
+        _synthesizer_beat_baseline, baseline_scores=baseline_scores
+    )
 
 
 def summarize(data, baselines=(), datasets=None):
@@ -222,17 +224,22 @@ def _add_summary_libraries(summary_data):
 def _add_summary(data, modality, baselines, writer):
     total_summary = summarize(data, baselines=baselines)
 
-    summary = total_summary[[
-        'coverage_perc',
-        'best_time',
-        'second_best_time',
-        'third_best_time',
-    ]].rename({
-        'coverage_perc': 'coverage %',
-        'best_time': '# of Wins',
-        'second_best_time': '# of 2nd best',
-        'third_best_time': '# of 3rd best',
-    }, axis=1)
+    summary = total_summary[
+        [
+            'coverage_perc',
+            'best_time',
+            'second_best_time',
+            'third_best_time',
+        ]
+    ].rename(
+        {
+            'coverage_perc': 'coverage %',
+            'best_time': '# of Wins',
+            'second_best_time': '# of 2nd best',
+            'third_best_time': '# of 3rd best',
+        },
+        axis=1,
+    )
     summary.drop(index='Identity', inplace=True, errors='ignore')
     summary = _add_summary_libraries(summary)
 
@@ -240,50 +247,50 @@ def _add_summary(data, modality, baselines, writer):
     quality = total_summary[['total', 'solved', 'best'] + beat_baseline_headers]
     performance = total_summary[['time']]
     error_details = errors_summary(data)
-    error_summary = total_summary[[
-        'total', 'solved', 'coverage', 'coverage_perc', 'timeout',
-        'memory_error', 'errors', 'metric_errors'
-    ]]
+    error_summary = total_summary[
+        [
+            'total',
+            'solved',
+            'coverage',
+            'coverage_perc',
+            'timeout',
+            'memory_error',
+            'errors',
+            'metric_errors',
+        ]
+    ]
     summary.index.name = ''
     quality.index.name = ''
     performance.index.name = ''
     error_details.index.name = ''
     error_summary.index.name = ''
 
-    cell_fmt = writer.book.add_format({
-        'font_name': 'Roboto',
-        'font_size': '11',
-        'align': 'right'
-    })
+    cell_fmt = writer.book.add_format({'font_name': 'Roboto', 'font_size': '11', 'align': 'right'})
     index_fmt = writer.book.add_format({
         'font_name': 'Roboto',
         'font_size': '11',
         'bold': True,
-        'align': 'center'
+        'align': 'center',
     })
     header_fmt = writer.book.add_format({
         'font_name': 'Roboto',
         'font_size': '11',
         'bold': True,
-        'align': 'right'
+        'align': 'right',
     })
 
     add_sheet(summary, f'Summary ({modality})', writer, cell_fmt, index_fmt, header_fmt)
     add_sheet(quality, f'Quality ({modality})', writer, cell_fmt, index_fmt, header_fmt)
     add_sheet(performance, f'Performance ({modality})', writer, cell_fmt, index_fmt, header_fmt)
-    add_sheet(error_summary, f'Errors Summary ({modality})', writer, cell_fmt, index_fmt,
-              header_fmt)
     add_sheet(
-        error_details,
-        f'Errors Detail ({modality})',
-        writer,
-        cell_fmt,
-        index_fmt,
-        header_fmt)
+        error_summary, f'Errors Summary ({modality})', writer, cell_fmt, index_fmt, header_fmt
+    )
+    add_sheet(error_details, f'Errors Detail ({modality})', writer, cell_fmt, index_fmt, header_fmt)
 
 
-def make_summary_spreadsheet(results_csv_path, output_path=None, baselines=None,
-                             aws_key=None, aws_secret=None):
+def make_summary_spreadsheet(
+    results_csv_path, output_path=None, baselines=None, aws_key=None, aws_secret=None
+):
     """Create a spreadsheet document organizing information from results.
 
     This function creates a ``.xlsx`` file containing information from

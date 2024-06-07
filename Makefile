@@ -79,18 +79,15 @@ install-develop: clean-build clean-pyc clean-pyc ## install the package in edita
 # LINT TARGETS
 
 .PHONY: lint
-lint: ## check style with flake8 and isort
+lint:
 	invoke lint
 
 .PHONY: fix-lint
-fix-lint: ## fix lint issues using autoflake, autopep8, and isort
-	find sdgym tests -name '*.py' | xargs autoflake --in-place --remove-all-unused-imports --remove-unused-variables
-	autopep8 --in-place --recursive --aggressive sdgym tests
-	isort --apply --atomic --recursive sdgym tests
-
+fix-lint:
+	ruff check --fix .
+	ruff format
 
 # TEST TARGETS
-
 .PHONY: test-unit
 test-unit: ## run tests quickly with the default Python
 	python -m pytest --cov=sdgym
@@ -123,8 +120,7 @@ coverage: ## check code coverage quickly with the default Python
 
 .PHONY: dist
 dist: clean ## builds source and wheel package
-	python setup.py sdist
-	python setup.py bdist_wheel
+	python -m build --wheel --sdist
 	ls -l dist
 
 .PHONY: publish-confirm
@@ -142,14 +138,14 @@ publish-test: dist publish-confirm ## package and upload a release on TestPyPI
 publish: dist publish-confirm ## package and upload a release
 	twine upload dist/*
 
-.PHONY: git-merge-master-stable
-git-merge-master-stable: ## Merge master into stable
+.PHONY: git-merge-main-stable
+git-merge-main-stable: ## Merge main into stable
 	git checkout stable || git checkout -b stable
-	git merge --no-ff master -m"make release-tag: Merge branch 'master' into stable"
+	git merge --no-ff main -m"make release-tag: Merge branch 'main' into stable"
 
-.PHONY: git-merge-stable-master
-git-merge-stable-master: ## Merge stable into master
-	git checkout master
+.PHONY: git-merge-stable-main
+git-merge-stable-main: ## Merge stable into main
+	git checkout main
 	git merge stable
 
 .PHONY: git-push
@@ -162,33 +158,33 @@ git-push-tags-stable: ## Push tags and stable to github
 
 .PHONY: bumpversion-release
 bumpversion-release: ## Bump the version to the next release
-	bumpversion release
+	bump-my-version bump release
 
 .PHONY: bumpversion-patch
 bumpversion-patch: ## Bump the version to the next patch
-	bumpversion --no-tag patch
+	bump-my-version bump --no-tag patch
 
 .PHONY: bumpversion-candidate
 bumpversion-candidate: ## Bump the version to the next candidate
-	bumpversion candidate --no-tag
+	bump-my-version bump candidate --no-tag
 
 .PHONY: bumpversion-minor
 bumpversion-minor: ## Bump the version the next minor skipping the release
-	bumpversion --no-tag minor
+	bump-my-version bump --no-tag minor
 
 .PHONY: bumpversion-major
 bumpversion-major: ## Bump the version the next major skipping the release
-	bumpversion --no-tag major
+	bump-my-version bump --no-tag major
 
 .PHONY: bumpversion-revert
 bumpversion-revert: ## Undo a previous bumpversion-release
 	git tag --delete $(shell git tag --points-at HEAD)
-	git checkout master
+	git checkout main
 	git branch -D stable
 
 CLEAN_DIR := $(shell git status --short | grep -v ??)
 CURRENT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-CURRENT_VERSION := $(shell grep "^current_version" setup.cfg | grep -o "dev[0-9]*")
+CURRENT_VERSION := $(shell grep "^current_version" pyproject.toml | grep -o "dev[0-9]*")
 CHANGELOG_LINES := $(shell git diff HEAD..origin/stable HISTORY.md 2>&1 | wc -l)
 
 .PHONY: check-clean
@@ -197,10 +193,10 @@ ifneq ($(CLEAN_DIR),)
 	$(error There are uncommitted changes)
 endif
 
-.PHONY: check-master
-check-master: ## Check if we are in master branch
-ifneq ($(CURRENT_BRANCH),master)
-	$(error Please make the release from master branch\n)
+.PHONY: check-main
+check-main: ## Check if we are in main branch
+ifneq ($(CURRENT_BRANCH),main)
+	$(error Please make the release from main branch\n)
 endif
 
 .PHONY: check-candidate
@@ -215,19 +211,25 @@ ifeq ($(CHANGELOG_LINES),0)
 	$(error Please insert the release notes in HISTORY.md before releasing)
 endif
 
+.PHONY: check-deps
+check-deps: # Dependency targets
+	$(eval allow_list='appdirs=|compress-pickle=|humanfriendly=|numpy=|pandas=|\
+	psutil=|scikit-learn=|scipy=|tabulate=|torch=|tqdm=|XlsxWriter=|rdt=|sdmetrics=|sdv=')
+	pip freeze | grep -v "SDMetrics.git" | grep -E $(allow_list) | sort > $(OUTPUT_FILEPATH)
+
 .PHONY: check-release
-check-release: check-clean check-candidate check-master check-history ## Check if the release can be made
+check-release: check-clean check-candidate check-main check-history ## Check if the release can be made
 	@echo "A new release can be made"
 
 .PHONY: release
-release: check-release git-merge-master-stable bumpversion-release git-push-tags-stable \
-	publish git-merge-stable-master bumpversion-patch git-push
+release: check-release git-merge-main-stable bumpversion-release git-push-tags-stable \
+	publish git-merge-stable-main bumpversion-patch git-push
 
 .PHONY: release-test
-release-test: check-release git-merge-master-stable bumpversion-release bumpversion-revert
+release-test: check-release git-merge-main-stable bumpversion-release bumpversion-revert
 
 .PHONY: release-candidate
-release-candidate: check-master publish bumpversion-candidate git-push
+release-candidate: check-main publish bumpversion-candidate git-push
 
 .PHONY: release-candidate-test
-release-candidate-test: check-clean check-master publish-test
+release-candidate-test: check-clean check-main publish-test

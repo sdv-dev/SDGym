@@ -8,7 +8,7 @@ __author__ = 'DataCebo, Inc.'
 __copyright__ = 'Copyright (c) 2022 DataCebo, Inc.'
 __email__ = 'info@sdv.dev'
 __license__ = 'BSL-1.1'
-__version__ = '0.7.0'
+__version__ = '0.8.0.dev2'
 
 import logging
 
@@ -29,5 +29,5 @@ __all__ = [
     'benchmark_single_table',
     'get_available_datasets',
     'create_sdv_synthesizer_variant',
-    'create_single_table_synthesizer'
+    'create_single_table_synthesizer',
 ]

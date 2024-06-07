@@ -1,0 +1,219 @@
+[project]
+name = 'sdgym'
+description = 'Benchmark tabular synthetic data generators using a variety of datasets'
+authors = [{ name = 'DataCebo, Inc.', email = 'info@sdv.dev' }]
+classifiers = [
+    'Development Status :: 2 - Pre-Alpha',
+    'Intended Audience :: Developers',
+    'License :: Free for non-commercial use',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+]
+keywords = ['machine learning', 'synthetic data generation', 'benchmark', 'generative models']
+dynamic = ['version']
+license = { text = 'BSL-1.1' }
+requires-python = '>=3.8,<3.13'
+readme = 'README.md'
+dependencies = [
+    'appdirs>=1.3',
+    'boto3>=1.28,<2',
+    'botocore>=1.31,<2',
+    'compress-pickle>=1.2.0',
+    'humanfriendly>=8.2',
+    "numpy>=1.21.0;python_version<'3.10'",
+    "numpy>=1.23.3,<2;python_version>='3.10' and python_version<'3.12'",
+    "numpy>=1.26.0,<2;python_version>='3.12'",
+    "pandas>=1.4.0;python_version<'3.11'",
+    "pandas>=1.5.0;python_version>='3.11' and python_version<'3.12'",
+    "pandas>=2.1.1;python_version>='3.12'",
+    'psutil>=5.7',
+    "scikit-learn>=1.0.2;python_version<'3.10'",
+    "scikit-learn>=1.1.0;python_version>='3.10' and python_version<'3.11'",
+    "scikit-learn>=1.1.3;python_version>='3.11' and python_version<'3.12'",
+    "scikit-learn>=1.3.1;python_version>='3.12'",
+    "scipy>=1.7.3;python_version<'3.10'",
+    "scipy>=1.9.2;python_version>='3.10' and python_version<'3.12'",
+    "scipy>=1.12.0;python_version>='3.12'",
+    'tabulate>=0.8.3,<0.9',
+    "torch>=1.9.0;python_version<'3.10'",
+    "torch>=2.0.0;python_version>='3.10' and python_version<'3.12'",
+    "torch>=2.2.0;python_version>='3.12'",
+    'tqdm>=4.29',
+    'XlsxWriter>=1.2.8',
+    'rdt>=1.12.1',
+    'sdmetrics>=0.14.1',
+    'sdv>=1.13.1',
+]
+
+[project.urls]
+"Source Code"= "https://github.com/sdv-dev/SDGym/"
+"Issue Tracker" = "https://github.com/sdv-dev/SDGym/issues"
+"Changes" = "https://github.com/sdv-dev/SDGym/blob/main/HISTORY.md"
+"Twitter" = "https://twitter.com/sdv_dev"
+"Chat" = "https://bit.ly/sdv-slack-invite"
+
+[project.entry-points]
+sdgym = { main = 'sdgym.cli.__main__:main' }
+
+[project.optional-dependencies]
+dask = ['dask', 'distributed']
+test = [
+    'pytest>=6.2.5',
+    'pytest-cov>=2.6.0',
+    'jupyter>=1.0.0,<2',
+    'rundoc>=0.4.3,<0.5',
+    'tomli>=2.0.0,<3',
+]
+dev = [
+    'sdgym[dask, test]',
+
+    # general
+    'build>=1.0.0,<2',
+    'bump-my-version>=0.18.3,<1',
+    'pip>=9.0.1',
+    'watchdog>=1.0.1,<5',
+
+    # style check
+    'ruff>=0.4.5,<1',
+
+    # distribute on PyPI
+    'twine>=1.10.0,<6',
+    'wheel>=0.30.0',
+
+    # Advanced testing
+    'coverage>=4.5.12,<8',
+    'tox>=2.9.1,<5',
+    'importlib-metadata>=3.6',
+
+    # Invoke
+    'invoke',
+]
+all = [
+    'sdgym[dask, test, dev]',
+]
+
+[tool.setuptools]
+include-package-data = true
+license-files = ['LICENSE']
+
+[tool.setuptools.packages.find]
+include = ['sdgym', 'sdgym.*']
+namespaces = false
+
+[tool.setuptools.package-data]
+'*' = [
+    'AUTHORS.rst',
+    'HISTORY.md',
+    'README.md',
+    '*.md',
+    '*.rst',
+    'conf.py',
+    'Makefile',
+    'make.bat',
+    '*.jpg',
+    '*.png',
+    '*.gif'
+]
+'sdgym' = ['leaderboard.csv']
+
+[tool.setuptools.exclude-package-data]
+'*' = [
+    '* __pycache__',
+    '*.py[co]',
+    'static_code_analysis.txt',
+]
+
+[tool.setuptools.dynamic]
+version = {attr = 'sdgym.__version__'}
+
+[tool.bumpversion]
+current_version = "0.8.0.dev2"
+parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.(?P<release>[a-z]+)(?P<candidate>\d+))?'
+serialize = [
+    '{major}.{minor}.{patch}.{release}{candidate}',
+	'{major}.{minor}.{patch}'
+]
+search = '{current_version}'
+replace = '{new_version}'
+regex = false
+ignore_missing_version = false
+tag = true
+sign_tags = false
+tag_name = 'v{new_version}'
+tag_message = 'Bump version: {current_version} → {new_version}'
+allow_dirty = false
+commit = true
+message = 'Bump version: {current_version} → {new_version}'
+commit_args = ''
+
+[tool.bumpversion.parts.release]
+first_value = 'dev'
+optional_value = 'release'
+values = [
+    'dev',
+    'release'
+]
+
+[[tool.bumpversion.files]]
+filename = "sdgym/__init__.py"
+search = "__version__ = '{current_version}'"
+replace = "__version__ = '{new_version}'"
+
+[build-system]
+requires = ['setuptools', 'wheel']
+build-backend = 'setuptools.build_meta'
+
+[tool.ruff]
+preview = true
+line-length = 100
+indent-width = 4
+src = ["sdgym"]
+exclude = [
+    "docs",
+    ".tox",
+    ".git",
+    "__pycache__",
+    ".ipynb_checkpoints"
+]
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    "D200",
+    # isort
+    "I001",
+]
+ignore = [
+    "E501",
+    "D107",  # Missing docstring in __init__
+    "D417",   # Missing argument descriptions in the docstring, this is a bug from pydocstyle: https://github.com/PyCQA/pydocstyle/issues/449
+]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+preview = true
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = ["X", "C", "X_padded", "Y", "Y_padded"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sdgym"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402", "F403", "F405", "E501", "I001"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

@@ -13,9 +13,15 @@ from sdgym.cli.summary import make_summary_spreadsheet
 @patch('sdgym.cli.summary.summarize')
 @patch('sdgym.cli.summary.pd.ExcelWriter')
 @patch('sdgym.cli.summary.add_sheet')
-def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_mock,
-                                  errors_summary_mock, preprocess_mock, read_csv_mock,
-                                  write_file_mock):
+def test_make_summary_spreadsheet(
+    add_sheet_mock,
+    excel_writer_mock,
+    summarize_mock,
+    errors_summary_mock,
+    preprocess_mock,
+    read_csv_mock,
+    write_file_mock,
+):
     """Test the ``sdgym.cli.summary.make_summary_spreadsheet`` function.
 
     The ``make_summary_spreadsheet`` function is expected to extract the correct
@@ -34,32 +40,31 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     object that is saved using ``sdgym.s3.write_file``.
     """
     # Setup
-    data = pd.DataFrame({
-        'total': [2, 2],
-        'solved': [2, 1],
-        'coverage': ['2 / 2', '1 / 2'],
-        'coverage_perc': [1.0, 0.5],
-        'time': [100, 200],
-        'best': [2, 0],
-        'best_time': [1, 0],
-        'second_best_time': [0, 1],
-        'third_best_time': [0, 0],
-        'beat_uniform': [2, 1],
-        'beat_independent': [2, 1],
-        'beat_clbn': [2, 1],
-        'beat_privbn': [2, 1],
-        'timeout': [0, 1],
-        'memory_error': [0, 0],
-        'errors': [0, 1],
-        'metric_errors': [0, 0],
-        'avg score': [0.9, 0.45]
-    }, index=['synth1', 'synth2'])
+    data = pd.DataFrame(
+        {
+            'total': [2, 2],
+            'solved': [2, 1],
+            'coverage': ['2 / 2', '1 / 2'],
+            'coverage_perc': [1.0, 0.5],
+            'time': [100, 200],
+            'best': [2, 0],
+            'best_time': [1, 0],
+            'second_best_time': [0, 1],
+            'third_best_time': [0, 0],
+            'beat_uniform': [2, 1],
+            'beat_independent': [2, 1],
+            'beat_clbn': [2, 1],
+            'beat_privbn': [2, 1],
+            'timeout': [0, 1],
+            'memory_error': [0, 0],
+            'errors': [0, 1],
+            'metric_errors': [0, 0],
+            'avg score': [0.9, 0.45],
+        },
+        index=['synth1', 'synth2'],
+    )
     preprocessed_data = pd.DataFrame({'modality': ['single-table']})
-    errors = pd.DataFrame({
-        'synth1': [0],
-        'synth2': [1],
-        'error': ['RuntimeError: error.']
-    })
+    errors = pd.DataFrame({'synth1': [0], 'synth2': [1], 'error': ['RuntimeError: error.']})
     preprocess_mock.return_value = preprocessed_data
     summarize_mock.return_value = data
     errors_summary_mock.return_value = errors
@@ -68,36 +73,45 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
     make_summary_spreadsheet('file_path.csv', 'output_path.xlsx', None, None, None)
 
     # Assert
-    expected_summary = pd.DataFrame({
-        'coverage %': [1.0, 0.5],
-        '# of Wins': [1, 0],
-        '# of 2nd best': [0, 1],
-        '# of 3rd best': [0, 0],
-        'library': ['Other', 'Other'],
-    }, index=['synth1', 'synth2'])
+    expected_summary = pd.DataFrame(
+        {
+            'coverage %': [1.0, 0.5],
+            '# of Wins': [1, 0],
+            '# of 2nd best': [0, 1],
+            '# of 3rd best': [0, 0],
+            'library': ['Other', 'Other'],
+        },
+        index=['synth1', 'synth2'],
+    )
     expected_summary.index.name = ''
-    expected_quality = pd.DataFrame({
-        'total': [2, 2],
-        'solved': [2, 1],
-        'best': [2, 0],
-        'beat_uniform': [2, 1],
-        'beat_independent': [2, 1],
-        'beat_clbn': [2, 1],
-        'beat_privbn': [2, 1]
-    }, index=['synth1', 'synth2'])
+    expected_quality = pd.DataFrame(
+        {
+            'total': [2, 2],
+            'solved': [2, 1],
+            'best': [2, 0],
+            'beat_uniform': [2, 1],
+            'beat_independent': [2, 1],
+            'beat_clbn': [2, 1],
+            'beat_privbn': [2, 1],
+        },
+        index=['synth1', 'synth2'],
+    )
     expected_quality.index.name = ''
     expected_performance = pd.DataFrame({'time': [100, 200]}, index=['synth1', 'synth2'])
     expected_performance.index.name = ''
-    expected_errors = pd.DataFrame({
-        'total': [2, 2],
-        'solved': [2, 1],
-        'coverage': ['2 / 2', '1 / 2'],
-        'coverage_perc': [1.0, 0.5],
-        'timeout': [0, 1],
-        'memory_error': [0, 0],
-        'errors': [0, 1],
-        'metric_errors': [0, 0]
-    }, index=['synth1', 'synth2'])
+    expected_errors = pd.DataFrame(
+        {
+            'total': [2, 2],
+            'solved': [2, 1],
+            'coverage': ['2 / 2', '1 / 2'],
+            'coverage_perc': [1.0, 0.5],
+            'timeout': [0, 1],
+            'memory_error': [0, 0],
+            'errors': [0, 1],
+            'metric_errors': [0, 0],
+        },
+        index=['synth1', 'synth2'],
+    )
     expected_errors.index.name = ''
     add_sheet_calls = add_sheet_mock.mock_calls
     read_csv_mock.assert_called_once_with('file_path.csv', None, None)
@@ -120,9 +134,16 @@ def test_make_summary_spreadsheet(add_sheet_mock, excel_writer_mock, summarize_m
 @patch('sdgym.cli.summary.summarize')
 @patch('sdgym.cli.summary.pd.ExcelWriter')
 @patch('sdgym.cli.summary.add_sheet')
-def test_make_summary_spreadsheet_no_output_path(add_sheet_mock, excel_writer_mock, summarize_mock,
-                                                 errors_summary_mock, preprocess_mock,
-                                                 read_csv_mock, add_summary_mock, write_file_mock):
+def test_make_summary_spreadsheet_no_output_path(
+    add_sheet_mock,
+    excel_writer_mock,
+    summarize_mock,
+    errors_summary_mock,
+    preprocess_mock,
+    read_csv_mock,
+    add_summary_mock,
+    write_file_mock,
+):
     """Test the ``sdgym.cli.summary.make_summary_spreadsheet`` function.
 
     The ``make_summary_spreadsheet`` function is expected to use the

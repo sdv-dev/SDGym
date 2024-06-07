@@ -120,7 +120,7 @@ Before you submit a pull request, check that it meets these guidelines:
 4. If the pull request adds functionality, the docs should be updated. Put
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
-5. The pull request should work for Python 3.7, 3.8, 3.9, and 3.10. Check
+5. The pull request should work for Python 3.8, 3.9, 3.10, 3.11 and 3.12. Check
    https://github.com/sdv-dev/SDGym/actions
    and make sure that all the checks pass.
 
@@ -170,16 +170,16 @@ Release Workflow
 The process of releasing a new version involves several steps combining both ``git`` and
 ``bumpversion`` which, briefly:
 
-1. Merge what is in ``master`` branch into ``stable`` branch.
+1. Merge what is in ``main`` branch into ``stable`` branch.
 2. Update the version in ``setup.cfg``, ``sdgym/__init__.py`` and ``HISTORY.md`` files.
 3. Create a new git tag pointing at the corresponding commit in ``stable`` branch.
-4. Merge the new commit from ``stable`` into ``master``.
+4. Merge the new commit from ``stable`` into ``main``.
 5. Update the version in ``setup.cfg`` and ``sdgym/__init__.py``
    to open the next development iteration.
 
 .. note:: Before starting the process, make sure that ``HISTORY.md`` has been updated with a new
           entry that explains the changes that will be included in the new version.
-          Normally this is just a list of the Pull Requests that have been merged to master
+          Normally this is just a list of the Pull Requests that have been merged to main
           since the last release.
 
 Once this is done, run of the following commands:

@@ -1,12 +1,16 @@
 """Tests for the generate module."""
+
 from unittest.mock import Mock
 
 import pytest
 
 from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesizer
-from sdgym.synthesizers import FastMLPreset, SDVRelationalSynthesizer, SDVTabularSynthesizer
+from sdgym.synthesizers import SDVRelationalSynthesizer, SDVTabularSynthesizer
 from sdgym.synthesizers.generate import (
-    SYNTHESIZER_MAPPING, create_multi_table_synthesizer, create_sequential_synthesizer)
+    SYNTHESIZER_MAPPING,
+    create_multi_table_synthesizer,
+    create_sequential_synthesizer,
+)
 
 
 def test_create_single_table_synthesizer():
@@ -76,8 +80,8 @@ def test_create_sdv_variant_synthesizer_error():
     with pytest.raises(
         ValueError,
         match=r'Synthesizer class test is not recognized. The supported options are '
-              'FastMLPreset, GaussianCopulaSynthesizer, CTGANSynthesizer, '
-              'CopulaGANSynthesizer, TVAESynthesizer, PARSynthesizer, HMASynthesizer'
+        'GaussianCopulaSynthesizer, CTGANSynthesizer, '
+        'CopulaGANSynthesizer, TVAESynthesizer, PARSynthesizer, HMASynthesizer',
     ):
         create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
@@ -100,23 +104,3 @@ def test_create_sdv_variant_synthesizer_relational():
     assert out._MODEL == SYNTHESIZER_MAPPING.get(synthesizer_class)
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert issubclass(out, SDVRelationalSynthesizer)
-
-
-def test_create_sdv_variant_synthesizer_preset():
-    """Test that a sdv variant synthesizer is created.
-
-    Expect that if the synthesizer class is a preset synthesizer, the
-    new synthesizer inherits from the FastMLPreset base class.
-    """
-    # Setup
-    synthesizer_class = 'FastMLPreset'
-    synthesizer_parameters = {}
-
-    # Run
-    out = create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
-
-    # Assert
-    assert out.__name__ == 'Variant:test_synth'
-    assert out._MODEL == SYNTHESIZER_MAPPING.get(synthesizer_class)
-    assert out._MODEL_KWARGS == synthesizer_parameters
-    assert issubclass(out, FastMLPreset)

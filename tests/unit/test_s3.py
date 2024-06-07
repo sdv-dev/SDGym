@@ -164,9 +164,7 @@ def test_write_file_s3(boto3_mock):
 
     # asserts
     boto3_mock.client.assert_called_once_with(
-        's3',
-        aws_access_key_id=aws_key,
-        aws_secret_access_key=aws_secret
+        's3', aws_access_key_id=aws_key, aws_secret_access_key=aws_secret
     )
     s3_mock.put_object.assert_called_once_with(
         Bucket=bucket_name,
@@ -206,9 +204,4 @@ def test_write_csv(write_file_mock):
     # asserts
     input_data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
     expected_content = input_data.to_csv(index=False).encode('utf-8')
-    write_file_mock.assert_called_once_with(
-        expected_content,
-        path,
-        None,
-        None
-    )
+    write_file_mock.assert_called_once_with(expected_content, path, None, None)

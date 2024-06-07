@@ -1,5 +1,42 @@
 # History
 
+## v0.8.0 - 2024-06-07
+
+This release adds support for both Python 3.11 and 3.12! It also drops support for Python 3.7.
+
+This release adds a new parameter to `benchmark_single_table` called `run_on_ec2`. When enabled, it will launch a `t2.medium` ec2 instance on the user's AWS account using the credentials they specify in environment variables. The benchmarking will then run on this instance. The `output_filepath` must be provided and must be in the format `{s3_bucket_name}/{path_to_file}` when `run_on_ec2` is enabled.
+
+### Documentation
+
+* Docs for AWS integration are incorrect - Issue [#304](https://github.com/sdv-dev/SDGym/issues/304) by @srinify
+
+### Maintenance
+
+* Add support for Python 3.11 - Issue [#250](https://github.com/sdv-dev/SDGym/issues/250) by @fealho
+* Remove anyio usage - Issue [#252](https://github.com/sdv-dev/SDGym/issues/252) by @lajohn4747
+* Drop support for Python 3.7 - Issue [#254](https://github.com/sdv-dev/SDGym/issues/254) by @R-Palazzo
+* Switch default branch from master to main - Issue [#257](https://github.com/sdv-dev/SDGym/issues/257) by @R-Palazzo
+* Transition from using setup.py to pyproject.toml to specify project metadata - Issue [#266](https://github.com/sdv-dev/SDGym/issues/266) by @R-Palazzo
+* Remove bumpversion and use bump-my-version - Issue [#267](https://github.com/sdv-dev/SDGym/issues/267) by @R-Palazzo
+* Switch to using ruff for Python linting and code formatting - Issue [#268](https://github.com/sdv-dev/SDGym/issues/268) by @gsheni
+* Add dependency checker - Issue [#277](https://github.com/sdv-dev/SDGym/issues/277) by @lajohn4747
+* Add bandit workflow - Issue [#282](https://github.com/sdv-dev/SDGym/issues/282) by @R-Palazzo
+* Cleanup automated PR workflows - Issue [#286](https://github.com/sdv-dev/SDGym/issues/286) by @R-Palazzo
+* Add support for Python 3.12 - Issue [#288](https://github.com/sdv-dev/SDGym/issues/288) by @fealho
+* Only run unit and integration tests on oldest and latest python versions for macos - Issue [#294](https://github.com/sdv-dev/SDGym/issues/294) by @R-Palazzo
+* Bump verions SDV, SDMetrics and RDT - Issue [#298](https://github.com/sdv-dev/SDGym/issues/298)
+
+### Bugs Fixed
+
+* The `UniformSynthesizer` should follow the sdtypes in metadata (not the data's dtypes)  - Issue [#248](https://github.com/sdv-dev/SDGym/issues/248) by @lajohn4747
+* Fix minimum version workflow when pointing to github branch - Issue [#280](https://github.com/sdv-dev/SDGym/issues/280) by @R-Palazzo
+* Passing synthesizer as string fails if run_on_ec2 is enabled - Issue [#306](https://github.com/sdv-dev/SDGym/issues/306) by @lajohn4747
+
+### New Features
+
+* Add run_on_ec2 flag to benchmark_single_table - Issue [#265](https://github.com/sdv-dev/SDGym/issues/265) by @lajohn4747
+* Remove FastML Synthesizer - Issue [#292](https://github.com/sdv-dev/SDGym/issues/292) by @lajohn4747
+
 ## v0.7.0 - 2023-06-13
 
 This release adds support for SDV 1.0 and PyTorch 2.0!

@@ -1,10 +1,11 @@
 """Utils for the CLI module."""
+
 import io
 import pathlib
+from pathlib import Path
 
 import pandas as pd
 import tqdm
-from anyio import Path
 
 from sdgym.datasets import DATASETS_PATH, load_dataset
 from sdgym.s3 import get_s3_client, is_s3_path, parse_s3_path
@@ -86,8 +87,7 @@ def read_csv_from_path(path, aws_key, aws_secret):
         csv_files = [f for f in resp['Contents'] if f['Key'].endswith('.csv')]
         for csv_file in csv_files:
             csv_file_key = csv_file['Key']
-            csv_contents.append(
-                read_csv(f's3://{bucket_name}/{csv_file_key}', aws_key, aws_secret))
+            csv_contents.append(read_csv(f's3://{bucket_name}/{csv_file_key}', aws_key, aws_secret))
 
     else:
         run_path = pathlib.Path(path)

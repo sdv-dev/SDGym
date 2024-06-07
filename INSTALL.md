@@ -2,7 +2,7 @@
 
 ## Requirements
 
-**SDGym** has been developed and tested on [Python 3.7, 3.8, 3.9, and 3.10](https://www.python.org/downloads/)
+**SDGym** has been developed and tested on [Python 3.8, 3.9, 3.10, 3.11 and 3.12](https://www.python.org/downloads/)
 
 Also, although it is not strictly required, the usage of a [virtualenv](
 https://virtualenv.pypa.io/en/latest/) is highly recommended in order to avoid
@@ -46,14 +46,14 @@ make install
 
 If you intend to modify the source code or contribute to the project you will need to
 install it from the source using the `make install-develop` command. In this case, we
-recommend you to branch from `master` first:
+recommend you to branch from `main` first:
 
 ```bash
 git clone git@github.com:sdv-dev/SDGym
 cd SDGym
-git checkout master
+git checkout main
 git checkout -b <your-branch-name>
-make install-develp
+make install-develop
 ```
 
 For more details about how to contribute to the project please visit the [Contributing Guide](
