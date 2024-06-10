@@ -10,5 +10,5 @@ scipy==1.13.1
 sdmetrics==0.14.1
 sdv==1.13.1
 tabulate==0.8.10
-torch==2.3.0
+torch==2.3.1
 tqdm==4.66.4
