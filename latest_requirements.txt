@@ -2,13 +2,13 @@ XlsxWriter==3.2.0
 appdirs==1.4.4
 compress-pickle==2.1.0
 humanfriendly==10.0
-numpy==1.26.4
+numpy==2.0.0
 pandas==2.2.2
 rdt==1.12.1
 scikit-learn==1.5.0
 scipy==1.13.1
 sdmetrics==0.14.1
-sdv==1.13.1
+sdv==1.14.0
 tabulate==0.8.10
 torch==2.3.1
 tqdm==4.66.4
