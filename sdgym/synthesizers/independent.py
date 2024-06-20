@@ -45,10 +45,10 @@ class IndependentSynthesizer(BaselineSynthesizer):
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'O':
-                values = column.sample(self.length, replace=True).to_numpy()
+                values = column.sample(n_samples, replace=True).to_numpy()
             else:
                 model = gm_models.get(name)
-                values = model.sample(self.length)[0].ravel().clip(column.min(), column.max())
+                values = model.sample(n_samples)[0].ravel().clip(column.min(), column.max())
 
             sampled[name] = values
 
