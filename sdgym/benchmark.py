@@ -15,8 +15,18 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
-from sdmetrics.reports.multi_table import QualityReport as MultiTableQualityReport
-from sdmetrics.reports.single_table import QualityReport as SingleTableQualityReport
+from sdmetrics.reports.multi_table import (
+    DiagnosticReport as MultiTableDiagnosticReport,
+)
+from sdmetrics.reports.multi_table import (
+    QualityReport as MultiTableQualityReport,
+)
+from sdmetrics.reports.single_table import (
+    DiagnosticReport as SingleTableDiagnosticReport,
+)
+from sdmetrics.reports.single_table import (
+    QualityReport as SingleTableQualityReport,
+)
 
 from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
@@ -88,6 +98,7 @@ def _generate_job_args_list(
     detailed_results_folder,
     timeout,
     compute_quality_score,
+    compute_diagnostic_score,
     synthesizers,
     custom_synthesizers,
 ):
@@ -124,6 +135,7 @@ def _generate_job_args_list(
             detailed_results_folder,
             timeout,
             compute_quality_score,
+            compute_diagnostic_score,
             dataset.name,
             'single_table',
         )
@@ -164,6 +176,7 @@ def _compute_scores(
     metadata,
     output,
     compute_quality_score,
+    compute_diagnostic_score,
     modality,
     dataset_name,
 ):
@@ -202,6 +215,17 @@ def _compute_scores(
             })
             output['scores'] = scores  # re-inject list to multiprocessing output
 
+    if compute_diagnostic_score:
+        start = datetime.utcnow()
+        if modality == 'single_table':
+            diagnostic_report = SingleTableDiagnosticReport()
+        else:
+            diagnostic_report = MultiTableDiagnosticReport()
+
+        diagnostic_report.generate(real_data, synthetic_data, metadata, verbose=False)
+        output['diagnostic_score_time'] = (datetime.utcnow() - start).total_seconds()
+        output['diagnostic_score'] = diagnostic_report.get_score()
+
     if compute_quality_score:
         start = datetime.utcnow()
         if modality == 'single_table':
@@ -221,6 +245,7 @@ def _score(
     metrics,
     output=None,
     compute_quality_score=False,
+    compute_diagnostic_score=False,
     modality=None,
     dataset_name=None,
 ):
@@ -266,6 +291,7 @@ def _score(
             metadata,
             output,
             compute_quality_score,
+            compute_diagnostic_score,
             modality,
             dataset_name,
         )
@@ -295,6 +321,7 @@ def _score_with_timeout(
     metadata,
     metrics,
     compute_quality_score=False,
+    compute_diagnostic_score=False,
     modality=None,
     dataset_name=None,
 ):
@@ -309,6 +336,7 @@ def _score_with_timeout(
                 metrics,
                 output,
                 compute_quality_score,
+                compute_diagnostic_score,
                 modality,
                 dataset_name,
             ),
@@ -325,14 +353,26 @@ def _score_with_timeout(
         return output
 
 
-def _format_output(output, name, dataset_name, compute_quality_score, cache_dir):
-    evaluate_time = None
-    if 'scores' in output or 'quality_score_time' in output:
-        evaluate_time = output.get('quality_score_time', 0)
+def _format_output(
+    output, name, dataset_name, compute_quality_score, compute_diagnostic_score, cache_dir
+):
+    evaluate_time = 0
+    print(output)
+    if 'quality_score_time' in output:
+        evaluate_time += output.get('quality_score_time', 0)
+    if 'diagnostic_score_time' in output:
+        evaluate_time += output.get('diagnostic_score_time', 0)
 
     for score in output.get('scores', []):
         if score['metric'] == 'NewRowSynthesis':
             evaluate_time += score['metric_time']
+
+    if (
+        'quality_score_time' not in output
+        and 'scores' not in output
+        and 'diagnostic_score_time' not in output
+    ):
+        evaluate_time = None
 
     scores = pd.DataFrame({
         'Synthesizer': [name],
@@ -344,6 +384,9 @@ def _format_output(output, name, dataset_name, compute_quality_score, cache_dir)
         'Sample_Time': [output.get('sample_time')],
         'Evaluate_Time': [evaluate_time],
     })
+
+    if compute_diagnostic_score:
+        scores.insert(len(scores.columns), 'Diagnostic_Score', output.get('diagnostic_score'))
 
     if compute_quality_score:
         scores.insert(len(scores.columns), 'Quality_Score', output.get('quality_score'))
@@ -381,6 +424,7 @@ def _run_job(args):
         cache_dir,
         timeout,
         compute_quality_score,
+        compute_diagnostic_score,
         dataset_name,
         modality,
     ) = args
@@ -404,6 +448,7 @@ def _run_job(args):
                 metadata=metadata,
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
+                compute_diagnostic_score=compute_diagnostic_score,
                 modality=modality,
                 dataset_name=dataset_name,
             )
@@ -414,13 +459,16 @@ def _run_job(args):
                 metadata=metadata,
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
+                compute_diagnostic_score=compute_diagnostic_score,
                 modality=modality,
                 dataset_name=dataset_name,
             )
     except Exception as error:
         output['exception'] = error
 
-    scores = _format_output(output, name, dataset_name, compute_quality_score, cache_dir)
+    scores = _format_output(
+        output, name, dataset_name, compute_quality_score, compute_diagnostic_score, cache_dir
+    )
 
     return scores
 
@@ -482,7 +530,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
     return scores
 
 
-def _get_empty_dataframe(compute_quality_score, sdmetrics):
+def _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics):
     warnings.warn('No datasets/synthesizers found.')
 
     scores = pd.DataFrame({
@@ -496,6 +544,8 @@ def _get_empty_dataframe(compute_quality_score, sdmetrics):
         'Evaluate_Time': [],
     })
 
+    if compute_diagnostic_score:
+        scores['Diagnostic_Score'] = []
     if compute_quality_score:
         scores['Quality_Score'] = []
     if sdmetrics:
@@ -572,6 +622,7 @@ results = sdgym.benchmark_single_table(
     additional_datasets_folder={params['additional_datasets_folder']},
     limit_dataset_size={params['limit_dataset_size']},
     compute_quality_score={params['compute_quality_score']},
+    compute_diagnostic_score={params['compute_diagnostic_score']},
     sdmetrics={params['sdmetrics']}, timeout={params['timeout']},
     detailed_results_folder={params['detailed_results_folder']},
     multi_processing_config={params['multi_processing_config']}
@@ -643,6 +694,7 @@ def benchmark_single_table(
     additional_datasets_folder=None,
     limit_dataset_size=False,
     compute_quality_score=True,
+    compute_diagnostic_score=True,
     sdmetrics=DEFAULT_METRICS,
     timeout=None,
     output_filepath=None,
@@ -680,6 +732,8 @@ def benchmark_single_table(
             columns.
         compute_quality_score (bool):
             Whether or not to evaluate an overall quality score.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score.
         sdmetrics (list[str]):
             A list of the different SDMetrics to use. If you'd like to input specific parameters
             into the metric, provide a tuple with the metric name followed by a dictionary of
@@ -729,6 +783,7 @@ def benchmark_single_table(
         detailed_results_folder,
         timeout,
         compute_quality_score,
+        compute_diagnostic_score,
         synthesizers,
         custom_synthesizers,
     )
@@ -738,7 +793,7 @@ def benchmark_single_table(
 
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
-        scores = _get_empty_dataframe(compute_quality_score, sdmetrics)
+        scores = _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics)
 
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
