@@ -41,13 +41,13 @@ def _print_table(data, sort=None, reverse=False, format=None):
 
     if 'error' in data:
         error = data['error']
-        if pd.isnull(error).all():
+        if pd.isna(error).all():
             del data['error']
         else:
             long_error = error.str.len() > 30
             data.loc[long_error, 'error'] = error[long_error].str[:30] + '...'
 
-    print(tabulate.tabulate(data, tablefmt='github', headers=data.columns, showindex=False))
+    print(tabulate.tabulate(data, tablefmt='github', headers=data.columns, showindex=False))  # noqa: T201
 
 
 def _run(args):
@@ -110,7 +110,7 @@ def _download_datasets(args):
 def _list_downloaded(args):
     datasets = sdgym.cli.utils.get_downloaded_datasets(args.datasets_path)
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
-    print(f'Found {len(datasets)} downloaded datasets')
+    print(f'Found {len(datasets)} downloaded datasets')  # noqa: T201
 
 
 def _list_available(args):
@@ -395,7 +395,7 @@ def main():
     try:
         args.action(args)
     except sdgym.errors.SDGymError as error:
-        print(f'ERROR: {error}')
+        print(f'ERROR: {error}')  # noqa: T201
 
 
 if __name__ == '__main__':
