@@ -22,7 +22,7 @@ def collect_results(input_path, output_file=None, aws_key=None, aws_secret=None)
             If an ``aws_secret`` is provided, the given secret access key will be used to read
             from and/or write to any s3 paths.
     """
-    print(f'Reading results from {input_path}')
+    print(f'Reading results from {input_path}')  # noqa: T201
     scores = read_csv_from_path(input_path, aws_key, aws_secret)
     scores = scores.drop_duplicates()
 
@@ -31,5 +31,5 @@ def collect_results(input_path, output_file=None, aws_key=None, aws_secret=None)
     else:
         output = f'{input_path}/results.csv'
 
-    print(f'Storing results at {output}')
+    print(f'Storing results at {output}')  # noqa: T201
     write_csv(scores, output, aws_key, aws_secret)
