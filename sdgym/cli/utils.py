@@ -67,7 +67,7 @@ def read_csv_from_path(path, aws_key, aws_secret):
     All csv content within a path will be read and returned in a
     DataFrame. The path can be either local or an s3 directory.
 
-    args:
+    Args:
         path (str):
             The path to read from, which can be either local or an s3 path.
         aws_key (str):

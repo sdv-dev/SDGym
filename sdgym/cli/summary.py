@@ -46,7 +46,7 @@ def preprocess(data):
 
 def _coverage(data):
     total = len(data.Dataset.unique())
-    scores = data.groupby('Synthesizer').apply(lambda x: x.Quality_Score.notnull().sum())
+    scores = data.groupby('Synthesizer').apply(lambda x: x.Quality_Score.notna().sum())
     coverage_perc = scores / total
     coverage_str = scores.astype(str) + f' / {total}'
     return coverage_perc, coverage_str
@@ -102,7 +102,7 @@ def summarize(data, baselines=(), datasets=None):
     no_identity = data[data.Synthesizer != 'DataIdentity']
 
     coverage_perc, coverage_str = _coverage(data)
-    solved = data.groupby('Synthesizer').apply(lambda x: x.Quality_Score.notnull().sum())
+    solved = data.groupby('Synthesizer').apply(lambda x: x.Quality_Score.notna().sum())
 
     results = {
         'total': len(data.Dataset.unique()),
@@ -127,7 +127,7 @@ def summarize(data, baselines=(), datasets=None):
         for _, error_column in KNOWN_ERRORS:
             results[error_column] = grouped[error_column].sum()
 
-        results['errors'] = grouped.error.apply(lambda x: x.notnull().sum())
+        results['errors'] = grouped.error.apply(lambda x: x.notna().sum())
         total_errors = results['errors']
         results['metric_errors'] = results['total'] - results['solved'] - total_errors
 
@@ -160,7 +160,7 @@ def errors_summary(data):
     """
     if 'error' in data.columns:
         all_errors = pd.DataFrame(_error_counts(data)).rename(columns={'error': 'all'})
-        synthesizer_errors = data.groupby('Synthesizer').apply(_error_counts).unstack(level=0)
+        synthesizer_errors = data.groupby('Synthesizer').apply(_error_counts).pivot_table(level=0)
         for synthesizer, errors in synthesizer_errors.items():
             all_errors[synthesizer] = errors.fillna(0).astype(int)
 
@@ -217,7 +217,7 @@ def _find_library(synthesizer):
 
 def _add_summary_libraries(summary_data):
     summary_data['library'] = summary_data.index.map(_find_library)
-    summary_data['library'].fillna('Other', inplace=True)
+    summary_data['library'] = summary_data['library'].fillna('Other')
     return summary_data
 
 
@@ -240,7 +240,7 @@ def _add_summary(data, modality, baselines, writer):
         },
         axis=1,
     )
-    summary.drop(index='Identity', inplace=True, errors='ignore')
+    summary = summary.drop(index='Identity', errors='ignore')
     summary = _add_summary_libraries(summary)
 
     beat_baseline_headers = ['beat_' + b.lower() for b in baselines]
