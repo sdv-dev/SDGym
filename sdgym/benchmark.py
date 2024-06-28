@@ -357,7 +357,6 @@ def _format_output(
     output, name, dataset_name, compute_quality_score, compute_diagnostic_score, cache_dir
 ):
     evaluate_time = 0
-    print(output)
     if 'quality_score_time' in output:
         evaluate_time += output.get('quality_score_time', 0)
     if 'diagnostic_score_time' in output:
