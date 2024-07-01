@@ -64,7 +64,7 @@ def test_benchmark_single_table_no_metrics():
     assert 'Sample_Time' in output
 
     # Expect no metric columns.
-    assert len(output.columns) == 9
+    assert len(output.columns) == 10
 
 
 def test_benchmarking_no_report_output():
@@ -130,6 +130,22 @@ def test_benchmark_single_table_compute_quality_score():
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
     assert 'Quality_Score' not in output
+
+
+def test_benchmark_single_table_compute_diagnostic_score():
+    """Test ``compute_diagnostic_score=False`` works."""
+    # Run
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
+        compute_diagnostic_score=False,
+    )
+
+    # Assert
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    assert 'Diagnostic_Score' not in output
 
 
 def test_benchmark_single_table_duplicate_synthesizers():
@@ -248,6 +264,7 @@ def test_benchmark_single_table_timeout():
         'Synthesizer_Size_MB': {0: None},
         'Sample_Time': {0: None},
         'Evaluate_Time': {0: None},
+        'Diagnostic_Score': {0: None},
         'Quality_Score': {0: None},
         'error': {0: 'Synthesizer Timeout'},
     })
@@ -264,7 +281,7 @@ def test_benchmark_single_table_only_datasets():
     scores = benchmark_single_table(sdv_datasets=['fake_companies'])
 
     # Assert
-    assert len(scores.columns) == 10
+    assert len(scores.columns) == 11
     assert list(scores['Synthesizer']) == ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
     assert list(scores['Dataset']) == ['fake_companies'] * 2
     assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [0.00128] * 2
@@ -274,6 +291,7 @@ def test_benchmark_single_table_only_datasets():
     assert scores['Sample_Time'].between(0, 1000).all()
     assert scores['Evaluate_Time'].between(0, 1000).all()
     assert scores['Quality_Score'].between(0.5, 1).all()
+    assert (scores['Diagnostic_Score'] == 1.0).all()
     assert list(scores['NewRowSynthesis']) == [1.0] * 2
 
 
@@ -292,12 +310,13 @@ def test_benchmark_single_table_synthesizers_none():
     )
 
     # Assert
-    assert scores.shape == (1, 10)
+    assert scores.shape == (1, 11)
     scores = scores.iloc[0]
     assert scores['Synthesizer'] == 'Variant:test_synth'
     assert scores['Dataset'] == 'fake_companies'
     assert round(scores['Dataset_Size_MB'], 5) == 0.00128
     assert 0.5 < scores['Quality_Score'] < 1
+    assert scores['Diagnostic_Score'] == 1.0
     assert (
         scores[
             ['Train_Time', 'Peak_Memory_MB', 'Synthesizer_Size_MB', 'Sample_Time', 'Evaluate_Time']
@@ -325,6 +344,7 @@ def test_benchmark_single_table_no_synthesizers():
         'Synthesizer_Size_MB': [],
         'Sample_Time': [],
         'Evaluate_Time': [],
+        'Diagnostic_Score': [],
         'Quality_Score': [],
         'NewRowSynthesis': [],
     })
@@ -349,6 +369,7 @@ def test_benchmark_single_table_no_datasets():
         'Synthesizer_Size_MB': [],
         'Sample_Time': [],
         'Evaluate_Time': [],
+        'Diagnostic_Score': [],
         'Quality_Score': [],
         'NewRowSynthesis': [],
     })
@@ -363,6 +384,7 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
         sdv_datasets=['fake_companies'],
         sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
         compute_quality_score=False,
+        compute_diagnostic_score=False,
     )
 
     # Assert

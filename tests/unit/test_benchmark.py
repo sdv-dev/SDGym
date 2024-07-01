@@ -76,6 +76,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Synthesizer_Size_MB': {0: None},
         'Sample_Time': {0: None},
         'Evaluate_Time': {0: None},
+        'Diagnostic_Score': {0: None},
         'Quality_Score': {0: None},
         'error': {0: 'Synthesizer Timeout'},
     })
@@ -208,6 +209,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         ],
         'limit_dataset_size': True,
         'compute_quality_score': False,
+        'compute_diagnostic_score': False,
         'sdmetrics': [('NewRowSynthesis', {'synthetic_sample_size': 1000})],
         'timeout': 600,
         'output_filepath': 's3://sdgym-results/address_comments.csv',
@@ -231,4 +233,5 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     assert "sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})]" in result
     assert 'timeout=600' in result
     assert 'compute_quality_score=False' in result
+    assert 'compute_diagnostic_score=False' in result
     assert 'import boto3' in result
