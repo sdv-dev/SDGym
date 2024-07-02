@@ -363,7 +363,7 @@ def _format_output(
         evaluate_time += output.get('diagnostic_score_time', 0)
 
     for score in output.get('scores', []):
-        if score['metric'] == 'NewRowSynthesis':
+        if 'metric_time' in score and not np.isnan(score['metric_time']):
             evaluate_time += score['metric_time']
 
     if (
