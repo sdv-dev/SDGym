@@ -15,7 +15,7 @@ KNOWN_ERRORS = (
 )
 
 MODALITY_BASELINES = {
-    'single-table': ['Uniform', 'Independent', 'CLBN', 'PrivBN'],
+    'single-table': ['Uniform', 'Column', 'CLBN', 'PrivBN'],
     'multi-table': ['Uniform', 'Independent'],
     'timeseries': [],
 }
