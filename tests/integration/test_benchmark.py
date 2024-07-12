@@ -20,10 +20,10 @@ from sdgym import (
 
 
 def test_benchmark_single_table_basic_synthsizers():
-    """Test it with DataIdentity, IndependentSynthesizer and UniformSynthesizer."""
+    """Test it with DataIdentity, ColumnSynthesizer and UniformSynthesizer."""
     # Run
     output = sdgym.benchmark_single_table(
-        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
     )
 
@@ -36,7 +36,7 @@ def test_benchmark_single_table_basic_synthsizers():
 
     assert [
         'DataIdentity',
-        'IndependentSynthesizer',
+        'ColumnSynthesizer',
         'UniformSynthesizer',
     ] == scores.index.tolist()
 
@@ -44,7 +44,7 @@ def test_benchmark_single_table_basic_synthsizers():
 
     assert [
         'UniformSynthesizer',
-        'IndependentSynthesizer',
+        'ColumnSynthesizer',
         'DataIdentity',
     ] == quality_scores.index.tolist()
 
@@ -53,7 +53,7 @@ def test_benchmark_single_table_no_metrics():
     """Test it without metrics."""
     # Run
     output = sdgym.benchmark_single_table(
-        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
         sdmetrics=[],
     )
@@ -75,7 +75,7 @@ def test_benchmarking_no_report_output():
     # Run
     with contextlib.redirect_stderr(prints):
         sdgym.benchmark_single_table(
-            synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+            synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
             sdv_datasets=['student_placements'],
         )
 
@@ -102,7 +102,7 @@ def test_benchmark_single_table_error_handling():
 
     # Run
     output = sdgym.benchmark_single_table(
-        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         custom_synthesizers=[erroring_synthesizer],
         sdv_datasets=['student_placements'],
     )
@@ -120,7 +120,7 @@ def test_benchmark_single_table_compute_quality_score():
     """Test ``compute_quality_score=False`` works."""
     # Run
     output = sdgym.benchmark_single_table(
-        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
         compute_quality_score=False,
     )
@@ -136,7 +136,7 @@ def test_benchmark_single_table_compute_diagnostic_score():
     """Test ``compute_diagnostic_score=False`` works."""
     # Run
     output = sdgym.benchmark_single_table(
-        synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+        synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
         compute_diagnostic_score=False,
     )
@@ -201,7 +201,7 @@ def test_benchmark_single_table():
             'CopulaGANSynthesizer',
             'GaussianCopulaSynthesizer',
             'DataIdentity',
-            'IndependentSynthesizer',
+            'ColumnSynthesizer',
             'UniformSynthesizer',
             'CTGANSynthesizer',
         ],
@@ -216,7 +216,7 @@ def test_benchmark_single_table():
             'CopulaGANSynthesizer',
             'GaussianCopulaSynthesizer',
             'DataIdentity',
-            'IndependentSynthesizer',
+            'ColumnSynthesizer',
             'UniformSynthesizer',
             'CTGANSynthesizer',
             'Custom:TestSynthesizer',

@@ -613,7 +613,7 @@ from io import StringIO
 import sdgym
 from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer,
     GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
-    SDVTabularSynthesizer,TVAESynthesizer)
+    SDVTabularSynthesizer, TVAESynthesizer)
 
 results = sdgym.benchmark_single_table(
     {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},

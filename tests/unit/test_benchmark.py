@@ -26,7 +26,7 @@ def test_output_file_exists(path_mock):
         match='test_output.csv already exists. Please provide a file that does not already exist.',
     ):
         benchmark_single_table(
-            synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+            synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
             sdv_datasets=['student_placements'],
             output_filepath=output_filepath,
         )

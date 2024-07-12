@@ -8,7 +8,7 @@ from sdgym.synthesizers.generate import (
     create_single_table_synthesizer,
 )
 from sdgym.synthesizers.identity import DataIdentity
-from sdgym.synthesizers.independent import IndependentSynthesizer
+from sdgym.synthesizers.column import ColumnSynthesizer
 from sdgym.synthesizers.sdv import (
     CopulaGANSynthesizer,
     CTGANSynthesizer,
@@ -23,7 +23,7 @@ from sdgym.synthesizers.uniform import UniformSynthesizer
 
 __all__ = (
     'DataIdentity',
-    'IndependentSynthesizer',
+    'ColumnSynthesizer',
     'CTGANSynthesizer',
     'TVAESynthesizer',
     'UniformSynthesizer',
