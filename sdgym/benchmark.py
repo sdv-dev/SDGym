@@ -4,7 +4,7 @@ import concurrent
 import logging
 import multiprocessing
 import os
-import pickle
+import dill
 import tracemalloc
 import warnings
 from datetime import datetime
@@ -157,7 +157,7 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     tracemalloc.start()
     now = datetime.utcnow()
     synthesizer_obj = get_synthesizer(data, metadata)
-    synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
+    synthesizer_size = len(dill.dumps(synthesizer_obj)) / N_BYTES_IN_MB
     train_now = datetime.utcnow()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
     sample_now = datetime.utcnow()
