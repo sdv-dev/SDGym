@@ -641,8 +641,8 @@ def _create_instance_on_ec2(script_content):
     user_data_script = f"""#!/bin/bash
     sudo apt update -y
     sudo apt install python3-pip -y
-    sduo pip3 install --upgrade pip setuptools
     echo "======== Install Dependencies ============"
+    sudo pip3 install --upgrade pip setuptools
     sudo pip3 install git+https://github.com/sdv-dev/SDGym.git@main
     sudo pip3 install anyio
     pip3 list
