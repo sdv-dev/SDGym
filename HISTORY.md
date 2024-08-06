@@ -1,5 +1,19 @@
 # History
 
+## v0.9.0 - 2024-08-06
+
+This release enables the diagnostic score to be computed in a benchmarking run. It also renames the `IndependentSynthesizer` to `ColumnSynthesizer`. Finally, it fixes a bug so that the time for all metrics will now be used to compute the `Evaluate_Time` column in the results.
+
+### Bugs Fixed
+
+* Cap numpy to less than 2.0.0 until SDGym supports - Issue [#313](https://github.com/sdv-dev/SDGym/issues/313) by @gsheni
+* The returned `Evaluate_Time` does not include results from all metrics - Issue [#310](https://github.com/sdv-dev/SDGym/issues/310) by @lajohn4747
+
+### New Features
+
+* Rename `IndependentSynthesizer` to `ColumnSynthesizer` - Issue [#319](https://github.com/sdv-dev/SDGym/issues/319) by @lajohn4747
+* Allow the ability to compute diagnostic score in a benchmarking run - Issue [#311](https://github.com/sdv-dev/SDGym/issues/311) by @lajohn4747
+
 ## v0.8.0 - 2024-06-07
 
 This release adds support for both Python 3.11 and 3.12! It also drops support for Python 3.7.
