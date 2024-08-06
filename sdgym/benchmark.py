@@ -108,7 +108,8 @@ def _generate_job_args_list(
     synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
 
     # Get list of dataset paths
-    sdv_datasets = [] if sdv_datasets is None else get_dataset_paths(datasets=sdv_datasets)
+    sdv_datasets = [] if sdv_datasets is None else get_dataset_paths(
+        datasets=sdv_datasets)
     additional_datasets = (
         []
         if additional_datasets_folder is None
@@ -146,7 +147,8 @@ def _generate_job_args_list(
 
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
-    assert issubclass(synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
+    assert issubclass(
+        synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
 
     synthesizer_object = synthesizer()
     get_synthesizer = synthesizer_object.get_trained_synthesizer
@@ -190,16 +192,19 @@ def _compute_scores(
                 'metric': metric_name,
                 'error': 'Metric Timeout',
             })
-            output['scores'] = scores  # re-inject list to multiprocessing output
+            # re-inject list to multiprocessing output
+            output['scores'] = scores
 
             error = None
             score = None
             normalized_score = None
             start = datetime.utcnow()
             try:
-                LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
+                LOGGER.info('Computing %s on dataset %s',
+                            metric_name, dataset_name)
                 metric_args = (real_data, synthetic_data, metadata)
-                score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
+                score = metric.compute(
+                    *metric_args, **metric_kwargs.get(metric_name, {}))
                 normalized_score = metric.normalize(score)
             except Exception:
                 LOGGER.exception(
@@ -213,7 +218,8 @@ def _compute_scores(
                 'error': error,
                 'metric_time': (datetime.utcnow() - start).total_seconds(),
             })
-            output['scores'] = scores  # re-inject list to multiprocessing output
+            # re-inject list to multiprocessing output
+            output['scores'] = scores
 
     if compute_diagnostic_score:
         start = datetime.utcnow()
@@ -222,8 +228,10 @@ def _compute_scores(
         else:
             diagnostic_report = MultiTableDiagnosticReport()
 
-        diagnostic_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['diagnostic_score_time'] = (datetime.utcnow() - start).total_seconds()
+        diagnostic_report.generate(
+            real_data, synthetic_data, metadata, verbose=False)
+        output['diagnostic_score_time'] = (
+            datetime.utcnow() - start).total_seconds()
         output['diagnostic_score'] = diagnostic_report.get_score()
 
     if compute_quality_score:
@@ -233,8 +241,10 @@ def _compute_scores(
         else:
             quality_report = MultiTableQualityReport()
 
-        quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['quality_score_time'] = (datetime.utcnow() - start).total_seconds()
+        quality_report.generate(
+            real_data, synthetic_data, metadata, verbose=False)
+        output['quality_score_time'] = (
+            datetime.utcnow() - start).total_seconds()
         output['quality_score'] = quality_report.get_score()
 
 
@@ -264,7 +274,8 @@ def _score(
         )
 
         output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
-        output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
+        # To be deleted if there is no error
+        output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
             synthesizer, data.copy(), metadata
         )
@@ -283,7 +294,8 @@ def _score(
             used_memory(),
         )
 
-        del output['error']  # No error so far. _compute_scores tracks its own errors by metric
+        # No error so far. _compute_scores tracks its own errors by metric
+        del output['error']
         _compute_scores(
             metrics,
             data,
@@ -299,7 +311,8 @@ def _score(
         output['timeout'] = False  # There was no timeout
 
     except Exception:
-        LOGGER.exception('Error running %s on dataset %s;', synthesizer['name'], dataset_name)
+        LOGGER.exception('Error running %s on dataset %s;',
+                         synthesizer['name'], dataset_name)
 
         exception, error = format_exception()
         output['exception'] = exception
@@ -308,7 +321,8 @@ def _score(
 
     finally:
         LOGGER.info(
-            'Finished %s on dataset %s; %s', synthesizer['name'], dataset_name, used_memory()
+            'Finished %s on dataset %s; %s', synthesizer['name'], dataset_name, used_memory(
+            )
         )
 
     return output
@@ -348,7 +362,8 @@ def _score_with_timeout(
 
         output = dict(output)
         if output.get('timeout'):
-            LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
+            LOGGER.error('Timeout running %s on dataset %s;',
+                         synthesizer['name'], dataset_name)
 
         return output
 
@@ -385,13 +400,16 @@ def _format_output(
     })
 
     if compute_diagnostic_score:
-        scores.insert(len(scores.columns), 'Diagnostic_Score', output.get('diagnostic_score'))
+        scores.insert(len(scores.columns), 'Diagnostic_Score',
+                      output.get('diagnostic_score'))
 
     if compute_quality_score:
-        scores.insert(len(scores.columns), 'Quality_Score', output.get('quality_score'))
+        scores.insert(len(scores.columns), 'Quality_Score',
+                      output.get('quality_score'))
 
     for score in output.get('scores', []):
-        scores.insert(len(scores.columns), score['metric'], score['normalized_score'])
+        scores.insert(len(scores.columns),
+                      score['metric'], score['normalized_score'])
 
     if 'error' in output:
         scores['error'] = output['error']
@@ -402,7 +420,8 @@ def _format_output(
         if scores is not None:
             write_csv(scores, f'{base_path}_scores.csv', None, None)
         if 'synthetic_data' in output:
-            synthetic_data = compress_pickle.dumps(output['synthetic_data'], compression='gzip')
+            synthetic_data = compress_pickle.dumps(
+                output['synthetic_data'], compression='gzip')
             write_file(synthetic_data, f'{base_path}.data.gz', None, None)
         if 'exception' in output:
             exception = output['exception'].encode('utf-8')
@@ -515,7 +534,8 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
         scores = pool.map(_run_job, job_args_list)
 
     if show_progress:
-        scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
+        scores = tqdm.tqdm(scores, total=len(
+            job_args_list), position=0, leave=True)
     else:
         scores = tqdm.tqdm(
             scores, total=len(job_args_list), file=TqdmLogger(), position=0, leave=True
@@ -559,7 +579,8 @@ def _directory_exists(bucket_name, s3_file_path):
     last_slash_index = s3_file_path.rfind('/')
     directory_prefix = s3_file_path[: last_slash_index + 1]
     s3_client = boto3.client('s3')
-    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
+    response = s3_client.list_objects_v2(
+        Bucket=bucket_name, Prefix=directory_prefix, Delimiter='/')
     return 'Contents' in response or 'CommonPrefixes' in response
 
 
@@ -591,9 +612,11 @@ def _create_sdgym_script(params, output_filepath):
 
     # Add quotes to parameter strings
     if params['additional_datasets_folder']:
-        params['additional_datasets_folder'] = "'" + params['additional_datasets_folder'] + "'"
+        params['additional_datasets_folder'] = "'" + \
+            params['additional_datasets_folder'] + "'"
     if params['detailed_results_folder']:
-        params['detailed_results_folder'] = "'" + params['detailed_results_folder'] + "'"
+        params['detailed_results_folder'] = "'" + \
+            params['detailed_results_folder'] + "'"
     if params['output_filepath']:
         params['output_filepath'] = "'" + params['output_filepath'] + "'"
 
@@ -642,8 +665,7 @@ def _create_instance_on_ec2(script_content):
     sudo apt update -y
     sudo apt install python3-pip -y
     echo "======== Install Dependencies ============"
-    sudo pip3 install --upgrade pip setuptools
-    sudo pip3 install git+https://github.com/sdv-dev/SDGym.git@main
+    sudo pip3 install sdgym
     sudo pip3 install anyio
     pip3 list
     sudo apt install awscli -y
@@ -667,7 +689,8 @@ def _create_instance_on_ec2(script_content):
         MaxCount=1,
         UserData=user_data_script,
         TagSpecifications=[
-            {'ResourceType': 'instance', 'Tags': [{'Key': 'Name', 'Value': 'SDGym_Temp'}]}
+            {'ResourceType': 'instance', 'Tags': [
+                {'Key': 'Name', 'Value': 'SDGym_Temp'}]}
         ],
         BlockDeviceMappings=[
             {
@@ -757,6 +780,11 @@ def benchmark_single_table(
              'package_name': 'dask' or 'multiprocessing',
              'num_workers': 4
             }
+        run_on_ec2 (bool):
+            The flag is used to run the benchmark on an EC2 instance that will be created by a script
+            using the authentication of the current user. The EC2 instance uses the LATEST released version
+            of sdgym. Local changes or changes not in the released version will not be used in the
+            ec2 instance. 
 
     Returns:
         pandas.DataFrame:
@@ -765,13 +793,16 @@ def benchmark_single_table(
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
-            script_content = _create_sdgym_script(dict(locals()), output_filepath)
+            script_content = _create_sdgym_script(
+                dict(locals()), output_filepath)
             _create_instance_on_ec2(script_content)
         else:
-            raise ValueError('In order to run on EC2, please provide an S3 folder output.')
+            raise ValueError(
+                'In order to run on EC2, please provide an S3 folder output.')
         return None
 
-    _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
+    _validate_inputs(output_filepath, detailed_results_folder,
+                     synthesizers, custom_synthesizers)
 
     _create_detailed_results_directory(detailed_results_folder)
 
@@ -789,11 +820,13 @@ def benchmark_single_table(
     )
 
     if job_args_list:
-        scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+        scores = _run_jobs(multi_processing_config,
+                           job_args_list, show_progress)
 
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
-        scores = _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics)
+        scores = _get_empty_dataframe(
+            compute_diagnostic_score, compute_quality_score, sdmetrics)
 
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
