@@ -1,4 +1,4 @@
-Run started:2024-06-07 15:50:29.720919
+Run started:2024-08-07 18:04:12.306814
 
 Test results:
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
@@ -15,39 +15,39 @@ Test results:
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:137:4
-136	    synthesizer = synthesizer_dict['synthesizer']
-137	    assert issubclass(synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
-138	
+   Location: ./sdgym/benchmark.py:149:4
+148	    synthesizer = synthesizer_dict['synthesizer']
+149	    assert issubclass(synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
+150	
 
 --------------------------------------------------
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:591:23
-590	    # User data script to install the library
-591	    user_data_script = f"""#!/bin/bash
-592	    sudo apt update -y
-593	    sudo apt install python3-pip -y
-594	    echo "======== Install Dependencies ============"
-595	    sudo pip3 install sdgym
-596	    sudo pip3 install anyio
-597	    pip3 list
-598	    sudo apt install awscli -y
-599	    aws configure set aws_access_key_id {credentials.access_key}
-600	    aws configure set aws_secret_access_key {credentials.secret_key}
-601	    aws configure set region {session.region_name}
-602	    echo "======== Write Script ==========="
-603	    sudo touch ~/sdgym_script.py
-604	    echo "{script_content}" > ~/sdgym_script.py
-605	    echo "======== Run Script ==========="
-606	    sudo python3 ~/sdgym_script.py
-607	    echo "======== Complete ==========="
-608	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-609	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-610	    """
-611	
+   Location: ./sdgym/benchmark.py:645:23
+644	    # User data script to install the library
+645	    user_data_script = f"""#!/bin/bash
+646	    sudo apt update -y
+647	    sudo apt install python3-pip -y
+648	    echo "======== Install Dependencies ============"
+649	    sudo pip3 install sdgym
+650	    sudo pip3 install anyio
+651	    pip3 list
+652	    sudo apt install awscli -y
+653	    aws configure set aws_access_key_id {credentials.access_key}
+654	    aws configure set aws_secret_access_key {credentials.secret_key}
+655	    aws configure set region {session.region_name}
+656	    echo "======== Write Script ==========="
+657	    sudo touch ~/sdgym_script.py
+658	    echo "{script_content}" > ~/sdgym_script.py
+659	    echo "======== Run Script ==========="
+660	    sudo python3 ~/sdgym_script.py
+661	    echo "======== Complete ==========="
+662	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+663	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+664	    """
+665	
 
 --------------------------------------------------
 >> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
@@ -82,7 +82,7 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 2634
+	Total lines of code: 2694
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
