@@ -1,6 +1,6 @@
 # History
 
-## v0.9.0 - 2024-08-06
+## v0.9.0 - 2024-08-07
 
 This release enables the diagnostic score to be computed in a benchmarking run. It also renames the `IndependentSynthesizer` to `ColumnSynthesizer`. Finally, it fixes a bug so that the time for all metrics will now be used to compute the `Evaluate_Time` column in the results.
 
