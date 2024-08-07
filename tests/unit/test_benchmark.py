@@ -4,7 +4,12 @@ import pandas as pd
 import pytest
 
 from sdgym import benchmark_single_table
-from sdgym.benchmark import _check_write_permissions, _create_sdgym_script, _directory_exists
+from sdgym.benchmark import (
+    _check_write_permissions,
+    _create_sdgym_script,
+    _directory_exists,
+    _format_output,
+)
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
 
@@ -21,7 +26,7 @@ def test_output_file_exists(path_mock):
         match='test_output.csv already exists. Please provide a file that does not already exist.',
     ):
         benchmark_single_table(
-            synthesizers=['DataIdentity', 'IndependentSynthesizer', 'UniformSynthesizer'],
+            synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
             sdv_datasets=['student_placements'],
             output_filepath=output_filepath,
         )
@@ -76,6 +81,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Synthesizer_Size_MB': {0: None},
         'Sample_Time': {0: None},
         'Evaluate_Time': {0: None},
+        'Diagnostic_Score': {0: None},
         'Quality_Score': {0: None},
         'error': {0: 'Synthesizer Timeout'},
     })
@@ -208,6 +214,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         ],
         'limit_dataset_size': True,
         'compute_quality_score': False,
+        'compute_diagnostic_score': False,
         'sdmetrics': [('NewRowSynthesis', {'synthetic_sample_size': 1000})],
         'timeout': 600,
         'output_filepath': 's3://sdgym-results/address_comments.csv',
@@ -231,4 +238,60 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     assert "sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})]" in result
     assert 'timeout=600' in result
     assert 'compute_quality_score=False' in result
+    assert 'compute_diagnostic_score=False' in result
     assert 'import boto3' in result
+
+
+def test__format_output():
+    """Test the method ``_format_output`` and confirm that metrics are properly computed."""
+    # Setup
+    mock_dataframe = pd.DataFrame([])
+    mock_output = {
+        'timeout': False,
+        'dataset_size': 3.907452,
+        'synthetic_data': mock_dataframe,
+        'train_time': 267.028721,
+        'sample_time': 1.039627,
+        'synthesizer_size': 0.936981,
+        'peak_memory': 127.729832,
+        'diagnostic_score': 1.0,
+        'quality_score': 0.881,
+        'quality_score_time': 1.0,
+        'diagnostic_score_time': 3.0,
+        'scores': [
+            {
+                'metric': 'NewRowSynthesis',
+                'error': None,
+                'score': 0.998,
+                'normalized_score': 0.998,
+                'metric_time': 6.0,
+            },
+            {
+                'metric': 'NewMetric',
+                'error': None,
+                'score': 0.998,
+                'normalized_score': 0.998,
+                'metric_time': 5.0,
+            },
+        ],
+    }
+
+    # Run
+    scores = _format_output(mock_output, 'mock_name', 'mock_dataset', True, True, False)
+
+    # Assert
+    expected_scores = pd.DataFrame({
+        'Synthesizer': ['mock_name'],
+        'Dataset': ['mock_dataset'],
+        'Dataset_Size_MB': [mock_output.get('dataset_size')],
+        'Train_Time': [mock_output.get('train_time')],
+        'Peak_Memory_MB': [mock_output.get('peak_memory')],
+        'Synthesizer_Size_MB': [mock_output.get('synthesizer_size')],
+        'Sample_Time': [mock_output.get('sample_time')],
+        'Evaluate_Time': [15.0],
+        'Diagnostic_Score': [1.0],
+        'Quality_Score': [0.881],
+        'NewRowSynthesis': [0.998],
+        'NewMetric': [0.998],
+    })
+    pd.testing.assert_frame_equal(scores, expected_scores)

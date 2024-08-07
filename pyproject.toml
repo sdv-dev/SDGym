@@ -26,9 +26,9 @@ dependencies = [
     'botocore>=1.31,<2',
     'compress-pickle>=1.2.0',
     'humanfriendly>=8.2',
-    "numpy>=1.21.0;python_version<'3.10'",
-    "numpy>=1.23.3,<2;python_version>='3.10' and python_version<'3.12'",
-    "numpy>=1.26.0,<2;python_version>='3.12'",
+    "numpy>=1.21.0,<2.0.0;python_version<'3.10'",
+    "numpy>=1.23.3,<2.0.0;python_version>='3.10' and python_version<'3.12'",
+    "numpy>=1.26.0,<2.0.0;python_version>='3.12'",
     "pandas>=1.4.0;python_version<'3.11'",
     "pandas>=1.5.0;python_version>='3.11' and python_version<'3.12'",
     "pandas>=2.1.1;python_version>='3.12'",
@@ -133,7 +133,7 @@ namespaces = false
 version = {attr = 'sdgym.__version__'}
 
 [tool.bumpversion]
-current_version = "0.8.0"
+current_version = "0.9.0.dev1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.(?P<release>[a-z]+)(?P<candidate>\d+))?'
 serialize = [
     '{major}.{minor}.{patch}.{release}{candidate}',
@@ -179,7 +179,8 @@ exclude = [
     ".tox",
     ".git",
     "__pycache__",
-    ".ipynb_checkpoints"
+    ".ipynb_checkpoints",
+    "tasks.py",
 ]
 
 [tool.ruff.lint]
@@ -189,14 +190,22 @@ select = [
     # Pycodestyle
     "E",
     "W",
-    "D200",
+    # pydocstyle
+    "D",
     # isort
     "I001",
+    # print statements
+    "T201",
+    # pandas-vet
+    "PD"
 ]
 ignore = [
     "E501",
+    # pydocstyle
     "D107",  # Missing docstring in __init__
     "D417",   # Missing argument descriptions in the docstring, this is a bug from pydocstyle: https://github.com/PyCQA/pydocstyle/issues/449
+    "PD901",
+    "PD101",
 ]
 
 [tool.ruff.format]
@@ -206,14 +215,18 @@ preview = true
 docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
-[tool.ruff.lint.pep8-naming]
-extend-ignore-names = ["X", "C", "X_padded", "Y", "Y_padded"]
-
 [tool.ruff.lint.isort]
 known-first-party = ["sdgym"]
+lines-between-types = 0
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "E402", "F403", "F405", "E501", "I001"]
+"errors.py" = ["D105"]
+"tests/**.py" = ["D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 100
+max-line-length = 100

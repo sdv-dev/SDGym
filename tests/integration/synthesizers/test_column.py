@@ -1,12 +1,12 @@
-"""Module to test the IndependentSynthesizer."""
+"""Module to test the ColumnSynthesizer."""
 
 import numpy as np
 import pandas as pd
 
-from sdgym.synthesizers.independent import IndependentSynthesizer
+from sdgym.synthesizers.column import ColumnSynthesizer
 
 
-def test_independent_synthesizer():
+def test_column_synthesizer():
     """Ensure all sdtypes can be sampled."""
     # Setup
     n_samples = 10000
@@ -24,11 +24,11 @@ def test_independent_synthesizer():
         'date': date_values,
     })
 
-    independent_synthesizer = IndependentSynthesizer()
+    column_synthesizer = ColumnSynthesizer()
 
     # Run
-    trained_synthesizer = independent_synthesizer.get_trained_synthesizer(data, {})
-    samples = independent_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples)
+    trained_synthesizer = column_synthesizer.get_trained_synthesizer(data, {})
+    samples = column_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples)
 
     # Assert
     assert samples['num'].between(-10, 10).all()

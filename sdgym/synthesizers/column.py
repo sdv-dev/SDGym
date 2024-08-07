@@ -1,4 +1,4 @@
-"""IndependentSynthesizer module."""
+"""ColumnSynthesizer module."""
 
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
@@ -7,7 +7,7 @@ from sklearn.mixture import GaussianMixture
 from sdgym.synthesizers.base import BaselineSynthesizer
 
 
-class IndependentSynthesizer(BaselineSynthesizer):
+class ColumnSynthesizer(BaselineSynthesizer):
     """Synthesizer that learns each column independently.
 
     Categorical columns are sampled using empirical frequencies.
