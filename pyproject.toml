@@ -49,6 +49,7 @@ dependencies = [
     'rdt>=1.12.1',
     'sdmetrics>=0.14.1',
     'sdv>=1.13.1',
+	'dill>=0.3.8',
 ]
 
 [project.urls]
