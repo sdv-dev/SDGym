@@ -471,3 +471,45 @@ def test_benchmark_single_table_limit_dataset_size():
         .between(0, 1000)
         .all()
     )
+
+
+def test_benchmark_single_table_instantiated_synthesizer():
+    """Test it with instances of synthesizers instead of the class."""
+    # Setup
+    def get_trained_synthesizer(data, metadata):
+        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        model = GaussianCopulaSynthesizer(metadata_obj)
+        model.fit(data)
+        return model
+
+    def sample_from_synthesizer(synthesizer, n_samples):
+        return synthesizer.sample(n_samples)
+
+    test_synthesizer = create_single_table_synthesizer(
+        display_name='TestSynthesizer',
+        get_trained_synthesizer_fn=get_trained_synthesizer,
+        sample_from_synthesizer_fn=sample_from_synthesizer,
+    )
+    test_synthesizer_instance = test_synthesizer()
+
+    # Run
+    results = benchmark_single_table(
+        synthesizers=None,
+        custom_synthesizers=[test_synthesizer_instance],
+        sdv_datasets=['fake_companies']
+    )
+
+    # Assert
+    results = results.iloc[0]
+    assert results['Synthesizer'] == 'Custom:TestSynthesizer'
+    assert results['Dataset'] == 'fake_companies'
+    assert round(results['Dataset_Size_MB'], 5) == 0.00128
+    assert 0.5 < results['Quality_Score'] < 1
+
+    assert (
+        results[
+            ['Train_Time', 'Peak_Memory_MB', 'Synthesizer_Size_MB', 'Sample_Time', 'Evaluate_Time']
+        ]
+        .between(0, 1000)
+        .all()
+    )
