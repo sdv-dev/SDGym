@@ -190,7 +190,8 @@ def _compute_scores(
                 'metric': metric_name,
                 'error': 'Metric Timeout',
             })
-            output['scores'] = scores  # re-inject list to multiprocessing output
+            # re-inject list to multiprocessing output
+            output['scores'] = scores
 
             error = None
             score = None
@@ -213,7 +214,8 @@ def _compute_scores(
                 'error': error,
                 'metric_time': (datetime.utcnow() - start).total_seconds(),
             })
-            output['scores'] = scores  # re-inject list to multiprocessing output
+            # re-inject list to multiprocessing output
+            output['scores'] = scores
 
     if compute_diagnostic_score:
         start = datetime.utcnow()
@@ -264,7 +266,8 @@ def _score(
         )
 
         output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
-        output['error'] = 'Synthesizer Timeout'  # To be deleted if there is no error
+        # To be deleted if there is no error
+        output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
             synthesizer, data.copy(), metadata
         )
@@ -283,7 +286,8 @@ def _score(
             used_memory(),
         )
 
-        del output['error']  # No error so far. _compute_scores tracks its own errors by metric
+        # No error so far. _compute_scores tracks its own errors by metric
+        del output['error']
         _compute_scores(
             metrics,
             data,
@@ -756,6 +760,11 @@ def benchmark_single_table(
              'package_name': 'dask' or 'multiprocessing',
              'num_workers': 4
             }
+        run_on_ec2 (bool):
+            The flag is used to run the benchmark on an EC2 instance that will be created
+            by a scriptusing the authentication of the current user. The EC2 instance
+            uses the LATEST released version of sdgym. Local changes or changes NOT
+            in the released version will NOT be used in the ec2 instance.
 
     Returns:
         pandas.DataFrame:
