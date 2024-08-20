@@ -11,7 +11,7 @@ from pathlib import Path
 
 import boto3
 import compress_pickle
-import multiprocess as mp
+import multiprocessing as mp
 import numpy as np
 import pandas as pd
 import tqdm
@@ -60,7 +60,7 @@ DEFAULT_DATASETS = [
 DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 N_BYTES_IN_MB = 1000 * 1000
 
-# multiprocessing.set_start_method('fork')
+mp.set_start_method('spawn', force=True)
 
 
 def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
