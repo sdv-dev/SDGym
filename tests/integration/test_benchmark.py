@@ -471,3 +471,45 @@ def test_benchmark_single_table_limit_dataset_size():
         .between(0, 1000)
         .all()
     )
+
+
+def test_benchmark_single_table_custom_synthesizer_with_timeout():
+    """Test it works with custom synthesizers and timeout."""
+
+    # Setup
+    def get_trained_synth(data, metadata):
+        metadata = SingleTableMetadata.load_from_dict(metadata)
+        synthesizer = GaussianCopulaSynthesizer(metadata)
+        synthesizer.fit(data)
+        return synthesizer
+
+    def get_trained_synth_v2(data, metadata):
+        metadata = SingleTableMetadata.load_from_dict(metadata)
+        synthesizer = GaussianCopulaSynthesizer(metadata)
+        synthesizer.fit(data)
+        return synthesizer
+
+    def sample_synth(trained_synthesizer, num_samples):
+        return trained_synthesizer.sample(num_samples)
+
+    # Run
+    custom_synthesizer = create_single_table_synthesizer(
+        'SimpleGaussianCopula', get_trained_synth, sample_synth
+    )
+    custom_synthesizer_v2 = create_single_table_synthesizer(
+        'SimpleGaussianCopulaV2', get_trained_synth_v2, sample_synth
+    )
+    output = benchmark_single_table(
+        synthesizers=[],
+        sdv_datasets=['fake_hotel_guests'],
+        timeout=120,
+        sdmetrics=[],
+        custom_synthesizers=[custom_synthesizer, custom_synthesizer_v2],
+    )
+
+    # Assert
+    assert output['Synthesizer'][0] == 'Custom:SimpleGaussianCopula'
+    assert output['Synthesizer'][1] == 'Custom:SimpleGaussianCopulaV2'
+
+    output = output.drop('Quality_Score', axis=1)
+    assert not output.isna().to_numpy().any()

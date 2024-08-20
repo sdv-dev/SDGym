@@ -60,6 +60,8 @@ DEFAULT_DATASETS = [
 DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 N_BYTES_IN_MB = 1000 * 1000
 
+multiprocessing.set_start_method('fork')
+
 
 def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
     if output_filepath and os.path.exists(output_filepath):
