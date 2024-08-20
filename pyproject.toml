@@ -49,6 +49,7 @@ dependencies = [
     'rdt>=1.12.1',
     'sdmetrics>=0.14.1',
     'sdv>=1.13.1',
+    'multiprocess>=0.70.16'
 ]
 
 [project.urls]

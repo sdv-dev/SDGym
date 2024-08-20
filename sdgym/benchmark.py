@@ -2,7 +2,6 @@
 
 import concurrent
 import logging
-import multiprocessing
 import os
 import pickle
 import tracemalloc
@@ -12,6 +11,7 @@ from pathlib import Path
 
 import boto3
 import compress_pickle
+import multiprocess as mp
 import numpy as np
 import pandas as pd
 import tqdm
@@ -60,7 +60,7 @@ DEFAULT_DATASETS = [
 DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 N_BYTES_IN_MB = 1000 * 1000
 
-multiprocessing.set_start_method('fork')
+# multiprocessing.set_start_method('fork')
 
 
 def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
@@ -331,9 +331,9 @@ def _score_with_timeout(
     modality=None,
     dataset_name=None,
 ):
-    with multiprocessing.Manager() as manager:
+    with mp.Manager() as manager:
         output = manager.dict()
-        process = multiprocessing.Process(
+        process = mp.Process(
             target=_score,
             args=(
                 synthesizer,
@@ -512,7 +512,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
             if num_gpus > 0:
                 workers = num_gpus
             else:
-                workers = multiprocessing.cpu_count()
+                workers = mp.cpu_count()
 
     if workers in (0, 1):
         scores = map(_run_job, job_args_list)
