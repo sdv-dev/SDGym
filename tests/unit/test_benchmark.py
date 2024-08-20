@@ -52,7 +52,7 @@ def test_progress_bar_updates(tqdm_mock):
 
 
 @patch('sdgym.benchmark._score')
-@patch('sdgym.benchmark.mp')
+@patch('sdgym.benchmark.multiprocessing')
 def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
     """Test that benchmark runs with timeout."""
     # Setup

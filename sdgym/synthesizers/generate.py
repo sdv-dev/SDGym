@@ -82,25 +82,6 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
     return NewSynthesizer
 
 
-class _NestedClassGetter(object):
-    """
-    When called with the containing class as the first argument, 
-    and the name of the nested class as the second argument,
-    returns an instance of the nested class.
-    """
-    def __call__(self, containing_class, class_name):
-        nested_class = getattr(containing_class, class_name)
-
-        # make an instance of a simple object (this one will do), for which we can change the
-        # __class__ later on.
-        nested_instance = _NestedClassGetter()
-
-        # set the class of the instance, the __init__ will never be called on the class
-        # but the original state will be set later on by pickle.
-        nested_instance.__class__ = nested_class
-        return nested_instance
-    
-
 def create_single_table_synthesizer(
     display_name, get_trained_synthesizer_fn, sample_from_synthesizer_fn
 ):
@@ -159,10 +140,6 @@ def create_single_table_synthesizer(
                     The synthetic data.
             """
             return self.synthesizer_fn['sample_from_synthesizer_fn'](synthesizer, num_samples)
-
-        def __reduce__(self):
-            state = self.__dict__.copy()
-            return (_NestedClassGetter(), (self.__class__, 'NewSynthesizer'), state)
 
     CustomSynthesizer = type(
         f'Custom:{display_name}',
