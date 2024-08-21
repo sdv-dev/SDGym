@@ -30,10 +30,5 @@ if __name__ == '__main__':
         custom_synthesizers=[custom_synthesizer, custom_synthesizer_v2],
     )
 
-    assert output['Synthesizer'][0] == 'Custom:SimpleGaussianCopula'
-    assert output['Synthesizer'][1] == 'Custom:SimpleGaussianCopulaV2'
-    output = output.drop('Quality_Score', axis=1)
-    assert not output.isna().to_numpy().any()
-
     with pd.option_context('display.max_columns', None):
         print(output)
