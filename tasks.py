@@ -29,6 +29,11 @@ def unit(c):
 
 
 @task
+def windows(c):
+    c.run('python issue.py')
+
+
+@task
 def integration(c):
     c.run('python -m pytest ./tests/integration')
 

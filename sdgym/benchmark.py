@@ -2,7 +2,6 @@
 
 import concurrent
 import logging
-import multiprocessing
 import os
 import pickle
 import tracemalloc
@@ -43,6 +42,13 @@ from sdgym.utils import (
     get_synthesizers,
     used_memory,
 )
+import multiprocessing
+import cloudpickle
+import dill
+
+multiprocessing.set_start_method('spawn', force=True)
+multiprocessing.reduction.ForkingPickler.dumps = cloudpickle.dumps
+multiprocessing.reduction.ForkingPickler.loads = cloudpickle.loads
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
