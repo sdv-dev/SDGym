@@ -124,7 +124,7 @@ def create_single_table_synthesizer(
                 obj:
                     The trained synthesizer.
             """
-            return get_trained_synthesizer_fn(data, metadata)
+            return self.synthesizer_fn['get_trained_synthesizer_fn'](data, metadata)
 
         def sample_from_synthesizer(self, synthesizer, num_samples):
             """Sample the desired number of samples from the given synthesizer.
@@ -139,11 +139,22 @@ def create_single_table_synthesizer(
                 pandas.DataFrame:
                     The synthetic data.
             """
-            return sample_from_synthesizer_fn(synthesizer, num_samples)
+            return self.synthesizer_fn['sample_from_synthesizer_fn'](synthesizer, num_samples)
 
-    NewSynthesizer.__name__ = f'Custom:{display_name}'
-
-    return NewSynthesizer
+    CustomSynthesizer = type(
+        f'Custom:{display_name}',
+        (NewSynthesizer,),
+        {
+            'synthesizer_fn': {
+                'get_trained_synthesizer_fn': get_trained_synthesizer_fn,
+                'sample_from_synthesizer_fn': sample_from_synthesizer_fn,
+            },
+        },
+    )
+    CustomSynthesizer.__name__ = f'Custom:{display_name}'
+    CustomSynthesizer.__module__ = 'sdgym.synthesizers.generate'
+    globals()[f'Custom:{display_name}'] = CustomSynthesizer
+    return CustomSynthesizer
 
 
 def create_multi_table_synthesizer(
