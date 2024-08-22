@@ -1,6 +1,7 @@
 """Main SDGym benchmarking module."""
 
 import concurrent
+from contextlib import contextmanager
 import logging
 import multiprocessing
 import os
@@ -45,9 +46,6 @@ from sdgym.utils import (
     used_memory,
 )
 
-multiprocessing.set_start_method('spawn', force=True)
-multiprocessing.reduction.ForkingPickler.dumps = cloudpickle.dumps
-multiprocessing.reduction.ForkingPickler.loads = cloudpickle.loads
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
@@ -322,6 +320,24 @@ def _score(
 
     return output
 
+@contextmanager
+def multiprocessing_context():
+    """Override multiprocessing ForkingPickler to use cloudpickle."""
+    original_dump = multiprocessing.reduction.ForkingPickler.dumps
+    original_load = multiprocessing.reduction.ForkingPickler.loads
+    original_method = multiprocessing.get_start_method()
+
+    multiprocessing.set_start_method('spawn', force=True)
+    multiprocessing.reduction.ForkingPickler.dumps = cloudpickle.dumps
+    multiprocessing.reduction.ForkingPickler.loads = cloudpickle.loads
+
+    try:
+        yield
+    finally:
+        # Restore original methods
+        multiprocessing.set_start_method(original_method, force=True)
+        multiprocessing.reduction.ForkingPickler.dumps = original_dump
+        multiprocessing.reduction.ForkingPickler.loads = original_load
 
 def _score_with_timeout(
     timeout,
@@ -334,32 +350,33 @@ def _score_with_timeout(
     modality=None,
     dataset_name=None,
 ):
-    with multiprocessing.Manager() as manager:
-        output = manager.dict()
-        process = multiprocessing.Process(
-            target=_score,
-            args=(
-                synthesizer,
-                data,
-                metadata,
-                metrics,
-                output,
-                compute_quality_score,
-                compute_diagnostic_score,
-                modality,
-                dataset_name,
-            ),
-        )
+    with multiprocessing_context():
+        with multiprocessing.Manager() as manager:
+            output = manager.dict()
+            process = multiprocessing.Process(
+                target=_score,
+                args=(
+                    synthesizer,
+                    data,
+                    metadata,
+                    metrics,
+                    output,
+                    compute_quality_score,
+                    compute_diagnostic_score,
+                    modality,
+                    dataset_name,
+                ),
+            )
 
-        process.start()
-        process.join(timeout)
-        process.terminate()
+            process.start()
+            process.join(timeout)
+            process.terminate()
 
-        output = dict(output)
-        if output.get('timeout'):
-            LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
+            output = dict(output)
+            if output.get('timeout'):
+                LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
 
-        return output
+            return output
 
 
 def _format_output(
