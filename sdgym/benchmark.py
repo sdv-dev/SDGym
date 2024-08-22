@@ -1,13 +1,13 @@
 """Main SDGym benchmarking module."""
 
 import concurrent
-from contextlib import contextmanager
 import logging
 import multiprocessing
 import os
 import pickle
 import tracemalloc
 import warnings
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -45,7 +45,6 @@ from sdgym.utils import (
     get_synthesizers,
     used_memory,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
@@ -320,6 +319,7 @@ def _score(
 
     return output
 
+
 @contextmanager
 def multiprocessing_context():
     """Override multiprocessing ForkingPickler to use cloudpickle."""
@@ -338,6 +338,7 @@ def multiprocessing_context():
         multiprocessing.set_start_method(original_method, force=True)
         multiprocessing.reduction.ForkingPickler.dumps = original_dump
         multiprocessing.reduction.ForkingPickler.loads = original_load
+
 
 def _score_with_timeout(
     timeout,
