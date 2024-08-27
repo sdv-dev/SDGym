@@ -445,6 +445,7 @@ def test_benchmark_single_table_custom_synthesizer():
 
 def test_benchmark_single_table_limit_dataset_size():
     """Test it works with ``limit_dataset_size``."""
+
     # Run
     results = benchmark_single_table(
         synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['adult'], limit_dataset_size=True
@@ -475,6 +476,7 @@ def test_benchmark_single_table_limit_dataset_size():
 
 def test_benchmark_single_table_instantiated_synthesizer():
     """Test it with instances of synthesizers instead of the class."""
+
     # Setup
     def get_trained_synthesizer(data, metadata):
         metadata_obj = SingleTableMetadata.load_from_dict(metadata)
@@ -496,7 +498,7 @@ def test_benchmark_single_table_instantiated_synthesizer():
     results = benchmark_single_table(
         synthesizers=None,
         custom_synthesizers=[test_synthesizer_instance],
-        sdv_datasets=['fake_companies']
+        sdv_datasets=['fake_companies'],
     )
 
     # Assert

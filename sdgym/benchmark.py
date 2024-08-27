@@ -149,12 +149,14 @@ def _generate_job_args_list(
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
-        assert issubclass(synthesizer, BaselineSynthesizer), (
-            '`synthesizer` must be a synthesizer class')
+        assert issubclass(
+            synthesizer, BaselineSynthesizer
+        ), '`synthesizer` must be a synthesizer class'
         synthesizer = synthesizer()
     else:
-        assert issubclass(type(synthesizer), BaselineSynthesizer), (
-            '`synthesizer` must be an instance of a synthesizer class.')
+        assert issubclass(
+            type(synthesizer), BaselineSynthesizer
+        ), '`synthesizer` must be an instance of a synthesizer class.'
 
     get_synthesizer = synthesizer.get_trained_synthesizer
     sample_from_synthesizer = synthesizer.sample_from_synthesizer
