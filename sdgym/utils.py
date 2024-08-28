@@ -60,8 +60,12 @@ def get_synthesizers(synthesizers):
             else:
                 raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
+        if isinstance(synthesizer, type) or hasattr(synthesizer, '__name__'):
+            synthesizer_name = getattr(synthesizer, '__name__', 'undefined')
+        else:
+            synthesizer_name = getattr(type(synthesizer), '__name__', 'undefined')
         synthesizers_dicts.append({
-            'name': getattr(synthesizer, '__name__', 'undefined'),
+            'name': synthesizer_name,
             'synthesizer': synthesizer,
         })
 
