@@ -1,5 +1,11 @@
 # History
 
+## v0.9.1 - 2024-08-29
+
+### Bugs Fixed
+
+* `AttributeError` when running custom synthesizer with timeout - Issue [#335](https://github.com/sdv-dev/SDGym/issues/335) by @fealho
+
 ## v0.9.0 - 2024-08-07
 
 This release enables the diagnostic score to be computed in a benchmarking run. It also renames the `IndependentSynthesizer` to `ColumnSynthesizer`. Finally, it fixes a bug so that the time for all metrics will now be used to compute the `Evaluate_Time` column in the results.
