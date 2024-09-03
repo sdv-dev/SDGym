@@ -1,4 +1,4 @@
-Run started:2024-08-07 18:04:12.306814
+Run started:2024-08-29 15:51:04.711485
 
 Test results:
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
@@ -15,39 +15,53 @@ Test results:
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:149:4
-148	    synthesizer = synthesizer_dict['synthesizer']
-149	    assert issubclass(synthesizer, BaselineSynthesizer), '`synthesizer` must be a synthesizer class'
-150	
+   Location: ./sdgym/benchmark.py:152:8
+151	    if isinstance(synthesizer, type):
+152	        assert issubclass(
+153	            synthesizer, BaselineSynthesizer
+154	        ), '`synthesizer` must be a synthesizer class'
+155	        synthesizer = synthesizer()
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
+   Location: ./sdgym/benchmark.py:157:8
+156	    else:
+157	        assert issubclass(
+158	            type(synthesizer), BaselineSynthesizer
+159	        ), '`synthesizer` must be an instance of a synthesizer class.'
+160	
 
 --------------------------------------------------
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:645:23
-644	    # User data script to install the library
-645	    user_data_script = f"""#!/bin/bash
-646	    sudo apt update -y
-647	    sudo apt install python3-pip -y
-648	    echo "======== Install Dependencies ============"
-649	    sudo pip3 install sdgym
-650	    sudo pip3 install anyio
-651	    pip3 list
-652	    sudo apt install awscli -y
-653	    aws configure set aws_access_key_id {credentials.access_key}
-654	    aws configure set aws_secret_access_key {credentials.secret_key}
-655	    aws configure set region {session.region_name}
-656	    echo "======== Write Script ==========="
-657	    sudo touch ~/sdgym_script.py
-658	    echo "{script_content}" > ~/sdgym_script.py
-659	    echo "======== Run Script ==========="
-660	    sudo python3 ~/sdgym_script.py
-661	    echo "======== Complete ==========="
-662	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-663	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-664	    """
-665	
+   Location: ./sdgym/benchmark.py:675:23
+674	    # User data script to install the library
+675	    user_data_script = f"""#!/bin/bash
+676	    sudo apt update -y
+677	    sudo apt install python3-pip -y
+678	    echo "======== Install Dependencies ============"
+679	    sudo pip3 install sdgym
+680	    sudo pip3 install anyio
+681	    pip3 list
+682	    sudo apt install awscli -y
+683	    aws configure set aws_access_key_id {credentials.access_key}
+684	    aws configure set aws_secret_access_key {credentials.secret_key}
+685	    aws configure set region {session.region_name}
+686	    echo "======== Write Script ==========="
+687	    sudo touch ~/sdgym_script.py
+688	    echo "{script_content}" > ~/sdgym_script.py
+689	    echo "======== Run Script ==========="
+690	    sudo python3 ~/sdgym_script.py
+691	    echo "======== Complete ==========="
+692	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+693	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+694	    """
+695	
 
 --------------------------------------------------
 >> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
@@ -64,37 +78,37 @@ Test results:
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:129:17
-128	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-129	        output = subprocess.run(command, stdout=subprocess.PIPE)
-130	        return len(output.stdout.decode().split())
+   Location: ./sdgym/utils.py:133:17
+132	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+133	        output = subprocess.run(command, stdout=subprocess.PIPE)
+134	        return len(output.stdout.decode().split())
 
 --------------------------------------------------
 >> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:145:17
-144	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-145	        output = subprocess.run(command, stdout=subprocess.PIPE)
-146	        loads = np.array(output.stdout.decode().split()).astype(float)
+   Location: ./sdgym/utils.py:149:17
+148	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+149	        output = subprocess.run(command, stdout=subprocess.PIPE)
+150	        loads = np.array(output.stdout.decode().split()).astype(float)
 
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 2694
+	Total lines of code: 2735
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
 Run metrics:
 	Total issues (by severity):
 		Undefined: 0
-		Low: 5
+		Low: 6
 		Medium: 1
 		High: 0
 	Total issues (by confidence):
 		Undefined: 0
 		Low: 1
 		Medium: 0
-		High: 5
+		High: 6
 Files skipped (0):
