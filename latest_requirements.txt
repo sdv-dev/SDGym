@@ -5,7 +5,7 @@ humanfriendly==10.0
 numpy==1.26.4
 pandas==2.2.2
 rdt==1.12.4
-scikit-learn==1.5.1
+scikit-learn==1.5.2
 scipy==1.13.1
 sdmetrics==0.15.1
 sdv==1.16.1
