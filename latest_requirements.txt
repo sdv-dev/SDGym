@@ -8,7 +8,7 @@ rdt==1.12.4
 scikit-learn==1.5.2
 scipy==1.13.1
 sdmetrics==0.16.0
-sdv==1.16.2
+sdv==1.17.0
 tabulate==0.8.10
 torch==2.4.1
 tqdm==4.66.5
