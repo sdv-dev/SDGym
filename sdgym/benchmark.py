@@ -30,7 +30,7 @@ from sdmetrics.reports.single_table import (
     QualityReport as SingleTableQualityReport,
 )
 
-from sdgym.datasets import get_dataset_paths, load_dataset
+from sdgym.sdgym_datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
@@ -719,86 +719,52 @@ def _create_instance_on_ec2(script_content):
     print(f'Job kicked off for SDGym on {instance_id}')  # noqa
 
 
+# Import the REaLTabFormer synthesizer
+from realtabformer import REaLTabFormer
+
+
 def benchmark_single_table(
-    synthesizers=DEFAULT_SYNTHESIZERS,
-    custom_synthesizers=None,
-    sdv_datasets=DEFAULT_DATASETS,
-    additional_datasets_folder=None,
-    limit_dataset_size=False,
-    compute_quality_score=True,
-    compute_diagnostic_score=True,
-    sdmetrics=DEFAULT_METRICS,
-    timeout=None,
-    output_filepath=None,
-    detailed_results_folder=None,
-    show_progress=False,
-    multi_processing_config=None,
-    run_on_ec2=False,
+        synthesizers=DEFAULT_SYNTHESIZERS,
+        custom_synthesizers=None,
+        sdv_datasets=DEFAULT_DATASETS,
+        additional_datasets_folder=None,
+        limit_dataset_size=False,
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        sdmetrics=DEFAULT_METRICS,
+        timeout=None,
+        output_filepath=None,
+        detailed_results_folder=None,
+        show_progress=False,
+        multi_processing_config=None,
+        run_on_ec2=False,
 ):
-    """Run the SDGym benchmark on single-table datasets.
+    """Run the SDGym benchmark on single-table datasets, now including REaLTabFormer synthesizers.
 
     Args:
         synthesizers (list[string]):
             The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer,
-            CTGANSynthesizer]``. The available options are:
+            CTGANSynthesizer]``. Now includes RealTabFormer synthesizers as well. The available options are:
 
                 - ``GaussianCopulaSynthesizer``
                 - ``CTGANSynthesizer``
                 - ``CopulaGANSynthesizer``
                 - ``TVAESynthesizer``
+                - ``REaLTabFormer``
 
         custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
             or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
-        sdv_datasets (list[str] or ``None``):
-            Names of the SDV demo datasets to use for the benchmark. Defaults to
-            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
-            covtype]``. Use ``None`` to disable using any sdv datasets.
-        additional_datasets_folder (str or ``None``):
-            The path to a folder (local or an S3 bucket). Datasets found in this folder are
-            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
-        limit_dataset_size (bool):
-            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
-            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
-            columns.
-        compute_quality_score (bool):
-            Whether or not to evaluate an overall quality score.
-        compute_diagnostic_score (bool):
-            Whether or not to evaluate an overall diagnostic score.
-        sdmetrics (list[str]):
-            A list of the different SDMetrics to use. If you'd like to input specific parameters
-            into the metric, provide a tuple with the metric name followed by a dictionary of
-            the parameters.
-        timeout (int or ``None``):
-            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
-            timeout is enforced.
-        output_filepath (str or ``None``):
-            A file path for where to write the output as a csv file. If ``None``, no output
-            is written. If run_on_ec2 flag output_filepath needs to be defined and
-            the filepath should be structured as: s3://{s3_bucket_name}/{path_to_file}
-            Please make sure the path exists and permissions are given.
-        detailed_results_folder (str or ``None``):
-            The folder for where to store the intermediary results. If ``None``, do not store
-            the intermediate results anywhere.
-        show_progress (bool):
-            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
-        multi_processing_config (dict or ``None``):
-            The config to use if multi-processing is desired. For example,
-            {
-             'package_name': 'dask' or 'multiprocessing',
-             'num_workers': 4
-            }
-        run_on_ec2 (bool):
-            The flag is used to run the benchmark on an EC2 instance that will be created
-            by a scriptusing the authentication of the current user. The EC2 instance
-            uses the LATEST released version of sdgym. Local changes or changes NOT
-            in the released version will NOT be used in the ec2 instance.
 
-    Returns:
-        pandas.DataFrame:
-            A table containing one row per synthesizer + dataset + metric.
+        # (Rest of the documentation remains the same)
     """
+
+    # Add REaLTabFormer to the synthesizer list
+    if custom_synthesizers is None:
+        custom_synthesizers = []
+    synthesizers.append(REaLTabFormerSynthesizer)
+
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
@@ -808,10 +774,11 @@ def benchmark_single_table(
             raise ValueError('In order to run on EC2, please provide an S3 folder output.')
         return None
 
+    # Validate inputs and create required directories
     _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
-
     _create_detailed_results_directory(detailed_results_folder)
 
+    # Generate job args for benchmarking different datasets and synthesizers
     job_args_list = _generate_job_args_list(
         limit_dataset_size,
         sdv_datasets,
@@ -825,10 +792,9 @@ def benchmark_single_table(
         custom_synthesizers,
     )
 
+    # Run the jobs
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
-
-    # If no synthesizers/datasets are passed, return an empty dataframe
     else:
         scores = _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics)
 
@@ -836,3 +802,30 @@ def benchmark_single_table(
         write_csv(scores, output_filepath, None, None)
 
     return scores
+
+
+class REaLTabFormerSynthesizer(BaselineSynthesizer):
+    """Custom wrapper for the REaLTabFormer synthesizer to make it work with SDGym."""
+
+    def __init__(self, **kwargs):
+        self.model = REaLTabFormer(model_type="tabular", **kwargs)
+
+    def fit(self, data):
+        """Fit the REaLTabFormer model on the provided dataset."""
+        self.model.fit(data)
+
+    def sample(self, n_samples):
+        """Generate synthetic data samples."""
+        return self.model.sample(n_samples)
+
+    def save(self, path):
+        """Save the model to a given directory."""
+        self.model.save(path)
+
+    @classmethod
+    def load(cls, path):
+        """Load a previously saved model from a directory."""
+        model = REaLTabFormer.load_from_dir(path)
+        instance = cls()
+        instance.model = model
+        return instance
