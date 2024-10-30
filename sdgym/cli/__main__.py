@@ -180,9 +180,9 @@ def _get_parser():
     )
     run.add_argument('-m', '--metrics', nargs='+', help='Metrics to apply. Accepts multiple names.')
     run.add_argument('-b', '--bucket', help='Bucket from which to download the datasets.')
-    run.add_argument('-dp' '--datasets-path', help='Path where datasets can be found.')
+    run.add_argument('-dp--datasets-path', help='Path where datasets can be found.')
     run.add_argument(
-        '-dm' '--modalities', nargs='+', help='Data Modalities to run. Accepts multiple names.'
+        '-dm--modalities', nargs='+', help='Data Modalities to run. Accepts multiple names.'
     )
     run.add_argument('-i', '--iterations', type=int, default=1, help='Number of iterations.')
     run.add_argument(
@@ -219,13 +219,13 @@ def _get_parser():
         '-g', '--groupby', nargs='+', help='Group scores leaderboard by the given fields.'
     )
     run.add_argument(
-        '-ak' '--aws-key',
+        '-ak--aws-key',
         type=str,
         required=False,
         help='Aws access key ID to use when reading datasets.',
     )
     run.add_argument(
-        '-as' '--aws-secret',
+        '-as--aws-secret',
         type=str,
         required=False,
         help='Aws secret access key to use when reading datasets.',
@@ -234,10 +234,10 @@ def _get_parser():
         '-j', '--jobs', type=str, required=False, help='Serialized list of jobs to run.'
     )
     run.add_argument(
-        '-mr' '--max-rows', type=int, help='Cap the number of rows to model from each dataset.'
+        '-mr--max-rows', type=int, help='Cap the number of rows to model from each dataset.'
     )
     run.add_argument(
-        '-mc' '--max-columns',
+        '-mc--max-columns',
         type=int,
         help='Cap the number of columns to model from each dataset.',
     )

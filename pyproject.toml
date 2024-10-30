@@ -198,10 +198,11 @@ select = [
     # print statements
     "T201",
     # pandas-vet
-    "PD"
+    "PD",
+    # numpy 2.0
+    "NPY201"
 ]
 ignore = [
-    "E501",
     # pydocstyle
     "D107",  # Missing docstring in __init__
     "D417",   # Missing argument descriptions in the docstring, this is a bug from pydocstyle: https://github.com/PyCQA/pydocstyle/issues/449
