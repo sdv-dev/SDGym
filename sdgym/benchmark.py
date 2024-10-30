@@ -66,8 +66,7 @@ N_BYTES_IN_MB = 1000 * 1000
 def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
     if output_filepath and os.path.exists(output_filepath):
         raise ValueError(
-            f'{output_filepath} already exists. '
-            'Please provide a file that does not already exist.'
+            f'{output_filepath} already exists. Please provide a file that does not already exist.'
         )
 
     if detailed_results_folder and os.path.exists(detailed_results_folder):
@@ -149,14 +148,14 @@ def _generate_job_args_list(
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
-        assert issubclass(
-            synthesizer, BaselineSynthesizer
-        ), '`synthesizer` must be a synthesizer class'
+        assert issubclass(synthesizer, BaselineSynthesizer), (
+            '`synthesizer` must be a synthesizer class'
+        )
         synthesizer = synthesizer()
     else:
-        assert issubclass(
-            type(synthesizer), BaselineSynthesizer
-        ), '`synthesizer` must be an instance of a synthesizer class.'
+        assert issubclass(type(synthesizer), BaselineSynthesizer), (
+            '`synthesizer` must be an instance of a synthesizer class.'
+        )
 
     get_synthesizer = synthesizer.get_trained_synthesizer
     sample_from_synthesizer = synthesizer.sample_from_synthesizer
