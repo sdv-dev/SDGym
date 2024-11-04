@@ -49,6 +49,21 @@ def test_benchmark_single_table_basic_synthsizers():
     ] == quality_scores.index.tolist()
 
 
+def test_benchmark_single_table_realtabformer_no_metrics():
+    """Test it without metrics."""
+    # Run
+    output = sdgym.benchmark_single_table(
+        synthesizers=['REaLTabFormerSynthesizer'],
+        sdv_datasets=['student_placements'],
+        sdmetrics=[],
+    )
+
+    # Assert
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+
+
 def test_benchmark_single_table_no_metrics():
     """Test it without metrics."""
     # Run
