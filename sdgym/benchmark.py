@@ -719,11 +719,6 @@ def _create_instance_on_ec2(script_content):
     waiter.wait(InstanceIds=[instance_id])
     print(f'Job kicked off for SDGym on {instance_id}')  # noqa
 
-
-# Import the REaLTabFormer synthesizer
-from realtabformer import REaLTabFormer
-
-
 def benchmark_single_table(
     synthesizers=DEFAULT_SYNTHESIZERS,
     custom_synthesizers=None,
@@ -740,7 +735,7 @@ def benchmark_single_table(
     multi_processing_config=None,
     run_on_ec2=False,
 ):
-    """Run the SDGym benchmark on single-table datasets, now including REaLTabFormer synthesizers.
+    """Run the SDGym benchmark on single-table datasets,.
 
     Args:
         synthesizers (list[string]):
@@ -757,6 +752,52 @@ def benchmark_single_table(
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
             or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
+                    sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to a folder (local or an S3 bucket). Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score.
+        sdmetrics (list[str]):
+            A list of the different SDMetrics to use. If you'd like to input specific parameters
+            into the metric, provide a tuple with the metric name followed by a dictionary of
+            the parameters.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+        output_filepath (str or ``None``):
+            A file path for where to write the output as a csv file. If ``None``, no output
+            is written. If run_on_ec2 flag output_filepath needs to be defined and
+            the filepath should be structured as: s3://{s3_bucket_name}/{path_to_file}
+            Please make sure the path exists and permissions are given.
+        detailed_results_folder (str or ``None``):
+            The folder for where to store the intermediary results. If ``None``, do not store
+            the intermediate results anywhere.
+        show_progress (bool):
+            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
+        multi_processing_config (dict or ``None``):
+            The config to use if multi-processing is desired. For example,
+            {
+             'package_name': 'dask' or 'multiprocessing',
+             'num_workers': 4
+            }
+        run_on_ec2 (bool):
+            The flag is used to run the benchmark on an EC2 instance that will be created
+            by a scriptusing the authentication of the current user. The EC2 instance
+            uses the LATEST released version of sdgym. Local changes or changes NOT
+            in the released version will NOT be used in the ec2 instance.
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
     """
 
     if custom_synthesizers is None:
@@ -791,6 +832,7 @@ def benchmark_single_table(
 
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+    # If no synthesizers/datasets are passed, return an empty dataframe
     else:
         scores = _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics)
 

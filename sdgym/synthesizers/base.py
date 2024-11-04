@@ -85,10 +85,6 @@ class REaLTabFormerSynthesizer(BaselineSynthesizer):
         """Fit the REaLTabFormer model on the provided dataset."""
         self.model.fit(data)
 
-    def sample(self, n_samples):
-        """Generate synthetic data samples."""
-        return self.model.sample(n_samples)
-
     def save(self, path):
         """Save the model to a given directory."""
         self.model.save(path)
