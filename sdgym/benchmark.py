@@ -17,6 +17,7 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
+from joblib.externals.cloudpickle import instance
 from sdmetrics.reports.multi_table import (
     DiagnosticReport as MultiTableDiagnosticReport,
 )
@@ -30,7 +31,7 @@ from sdmetrics.reports.single_table import (
     QualityReport as SingleTableQualityReport,
 )
 
-from sdgym.sdgym_datasets import get_dataset_paths, load_dataset
+from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
@@ -724,46 +725,42 @@ from realtabformer import REaLTabFormer
 
 
 def benchmark_single_table(
-        synthesizers=DEFAULT_SYNTHESIZERS,
-        custom_synthesizers=None,
-        sdv_datasets=DEFAULT_DATASETS,
-        additional_datasets_folder=None,
-        limit_dataset_size=False,
-        compute_quality_score=True,
-        compute_diagnostic_score=True,
-        sdmetrics=DEFAULT_METRICS,
-        timeout=None,
-        output_filepath=None,
-        detailed_results_folder=None,
-        show_progress=False,
-        multi_processing_config=None,
-        run_on_ec2=False,
+    synthesizers=DEFAULT_SYNTHESIZERS,
+    custom_synthesizers=None,
+    sdv_datasets=DEFAULT_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    sdmetrics=DEFAULT_METRICS,
+    timeout=None,
+    output_filepath=None,
+    detailed_results_folder=None,
+    show_progress=False,
+    multi_processing_config=None,
+    run_on_ec2=False,
 ):
     """Run the SDGym benchmark on single-table datasets, now including REaLTabFormer synthesizers.
 
     Args:
         synthesizers (list[string]):
             The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer,
-            CTGANSynthesizer]``. Now includes RealTabFormer synthesizers as well. The available options are:
+            CTGANSynthesizer]``. The available options are:
 
                 - ``GaussianCopulaSynthesizer``
                 - ``CTGANSynthesizer``
                 - ``CopulaGANSynthesizer``
                 - ``TVAESynthesizer``
-                - ``REaLTabFormer``
+                - ``RealTabFormerSynthesizer``
 
         custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
             or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
-
-        # (Rest of the documentation remains the same)
     """
 
-    # Add REaLTabFormer to the synthesizer list
     if custom_synthesizers is None:
         custom_synthesizers = []
-    synthesizers.append(REaLTabFormerSynthesizer)
 
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
@@ -792,7 +789,6 @@ def benchmark_single_table(
         custom_synthesizers,
     )
 
-    # Run the jobs
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
     else:
@@ -802,30 +798,3 @@ def benchmark_single_table(
         write_csv(scores, output_filepath, None, None)
 
     return scores
-
-
-class REaLTabFormerSynthesizer(BaselineSynthesizer):
-    """Custom wrapper for the REaLTabFormer synthesizer to make it work with SDGym."""
-
-    def __init__(self, **kwargs):
-        self.model = REaLTabFormer(model_type="tabular", **kwargs)
-
-    def fit(self, data):
-        """Fit the REaLTabFormer model on the provided dataset."""
-        self.model.fit(data)
-
-    def sample(self, n_samples):
-        """Generate synthetic data samples."""
-        return self.model.sample(n_samples)
-
-    def save(self, path):
-        """Save the model to a given directory."""
-        self.model.save(path)
-
-    @classmethod
-    def load(cls, path):
-        """Load a previously saved model from a directory."""
-        model = REaLTabFormer.load_from_dir(path)
-        instance = cls()
-        instance.model = model
-        return instance
