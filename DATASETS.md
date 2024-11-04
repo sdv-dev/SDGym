@@ -29,7 +29,7 @@ In this example, we will load the `adult` dataset:
 
 ```python3
 In[1]:
-from sdgym.sdgym_datasets import load_dataset
+from sdgym.datasets import load_dataset
 
 In[2]: data, metadata = load_dataset('adult')
 ```
@@ -39,7 +39,7 @@ Afterwards, you can load the tables from the dataset passing the loaded `metadat
 
 ```python3
 In[4]:
-from sdgym.sdgym_datasets import load_tables
+from sdgym.datasets import load_tables
 
 In[5]: tables = load_tables(metadata)
 ```
