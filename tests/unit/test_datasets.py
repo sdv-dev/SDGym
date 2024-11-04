@@ -7,7 +7,7 @@ import botocore
 import pandas as pd
 
 from sdgym import get_available_datasets
-from sdgym.sdgym_datasets import (
+from sdgym.datasets import (
     _download_dataset,
     _get_bucket_name,
     _get_dataset_path,
