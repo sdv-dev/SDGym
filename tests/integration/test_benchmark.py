@@ -53,7 +53,7 @@ def test_benchmark_single_table_realtabformer_no_metrics():
     """Test it without metrics."""
     # Run
     output = sdgym.benchmark_single_table(
-        synthesizers=['REaLTabFormerSynthesizer'],
+        synthesizers=['RealTabFormerSynthesizer'],
         sdv_datasets=['student_placements'],
         sdmetrics=[],
     )
