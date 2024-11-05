@@ -1,3 +1,5 @@
+"""REaLTabFormer integration."""
+
 from sdgym.synthesizers.base import BaselineSynthesizer
 
 
