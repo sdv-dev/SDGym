@@ -738,7 +738,6 @@ def benchmark_single_table(
     """Run the SDGym benchmark on single-table datasets.
 
     Args:
-
         synthesizers (list[string]):
             The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer,
             CTGANSynthesizer]``. The available options are:
@@ -798,7 +797,6 @@ def benchmark_single_table(
             in the released version will NOT be used in the ec2 instance.
 
     Returns:
-
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
