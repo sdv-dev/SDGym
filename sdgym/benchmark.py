@@ -17,7 +17,6 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
-from joblib.externals.cloudpickle import instance
 from sdmetrics.reports.multi_table import (
     DiagnosticReport as MultiTableDiagnosticReport,
 )
@@ -719,6 +718,7 @@ def _create_instance_on_ec2(script_content):
     waiter.wait(InstanceIds=[instance_id])
     print(f'Job kicked off for SDGym on {instance_id}')  # noqa
 
+
 def benchmark_single_table(
     synthesizers=DEFAULT_SYNTHESIZERS,
     custom_synthesizers=None,
@@ -735,9 +735,10 @@ def benchmark_single_table(
     multi_processing_config=None,
     run_on_ec2=False,
 ):
-    """Run the SDGym benchmark on single-table datasets,.
+    """Run the SDGym benchmark on single-table datasets.
 
     Args:
+
         synthesizers (list[string]):
             The synthesizer(s) to evaluate. Defaults to ``[GaussianCopulaSynthesizer,
             CTGANSynthesizer]``. The available options are:
@@ -752,7 +753,7 @@ def benchmark_single_table(
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
             or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
-                    sdv_datasets (list[str] or ``None``):
+            sdv_datasets (list[str] or ``None``):
             Names of the SDV demo datasets to use for the benchmark. Defaults to
             ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
             covtype]``. Use ``None`` to disable using any sdv datasets.
@@ -796,13 +797,10 @@ def benchmark_single_table(
             uses the LATEST released version of sdgym. Local changes or changes NOT
             in the released version will NOT be used in the ec2 instance.
     Returns:
+
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
-
-    if custom_synthesizers is None:
-        custom_synthesizers = []
-
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
@@ -812,11 +810,9 @@ def benchmark_single_table(
             raise ValueError('In order to run on EC2, please provide an S3 folder output.')
         return None
 
-    # Validate inputs and create required directories
     _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
     _create_detailed_results_directory(detailed_results_folder)
 
-    # Generate job args for benchmarking different datasets and synthesizers
     job_args_list = _generate_job_args_list(
         limit_dataset_size,
         sdv_datasets,
@@ -832,6 +828,7 @@ def benchmark_single_table(
 
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
         scores = _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics)
