@@ -9,6 +9,7 @@ from sdgym.synthesizers.generate import (
 )
 from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.column import ColumnSynthesizer
+from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
 from sdgym.synthesizers.sdv import (
     CopulaGANSynthesizer,
     CTGANSynthesizer,
@@ -38,4 +39,5 @@ __all__ = (
     'create_sdv_synthesizer_variant',
     'create_sequential_synthesizer',
     'SYNTHESIZER_MAPPING',
+    'RealTabFormerSynthesizer',
 )
