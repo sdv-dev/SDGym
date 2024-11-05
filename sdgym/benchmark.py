@@ -753,7 +753,7 @@ def benchmark_single_table(
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
             or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
-            sdv_datasets (list[str] or ``None``):
+        sdv_datasets (list[str] or ``None``):
             Names of the SDV demo datasets to use for the benchmark. Defaults to
             ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
             covtype]``. Use ``None`` to disable using any sdv datasets.
@@ -796,6 +796,7 @@ def benchmark_single_table(
             by a scriptusing the authentication of the current user. The EC2 instance
             uses the LATEST released version of sdgym. Local changes or changes NOT
             in the released version will NOT be used in the ec2 instance.
+
     Returns:
 
         pandas.DataFrame:
@@ -811,6 +812,7 @@ def benchmark_single_table(
         return None
 
     _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
+
     _create_detailed_results_directory(detailed_results_folder)
 
     job_args_list = _generate_job_args_list(

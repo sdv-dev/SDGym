@@ -28,20 +28,18 @@ you can use the `sdgym.load_dataset` function passing the name of the dataset to
 In this example, we will load the `adult` dataset:
 
 ```python3
-In[1]:
-from sdgym.datasets import load_dataset
+In [1]: from sdgym.datasets import load_dataset
 
-In[2]: data, metadata = load_dataset('adult')
+In [2]: data, metadata = load_dataset('adult')
 ```
 
 Afterwards, you can load the tables from the dataset passing the loaded `metadata` to the
 `sdgym.load_tables` function:
 
 ```python3
-In[4]:
-from sdgym.datasets import load_tables
+In [4]: from sdgym.datasets import load_tables
 
-In[5]: tables = load_tables(metadata)
+In [5]: tables = load_tables(metadata)
 ```
 
 This will return a `dict` containing the tables loaded as `pandas.DataFrames`.
