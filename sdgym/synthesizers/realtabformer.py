@@ -21,4 +21,4 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
-        return synthesizer.sample(n_sample)
+        return synthesizer.sample(n_sample, device='cpu')
