@@ -59,7 +59,7 @@ def test_benchmark_single_table_realtabformer_no_metrics():
     )
 
     # Assert
-    assert not output.empty
+    assert set(output['Synthesizer']) == {'RealTabFormerSynthesizer'}
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
 
