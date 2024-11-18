@@ -1,6 +1,18 @@
 """REaLTabFormer integration."""
+import contextlib
+import tqdm
 
+from functools import partialmethod
 from sdgym.synthesizers.base import BaselineSynthesizer
+
+@contextlib.contextmanager
+def prevent_tqdm_output():
+    """Temporarily disables tqdm m."""
+    tqdm.__init__ = partialmethod(tqdm.__init__, disable=True)
+    try:
+        yield
+    finally:
+        tqdm.__init__ = partialmethod(tqdm.__init__, disable=False)
 
 
 class RealTabFormerSynthesizer(BaselineSynthesizer):
@@ -11,12 +23,14 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
             from realtabformer import REaLTabFormer
         except Exception as exception:
             raise ValueError(
-                "In order to use 'RealTabFormerSynthesizer' you have to install the extra dependencies by running"
-                " pip install sdgym['realtabformer'] "
+                "In order to use 'RealTabFormerSynthesizer' you have to install sdgym as "
+                "sdgym['realtabformer']."
             ) from exception
 
-        model = REaLTabFormer(model_type='tabular')
-        model.fit(data, device='cpu')
+        with prevent_tqdm_output():
+            model = REaLTabFormer(model_type='tabular')
+            model.fit(data, device='cpu')
+
         return model
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
