@@ -1,9 +1,12 @@
 """REaLTabFormer integration."""
+
 import contextlib
+from functools import partialmethod
+
 import tqdm
 
-from functools import partialmethod
 from sdgym.synthesizers.base import BaselineSynthesizer
+
 
 @contextlib.contextmanager
 def prevent_tqdm_output():
