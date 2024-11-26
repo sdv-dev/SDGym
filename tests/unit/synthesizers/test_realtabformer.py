@@ -23,24 +23,27 @@ def sample_data():
 class TestRealTabFormerSynthesizer:
     """Unit tests for RealTabFormerSynthesizer integration with SDGym."""
 
-    def test_get_trained_synthesizer(self):
-        """Test _get_trained_synthesizer initializes
-        and fits REaLTabFormer with correct parameters."""
-        with patch('realtabformer.REaLTabFormer') as MockREaLTabFormer:
-            # Setup
-            mock_model = MagicMock()
-            MockREaLTabFormer.return_value = mock_model
-            data = MagicMock()
-            metadata = MagicMock()
+    @patch('realtabformer.REaLTabFormer')
+    def test_get_trained_synthesizer(self, mock_real_tab_former):
+        """Test _get_trained_synthesizer
 
-            # Run
-            synthesizer = RealTabFormerSynthesizer()
-            result = synthesizer._get_trained_synthesizer(data, metadata)
+        Initializes REaLTabFormer and fits REaLTabFormer with
+        correct parameters.
+        """
+        # Setup
+        mock_model = MagicMock()
+        mock_real_tab_former.return_value = mock_model
+        data = MagicMock()
+        metadata = MagicMock()
 
-            # Assert
-            MockREaLTabFormer.assert_called_once_with(model_type='tabular')
-            mock_model.fit.assert_called_once_with(data, device='cpu')
-            assert result == mock_model, 'Expected the trained model to be returned.'
+        # Run
+        synthesizer = RealTabFormerSynthesizer()
+        result = synthesizer._get_trained_synthesizer(data, metadata)
+
+        # Assert
+        mock_real_tab_former.assert_called_once_with(model_type='tabular')
+        mock_model.fit.assert_called_once_with(data, device='cpu')
+        assert result == mock_model, 'Expected the trained model to be returned.'
 
     def test_sample_from_synthesizer(self):
         """Test _sample_from_synthesizer generates data with the specified sample size."""

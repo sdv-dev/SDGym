@@ -59,9 +59,11 @@ def test_benchmark_single_table_realtabformer_no_metrics():
     )
 
     # Assert
-    assert set(output['Synthesizer']) == {'RealTabFormerSynthesizer'}
-    assert 'Train_Time' in output
-    assert 'Sample_Time' in output
+    train_time = output['Train_Time'][0]
+    sample_time = output['Sample_Time'][0]
+    assert isinstance(train_time, (int, float)), 'Train_Time is not numerical'
+    assert isinstance(sample_time, (int, float)), 'Sample_Time is not numerical'
+    assert train_time > 0
 
 
 def test_benchmark_single_table_no_metrics():
@@ -77,6 +79,9 @@ def test_benchmark_single_table_no_metrics():
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
+
+    assert isinstance(output['Train_Time'][0], (int, float)), 'Train_Time is not numerical'
+    assert isinstance(output['Sample_Time'][0], (int, float)), 'Sample_Time is not numerical'
 
     # Expect no metric columns.
     assert len(output.columns) == 10
