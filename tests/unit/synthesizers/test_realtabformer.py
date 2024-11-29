@@ -24,7 +24,7 @@ class TestRealTabFormerSynthesizer:
     """Unit tests for RealTabFormerSynthesizer integration with SDGym."""
 
     @patch('realtabformer.REaLTabFormer')
-    def test_get_trained_synthesizer(self, mock_real_tab_former):
+    def test__get_trained_synthesizer(self, mock_real_tab_former):
         """Test _get_trained_synthesizer
 
         Initializes REaLTabFormer and fits REaLTabFormer with
@@ -35,9 +35,9 @@ class TestRealTabFormerSynthesizer:
         mock_real_tab_former.return_value = mock_model
         data = MagicMock()
         metadata = MagicMock()
+        synthesizer = RealTabFormerSynthesizer()
 
         # Run
-        synthesizer = RealTabFormerSynthesizer()
         result = synthesizer._get_trained_synthesizer(data, metadata)
 
         # Assert
@@ -45,15 +45,15 @@ class TestRealTabFormerSynthesizer:
         mock_model.fit.assert_called_once_with(data, device='cpu')
         assert result == mock_model, 'Expected the trained model to be returned.'
 
-    def test_sample_from_synthesizer(self):
+    def test__sample_from_synthesizer(self):
         """Test _sample_from_synthesizer generates data with the specified sample size."""
         # Setup
         trained_model = MagicMock()
         trained_model.sample.return_value = MagicMock(shape=(10, 5))  # Mock sample data shape
         n_sample = 10
+        synthesizer = RealTabFormerSynthesizer()
 
         # Run
-        synthesizer = RealTabFormerSynthesizer()
         synthetic_data = synthesizer._sample_from_synthesizer(trained_model, n_sample)
 
         # Assert
