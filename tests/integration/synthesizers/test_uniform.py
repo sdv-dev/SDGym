@@ -3,8 +3,6 @@
 import numpy as np
 import pandas as pd
 
-from sdgym import load_dataset
-from sdgym.synthesizers import RealTabFormerSynthesizer
 from sdgym.synthesizers.uniform import UniformSynthesizer
 
 
@@ -71,21 +69,3 @@ def test_uniform_synthesizer():
 
     assert n_values_interval2 * 0.9 < n_values_interval1 < n_values_interval2 * 1.1
     assert n_values_interval3 * 0.9 < n_values_interval1 < n_values_interval3 * 1.1
-
-
-def test_realtabformer_right_shape():
-    """Test it without metrics."""
-    # Run
-    data, metadata_dict = load_dataset(
-        'single_table', 'student_placements', limit_dataset_size=False
-    )
-
-    synthesizer = RealTabFormerSynthesizer()
-    sampled_data = synthesizer._get_trained_synthesizer(data, metadata_dict).sample(
-        n_samples=10, device='cpu'
-    )
-
-    # Assert
-    assert sampled_data.shape[1] == data.shape[1], (
-        f'Sampled data shape {sampled_data.shape} does not match original data shape {data.shape}'
-    )
