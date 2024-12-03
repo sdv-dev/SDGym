@@ -1,13 +1,14 @@
 """REaLTabFormer integration."""
 
 import contextlib
+import logging
 import os
 from functools import partialmethod
 
 import torch
 import tqdm
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer, LOGGER
 
 
 @contextlib.contextmanager
@@ -23,6 +24,8 @@ def prevent_tqdm_output():
 class RealTabFormerSynthesizer(BaselineSynthesizer):
     """Custom wrapper for the REaLTabFormer synthesizer to make it work with SDGym."""
 
+    LOGGER = logging.getLogger(__name__)
+
     def _get_trained_synthesizer(self, data, metadata):
         try:
             from realtabformer import REaLTabFormer
@@ -35,21 +38,21 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
         with prevent_tqdm_output():
             model = REaLTabFormer(model_type='tabular')
             model.fit(data, device='cpu')
-            print('PYTORCH_ENABLE_MPS_FALLBACK')
-            print(os.environ['PYTORCH_ENABLE_MPS_FALLBACK'])
-            print('PYTORCH_MPS_HIGH_WATERMARK_RATIO')
-            print(os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'])
-            print('<<<<<<<<<<<<<<<<<<MPS AVAILABLE FIT>>>>>>>>>>>>')
-            print(torch.backends.mps.is_available())
+            LOGGER.debug('PYTORCH_ENABLE_MPS_FALLBACK')
+            LOGGER.debug(os.environ['PYTORCH_ENABLE_MPS_FALLBACK'])
+            LOGGER.debug('PYTORCH_MPS_HIGH_WATERMARK_RATIO')
+            LOGGER.debug(os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'])
+            LOGGER.debug('<<<<<<<<<<<<<<<<<<MPS AVAILABLE FIT>>>>>>>>>>>>')
+            LOGGER.debug(torch.backends.mps.is_available())
 
         return model
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
-        print('PYTORCH_ENABLE_MPS_FALLBACK')
-        print(os.environ['PYTORCH_ENABLE_MPS_FALLBACK'])
-        print('PYTORCH_MPS_HIGH_WATERMARK_RATIO')
-        print(os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'])
-        print('<<<<<<<<<<<<<<<<<<MPS AVAILABLE SAMPLE>>>>>>>>>>>>')
-        print(torch.backends.mps.is_available())
+        LOGGER.debug('PYTORCH_ENABLE_MPS_FALLBACK')
+        LOGGER.debug(os.environ['PYTORCH_ENABLE_MPS_FALLBACK'])
+        LOGGER.debug('PYTORCH_MPS_HIGH_WATERMARK_RATIO')
+        LOGGER.debug(os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'])
+        LOGGER.debug('<<<<<<<<<<<<<<<<<<MPS AVAILABLE SAMPLE>>>>>>>>>>>>')
+        LOGGER.debug(torch.backends.mps.is_available())
         return synthesizer.sample(n_sample, device='cpu')
