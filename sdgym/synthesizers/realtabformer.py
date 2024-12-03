@@ -39,9 +39,9 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
             model = REaLTabFormer(model_type='tabular')
             model.fit(data, device='cpu')
             LOGGER.debug('PYTORCH_ENABLE_MPS_FALLBACK')
-            LOGGER.debug(os.environ['PYTORCH_ENABLE_MPS_FALLBACK'])
+            LOGGER.debug(os.getenv('PYTORCH_ENABLE_MPS_FALLBACK') )
             LOGGER.debug('PYTORCH_MPS_HIGH_WATERMARK_RATIO')
-            LOGGER.debug(os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'])
+            LOGGER.debug(os.getenv('PYTORCH_MPS_HIGH_WATERMARK_RATIO'))
             LOGGER.debug('<<<<<<<<<<<<<<<<<<MPS AVAILABLE FIT>>>>>>>>>>>>')
             LOGGER.debug(torch.backends.mps.is_available())
 
@@ -50,9 +50,9 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
         LOGGER.debug('PYTORCH_ENABLE_MPS_FALLBACK')
-        LOGGER.debug(os.environ['PYTORCH_ENABLE_MPS_FALLBACK'])
+        LOGGER.debug(os.getenv('PYTORCH_ENABLE_MPS_FALLBACK'))
         LOGGER.debug('PYTORCH_MPS_HIGH_WATERMARK_RATIO')
-        LOGGER.debug(os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'])
+        LOGGER.debug(os.getenv('PYTORCH_MPS_HIGH_WATERMARK_RATIO'))
         LOGGER.debug('<<<<<<<<<<<<<<<<<<MPS AVAILABLE SAMPLE>>>>>>>>>>>>')
         LOGGER.debug(torch.backends.mps.is_available())
         return synthesizer.sample(n_sample, device='cpu')
