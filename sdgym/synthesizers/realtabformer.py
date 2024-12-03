@@ -3,6 +3,7 @@
 import contextlib
 from functools import partialmethod
 
+import torch
 import tqdm
 
 from sdgym.synthesizers.base import BaselineSynthesizer
@@ -33,9 +34,13 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
         with prevent_tqdm_output():
             model = REaLTabFormer(model_type='tabular')
             model.fit(data, device='cpu')
+            print('<<<<<<<<<<<<<<<<<<MPS AVAILABLE FIT>>>>>>>>>>>>')
+            print(torch.backends.mps.is_available())
 
         return model
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
+        print('<<<<<<<<<<<<<<<<<<MPS AVAILABLE SAMPLE>>>>>>>>>>>>')
+        print(torch.backends.mps.is_available())
         return synthesizer.sample(n_sample, device='cpu')
