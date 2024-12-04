@@ -4,7 +4,9 @@ on:
   push:
   pull_request:
     types: [opened, reopened]
-
+env:
+  PYTORCH_ENABLE_MPS_FALLBACK: "1"
+  PYTORCH_MPS_HIGH_WATERMARK_RATIO: 0.0
 jobs:
   minimum:
     runs-on: ${{ matrix.os }}
