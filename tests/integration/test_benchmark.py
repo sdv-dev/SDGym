@@ -3,6 +3,7 @@
 import contextlib
 import io
 import re
+import sys
 import time
 
 import numpy as np
@@ -66,6 +67,7 @@ def test_benchmark_single_table_realtabformer_no_metrics():
     assert train_time > 0
 
 
+@pytest.mark.skipif(sys.platform.startswith('darwin'), reason='Test not supported on github MacOS')
 def test_benchmark_single_table_no_metrics():
     """Test it without metrics."""
     # Run
