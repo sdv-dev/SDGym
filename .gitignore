@@ -112,3 +112,6 @@ tmp/
 dask-worker-space
 scripts/runs
 scripts/datasets
+
+# ReaLTabFormer 
+rtf_checkpoints/
