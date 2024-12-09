@@ -29,8 +29,8 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
             from realtabformer import REaLTabFormer
         except Exception as exception:
             raise ValueError(
-                "In order to use 'RealTabFormerSynthesizer' you have to install sdgym as "
-                "sdgym['realtabformer']."
+                "In order to use 'RealTabFormerSynthesizer' you have to install the extra"
+                " dependencies by running  pip install sdgym['realtabformer'] "
             ) from exception
 
         with prevent_tqdm_output():
