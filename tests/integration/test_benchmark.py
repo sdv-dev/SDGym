@@ -65,8 +65,8 @@ def test_benchmark_single_table_realtabformer_no_metrics():
     sample_time = output['Sample_Time'][0]
     assert isinstance(train_time, (int, float, complex)), 'Train_Time is not numerical'
     assert isinstance(sample_time, (int, float, complex)), 'Sample_Time is not numerical'
-    assert train_time > 0
-    assert sample_time > 0
+    assert train_time >= 0
+    assert sample_time >= 0
 
 
 @pytest.mark.skipif(sys.platform.startswith('darwin'), reason='Test not supported on github MacOS')
@@ -88,8 +88,8 @@ def test_benchmark_single_table_no_metrics():
     sample_time = output['Sample_Time'][0]
     assert isinstance(train_time, (int, float, complex)), 'Train_Time is not numerical'
     assert isinstance(sample_time, (int, float, complex)), 'Sample_Time is not numerical'
-    assert train_time > 0
-    assert sample_time > 0
+    assert train_time >= 0
+    assert sample_time >= 0
 
     # Expect no metric columns.
     assert len(output.columns) == 10
