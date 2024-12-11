@@ -18,12 +18,8 @@ jobs:
         include:
           - os: macos-latest
             python-version: '3.8'
-            env:
-              PYTORCH_MPS_HIGH_WATERMARK_RATIO: 0.0
           - os: macos-latest
             python-version: '3.12'
-            env:
-              PYTORCH_MPS_HIGH_WATERMARK_RATIO: 0.0
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
