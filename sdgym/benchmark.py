@@ -746,6 +746,7 @@ def benchmark_single_table(
                 - ``CTGANSynthesizer``
                 - ``CopulaGANSynthesizer``
                 - ``TVAESynthesizer``
+                - ``RealTabFormerSynthesizer``
 
         custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or

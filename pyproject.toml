@@ -27,7 +27,7 @@ dependencies = [
     'cloudpickle>=2.1.0',
     'compress-pickle>=1.2.0',
     'humanfriendly>=8.2',
-    "numpy>=1.21.0;python_version<'3.10'",
+    "numpy>=1.21.6;python_version<'3.10'",
     "numpy>=1.23.3;python_version>='3.10' and python_version<'3.12'",
     "numpy>=1.26.0;python_version>='3.12'",
     "pandas>=1.4.0;python_version<'3.11'",
@@ -42,10 +42,10 @@ dependencies = [
     "scipy>=1.9.2;python_version>='3.10' and python_version<'3.12'",
     "scipy>=1.12.0;python_version>='3.12'",
     'tabulate>=0.8.3,<0.9',
-    "torch>=1.9.0;python_version<'3.10'",
+    "torch>=1.12.1;python_version<'3.10'",
     "torch>=2.0.0;python_version>='3.10' and python_version<'3.12'",
     "torch>=2.2.0;python_version>='3.12'",
-    'tqdm>=4.29',
+    'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
     'rdt>=1.13.1',
     'sdmetrics>=0.17.0',
@@ -64,7 +64,9 @@ sdgym = { main = 'sdgym.cli.__main__:main' }
 
 [project.optional-dependencies]
 dask = ['dask', 'distributed']
+realtabformer = ['realtabformer>=0.2.1', 'transformers<4.46']
 test = [
+    'sdgym[realtabformer]',
     'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
