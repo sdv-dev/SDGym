@@ -4,11 +4,11 @@ compress-pickle==2.1.0
 humanfriendly==10.0
 numpy==2.0.2
 pandas==2.2.3
-rdt==1.13.1
-scikit-learn==1.5.2
+rdt==1.13.2
+scikit-learn==1.6.0
 scipy==1.13.1
-sdmetrics==0.17.1
-sdv==1.17.2
+sdmetrics==0.18.0
+sdv==1.17.3
 tabulate==0.8.10
 torch==2.5.1
 tqdm==4.67.1
