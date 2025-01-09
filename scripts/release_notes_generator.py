@@ -24,7 +24,7 @@ ISSUE_LABELS = [
     'customer success',
 ]
 NEW_LINE = '\n'
-GITHUB_URL = 'https://api.github.com/repos/sdv-dev/sdmetrics'
+GITHUB_URL = 'https://api.github.com/repos/sdv-dev/sdgym'
 GITHUB_TOKEN = os.getenv('GH_ACCESS_TOKEN')
 
 
