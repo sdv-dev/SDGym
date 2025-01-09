@@ -1,5 +1,20 @@
 # History
 
+## v0.9.2 - 2025-01-09
+
+### Maintenance
+
+* Create Prepare Release workflow - Issue [#364](https://github.com/sdv-dev/SDGym/issues/364) by @R-Palazzo
+
+### Bugs Fixed
+
+* Minimum tests failing because of broken action - Issue [#351](https://github.com/sdv-dev/SDGym/issues/351) by @amontanez24
+
+### New Features
+
+* Add integration with 3rd party synthesizer (REalTabFormer) - Issue [#347](https://github.com/sdv-dev/SDGym/issues/347) by @cristid9
+* Add support for numpy 2.0.0 - Issue [#315](https://github.com/sdv-dev/SDGym/issues/315) by @R-Palazzo
+
 ## v0.9.1 - 2024-08-29
 
 ### Bugs Fixed
