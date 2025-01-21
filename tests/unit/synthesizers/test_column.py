@@ -1,6 +1,7 @@
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pandas as pd
+from sdv.metadata import SingleTableMetadata
 
 from sdgym.synthesizers import ColumnSynthesizer
 
@@ -13,9 +14,11 @@ class TestColumnSynthesizer:
         column_synthesizer = ColumnSynthesizer()
         column_synthesizer.length = 10
         data = pd.DataFrame({'col1': [1, 2, 3, 4]})
+        metadata = SingleTableMetadata()
+        metadata.add_column('col1', sdtype='numerical')
 
         # Run
-        column_synthesizer._get_trained_synthesizer(data, Mock())
+        column_synthesizer._get_trained_synthesizer(data, metadata)
 
         # Assert
         gm_mock.assert_called_once_with(4)
