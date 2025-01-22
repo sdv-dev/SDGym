@@ -4,6 +4,7 @@ import logging
 
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
+from sdv.metadata import Metadata
 from sklearn.mixture import GaussianMixture
 
 from sdgym.synthesizers.base import BaselineSynthesizer
@@ -23,7 +24,13 @@ class ColumnSynthesizer(BaselineSynthesizer):
         hyper_transformer.detect_initial_config(real_data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
-        for column_name, column in metadata.columns.items():
+        if isinstance(metadata, Metadata):
+            table_name = metadata._get_single_table_name()
+            columns = metadata.tables[table_name].columns
+        else:
+            columns = metadata.columns
+
+        for column_name, column in columns.items():
             sdtype = column['sdtype']
             if sdtype in supported_sdtypes:
                 config[column_name] = sdtype
