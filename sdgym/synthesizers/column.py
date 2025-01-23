@@ -1,10 +1,15 @@
 """ColumnSynthesizer module."""
 
+import logging
+
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
+from sdv.metadata import Metadata
 from sklearn.mixture import GaussianMixture
 
 from sdgym.synthesizers.base import BaselineSynthesizer
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ColumnSynthesizer(BaselineSynthesizer):
@@ -17,6 +22,27 @@ class ColumnSynthesizer(BaselineSynthesizer):
     def _get_trained_synthesizer(self, real_data, metadata):
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(real_data)
+        supported_sdtypes = hyper_transformer._get_supported_sdtypes()
+        config = {}
+        if isinstance(metadata, Metadata):
+            table_name = metadata._get_single_table_name()
+            columns = metadata.tables[table_name].columns
+        else:
+            columns = metadata.columns
+
+        for column_name, column in columns.items():
+            sdtype = column['sdtype']
+            if sdtype in supported_sdtypes:
+                config[column_name] = sdtype
+            elif column.get('pii', False):
+                config[column_name] = 'pii'
+            else:
+                LOGGER.info(
+                    f'Column {column} sdtype: {sdtype} is not supported, '
+                    f'defaulting to inferred type.'
+                )
+
+        hyper_transformer.update_sdtypes(config)
 
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
