@@ -80,7 +80,30 @@ def _get_minimum_versions(dependencies, python_version):
                     f'{req.name}=={new_version}'  # Change when a valid newer version is found
                 )
 
-    return list(min_versions.values())
+    return min_versions
+
+
+def _get_extra_dependencies(pyproject_data):
+    """Get the dependencies for optional synthesizers.
+
+    Args:
+        pyproject_data (dict):
+            Dictionary representation of our pyproject.toml file.
+
+    Returns:
+        list:
+            A list of dependency strings (ie. numpy>=x.y.z)
+    """
+    optional_dependencies = pyproject_data.get('project', {}).get('optional-dependencies', [])
+    test_dependencies = optional_dependencies.get('test', [])
+    extra_dependencies = []
+    start_token = 'sdgym['
+    for dep in test_dependencies:
+        if dep.startswith(start_token):
+            synthesizer = dep[len(start_token): -1]
+            extra_dependencies.extend(optional_dependencies.get(synthesizer))
+
+    return extra_dependencies
 
 
 @task
@@ -89,8 +112,12 @@ def install_minimum(c):
         pyproject_data = tomli.load(pyproject_file)
 
     dependencies = pyproject_data.get('project', {}).get('dependencies', [])
+    extra_synthesizer_dependencies = _get_extra_dependencies(pyproject_data)
     python_version = '.'.join(map(str, sys.version_info[:2]))
     minimum_versions = _get_minimum_versions(dependencies, python_version)
+    extra_minimum_versions = _get_minimum_versions(extra_synthesizer_dependencies, python_version)
+    minimum_versions.update(extra_minimum_versions)
+    minimum_versions = list(minimum_versions.values())
 
     if minimum_versions:
         install_deps = ' '.join(minimum_versions)
