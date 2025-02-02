@@ -5,6 +5,7 @@ import io
 import re
 import sys
 import time
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -534,3 +535,14 @@ def test_benchmark_single_table_instantiated_synthesizer():
         .between(0, 1000)
         .all()
     )
+
+
+def test_benchmark_single_table_no_warnings():
+    """Test that the benchmark does not raise any FutureWarnings."""
+    # Run
+    with warnings.catch_warnings(record=True) as w:
+        benchmark_single_table(
+            synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['fake_companies']
+        )
+        future_warnings = [warning for warning in w if issubclass(warning.category, FutureWarning)]
+        assert len(future_warnings) == 0
