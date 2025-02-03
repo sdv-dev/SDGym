@@ -43,7 +43,7 @@ def _get_example_pyproject_dict():
     return {
         'build-system': {
             'build-backend': 'setuptools.build_meta',
-            'requires': ['setuptools', 'wheel']
+            'requires': ['setuptools', 'wheel'],
         },
         'project': {
             'authors': [{'email': 'info@sdv.dev', 'name': 'DataCebo, Inc.'}],
@@ -54,8 +54,7 @@ def _get_example_pyproject_dict():
                 'Programming Language :: Python :: 3.10',
                 'Programming Language :: Python :: 3.11',
                 'Programming Language :: Python :: 3.12',
-                'Topic :: Scientific/Engineering :: Artificial '
-                'Intelligence'
+                'Topic :: Scientific/Engineering :: Artificial Intelligence',
             ],
             'dependencies': [
                 'appdirs>=1.3',
@@ -86,7 +85,7 @@ def _get_example_pyproject_dict():
                 'XlsxWriter>=1.2.8',
                 'rdt>=1.13.1',
                 'sdmetrics>=0.17.0',
-                'sdv>=1.17.2'
+                'sdv>=1.17.2',
             ],
             'dynamic': ['version'],
             'license': {'text': 'BSL-1.1'},
@@ -106,10 +105,13 @@ def _get_example_pyproject_dict():
                     'coverage>=4.5.12,<8',
                     'tox>=2.9.1,<5',
                     'importlib-metadata>=3.6',
-                    'invoke'
+                    'invoke',
                 ],
                 'realtabformer': ['realtabformer>=0.2.1'],
-                'test': ['sdgym[realtabformer]', 'pytest>=6.2.5',]
+                'test': [
+                    'sdgym[realtabformer]',
+                    'pytest>=6.2.5',
+                ]
             },
             'readme': 'README.md',
             'requires-python': '>=3.8,<3.13',
@@ -120,18 +122,18 @@ def _get_example_pyproject_dict():
                 'commit': True,
                 'commit_args': '',
             },
-          'ruff': {
+            'ruff': {
                 'exclude': [
                     'docs',
                     '.tox',
                     '.git',
                     '__pycache__',
                     '.ipynb_checkpoints',
-                    'tasks.py'
+                    'tasks.py',
                 ],
                 'indent-width': 4,
             },
-        }
+        },
     }
 
 
@@ -154,13 +156,13 @@ def test__resolve_version_conflicts_conflicting_versions():
         'numpy': 'numpy==2.0.1',
         'pandas': 'pandas==2.2.1',
         'sdv': 'sdv==2.1.1',
-        'rdt': 'rdt==1.1.2'
+        'rdt': 'rdt==1.1.2',
     }
     extra_deps = {
         'numpy': 'numpy==2.0.0',
         'pandas': 'pandas==2.3.0',
         'sdv': 'sdv==3.0.0',
-        'copulas': 'copulas==0.12.0'
+        'copulas': 'copulas==0.12.0',
     }
 
     # Run
@@ -172,7 +174,7 @@ def test__resolve_version_conflicts_conflicting_versions():
         'pandas==2.3.0',
         'sdv==3.0.0',
         'rdt==1.1.2',
-        'copulas==0.12.0'
+        'copulas==0.12.0',
     ])
 
 
@@ -183,13 +185,13 @@ def test__resolve_version_conflicts_pointing_to_branch():
         'numpy': 'git+https://github.com/numpy-dev/numpy.git@master#egg=numpy',
         'pandas': 'pandas==2.2.1',
         'sdv': 'sdv==2.1.1',
-        'rdt': 'rdt==1.1.2'
+        'rdt': 'rdt==1.1.2',
     }
     extra_deps = {
         'numpy': 'numpy==2.0.0',
         'pandas': 'git+https://github.com/pandas-dev/pandas.git@master#egg=pandas',
         'sdv': 'sdv==3.0.0',
-        'copulas': 'copulas==0.12.0'
+        'copulas': 'copulas==0.12.0',
     }
 
     # Run
@@ -201,5 +203,5 @@ def test__resolve_version_conflicts_pointing_to_branch():
         'git+https://github.com/pandas-dev/pandas.git@master#egg=pandas',
         'sdv==3.0.0',
         'rdt==1.1.2',
-        'copulas==0.12.0'
+        'copulas==0.12.0',
     ])
