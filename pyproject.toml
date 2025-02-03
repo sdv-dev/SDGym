@@ -65,7 +65,7 @@ sdgym = { main = 'sdgym.cli.__main__:main' }
 [project.optional-dependencies]
 dask = ['dask', 'distributed']
 realtabformer = [
-    'realtabformer>=0.2.1',
+    'realtabformer>=0.2.2',
     "torch>=2.0.0;python_version>='3.8' and python_version<'3.12'",
     "torch>=2.2.0;python_version>='3.12'",
 ]
