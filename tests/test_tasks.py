@@ -150,7 +150,7 @@ def test__get_extra_dependencies():
 
 
 def test__resolve_version_conflicts_conflicting_versions():
-    """Test that any conflictss for the same dependency are resolves to the higher version."""
+    """Test that any conflicts for the same dependency are resolved to the higher version."""
     # Setup
     deps = {
         'numpy': 'numpy==2.0.1',
@@ -179,7 +179,7 @@ def test__resolve_version_conflicts_conflicting_versions():
 
 
 def test__resolve_version_conflicts_pointing_to_branch():
-    """Test that any conflictss for the same dependency are resolves to the higher version."""
+    """Test specific branches are always selected over normal version numbers."""
     # Setup
     deps = {
         'numpy': 'git+https://github.com/numpy-dev/numpy.git@master#egg=numpy',

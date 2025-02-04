@@ -97,7 +97,7 @@ def _get_extra_dependencies(pyproject_data):
         list:
             A list of dependency strings (ie. numpy>=x.y.z).
     """
-    optional_dependencies = pyproject_data.get('project', {}).get('optional-dependencies', [])
+    optional_dependencies = pyproject_data.get('project', {}).get('optional-dependencies', {})
     test_dependencies = optional_dependencies.get('test', [])
     extra_dependencies = []
     start_token = 'sdgym['
