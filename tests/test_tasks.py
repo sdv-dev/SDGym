@@ -111,7 +111,7 @@ def _get_example_pyproject_dict():
                 'test': [
                     'sdgym[realtabformer]',
                     'pytest>=6.2.5',
-                ]
+                ],
             },
             'readme': 'README.md',
             'requires-python': '>=3.8,<3.13',
