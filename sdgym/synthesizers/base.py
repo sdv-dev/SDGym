@@ -54,8 +54,12 @@ class BaselineSynthesizer(abc.ABC):
                 The synthesizer object.
         """
         metadata_object = Metadata()
-        table_name = metadata_object._get_single_table_name()
-        metadata = metadata_object.load_from_dict(metadata, table_name)
+        if 'tables' not in metadata:
+            table_name = metadata_object._get_single_table_name()
+            metadata = metadata_object.load_from_dict(metadata, table_name)
+        else:
+            metadata = metadata_object.load_from_dict(metadata)
+
         return self._get_trained_synthesizer(data, metadata)
 
     def sample_from_synthesizer(self, synthesizer, n_samples):

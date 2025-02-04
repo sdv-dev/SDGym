@@ -19,8 +19,8 @@ class UniformSynthesizer(BaselineSynthesizer):
         hyper_transformer.detect_initial_config(real_data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
-        metadata_name = metadata._get_single_table_name()
-        for column_name, column in metadata.tables[metadata_name].columns.items():
+        table_name = metadata._get_single_table_name()
+        for column_name, column in metadata.tables[table_name].columns.items():
             sdtype = column['sdtype']
             if sdtype in supported_sdtypes:
                 config[column_name] = sdtype
