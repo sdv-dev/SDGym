@@ -9,7 +9,7 @@ from sdgym.synthesizers.base import BaselineSynthesizer
 
 class TestBaselineSynthesizer:
     def test_get_trained_synthesizer(self):
-        """Test it ."""
+        """Test it calls the correct methods and returns the correct values."""
         # Setup
         data = pd.DataFrame({
             'pk': [1, 2, 3, 4],
