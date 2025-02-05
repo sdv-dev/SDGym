@@ -2,6 +2,7 @@
 
 import abc
 import logging
+import warnings
 
 from sdv.metadata import Metadata
 
@@ -54,10 +55,8 @@ class BaselineSynthesizer(abc.ABC):
                 The synthesizer object.
         """
         metadata_object = Metadata()
-        if 'tables' not in metadata:
-            table_name = metadata_object._get_single_table_name()
-            metadata = metadata_object.load_from_dict(metadata, table_name)
-        else:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
             metadata = metadata_object.load_from_dict(metadata)
 
         return self._get_trained_synthesizer(data, metadata)
