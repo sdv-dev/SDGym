@@ -23,6 +23,7 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
     """Custom wrapper for the REaLTabFormer synthesizer to make it work with SDGym."""
 
     LOGGER = logging.getLogger(__name__)
+    _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
         try:
@@ -34,7 +35,8 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
             ) from exception
 
         with prevent_tqdm_output():
-            model = REaLTabFormer(model_type='tabular')
+            model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
+            model = REaLTabFormer(model_type='tabular', **model_kwargs)
             model.fit(data, device='cpu')
 
         return model

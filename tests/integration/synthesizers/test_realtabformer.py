@@ -14,6 +14,7 @@ def test_realtabformer_end_to_end():
         'single_table', 'student_placements', limit_dataset_size=False
     )
     realtabformer_instance = RealTabFormerSynthesizer()
+    realtabformer_instance._MODEL_KWARGS = {'epochs': 10}
 
     # Run
     trained_synthesizer = realtabformer_instance.get_trained_synthesizer(data, metadata_dict)

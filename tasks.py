@@ -12,7 +12,7 @@ from packaging.requirements import Requirement
 from packaging.version import Version
 
 COMPARISONS = {'>=': operator.ge, '>': operator.gt, '<': operator.lt, '<=': operator.le}
-
+EGG_STRING = '#egg='
 
 if not hasattr(inspect, 'getargspec'):
     inspect.getargspec = inspect.getfullargspec
@@ -53,7 +53,7 @@ def _get_minimum_versions(dependencies, python_version):
     for dependency in dependencies:
         if '@' in dependency:
             name, url = dependency.split(' @ ')
-            min_versions[name] = f'{url}#egg={name}'
+            min_versions[name] = f'{url}{EGG_STRING}{name}'
             continue
 
         req = Requirement(dependency)
@@ -80,7 +80,76 @@ def _get_minimum_versions(dependencies, python_version):
                     f'{req.name}=={new_version}'  # Change when a valid newer version is found
                 )
 
-    return list(min_versions.values())
+    return min_versions
+
+
+def _get_extra_dependencies(pyproject_data):
+    """Get the dependencies for optional synthesizers.
+
+    This function assumes that all external synthesizers we add will have an optional dependency
+    section defined and that the section will be listed in the '[test]' optional dependency.
+
+    Args:
+        pyproject_data (dict):
+            Dictionary representation of our pyproject.toml file.
+
+    Returns:
+        list:
+            A list of dependency strings (ie. numpy>=x.y.z).
+    """
+    optional_dependencies = pyproject_data.get('project', {}).get('optional-dependencies', {})
+    test_dependencies = optional_dependencies.get('test', [])
+    extra_dependencies = []
+    start_token = 'sdgym['
+    for dep in test_dependencies:
+        if dep.startswith(start_token):
+            synthesizer = dep[len(start_token): -1]
+            extra_dependencies.extend(optional_dependencies.get(synthesizer))
+
+    return extra_dependencies
+
+
+def _get_version_from_requirement(requirement):
+    requirement = requirement.strip()
+    equal_index = requirement.find('==')
+    version_number = requirement[equal_index + 2:]
+    return Version(version_number)
+
+
+def _resolve_version_conflicts(dependencies, extra_dependencies):
+    """Pick the highest version of two minimums.
+
+    Args:
+        dependencies (dict):
+            A dictionary mapping dependency names to the version.
+        extra_dependencies (dict):
+            A dictionary mapping the optional dependency names to the version.
+
+    Returns:
+        list:
+            A list of dependency strings (ie. numpy>=x.y.z).
+    """
+    all_dependencies = set(dependencies.keys()).union(set(extra_dependencies.keys()))
+    selected_versions = []
+    for dep in all_dependencies:
+        if dep in dependencies and dep in extra_dependencies:
+            requirement1 = dependencies.get(dep)
+            requirement2 = extra_dependencies.get(dep)
+            if EGG_STRING in requirement1:
+                selected_versions.append(requirement1)
+                continue
+            if EGG_STRING in requirement2:
+                selected_versions.append(requirement2)
+                continue
+
+            version1 = _get_version_from_requirement(requirement1)
+            version2 = _get_version_from_requirement(requirement2)
+            max_version = requirement1 if version1 > version2 else requirement2
+            selected_versions.append(max_version)
+        else:
+            selected_versions.append(dependencies.get(dep, extra_dependencies.get(dep)))
+
+    return selected_versions
 
 
 @task
@@ -89,9 +158,11 @@ def install_minimum(c):
         pyproject_data = tomli.load(pyproject_file)
 
     dependencies = pyproject_data.get('project', {}).get('dependencies', [])
+    extra_synthesizer_dependencies = _get_extra_dependencies(pyproject_data)
     python_version = '.'.join(map(str, sys.version_info[:2]))
     minimum_versions = _get_minimum_versions(dependencies, python_version)
-
+    extra_minimum_versions = _get_minimum_versions(extra_synthesizer_dependencies, python_version)
+    minimum_versions = _resolve_version_conflicts(minimum_versions, extra_minimum_versions)
     if minimum_versions:
         install_deps = ' '.join(minimum_versions)
         c.run(f'python -m pip install {install_deps}')
@@ -120,7 +191,7 @@ def fix_lint(c):
 
 
 def remove_readonly(func, path, _):
-    "Clear the readonly bit and reattempt the removal"
+    """Clear the readonly bit and reattempt the removal"""
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
