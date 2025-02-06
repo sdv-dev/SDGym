@@ -8,7 +8,7 @@ __author__ = 'DataCebo, Inc.'
 __copyright__ = 'Copyright (c) 2022 DataCebo, Inc.'
 __email__ = 'info@sdv.dev'
 __license__ = 'BSL-1.1'
-__version__ = '0.10.0.dev0'
+__version__ = '0.10.0.dev1'
 
 import logging
 
