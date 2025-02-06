@@ -19,7 +19,8 @@ class UniformSynthesizer(BaselineSynthesizer):
         hyper_transformer.detect_initial_config(real_data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
-        for column_name, column in metadata.columns.items():
+        table = next(iter(metadata.tables.values()))
+        for column_name, column in table.columns.items():
             sdtype = column['sdtype']
             if sdtype in supported_sdtypes:
                 config[column_name] = sdtype
@@ -27,7 +28,7 @@ class UniformSynthesizer(BaselineSynthesizer):
                 config[column_name] = 'pii'
             else:
                 LOGGER.info(
-                    f'Column {column} sdtype: {sdtype} is not supported, '
+                    f'Column {column_name} sdtype: {sdtype} is not supported, '
                     f'defaulting to inferred type.'
                 )
 
