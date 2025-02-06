@@ -1,5 +1,24 @@
 # History
 
+## v0.10.0 - 2025-02-06
+
+### New Features
+
+* Add integration with 3rd party synthesizer (REalTabFormer) - Issue [#347](https://github.com/sdv-dev/SDGym/issues/347) by @cristid9
+* Add support for numpy 2.0.0 - Issue [#315](https://github.com/sdv-dev/SDGym/issues/315) by @R-Palazzo
+
+### Bugs Fixed
+
+* Minimum tests failing because of broken action - Issue [#351](https://github.com/sdv-dev/SDGym/issues/351) by @amontanez24
+* The `ColumnSynthesizer` should follow the sdtypes in the metadata (not the data's dtypes) - Issue [#249](https://github.com/sdv-dev/SDGym/issues/249) by @fealho
+
+### Maintenance
+
+* Minimum tests fail due to dependency version mismatch - Issue [#376](https://github.com/sdv-dev/SDGym/issues/376) by @amontanez24
+* Create Prepare Release workflow - Issue [#364](https://github.com/sdv-dev/SDGym/issues/364) by @R-Palazzo
+* Migrate`SDV` synthesizer to Use Unified `Metadata` Instead of Legacy `SingleTableMetadata` - Issue [#359](https://github.com/sdv-dev/SDGym/issues/359) by @fealho
+* Update codecov and add flag for integration tests - Issue [#354](https://github.com/sdv-dev/SDGym/issues/354) by @amontanez24
+
 ## v0.9.1 - 2024-08-29
 
 ### Bugs Fixed
