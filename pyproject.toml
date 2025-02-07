@@ -27,9 +27,9 @@ dependencies = [
     'cloudpickle>=2.1.0',
     'compress-pickle>=1.2.0',
     'humanfriendly>=8.2',
-    "numpy>=1.21.0,<2.0.0;python_version<'3.10'",
-    "numpy>=1.23.3,<2.0.0;python_version>='3.10' and python_version<'3.12'",
-    "numpy>=1.26.0,<2.0.0;python_version>='3.12'",
+    "numpy>=1.21.6;python_version<'3.10'",
+    "numpy>=1.23.3;python_version>='3.10' and python_version<'3.12'",
+    "numpy>=1.26.0;python_version>='3.12'",
     "pandas>=1.4.0;python_version<'3.11'",
     "pandas>=1.5.0;python_version>='3.11' and python_version<'3.12'",
     "pandas>=2.1.1;python_version>='3.12'",
@@ -42,14 +42,14 @@ dependencies = [
     "scipy>=1.9.2;python_version>='3.10' and python_version<'3.12'",
     "scipy>=1.12.0;python_version>='3.12'",
     'tabulate>=0.8.3,<0.9',
-    "torch>=1.9.0;python_version<'3.10'",
+    "torch>=1.12.1;python_version<'3.10'",
     "torch>=2.0.0;python_version>='3.10' and python_version<'3.12'",
     "torch>=2.2.0;python_version>='3.12'",
-    'tqdm>=4.29',
+    'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
-    'rdt>=1.12.1',
-    'sdmetrics>=0.14.1',
-    'sdv>=1.13.1',
+    'rdt>=1.13.1',
+    'sdmetrics>=0.17.0',
+    'sdv>=1.17.2',
 ]
 
 [project.urls]
@@ -64,7 +64,13 @@ sdgym = { main = 'sdgym.cli.__main__:main' }
 
 [project.optional-dependencies]
 dask = ['dask', 'distributed']
+realtabformer = [
+    'realtabformer>=0.2.2',
+    "torch>=2.0.0;python_version>='3.8' and python_version<'3.12'",
+    "torch>=2.2.0;python_version>='3.12'",
+]
 test = [
+    'sdgym[realtabformer]',
     'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
@@ -134,7 +140,7 @@ namespaces = false
 version = {attr = 'sdgym.__version__'}
 
 [tool.bumpversion]
-current_version = "0.9.1"
+current_version = "0.10.0.dev1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.(?P<release>[a-z]+)(?P<candidate>\d+))?'
 serialize = [
     '{major}.{minor}.{patch}.{release}{candidate}',
@@ -198,10 +204,11 @@ select = [
     # print statements
     "T201",
     # pandas-vet
-    "PD"
+    "PD",
+    # numpy 2.0
+    "NPY201"
 ]
 ignore = [
-    "E501",
     # pydocstyle
     "D107",  # Missing docstring in __init__
     "D417",   # Missing argument descriptions in the docstring, this is a bug from pydocstyle: https://github.com/PyCQA/pydocstyle/issues/449

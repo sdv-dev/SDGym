@@ -49,7 +49,7 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
     if synthesizer_class not in SYNTHESIZER_MAPPING.keys():
         raise ValueError(
             f'Synthesizer class {synthesizer_class} is not recognized. '
-            f"The supported options are {', '.join(SYNTHESIZER_MAPPING.keys())}"
+            f'The supported options are {", ".join(SYNTHESIZER_MAPPING.keys())}'
         )
 
     baseclass = SDVTabularSynthesizer
