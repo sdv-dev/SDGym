@@ -10,6 +10,7 @@ from sdv.single_table import (
 )
 
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
+from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
 from sdgym.synthesizers.sdv import SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
@@ -19,6 +20,7 @@ SYNTHESIZER_MAPPING = {
     'TVAESynthesizer': TVAESynthesizer,
     'PARSynthesizer': PARSynthesizer,
     'HMASynthesizer': HMASynthesizer,
+    'RealTabFormerSynthesizer': RealTabFormerSynthesizer,
 }
 
 
@@ -55,6 +57,8 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
     baseclass = SDVTabularSynthesizer
     if synthesizer_class == 'HMASynthesizer':
         baseclass = SDVRelationalSynthesizer
+    if synthesizer_class == 'RealTabFormerSynthesizer':
+        baseclass = RealTabFormerSynthesizer
 
     class NewSynthesizer(baseclass):
         """New Synthesizer class.

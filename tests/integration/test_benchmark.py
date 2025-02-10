@@ -55,10 +55,18 @@ def test_benchmark_single_table_basic_synthsizers():
 def test_benchmark_single_table_realtabformer_no_metrics():
     """Test it without metrics."""
     # Run
+
+    custom_synthesizer = create_sdv_synthesizer_variant(
+        display_name='RealTabFormerSynthesizer',
+        synthesizer_class='RealTabFormerSynthesizer',
+        synthesizer_parameters={'epochs': 2},
+    )
     output = sdgym.benchmark_single_table(
-        synthesizers=['RealTabFormerSynthesizer'],
-        sdv_datasets=['student_placements'],
+        synthesizers=[],
+        custom_synthesizers=[custom_synthesizer],
+        sdv_datasets=['fake_companies'],
         sdmetrics=[],
+        limit_dataset_size=True,
     )
 
     # Assert
