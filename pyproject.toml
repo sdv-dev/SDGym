@@ -54,8 +54,8 @@ dependencies = [
     'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
     'rdt>=1.14.0',
-    'sdmetrics @ git+https://github.com/sdv-dev/SDMetrics@issue-645-support-py313',
-    'sdv @ git+https://github.com/sdv-dev/SDV@issue-2270-python-313',
+    'sdmetrics>=0.19.0',
+    'sdv @ git+https://github.com/sdv-dev/SDV@main',
 ]
 
 [project.urls]
