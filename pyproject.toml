@@ -13,12 +13,13 @@ classifiers = [
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
     'Topic :: Scientific/Engineering :: Artificial Intelligence',
 ]
 keywords = ['machine learning', 'synthetic data generation', 'benchmark', 'generative models']
 dynamic = ['version']
 license = { text = 'BSL-1.1' }
-requires-python = '>=3.8,<3.13'
+requires-python = '>=3.8,<3.14'
 readme = 'README.md'
 dependencies = [
     'appdirs>=1.3',
@@ -29,27 +30,32 @@ dependencies = [
     'humanfriendly>=10.0',
     "numpy>=1.21.6;python_version<'3.10'",
     "numpy>=1.23.3;python_version>='3.10' and python_version<'3.12'",
-    "numpy>=1.26.0;python_version>='3.12'",
+    "numpy>=1.26.0;python_version>='3.12' and python_version<'3.13'",
+    "numpy>=2.1.0;python_version>='3.13'",
     "pandas>=1.4.0;python_version<'3.11'",
     "pandas>=1.5.0;python_version>='3.11' and python_version<'3.12'",
-    "pandas>=2.1.1;python_version>='3.12'",
+    "pandas>=2.1.1;python_version>='3.12' and python_version<'3.13'",
+    "pandas>=2.2.3;python_version>='3.13'",
     'psutil>=5.7',
     "scikit-learn>=1.0.2;python_version<'3.10'",
     "scikit-learn>=1.1.0;python_version>='3.10' and python_version<'3.11'",
     "scikit-learn>=1.1.3;python_version>='3.11' and python_version<'3.12'",
-    "scikit-learn>=1.3.1;python_version>='3.12'",
+    "scikit-learn>=1.3.1;python_version>='3.12' and python_version<'3.13'",
+    "scikit-learn>=1.5.2;python_version>='3.13'",
     "scipy>=1.7.3;python_version<'3.10'",
     "scipy>=1.9.2;python_version>='3.10' and python_version<'3.12'",
-    "scipy>=1.12.0;python_version>='3.12'",
+    "scipy>=1.12.0;python_version>='3.12' and python_version<'3.13'",
+    "scipy>=1.14.1;python_version>='3.13'",
     'tabulate>=0.8.3,<0.9',
     "torch>=1.12.1;python_version<'3.10'",
     "torch>=2.0.0;python_version>='3.10' and python_version<'3.12'",
-    "torch>=2.2.0;python_version>='3.12'",
+    "torch>=2.2.0;python_version>='3.12' and python_version<'3.13'",
+    "torch>=2.6.0;python_version>='3.13'",
     'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
-    'rdt>=1.13.1',
-    'sdmetrics>=0.17.0',
-    'sdv>=1.17.2',
+    'rdt>=1.14.0',
+    'sdmetrics>=0.19.0',
+    'sdv>=1.19.0',
 ]
 
 [project.urls]
@@ -67,7 +73,8 @@ dask = ['dask', 'distributed']
 realtabformer = [
     'realtabformer>=0.2.2',
     "torch>=2.0.0;python_version>='3.8' and python_version<'3.12'",
-    "torch>=2.2.0;python_version>='3.12'",
+    "torch>=2.2.0;python_version>='3.12' and python_version<'3.13'",
+    "torch>=2.6.0;python_version>='3.13'",
 ]
 test = [
     'sdgym[realtabformer]',
