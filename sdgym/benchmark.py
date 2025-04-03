@@ -700,6 +700,7 @@ import sdgym
 from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer,
     GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
     SDVTabularSynthesizer, TVAESynthesizer)
+from sdgym.synthesizers import RealTabFormerSynthesizer
 
 results = sdgym.benchmark_single_table(
     {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},
@@ -730,6 +731,7 @@ def _create_instance_on_ec2(script_content):
     sudo apt update -y
     sudo apt install python3-pip -y
     echo "======== Install Dependencies ============"
+    sudo pip3 install sdgym[all]
     sudo pip3 install anyio
     pip3 list
     sudo apt install awscli -y
@@ -759,7 +761,7 @@ def _create_instance_on_ec2(script_content):
             {
                 'DeviceName': '/dev/sda1',
                 'Ebs': {
-                    'VolumeSize': 16,  # Specify the desired size in GB
+                    'VolumeSize': 32,  # Specify the desired size in GB
                     'VolumeType': 'gp2',  # Change the volume type as needed
                 },
             }
