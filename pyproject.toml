@@ -72,16 +72,16 @@ sdgym = { main = 'sdgym.cli.__main__:main' }
 dask = ['dask', 'distributed']
 realtabformer = [
     'realtabformer>=0.2.2',
-    "torch>=2.0.0;python_version>='3.8' and python_version<'3.12'",
+    "torch>=2.1.0;python_version>='3.8' and python_version<'3.12'",
     "torch>=2.2.0;python_version>='3.12' and python_version<'3.13'",
     "torch>=2.6.0;python_version>='3.13'",
+    'transformers<4.51',
 ]
 test = [
     'sdgym[realtabformer]',
     'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
-    'rundoc>=0.4.3,<0.5',
     'tomli>=2.0.0,<3',
 ]
 dev = [
@@ -89,7 +89,7 @@ dev = [
 
     # general
     'build>=1.0.0,<2',
-    'bump-my-version>=0.18.3,<1',
+    'bump-my-version>=0.18.3',
     'pip>=9.0.1',
     'watchdog>=1.0.1,<5',
 
@@ -97,7 +97,7 @@ dev = [
     'ruff>=0.4.5,<1',
 
     # distribute on PyPI
-    'twine>=1.10.0,<6',
+    'twine>=1.10.0',
     'wheel>=0.30.0',
 
     # Advanced testing
@@ -108,6 +108,7 @@ dev = [
     # Invoke
     'invoke',
 ]
+readme = ['rundoc>=0.4.3,<0.5',]
 all = [
     'sdgym[dask, test, dev]',
 ]
