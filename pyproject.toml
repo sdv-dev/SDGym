@@ -72,7 +72,7 @@ sdgym = { main = 'sdgym.cli.__main__:main' }
 dask = ['dask', 'distributed']
 realtabformer = [
     'realtabformer>=0.2.2',
-    "torch>=2.0.0;python_version>='3.8' and python_version<'3.12'",
+    "torch>=2.1.0;python_version>='3.8' and python_version<'3.12'",
     "torch>=2.2.0;python_version>='3.12' and python_version<'3.13'",
     "torch>=2.6.0;python_version>='3.13'",
     'transformers<4.51',
