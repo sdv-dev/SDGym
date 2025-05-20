@@ -694,7 +694,7 @@ def _create_instance_on_ec2(script_content):
 
     response = ec2_client.run_instances(
         ImageId='ami-080e1f13689e07408',
-        InstanceType='p2.xlarge',
+        InstanceType='g4dn.4xlarge',
         MinCount=1,
         MaxCount=1,
         UserData=user_data_script,
