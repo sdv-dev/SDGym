@@ -36,6 +36,7 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
 
         with prevent_tqdm_output():
             model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
+            model_kwargs['epochs'] = 5
             model = REaLTabFormer(model_type='tabular', **model_kwargs)
             model.fit(data, device='cpu')
 
