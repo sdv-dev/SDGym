@@ -8,7 +8,6 @@ import pickle
 import tracemalloc
 import warnings
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
@@ -39,11 +38,13 @@ from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
+    calculate_score_time,
     format_exception,
     get_duplicates,
     get_num_gpus,
     get_size_of,
     get_synthesizers,
+    get_utc_now,
     used_memory,
 )
 
@@ -148,10 +149,6 @@ def _generate_job_args_list(
     return job_args_list
 
 
-def _get_utc_now():
-    return datetime.now(tz=timezone.utc)
-
-
 def _synthesize(synthesizer_dict, real_data, metadata):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
@@ -170,12 +167,12 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     num_samples = len(data)
 
     tracemalloc.start()
-    now = _get_utc_now()
+    now = get_utc_now()
     synthesizer_obj = get_synthesizer(data, metadata)
     synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
-    train_now = _get_utc_now()
+    train_now = get_utc_now()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
-    sample_now = _get_utc_now()
+    sample_now = get_utc_now()
 
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
@@ -212,7 +209,7 @@ def _compute_scores(
             error = None
             score = None
             normalized_score = None
-            start = _get_utc_now()
+            start = get_utc_now()
             try:
                 LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
                 metric_args = (real_data, synthetic_data, metadata)
@@ -228,35 +225,35 @@ def _compute_scores(
                 'score': score,
                 'normalized_score': normalized_score,
                 'error': error,
-                'metric_time': (_get_utc_now() - start).total_seconds(),
+                'metric_time': calculate_score_time(start),
             })
             # re-inject list to multiprocessing output
             output['scores'] = scores
 
     if compute_diagnostic_score:
-        start = _get_utc_now()
+        start = get_utc_now()
         if modality == 'single_table':
             diagnostic_report = SingleTableDiagnosticReport()
         else:
             diagnostic_report = MultiTableDiagnosticReport()
 
         diagnostic_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['diagnostic_score_time'] = (_get_utc_now() - start).total_seconds()
+        output['diagnostic_score_time'] = calculate_score_time(start)
         output['diagnostic_score'] = diagnostic_report.get_score()
 
     if compute_quality_score:
-        start = _get_utc_now()
+        start = get_utc_now()
         if modality == 'single_table':
             quality_report = SingleTableQualityReport()
         else:
             quality_report = MultiTableQualityReport()
 
         quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['quality_score_time'] = (_get_utc_now() - start).total_seconds()
+        output['quality_score_time'] = calculate_score_time(start)
         output['quality_score'] = quality_report.get_score()
 
     if compute_privacy_score:
-        start = _get_utc_now()
+        start = get_utc_now()
         score = DCRBaselineProtection.compute_breakdown(
             real_data=real_data,
             synthetic_data=synthetic_data,
@@ -264,7 +261,7 @@ def _compute_scores(
             num_rows_subsample=None,
             num_iterations=1,
         )
-        output['privacy_score_time'] = (_get_utc_now() - start).total_seconds()
+        output['privacy_score_time'] = calculate_score_time(start)
         output['privacy_score'] = score.get('score')
 
 
@@ -885,7 +882,10 @@ def benchmark_single_table(
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
         scores = _get_empty_dataframe(
-            compute_diagnostic_score, compute_quality_score, compute_privacy_score, sdmetrics
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=compute_privacy_score,
+            sdmetrics=sdmetrics,
         )
 
     if output_filepath:
