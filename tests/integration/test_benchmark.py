@@ -27,6 +27,7 @@ def test_benchmark_single_table_basic_synthsizers():
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
+        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -249,6 +250,7 @@ def test_benchmark_single_table():
         ],
         custom_synthesizers=[test_synthesizer, ctgan_variant],
         sdv_datasets=['fake_companies'],
+        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -321,7 +323,10 @@ def test_benchmark_single_table_only_datasets():
     argument could take days to run.
     """
     # Run
-    scores = benchmark_single_table(sdv_datasets=['fake_companies'])
+    scores = benchmark_single_table(
+        sdv_datasets=['fake_companies'],
+        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
     assert len(scores.columns) == 12
@@ -354,7 +359,7 @@ def test_benchmark_single_table_synthesizers_none():
     )
 
     # Assert
-    assert scores.shape == (1, 12)
+    assert scores.shape == (1, 11)
     scores = scores.iloc[0]
     assert scores['Synthesizer'] == 'Variant:test_synth'
     assert scores['Dataset'] == 'fake_companies'
@@ -377,7 +382,10 @@ def test_benchmark_single_table_no_synthesizers():
     It should return an empty dataframe.
     """
     # Run
-    result = benchmark_single_table(synthesizers=None)
+    result = benchmark_single_table(
+        synthesizers=None,
+        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
     expected = pd.DataFrame({
@@ -403,7 +411,10 @@ def test_benchmark_single_table_no_datasets():
     It should return an empty dataframe.
     """
     # Run
-    result = benchmark_single_table(sdv_datasets=None)
+    result = benchmark_single_table(
+        sdv_datasets=None,
+        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
     expected = pd.DataFrame({
@@ -429,7 +440,7 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
     result = benchmark_single_table(
         synthesizers=None,
         sdv_datasets=['fake_companies'],
-        sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
+        additional_sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
         compute_quality_score=False,
         compute_diagnostic_score=False,
         compute_privacy_score=False,
@@ -574,3 +585,22 @@ def test_benchmark_single_table_no_warnings():
         )
         future_warnings = [warning for warning in w if issubclass(warning.category, FutureWarning)]
         assert len(future_warnings) == 0
+
+
+def test_benchmark_single_table_sdmetrics_raises_warning():
+    """Test that the benchmark raises a FutureWarningn if deprecated parameter is ised."""
+    # Run
+    with warnings.catch_warnings(record=True) as captured_warnings:
+        benchmark_single_table(
+            synthesizers=['DataIdentity'],
+            sdv_datasets=['student_placements'],
+            sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 215})],
+        )
+    # Assert
+    assert len(captured_warnings) == 1
+    assert issubclass(captured_warnings[0].category, FutureWarning)
+    assert str(captured_warnings[0].message) == (
+        'The `sdmetrics` parameter is deprecated and will be removed in sdgym v0.12.0 '
+        'The `sdmetrics` parameter value is ignored. '
+        'Please use the `additional_sdmetrics` parameter.'
+    )

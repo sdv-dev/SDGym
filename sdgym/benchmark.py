@@ -2,6 +2,7 @@
 
 import concurrent
 import logging
+import math
 import multiprocessing
 import os
 import pickle
@@ -61,7 +62,6 @@ DEFAULT_DATASETS = [
     'news',
     'covtype',
 ]
-DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 N_BYTES_IN_MB = 1000 * 1000
 
 
@@ -97,7 +97,7 @@ def _generate_job_args_list(
     limit_dataset_size,
     sdv_datasets,
     additional_datasets_folder,
-    sdmetrics,
+    additional_sdmetrics,
     detailed_results_folder,
     timeout,
     compute_quality_score,
@@ -135,7 +135,7 @@ def _generate_job_args_list(
             synthesizer,
             data,
             metadata_dict,
-            sdmetrics,
+            additional_sdmetrics,
             detailed_results_folder,
             timeout,
             compute_quality_score,
@@ -254,12 +254,14 @@ def _compute_scores(
 
     if compute_privacy_score:
         start = get_utc_now()
+        num_rows = len(synthetic_data)
+        num_rows_subsample = math.floor(num_rows * 0.60)
         score = DCRBaselineProtection.compute_breakdown(
             real_data=real_data,
             synthetic_data=synthetic_data,
             metadata=metadata,
-            num_rows_subsample=None,
-            num_iterations=1,
+            num_rows_subsample=num_rows_subsample,
+            num_iterations=5,
         )
         output['privacy_score_time'] = calculate_score_time(start)
         output['privacy_score'] = score.get('score')
@@ -605,7 +607,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
 
 
 def _get_empty_dataframe(
-    compute_diagnostic_score, compute_quality_score, compute_privacy_score, sdmetrics
+    compute_diagnostic_score, compute_quality_score, compute_privacy_score, additional_sdmetrics
 ):
     warnings.warn('No datasets/synthesizers found.')
 
@@ -626,8 +628,8 @@ def _get_empty_dataframe(
         scores['Quality_Score'] = []
     if compute_privacy_score:
         scores['Privacy_Score'] = []
-    if sdmetrics:
-        for metric in sdmetrics:
+    if additional_sdmetrics:
+        for metric in additional_sdmetrics:
             scores[metric[0]] = []
 
     return scores
@@ -701,7 +703,9 @@ results = sdgym.benchmark_single_table(
     limit_dataset_size={params['limit_dataset_size']},
     compute_quality_score={params['compute_quality_score']},
     compute_diagnostic_score={params['compute_diagnostic_score']},
-    sdmetrics={params['sdmetrics']}, timeout={params['timeout']},
+    compute_privacy_score={params['compute_privacy_score']},
+    additional_sdmetrics={params['additional_sdmetrics']},
+    timeout={params['timeout']},
     detailed_results_folder={params['detailed_results_folder']},
     multi_processing_config={params['multi_processing_config']}
 )
@@ -774,7 +778,8 @@ def benchmark_single_table(
     compute_quality_score=True,
     compute_diagnostic_score=True,
     compute_privacy_score=True,
-    sdmetrics=DEFAULT_METRICS,
+    additional_sdmetrics=None,
+    sdmetrics=None,
     timeout=None,
     output_filepath=None,
     detailed_results_folder=None,
@@ -816,10 +821,14 @@ def benchmark_single_table(
             Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
         compute_privacy_score (bool):
             Whether or not to evaluate an overall privacy score. Defaults to ``True``.
-        sdmetrics (list[str]):
-            A list of the different SDMetrics to use. If you'd like to input specific parameters
+        additional_sdmetrics (list[str]):
+            A list of the additional SDMetrics to use. If you'd like to input specific parameters
             into the metric, provide a tuple with the metric name followed by a dictionary of
             the parameters.
+        sdmetrics (list[str]):
+            **DEPRECATED**  A list of the different SDMetrics to use.
+            If you'd like to input specific parameters into the metric, provide a tuple with
+            the metric name followed by a dictionary of the parameters.
         timeout (int or ``None``):
             The maximum number of seconds to wait for synthetic data creation. If ``None``, no
             timeout is enforced.
@@ -849,6 +858,14 @@ def benchmark_single_table(
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
+    if sdmetrics is not None:
+        warn_message = (
+            'The `sdmetrics` parameter is deprecated and will be removed in sdgym v0.12.0 '
+            'The `sdmetrics` parameter value is ignored. '
+            'Please use the `additional_sdmetrics` parameter.'
+        )
+        warnings.warn(warn_message, FutureWarning)
+
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
@@ -866,7 +883,7 @@ def benchmark_single_table(
         limit_dataset_size,
         sdv_datasets,
         additional_datasets_folder,
-        sdmetrics,
+        additional_sdmetrics,
         detailed_results_folder,
         timeout,
         compute_quality_score,
@@ -885,7 +902,7 @@ def benchmark_single_table(
             compute_diagnostic_score=compute_diagnostic_score,
             compute_quality_score=compute_quality_score,
             compute_privacy_score=compute_privacy_score,
-            sdmetrics=sdmetrics,
+            additional_sdmetrics=additional_sdmetrics,
         )
 
     if output_filepath:
