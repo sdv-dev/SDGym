@@ -54,7 +54,7 @@ dependencies = [
     'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
     'rdt>=1.14.0',
-    'sdmetrics>=0.19.0',
+    'sdmetrics>=0.20.0',
     'sdv>=1.19.0',
 ]
 

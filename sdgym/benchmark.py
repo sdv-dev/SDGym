@@ -101,6 +101,7 @@ def _generate_job_args_list(
     timeout,
     compute_quality_score,
     compute_diagnostic_score,
+    compute_privacy_score,
     synthesizers,
     custom_synthesizers,
 ):
@@ -138,12 +139,17 @@ def _generate_job_args_list(
             timeout,
             compute_quality_score,
             compute_diagnostic_score,
+            compute_privacy_score,
             dataset.name,
             'single_table',
         )
         job_args_list.append(args)
 
     return job_args_list
+
+
+def _get_dt_now():
+    return datetime.now(tz=timezone.utc)
 
 
 def _synthesize(synthesizer_dict, real_data, metadata):
@@ -164,12 +170,12 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     num_samples = len(data)
 
     tracemalloc.start()
-    now = datetime.now(tz=timezone.utc)
+    now = _get_dt_now()
     synthesizer_obj = get_synthesizer(data, metadata)
     synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
-    train_now = datetime.now(tz=timezone.utc)
+    train_now = _get_dt_now()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
-    sample_now = datetime.now(tz=timezone.utc)
+    sample_now = _get_dt_now()
 
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
@@ -206,7 +212,7 @@ def _compute_scores(
             error = None
             score = None
             normalized_score = None
-            start = datetime.now(tz=timezone.utc)
+            start = _get_dt_now()
             try:
                 LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
                 metric_args = (real_data, synthetic_data, metadata)
@@ -222,43 +228,45 @@ def _compute_scores(
                 'score': score,
                 'normalized_score': normalized_score,
                 'error': error,
-                'metric_time': (datetime.now(tz=timezone.utc) - start).total_seconds(),
+                'metric_time': (_get_dt_now() - start).total_seconds(),
             })
             # re-inject list to multiprocessing output
             output['scores'] = scores
 
     if compute_diagnostic_score:
-        start = datetime.now(tz=timezone.utc)
+        start = _get_dt_now()
         if modality == 'single_table':
             diagnostic_report = SingleTableDiagnosticReport()
         else:
             diagnostic_report = MultiTableDiagnosticReport()
 
         diagnostic_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['diagnostic_score_time'] = (datetime.now(tz=timezone.utc) - start).total_seconds()
+        output['diagnostic_score_time'] = (_get_dt_now() - start).total_seconds()
         output['diagnostic_score'] = diagnostic_report.get_score()
 
     if compute_quality_score:
-        start = datetime.now(tz=timezone.utc)
+        start = _get_dt_now()
         if modality == 'single_table':
             quality_report = SingleTableQualityReport()
         else:
             quality_report = MultiTableQualityReport()
 
         quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['quality_score_time'] = (datetime.now(tz=timezone.utc) - start).total_seconds()
+        output['quality_score_time'] = (_get_dt_now() - start).total_seconds()
         output['quality_score'] = quality_report.get_score()
 
     if compute_privacy_score:
-        start = datetime.now(tz=timezone.utc)
+        start = _get_dt_now()
         score = DCRBaselineProtection.compute_breakdown(
             real_data=real_data,
             synthetic_data=synthetic_data,
             metadata=metadata,
-            verbose=False
+            num_rows_subsample=None,
+            num_iterations=1,
         )
-        output['privacy_score_time'] = (datetime.now(tz=timezone.utc) - start).total_seconds()
-        output['privacy_score'] = score.get_score()
+        output['privacy_score_time'] = (_get_dt_now() - start).total_seconds()
+        output['privacy_score'] = score.get('score')
+
 
 def _score(
     synthesizer,
@@ -268,6 +276,7 @@ def _score(
     output=None,
     compute_quality_score=False,
     compute_diagnostic_score=False,
+    compute_privacy_score=False,
     modality=None,
     dataset_name=None,
 ):
@@ -316,6 +325,7 @@ def _score(
             output,
             compute_quality_score,
             compute_diagnostic_score,
+            compute_privacy_score,
             modality,
             dataset_name,
         )
@@ -366,6 +376,7 @@ def _score_with_timeout(
     metrics,
     compute_quality_score=False,
     compute_diagnostic_score=False,
+    compute_privacy_score=False,
     modality=None,
     dataset_name=None,
 ):
@@ -382,6 +393,7 @@ def _score_with_timeout(
                     output,
                     compute_quality_score,
                     compute_diagnostic_score,
+                    compute_privacy_score,
                     modality,
                     dataset_name,
                 ),
@@ -399,9 +411,13 @@ def _score_with_timeout(
 
 
 def _format_output(
-    output, name, dataset_name, compute_quality_score, compute_diagnostic_score,
+    output,
+    name,
+    dataset_name,
+    compute_quality_score,
+    compute_diagnostic_score,
     compute_privacy_score,
-    cache_dir
+    cache_dir,
 ):
     evaluate_time = 0
     if 'quality_score_time' in output:
@@ -477,6 +493,7 @@ def _run_job(args):
         timeout,
         compute_quality_score,
         compute_diagnostic_score,
+        compute_privacy_score,
         dataset_name,
         modality,
     ) = args
@@ -501,6 +518,7 @@ def _run_job(args):
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
                 compute_diagnostic_score=compute_diagnostic_score,
+                compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
             )
@@ -512,6 +530,7 @@ def _run_job(args):
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
                 compute_diagnostic_score=compute_diagnostic_score,
+                compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
             )
@@ -519,7 +538,13 @@ def _run_job(args):
         output['exception'] = error
 
     scores = _format_output(
-        output, name, dataset_name, compute_quality_score, compute_diagnostic_score, cache_dir
+        output,
+        name,
+        dataset_name,
+        compute_quality_score,
+        compute_diagnostic_score,
+        compute_privacy_score,
+        cache_dir,
     )
 
     return scores
@@ -582,9 +607,9 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
     return scores
 
 
-def _get_empty_dataframe(compute_diagnostic_score, compute_quality_score,
-                         compute_privacy_score,
-                         sdmetrics):
+def _get_empty_dataframe(
+    compute_diagnostic_score, compute_quality_score, compute_privacy_score, sdmetrics
+):
     warnings.warn('No datasets/synthesizers found.')
 
     scores = pd.DataFrame({
@@ -789,9 +814,11 @@ def benchmark_single_table(
             limit the size of every table to 1,000 rows (randomly sampled) and the first 10
             columns.
         compute_quality_score (bool):
-            Whether or not to evaluate an overall quality score.
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
         compute_diagnostic_score (bool):
-            Whether or not to evaluate an overall diagnostic score.
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        compute_privacy_score (bool):
+            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
         sdmetrics (list[str]):
             A list of the different SDMetrics to use. If you'd like to input specific parameters
             into the metric, provide a tuple with the metric name followed by a dictionary of
@@ -857,10 +884,9 @@ def benchmark_single_table(
 
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
-        scores = _get_empty_dataframe(compute_diagnostic_score,
-                                      compute_quality_score,
-                                      compute_privacy_score,
-                                      sdmetrics)
+        scores = _get_empty_dataframe(
+            compute_diagnostic_score, compute_quality_score, compute_privacy_score, sdmetrics
+        )
 
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
