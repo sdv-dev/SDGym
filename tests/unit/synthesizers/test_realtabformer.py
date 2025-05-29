@@ -42,7 +42,7 @@ class TestRealTabFormerSynthesizer:
 
         # Assert
         mock_real_tab_former.assert_called_once_with(model_type='tabular')
-        mock_model.fit.assert_called_once_with(data, device='cpu')
+        mock_model.fit.assert_called_once_with(data)
         assert result == mock_model, 'Expected the trained model to be returned.'
 
     def test__sample_from_synthesizer(self):
@@ -57,7 +57,7 @@ class TestRealTabFormerSynthesizer:
         synthetic_data = synthesizer._sample_from_synthesizer(trained_model, n_sample)
 
         # Assert
-        trained_model.sample.assert_called_once_with(n_sample, device='cpu')
+        trained_model.sample.assert_called_once_with(n_sample)
         assert synthetic_data.shape[0] == n_sample, (
             f'Expected {n_sample} rows, but got {synthetic_data.shape[0]}'
         )
