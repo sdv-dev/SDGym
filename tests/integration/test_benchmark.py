@@ -65,7 +65,7 @@ def test_benchmark_single_table_realtabformer_no_metrics():
         synthesizers=[],
         custom_synthesizers=[custom_synthesizer],
         sdv_datasets=['fake_companies'],
-        sdmetrics=[],
+        additional_sdmetrics=[],
     )
 
     # Assert
@@ -83,7 +83,7 @@ def test_benchmark_single_table_no_metrics():
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
-        sdmetrics=[],
+        additional_sdmetrics=[],
     )
 
     # Assert
@@ -588,7 +588,7 @@ def test_benchmark_single_table_no_warnings():
 
 
 def test_benchmark_single_table_sdmetrics_raises_warning():
-    """Test that the benchmark raises a FutureWarningn if deprecated parameter is ised."""
+    """Test that the benchmark raises a FutureWarningn if deprecated sdmetrics parameter is used."""
     # Run
     with warnings.catch_warnings(record=True) as captured_warnings:
         benchmark_single_table(
