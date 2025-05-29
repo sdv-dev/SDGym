@@ -45,7 +45,7 @@ Test results:
 675	    sudo apt update -y
 676	    sudo apt install python3-pip -y
 677	    echo "======== Install Dependencies ============"
-678	    sudo pip3 install 'sdv @ git+https://github.com/sdv-dev/SDGym.git@397-add-dcrbaseline-metric-to-single-table-report'
+678	    sudo pip3 install 'sdgym @ git+https://github.com/sdv-dev/SDGym.git@397-add-dcrbaseline-metric-to-single-table-report'
 679	    sudo pip3 install anyio
 680	    pip3 list
 681	    sudo apt install awscli -y
