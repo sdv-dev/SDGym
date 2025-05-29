@@ -261,7 +261,7 @@ def _compute_scores(
             synthetic_data=synthetic_data,
             metadata=metadata,
             num_rows_subsample=num_rows_subsample,
-            num_iterations=5,
+            num_iterations=2,
         )
         output['privacy_score_time'] = calculate_score_time(start)
         output['privacy_score'] = score.get('score')
