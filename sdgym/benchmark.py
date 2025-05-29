@@ -725,7 +725,7 @@ def _create_instance_on_ec2(script_content):
     sudo apt update -y
     sudo apt install python3-pip -y
     echo "======== Install Dependencies ============"
-    sudo pip3 install sdgym
+    sudo pip3 install 'sdgym @ git+https://github.com/sdv-dev/SDGym.git@397-add-dcrbaseline-metric-to-single-table-report'
     sudo pip3 install anyio
     pip3 list
     sudo apt install awscli -y
