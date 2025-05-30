@@ -83,6 +83,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Evaluate_Time': {0: None},
         'Diagnostic_Score': {0: None},
         'Quality_Score': {0: None},
+        'Privacy_Score': {0: None},
         'error': {0: 'Synthesizer Timeout'},
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
@@ -214,8 +215,9 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         ],
         'limit_dataset_size': True,
         'compute_quality_score': False,
+        'compute_privacy_score': False,
         'compute_diagnostic_score': False,
-        'sdmetrics': [('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+        'sdmetrics': None,
         'timeout': 600,
         'output_filepath': 's3://sdgym-results/address_comments.csv',
         'detailed_results_folder': None,
@@ -235,10 +237,11 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     assert 'detailed_results_folder=None' in result
     assert "additional_datasets_folder='Details/'" in result
     assert 'multi_processing_config=None' in result
-    assert "sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})]" in result
+    assert 'sdmetrics=None' in result
     assert 'timeout=600' in result
     assert 'compute_quality_score=False' in result
     assert 'compute_diagnostic_score=False' in result
+    assert 'compute_privacy_score=False' in result
     assert 'import boto3' in result
 
 
@@ -256,8 +259,10 @@ def test__format_output():
         'peak_memory': 127.729832,
         'diagnostic_score': 1.0,
         'quality_score': 0.881,
+        'privacy_score': 0.588,
         'quality_score_time': 1.0,
         'diagnostic_score_time': 3.0,
+        'privacy_score_time': 4.0,
         'scores': [
             {
                 'metric': 'NewRowSynthesis',
@@ -277,7 +282,7 @@ def test__format_output():
     }
 
     # Run
-    scores = _format_output(mock_output, 'mock_name', 'mock_dataset', True, True, False)
+    scores = _format_output(mock_output, 'mock_name', 'mock_dataset', True, True, True, False)
 
     # Assert
     expected_scores = pd.DataFrame({
@@ -288,9 +293,10 @@ def test__format_output():
         'Peak_Memory_MB': [mock_output.get('peak_memory')],
         'Synthesizer_Size_MB': [mock_output.get('synthesizer_size')],
         'Sample_Time': [mock_output.get('sample_time')],
-        'Evaluate_Time': [15.0],
+        'Evaluate_Time': [19.0],
         'Diagnostic_Score': [1.0],
         'Quality_Score': [0.881],
+        'Privacy_Score': [0.588],
         'NewRowSynthesis': [0.998],
         'NewMetric': [0.998],
     })

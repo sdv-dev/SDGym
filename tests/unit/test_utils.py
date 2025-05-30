@@ -1,6 +1,7 @@
 import sys
+from datetime import datetime, timezone
 
-from sdgym.utils import get_duplicates, get_size_of
+from sdgym.utils import calculate_score_time, get_duplicates, get_size_of, get_utc_now
 
 
 def test_get_size_of():
@@ -38,3 +39,23 @@ def test_get_duplicates():
 
     # Assert
     assert duplicates == {'a', 'd'}
+
+
+def test_get_utc_now():
+    # Run
+    now = get_utc_now()
+
+    # Assert
+    assert isinstance(now, datetime)
+    assert now.tzinfo == timezone.utc
+
+
+def test_calculate_score_time():
+    # Setup
+    start = get_utc_now()
+
+    # Run
+    total_secs = calculate_score_time(start)
+
+    # Assert
+    assert isinstance(total_secs, float)

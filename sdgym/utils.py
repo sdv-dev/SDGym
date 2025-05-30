@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import traceback
+from datetime import datetime, timezone
 
 import humanfriendly
 import numpy as np
@@ -153,3 +154,28 @@ def select_device():
 
     except Exception:
         return 'cpu'
+
+
+def get_utc_now():
+    """Get the current datetime, in UTC timezone.
+
+    Returns:
+        datetime:
+            The current datetime in UTC.
+    """
+    return datetime.now(tz=timezone.utc)
+
+
+def calculate_score_time(start):
+    """Calculate the total duration in seconds.
+
+    Args:
+        start (datetime):
+            The start datetime to use to calculate duration.
+
+    Returns:
+        float:
+            The duration in total seconds.
+
+    """
+    return (get_utc_now() - start).total_seconds()
