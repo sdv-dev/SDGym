@@ -585,22 +585,3 @@ def test_benchmark_single_table_no_warnings():
         )
         future_warnings = [warning for warning in w if issubclass(warning.category, FutureWarning)]
         assert len(future_warnings) == 0
-
-
-def test_benchmark_single_table_sdmetrics_raises_warning():
-    """Test that the benchmark raises a FutureWarningn if deprecated sdmetrics parameter is used."""
-    # Run
-    with warnings.catch_warnings(record=True) as captured_warnings:
-        benchmark_single_table(
-            synthesizers=['DataIdentity'],
-            sdv_datasets=['student_placements'],
-            sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 215})],
-        )
-    # Assert
-    assert len(captured_warnings) == 1
-    assert issubclass(captured_warnings[0].category, FutureWarning)
-    assert str(captured_warnings[0].message) == (
-        'The `sdmetrics` parameter is deprecated and will be removed in sdgym v0.12.0 '
-        'The `sdmetrics` parameter value is ignored. '
-        'Please use the `additional_sdmetrics` parameter.'
-    )

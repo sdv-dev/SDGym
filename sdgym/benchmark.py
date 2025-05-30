@@ -725,7 +725,6 @@ def _create_instance_on_ec2(script_content):
     sudo apt update -y
     sudo apt install python3-pip -y
     echo "======== Install Dependencies ============"
-    sudo pip3 install 'sdgym @ git+https://github.com/sdv-dev/SDGym.git@397-add-dcrbaseline-metric-to-single-table-report'
     sudo pip3 install anyio
     pip3 list
     sudo apt install awscli -y
@@ -826,7 +825,7 @@ def benchmark_single_table(
             into the metric, provide a tuple with the metric name followed by a dictionary of
             the parameters.
         sdmetrics (list[str]):
-            **DEPRECATED**  A list of the different SDMetrics to use.
+            A list of the different SDMetrics to use.
             If you'd like to input specific parameters into the metric, provide a tuple with
             the metric name followed by a dictionary of the parameters.
         timeout (int or ``None``):
@@ -858,14 +857,6 @@ def benchmark_single_table(
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
-    if sdmetrics is not None:
-        warn_message = (
-            'The `sdmetrics` parameter is deprecated and will be removed in sdgym v0.12.0 '
-            'The `sdmetrics` parameter value is ignored. '
-            'Please use the `additional_sdmetrics` parameter.'
-        )
-        warnings.warn(warn_message, FutureWarning)
-
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
