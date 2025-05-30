@@ -27,7 +27,7 @@ def test_benchmark_single_table_basic_synthsizers():
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
-        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -65,7 +65,7 @@ def test_benchmark_single_table_realtabformer_no_metrics():
         synthesizers=[],
         custom_synthesizers=[custom_synthesizer],
         sdv_datasets=['fake_companies'],
-        additional_sdmetrics=[],
+        sdmetrics=[],
     )
 
     # Assert
@@ -83,7 +83,7 @@ def test_benchmark_single_table_no_metrics():
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
-        additional_sdmetrics=[],
+        sdmetrics=[],
     )
 
     # Assert
@@ -250,7 +250,7 @@ def test_benchmark_single_table():
         ],
         custom_synthesizers=[test_synthesizer, ctgan_variant],
         sdv_datasets=['fake_companies'],
-        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -325,7 +325,7 @@ def test_benchmark_single_table_only_datasets():
     # Run
     scores = benchmark_single_table(
         sdv_datasets=['fake_companies'],
-        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -384,7 +384,7 @@ def test_benchmark_single_table_no_synthesizers():
     # Run
     result = benchmark_single_table(
         synthesizers=None,
-        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -413,7 +413,7 @@ def test_benchmark_single_table_no_datasets():
     # Run
     result = benchmark_single_table(
         sdv_datasets=None,
-        additional_sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -440,7 +440,7 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
     result = benchmark_single_table(
         synthesizers=None,
         sdv_datasets=['fake_companies'],
-        additional_sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
+        sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
         compute_quality_score=False,
         compute_diagnostic_score=False,
         compute_privacy_score=False,

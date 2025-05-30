@@ -217,7 +217,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
         'compute_quality_score': False,
         'compute_privacy_score': False,
         'compute_diagnostic_score': False,
-        'additional_sdmetrics': None,
+        'sdmetrics': None,
         'timeout': 600,
         'output_filepath': 's3://sdgym-results/address_comments.csv',
         'detailed_results_folder': None,
@@ -237,7 +237,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     assert 'detailed_results_folder=None' in result
     assert "additional_datasets_folder='Details/'" in result
     assert 'multi_processing_config=None' in result
-    assert 'additional_sdmetrics=None' in result
+    assert 'sdmetrics=None' in result
     assert 'timeout=600' in result
     assert 'compute_quality_score=False' in result
     assert 'compute_diagnostic_score=False' in result

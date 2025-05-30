@@ -97,7 +97,7 @@ def _generate_job_args_list(
     limit_dataset_size,
     sdv_datasets,
     additional_datasets_folder,
-    additional_sdmetrics,
+    sdmetrics,
     detailed_results_folder,
     timeout,
     compute_quality_score,
@@ -135,7 +135,7 @@ def _generate_job_args_list(
             synthesizer,
             data,
             metadata_dict,
-            additional_sdmetrics,
+            sdmetrics,
             detailed_results_folder,
             timeout,
             compute_quality_score,
@@ -607,7 +607,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
 
 
 def _get_empty_dataframe(
-    compute_diagnostic_score, compute_quality_score, compute_privacy_score, additional_sdmetrics
+    compute_diagnostic_score, compute_quality_score, compute_privacy_score, sdmetrics
 ):
     warnings.warn('No datasets/synthesizers found.')
 
@@ -628,8 +628,8 @@ def _get_empty_dataframe(
         scores['Quality_Score'] = []
     if compute_privacy_score:
         scores['Privacy_Score'] = []
-    if additional_sdmetrics:
-        for metric in additional_sdmetrics:
+    if sdmetrics:
+        for metric in sdmetrics:
             scores[metric[0]] = []
 
     return scores
@@ -704,7 +704,7 @@ results = sdgym.benchmark_single_table(
     compute_quality_score={params['compute_quality_score']},
     compute_diagnostic_score={params['compute_diagnostic_score']},
     compute_privacy_score={params['compute_privacy_score']},
-    additional_sdmetrics={params['additional_sdmetrics']},
+    sdmetrics={params['sdmetrics']},
     timeout={params['timeout']},
     detailed_results_folder={params['detailed_results_folder']},
     multi_processing_config={params['multi_processing_config']}
@@ -777,7 +777,6 @@ def benchmark_single_table(
     compute_quality_score=True,
     compute_diagnostic_score=True,
     compute_privacy_score=True,
-    additional_sdmetrics=None,
     sdmetrics=None,
     timeout=None,
     output_filepath=None,
@@ -820,10 +819,6 @@ def benchmark_single_table(
             Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
         compute_privacy_score (bool):
             Whether or not to evaluate an overall privacy score. Defaults to ``True``.
-        additional_sdmetrics (list[str]):
-            A list of the additional SDMetrics to use. If you'd like to input specific parameters
-            into the metric, provide a tuple with the metric name followed by a dictionary of
-            the parameters.
         sdmetrics (list[str]):
             A list of the different SDMetrics to use.
             If you'd like to input specific parameters into the metric, provide a tuple with
@@ -874,7 +869,7 @@ def benchmark_single_table(
         limit_dataset_size,
         sdv_datasets,
         additional_datasets_folder,
-        additional_sdmetrics,
+        sdmetrics,
         detailed_results_folder,
         timeout,
         compute_quality_score,
@@ -893,7 +888,7 @@ def benchmark_single_table(
             compute_diagnostic_score=compute_diagnostic_score,
             compute_quality_score=compute_quality_score,
             compute_privacy_score=compute_privacy_score,
-            additional_sdmetrics=additional_sdmetrics,
+            sdmetrics=sdmetrics,
         )
 
     if output_filepath:
