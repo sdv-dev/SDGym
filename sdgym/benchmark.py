@@ -2,13 +2,13 @@
 
 import concurrent
 import logging
+import math
 import multiprocessing
 import os
 import pickle
 import tracemalloc
 import warnings
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 
 import boto3
@@ -29,6 +29,7 @@ from sdmetrics.reports.single_table import (
 from sdmetrics.reports.single_table import (
     QualityReport as SingleTableQualityReport,
 )
+from sdmetrics.single_table import DCRBaselineProtection
 
 from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
@@ -38,11 +39,13 @@ from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
 from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
+    calculate_score_time,
     format_exception,
     get_duplicates,
     get_num_gpus,
     get_size_of,
     get_synthesizers,
+    get_utc_now,
     used_memory,
 )
 
@@ -59,7 +62,6 @@ DEFAULT_DATASETS = [
     'news',
     'covtype',
 ]
-DEFAULT_METRICS = [('NewRowSynthesis', {'synthetic_sample_size': 1000})]
 N_BYTES_IN_MB = 1000 * 1000
 
 
@@ -100,6 +102,7 @@ def _generate_job_args_list(
     timeout,
     compute_quality_score,
     compute_diagnostic_score,
+    compute_privacy_score,
     synthesizers,
     custom_synthesizers,
 ):
@@ -137,6 +140,7 @@ def _generate_job_args_list(
             timeout,
             compute_quality_score,
             compute_diagnostic_score,
+            compute_privacy_score,
             dataset.name,
             'single_table',
         )
@@ -163,12 +167,12 @@ def _synthesize(synthesizer_dict, real_data, metadata):
     num_samples = len(data)
 
     tracemalloc.start()
-    now = datetime.utcnow()
+    now = get_utc_now()
     synthesizer_obj = get_synthesizer(data, metadata)
     synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
-    train_now = datetime.utcnow()
+    train_now = get_utc_now()
     synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
-    sample_now = datetime.utcnow()
+    sample_now = get_utc_now()
 
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
@@ -185,6 +189,7 @@ def _compute_scores(
     output,
     compute_quality_score,
     compute_diagnostic_score,
+    compute_privacy_score,
     modality,
     dataset_name,
 ):
@@ -204,7 +209,7 @@ def _compute_scores(
             error = None
             score = None
             normalized_score = None
-            start = datetime.utcnow()
+            start = get_utc_now()
             try:
                 LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
                 metric_args = (real_data, synthetic_data, metadata)
@@ -220,32 +225,51 @@ def _compute_scores(
                 'score': score,
                 'normalized_score': normalized_score,
                 'error': error,
-                'metric_time': (datetime.utcnow() - start).total_seconds(),
+                'metric_time': calculate_score_time(start),
             })
             # re-inject list to multiprocessing output
             output['scores'] = scores
 
     if compute_diagnostic_score:
-        start = datetime.utcnow()
+        start = get_utc_now()
         if modality == 'single_table':
             diagnostic_report = SingleTableDiagnosticReport()
         else:
             diagnostic_report = MultiTableDiagnosticReport()
 
         diagnostic_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['diagnostic_score_time'] = (datetime.utcnow() - start).total_seconds()
+        output['diagnostic_score_time'] = calculate_score_time(start)
         output['diagnostic_score'] = diagnostic_report.get_score()
 
     if compute_quality_score:
-        start = datetime.utcnow()
+        start = get_utc_now()
         if modality == 'single_table':
             quality_report = SingleTableQualityReport()
         else:
             quality_report = MultiTableQualityReport()
 
         quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        output['quality_score_time'] = (datetime.utcnow() - start).total_seconds()
+        output['quality_score_time'] = calculate_score_time(start)
         output['quality_score'] = quality_report.get_score()
+
+    if compute_privacy_score:
+        start = get_utc_now()
+        num_rows = len(synthetic_data)
+        # parameters were determined by running experiments with all datasets
+        # and tweaking num_rows_subsample and num_iterations until
+        # absolute difference from real score was close (while keeping runtime low)
+        # see SDGym/0397 folder in Drive
+        num_rows_subsample = math.floor(num_rows * 0.60)
+        num_iterations = 2
+        score = DCRBaselineProtection.compute_breakdown(
+            real_data=real_data,
+            synthetic_data=synthetic_data,
+            metadata=metadata,
+            num_rows_subsample=num_rows_subsample,
+            num_iterations=num_iterations,
+        )
+        output['privacy_score_time'] = calculate_score_time(start)
+        output['privacy_score'] = score.get('score')
 
 
 def _score(
@@ -256,6 +280,7 @@ def _score(
     output=None,
     compute_quality_score=False,
     compute_diagnostic_score=False,
+    compute_privacy_score=False,
     modality=None,
     dataset_name=None,
 ):
@@ -304,6 +329,7 @@ def _score(
             output,
             compute_quality_score,
             compute_diagnostic_score,
+            compute_privacy_score,
             modality,
             dataset_name,
         )
@@ -354,6 +380,7 @@ def _score_with_timeout(
     metrics,
     compute_quality_score=False,
     compute_diagnostic_score=False,
+    compute_privacy_score=False,
     modality=None,
     dataset_name=None,
 ):
@@ -370,6 +397,7 @@ def _score_with_timeout(
                     output,
                     compute_quality_score,
                     compute_diagnostic_score,
+                    compute_privacy_score,
                     modality,
                     dataset_name,
                 ),
@@ -387,13 +415,21 @@ def _score_with_timeout(
 
 
 def _format_output(
-    output, name, dataset_name, compute_quality_score, compute_diagnostic_score, cache_dir
+    output,
+    name,
+    dataset_name,
+    compute_quality_score,
+    compute_diagnostic_score,
+    compute_privacy_score,
+    cache_dir,
 ):
     evaluate_time = 0
     if 'quality_score_time' in output:
         evaluate_time += output.get('quality_score_time', 0)
     if 'diagnostic_score_time' in output:
         evaluate_time += output.get('diagnostic_score_time', 0)
+    if 'privacy_score_time' in output:
+        evaluate_time += output.get('privacy_score_time', 0)
 
     for score in output.get('scores', []):
         if 'metric_time' in score and not np.isnan(score['metric_time']):
@@ -403,6 +439,7 @@ def _format_output(
         'quality_score_time' not in output
         and 'scores' not in output
         and 'diagnostic_score_time' not in output
+        and 'privacy_score_time' not in output
     ):
         evaluate_time = None
 
@@ -422,6 +459,9 @@ def _format_output(
 
     if compute_quality_score:
         scores.insert(len(scores.columns), 'Quality_Score', output.get('quality_score'))
+
+    if compute_privacy_score:
+        scores.insert(len(scores.columns), 'Privacy_Score', output.get('privacy_score'))
 
     for score in output.get('scores', []):
         scores.insert(len(scores.columns), score['metric'], score['normalized_score'])
@@ -457,6 +497,7 @@ def _run_job(args):
         timeout,
         compute_quality_score,
         compute_diagnostic_score,
+        compute_privacy_score,
         dataset_name,
         modality,
     ) = args
@@ -481,6 +522,7 @@ def _run_job(args):
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
                 compute_diagnostic_score=compute_diagnostic_score,
+                compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
             )
@@ -492,6 +534,7 @@ def _run_job(args):
                 metrics=metrics,
                 compute_quality_score=compute_quality_score,
                 compute_diagnostic_score=compute_diagnostic_score,
+                compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
             )
@@ -499,7 +542,13 @@ def _run_job(args):
         output['exception'] = error
 
     scores = _format_output(
-        output, name, dataset_name, compute_quality_score, compute_diagnostic_score, cache_dir
+        output,
+        name,
+        dataset_name,
+        compute_quality_score,
+        compute_diagnostic_score,
+        compute_privacy_score,
+        cache_dir,
     )
 
     return scores
@@ -562,7 +611,9 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
     return scores
 
 
-def _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics):
+def _get_empty_dataframe(
+    compute_diagnostic_score, compute_quality_score, compute_privacy_score, sdmetrics
+):
     warnings.warn('No datasets/synthesizers found.')
 
     scores = pd.DataFrame({
@@ -580,6 +631,8 @@ def _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetr
         scores['Diagnostic_Score'] = []
     if compute_quality_score:
         scores['Quality_Score'] = []
+    if compute_privacy_score:
+        scores['Privacy_Score'] = []
     if sdmetrics:
         for metric in sdmetrics:
             scores[metric[0]] = []
@@ -655,7 +708,9 @@ results = sdgym.benchmark_single_table(
     limit_dataset_size={params['limit_dataset_size']},
     compute_quality_score={params['compute_quality_score']},
     compute_diagnostic_score={params['compute_diagnostic_score']},
-    sdmetrics={params['sdmetrics']}, timeout={params['timeout']},
+    compute_privacy_score={params['compute_privacy_score']},
+    sdmetrics={params['sdmetrics']},
+    timeout={params['timeout']},
     detailed_results_folder={params['detailed_results_folder']},
     multi_processing_config={params['multi_processing_config']}
 )
@@ -675,7 +730,6 @@ def _create_instance_on_ec2(script_content):
     sudo apt update -y
     sudo apt install python3-pip -y
     echo "======== Install Dependencies ============"
-    sudo pip3 install sdgym
     sudo pip3 install anyio
     pip3 list
     sudo apt install awscli -y
@@ -727,7 +781,8 @@ def benchmark_single_table(
     limit_dataset_size=False,
     compute_quality_score=True,
     compute_diagnostic_score=True,
-    sdmetrics=DEFAULT_METRICS,
+    compute_privacy_score=True,
+    sdmetrics=None,
     timeout=None,
     output_filepath=None,
     detailed_results_folder=None,
@@ -764,13 +819,15 @@ def benchmark_single_table(
             limit the size of every table to 1,000 rows (randomly sampled) and the first 10
             columns.
         compute_quality_score (bool):
-            Whether or not to evaluate an overall quality score.
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
         compute_diagnostic_score (bool):
-            Whether or not to evaluate an overall diagnostic score.
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        compute_privacy_score (bool):
+            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
         sdmetrics (list[str]):
-            A list of the different SDMetrics to use. If you'd like to input specific parameters
-            into the metric, provide a tuple with the metric name followed by a dictionary of
-            the parameters.
+            A list of the different SDMetrics to use.
+            If you'd like to input specific parameters into the metric, provide a tuple with
+            the metric name followed by a dictionary of the parameters.
         timeout (int or ``None``):
             The maximum number of seconds to wait for synthetic data creation. If ``None``, no
             timeout is enforced.
@@ -822,6 +879,7 @@ def benchmark_single_table(
         timeout,
         compute_quality_score,
         compute_diagnostic_score,
+        compute_privacy_score,
         synthesizers,
         custom_synthesizers,
     )
@@ -831,7 +889,12 @@ def benchmark_single_table(
 
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
-        scores = _get_empty_dataframe(compute_diagnostic_score, compute_quality_score, sdmetrics)
+        scores = _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=compute_privacy_score,
+            sdmetrics=sdmetrics,
+        )
 
     if output_filepath:
         write_csv(scores, output_filepath, None, None)

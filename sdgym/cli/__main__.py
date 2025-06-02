@@ -80,7 +80,7 @@ def _run(args):
     scores = sdgym.benchmark_single_table(
         synthesizers=args.synthesizers,
         sdv_datasets=args.datasets,
-        sdmetrics=args.metrics,
+        sdmetrics=args.sdmetrics,
         timeout=args.timeout,
         show_progress=args.progress,
         output_filepath=args.output_path,
@@ -178,7 +178,12 @@ def _get_parser():
         required=False,
         help='Path to the CSV file where the report will be dumped',
     )
-    run.add_argument('-m', '--metrics', nargs='+', help='Metrics to apply. Accepts multiple names.')
+    run.add_argument(
+        '-m',
+        '--sdmetrics',
+        nargs='+',
+        help='Metrics to apply. Accepts multiple names.',
+    )
     run.add_argument('-b', '--bucket', help='Bucket from which to download the datasets.')
     run.add_argument('-dp--datasets-path', help='Path where datasets can be found.')
     run.add_argument(

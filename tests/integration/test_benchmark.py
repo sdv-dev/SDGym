@@ -27,6 +27,7 @@ def test_benchmark_single_table_basic_synthsizers():
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -90,7 +91,7 @@ def test_benchmark_single_table_no_metrics():
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
     # Expect no metric columns.
-    assert len(output.columns) == 10
+    assert len(output.columns) == 11
 
 
 def test_benchmarking_no_report_output():
@@ -174,6 +175,22 @@ def test_benchmark_single_table_compute_diagnostic_score():
     assert 'Diagnostic_Score' not in output
 
 
+def test_benchmark_single_table_compute_privacy_score():
+    """Test ``compute_privacy_score=False`` works."""
+    # Run
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
+        compute_privacy_score=False,
+    )
+
+    # Assert
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    assert 'Privacy_Score' not in output
+
+
 def test_benchmark_single_table_duplicate_synthesizers():
     """Test it raises an error when passed a duplicate synthesizer."""
     # Setup
@@ -233,6 +250,7 @@ def test_benchmark_single_table():
         ],
         custom_synthesizers=[test_synthesizer, ctgan_variant],
         sdv_datasets=['fake_companies'],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -292,6 +310,7 @@ def test_benchmark_single_table_timeout():
         'Evaluate_Time': {0: None},
         'Diagnostic_Score': {0: None},
         'Quality_Score': {0: None},
+        'Privacy_Score': {0: None},
         'error': {0: 'Synthesizer Timeout'},
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
@@ -304,10 +323,13 @@ def test_benchmark_single_table_only_datasets():
     argument could take days to run.
     """
     # Run
-    scores = benchmark_single_table(sdv_datasets=['fake_companies'])
+    scores = benchmark_single_table(
+        sdv_datasets=['fake_companies'],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
-    assert len(scores.columns) == 11
+    assert len(scores.columns) == 12
     assert list(scores['Synthesizer']) == ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
     assert list(scores['Dataset']) == ['fake_companies'] * 2
     assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [0.00128] * 2
@@ -317,6 +339,7 @@ def test_benchmark_single_table_only_datasets():
     assert scores['Sample_Time'].between(0, 1000).all()
     assert scores['Evaluate_Time'].between(0, 1000).all()
     assert scores['Quality_Score'].between(0.5, 1).all()
+    assert scores['Privacy_Score'].between(0.5, 1).all()
     assert (scores['Diagnostic_Score'] == 1.0).all()
     assert list(scores['NewRowSynthesis']) == [1.0] * 2
 
@@ -342,6 +365,7 @@ def test_benchmark_single_table_synthesizers_none():
     assert scores['Dataset'] == 'fake_companies'
     assert round(scores['Dataset_Size_MB'], 5) == 0.00128
     assert 0.5 < scores['Quality_Score'] < 1
+    assert 0.5 < scores['Privacy_Score'] < 1
     assert scores['Diagnostic_Score'] == 1.0
     assert (
         scores[
@@ -358,7 +382,10 @@ def test_benchmark_single_table_no_synthesizers():
     It should return an empty dataframe.
     """
     # Run
-    result = benchmark_single_table(synthesizers=None)
+    result = benchmark_single_table(
+        synthesizers=None,
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
     expected = pd.DataFrame({
@@ -372,6 +399,7 @@ def test_benchmark_single_table_no_synthesizers():
         'Evaluate_Time': [],
         'Diagnostic_Score': [],
         'Quality_Score': [],
+        'Privacy_Score': [],
         'NewRowSynthesis': [],
     })
     pd.testing.assert_frame_equal(result, expected)
@@ -383,7 +411,10 @@ def test_benchmark_single_table_no_datasets():
     It should return an empty dataframe.
     """
     # Run
-    result = benchmark_single_table(sdv_datasets=None)
+    result = benchmark_single_table(
+        sdv_datasets=None,
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
     expected = pd.DataFrame({
@@ -397,6 +428,7 @@ def test_benchmark_single_table_no_datasets():
         'Evaluate_Time': [],
         'Diagnostic_Score': [],
         'Quality_Score': [],
+        'Privacy_Score': [],
         'NewRowSynthesis': [],
     })
     pd.testing.assert_frame_equal(result, expected)
@@ -411,6 +443,7 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
         sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
         compute_quality_score=False,
         compute_diagnostic_score=False,
+        compute_privacy_score=False,
     )
 
     # Assert
