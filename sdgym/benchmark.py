@@ -255,13 +255,18 @@ def _compute_scores(
     if compute_privacy_score:
         start = get_utc_now()
         num_rows = len(synthetic_data)
+        # parameters were determined by running experiments with all datasets
+        # and tweaking num_rows_subsample and num_iterations until
+        # absolute difference from real score was close (while keeping runtime low)
+        # see SDGym/0397 folder in Drive
         num_rows_subsample = math.floor(num_rows * 0.60)
+        num_iterations = 2
         score = DCRBaselineProtection.compute_breakdown(
             real_data=real_data,
             synthetic_data=synthetic_data,
             metadata=metadata,
             num_rows_subsample=num_rows_subsample,
-            num_iterations=2,
+            num_iterations=num_iterations,
         )
         output['privacy_score_time'] = calculate_score_time(start)
         output['privacy_score'] = score.get('score')
