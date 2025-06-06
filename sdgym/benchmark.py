@@ -725,6 +725,7 @@ def _create_instance_on_ec2(script_content):
     session = boto3.session.Session()
     credentials = session.get_credentials()
     print(f'This instance is being created in region: {session.region_name}')  # noqa
+    escaped_script = script_content.strip().replace('"', '\\"')
 
     # User data script to install the library
     user_data_script = f"""#!/bin/bash
@@ -742,7 +743,7 @@ def _create_instance_on_ec2(script_content):
     aws configure set aws_secret_access_key {credentials.secret_key}
     aws configure set region {session.region_name}
     echo "======== Write Script ==========="
-    printf '%s\\n' "{script_content.strip().replace('"', '\\"')}" > ~/sdgym_script.py
+    printf '%s\\n' "{escaped_script}" > ~/sdgym_script.py
     echo "======== Run Script ==========="
     python ~/sdgym_script.py
 
