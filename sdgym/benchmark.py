@@ -729,20 +729,23 @@ def _create_instance_on_ec2(script_content):
     # User data script to install the library
     user_data_script = f"""#!/bin/bash
     sudo apt update -y
-    sudo apt install python3-pip -y
-    echo "======== Install Dependencies ============"
-    sudo pip3 install sdgym[all]
-    sudo pip3 install anyio
-    pip3 list
-    sudo apt install awscli -y
+    sudo apt install -y python3-pip python3-venv awscli
+    echo "======== Create Virtual Environment ============"
+    python3 -m venv ~/env
+    source ~/env/bin/activate
+    echo "======== Install Dependencies in venv ============"
+    pip install --upgrade pip
+    pip install "git+https://github.com/sdv-dev/SDGym.git@main#egg=sdgym[all]"
+    pip install anyio
+    echo "======== Configure AWS CLI ============"
     aws configure set aws_access_key_id {credentials.access_key}
     aws configure set aws_secret_access_key {credentials.secret_key}
     aws configure set region {session.region_name}
     echo "======== Write Script ==========="
-    sudo touch ~/sdgym_script.py
-    echo "{script_content}" > ~/sdgym_script.py
+    printf '%s\\n' "{script_content.strip().replace('"', '\\"')}" > ~/sdgym_script.py
     echo "======== Run Script ==========="
-    sudo python3 ~/sdgym_script.py
+    python ~/sdgym_script.py
+
     echo "======== Complete ==========="
     INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
     aws ec2 terminate-instances --instance-ids $INSTANCE_ID
