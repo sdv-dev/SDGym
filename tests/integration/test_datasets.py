@@ -1,6 +1,9 @@
-from sdgym import get_available_datasets
-import pytest
 import re
+
+import pytest
+
+from sdgym import get_available_datasets
+
 
 def test_get_available_datasets():
     # Run
@@ -18,4 +21,3 @@ def test_get_available_datasets_raises():
     # Run and Assert
     with pytest.raises(ValueError, match=msg):
         get_available_datasets('multi-table')
-
