@@ -135,14 +135,22 @@ def load_dataset(
     return data, metadata_dict
 
 
-def get_available_datasets():
+def get_available_datasets(modality='single_table'):
     """Get available single_table datasets.
+
+    Args:
+        modality (str):
+            The modality of the datasets: ``'single_table'`` (Default).
 
     Return:
         pd.DataFrame:
             Table of available datasets and their sizes.
     """
-    return _get_available_datasets('single_table')
+    possible_modalities = ['single_table']
+    if modality not in possible_modalities:
+        raise ValueError(f"'modality' must be in {possible_modalities}.")
+
+    return _get_available_datasets(modality)
 
 
 def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
