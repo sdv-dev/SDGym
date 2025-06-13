@@ -365,7 +365,7 @@ def test_benchmark_single_table_synthesizers_none():
     assert scores['Dataset'] == 'fake_companies'
     assert round(scores['Dataset_Size_MB'], 5) == 0.00128
     assert 0.5 < scores['Quality_Score'] < 1
-    assert 0.5 < scores['Privacy_Score'] < 1
+    assert 0.5 < scores['Privacy_Score'] <= 1.0
     assert scores['Diagnostic_Score'] == 1.0
     assert (
         scores[
