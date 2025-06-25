@@ -8,7 +8,9 @@ import os
 import pickle
 import tracemalloc
 import warnings
+from collections import defaultdict
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 
 import boto3
@@ -804,6 +806,74 @@ def _handle_deprecated_parameters(
         warnings.warn(message, FutureWarning)
 
 
+def _validate_output_destination(output_destination):
+    if not isinstance(output_destination, str):
+        raise ValueError(
+            'The `output_destination` parameter must be a string representing the output path.'
+        )
+
+    if is_s3_path(output_destination):
+        raise ValueError(
+            'The `output_destination` parameter cannot be an S3 path. '
+            'Please use `benchmark_single_table_aws` instead.'
+        )
+
+    if os.path.exists(output_destination):
+        raise ValueError(f'The output path {output_destination} already exists.')
+
+
+def _setup_output_destination(
+    output_destination, synthesizers, custom_synthesizers, sdv_datasets, additional_datasets_folder
+):
+    """Set up the output destination for the benchmark results.
+
+    Args:
+        output_destination (str or None):
+            The path to the output directory where results will be saved.
+            If None, no output will be saved.
+        synthesizers (list):
+            The list of synthesizers to benchmark.
+        custom_synthesizers (list):
+            The list of custom synthesizers to benchmark.
+        sdv_datasets (list):
+            The list of SDV datasets to benchmark.
+        additional_datasets_folder (str or None):
+            The path to a folder containing additional datasets.
+    """
+    if output_destination is None:
+        return None
+
+    _validate_output_destination(output_destination)
+    os.makedirs(output_destination, exist_ok=True)
+    today = datetime.today().strftime('%m_%d_%Y')
+    top_folder = os.path.join(output_destination, f'SDGym_results_{today}')
+    os.makedirs(top_folder, exist_ok=True)
+    all_synthesizers = synthesizers + custom_synthesizers
+    all_datasets = sdv_datasets.copy()
+    if additional_datasets_folder:
+        additional_datasets = [
+            f'additional_datasets_folder/{name.split(".")[0]}'
+            for name in os.listdir(additional_datasets_folder)
+            if name.endswith('.csv')
+        ]
+        all_datasets.extend(additional_datasets)
+
+    paths = defaultdict(dict)
+    for dataset in all_datasets:
+        dataset_folder_name = f'{dataset}_{today}'
+        dataset_folder_path = os.path.join(top_folder, dataset_folder_name)
+        os.makedirs(dataset_folder_path, exist_ok=True)
+        paths[dataset]['meta'] = os.path.join(dataset_folder_path, 'meta.yaml')
+        for synth_name in all_synthesizers:
+            synth_folder_path = os.path.join(dataset_folder_path, synth_name)
+            os.makedirs(synth_folder_path, exist_ok=True)
+            synth_file = os.path.join(synth_folder_path, 'synthesizer.pkl')
+            data_file = os.path.join(synth_folder_path, 'synthetic_data.csv')
+            paths[dataset][synth_name] = {'synthesizer': synth_file, 'synthetic_data': data_file}
+
+    return paths
+
+
 def benchmark_single_table(
     synthesizers=DEFAULT_SYNTHESIZERS,
     custom_synthesizers=None,
@@ -815,6 +885,7 @@ def benchmark_single_table(
     compute_privacy_score=True,
     sdmetrics=None,
     timeout=None,
+    output_destination=None,
     output_filepath=None,
     detailed_results_folder=None,
     show_progress=False,
@@ -890,6 +961,13 @@ def benchmark_single_table(
     """
     _handle_deprecated_parameters(
         output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
+    )
+    paths = _setup_output_destination(
+        output_destination,
+        synthesizers,
+        custom_synthesizers,
+        sdv_datasets,
+        additional_datasets_folder,
     )
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa

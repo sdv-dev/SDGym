@@ -1,4 +1,6 @@
+import json
 import re
+from datetime import datetime
 from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
@@ -11,6 +13,8 @@ from sdgym.benchmark import (
     _directory_exists,
     _format_output,
     _handle_deprecated_parameters,
+    _setup_output_destination,
+    _validate_output_destination,
 )
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
@@ -51,10 +55,9 @@ def test_benchmark_single_table_deprecated_params(mock_handle_deprecated, tqdm_m
     )
 
     # Assert
-    mock_handle_deprecated.assert_called_once_with(
-        None, None, None, False
-    )
+    mock_handle_deprecated.assert_called_once_with(None, None, None, False)
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
+
 
 @patch('sdgym.benchmark._score')
 @patch('sdgym.benchmark.multiprocessing')
@@ -335,3 +338,77 @@ def test__handle_deprecated_parameters():
         _handle_deprecated_parameters(
             output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
         )
+
+
+def test__validate_output_destination(tmp_path):
+    """Test the `_validate_output_destination` function."""
+    # Setup
+    wrong_type = 12345
+    aws_destination = 's3://valid-bucket/path/to/file'
+    valid_destination = tmp_path / 'valid-destination'
+    err_1 = re.escape(
+        'The `output_destination` parameter must be a string representing the output path.'
+    )
+    err_2 = re.escape(
+        'The `output_destination` parameter cannot be an S3 path. '
+        'Please use `benchmark_single_table_aws` instead.'
+    )
+    err_3 = re.escape(f'The output path {valid_destination} already exists.')
+
+    # Run and Assert
+    _validate_output_destination(str(valid_destination))
+    with pytest.raises(ValueError, match=err_1):
+        _validate_output_destination(wrong_type)
+
+    with pytest.raises(ValueError, match=err_2):
+        _validate_output_destination(aws_destination)
+
+    valid_destination.mkdir()
+    with pytest.raises(ValueError, match=err_3):
+        _validate_output_destination(str(valid_destination))
+
+
+@patch('sdgym.benchmark._validate_output_destination')
+def test__setup_output_destination(mock_validate, tmp_path):
+    """Test the `_setup_output_destination` function."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
+    customsynthesizers = ['CustomSynthesizer']
+    datasets = ['adult', 'census']
+    additional_datasets_folder = tmp_path / 'additional_datasets'
+    additional_datasets_folder.mkdir()
+    additional_data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
+    additional_data.to_csv(additional_datasets_folder / 'additional_data.csv', index=False)
+    today = datetime.today().strftime('%m_%d_%Y')
+    base_path = output_destination / f'SDGym_results_{today}'
+
+    # Run
+    result_1 = _setup_output_destination(
+        None, synthesizers, customsynthesizers, datasets, additional_datasets_folder
+    )
+    result_2 = _setup_output_destination(
+        output_destination, synthesizers, customsynthesizers, datasets, additional_datasets_folder
+    )
+
+    # Assert
+    expected = {
+        dataset: {
+            'meta': str(base_path / f'{dataset}_{today}' / 'meta.yaml'),
+            **{
+                synth: {
+                    'synthesizer': str(
+                        base_path / f'{dataset}_{today}' / synth / 'synthesizer.pkl'
+                    ),
+                    'synthetic_data': str(
+                        base_path / f'{dataset}_{today}' / synth / 'synthetic_data.csv'
+                    ),
+                }
+                for synth in synthesizers + customsynthesizers
+            },
+        }
+        for dataset in datasets + ['additional_datasets_folder/additional_data']
+    }
+    assert result_1 is None
+    mock_validate.assert_called_once_with(output_destination)
+    assert json.loads(json.dumps(result_2)) == expected
