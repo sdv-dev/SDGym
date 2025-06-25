@@ -1,3 +1,4 @@
+import re
 from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
@@ -9,6 +10,7 @@ from sdgym.benchmark import (
     _create_sdgym_script,
     _directory_exists,
     _format_output,
+    _handle_deprecated_parameters,
 )
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
@@ -33,7 +35,8 @@ def test_output_file_exists(path_mock):
 
 
 @patch('sdgym.benchmark.tqdm.tqdm')
-def test_progress_bar_updates(tqdm_mock):
+@patch('sdgym.benchmark._handle_deprecated_parameters')
+def test_benchmark_single_table_deprecated_params(mock_handle_deprecated, tqdm_mock):
     """Test that the benchmarking function updates the progress bar on one line."""
     # Setup
     scores_mock = MagicMock()
@@ -48,8 +51,10 @@ def test_progress_bar_updates(tqdm_mock):
     )
 
     # Assert
+    mock_handle_deprecated.assert_called_once_with(
+        None, None, None, False
+    )
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
-
 
 @patch('sdgym.benchmark._score')
 @patch('sdgym.benchmark.multiprocessing')
@@ -301,3 +306,32 @@ def test__format_output():
         'NewMetric': [0.998],
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
+
+
+def test__handle_deprecated_parameters():
+    """Test the ``_handle_deprecated_parameters`` function."""
+    # Setup
+    output_filepath = 's3://BucketName/path'
+    detailed_results_folder = 'mock/path'
+    multi_processing_config = {'num_processes': 4}
+    run_on_ec2 = True
+    expected_message_1 = re.escape(
+        "Parameters 'detailed_results_folder', 'output_filepath' are deprecated in the "
+        '`benchmark_single_table` function and will be removed in October 2025. Please '
+        'consider using `output_destination` instead.'
+    )
+    expected_message_2 = re.escape(
+        "Parameters 'detailed_results_folder', 'multi_processing_config', 'output_filepath'"
+        ", 'run_on_ec2' are deprecated in the `benchmark_single_table` function and will be"
+        ' removed in October 2025. Please consider using `output_destination` instead.'
+    )
+
+    # Run and Assert
+    _handle_deprecated_parameters(None, None, None, False)
+    with pytest.warns(FutureWarning, match=expected_message_1):
+        _handle_deprecated_parameters(output_filepath, detailed_results_folder, None, False)
+
+    with pytest.warns(FutureWarning, match=expected_message_2):
+        _handle_deprecated_parameters(
+            output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
+        )
