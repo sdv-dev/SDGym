@@ -207,7 +207,7 @@ def _generate_job_args_list(
     return job_args_list
 
 
-def _synthesize(synthesizer_dict, real_data, metadata, path=None):
+def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
         assert issubclass(synthesizer, BaselineSynthesizer), (
@@ -235,9 +235,9 @@ def _synthesize(synthesizer_dict, real_data, metadata, path=None):
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
     tracemalloc.clear_traces()
-    if path is not None:
-        synthetic_data.to_csv(path['synthetic_data'], index=False)
-        with open(path['synthesizer'], 'wb') as f:
+    if synthesizer_path is not None:
+        synthetic_data.to_csv(synthesizer_path['synthetic_data'], index=False)
+        with open(synthesizer_path['synthesizer'], 'wb') as f:
             pickle.dump(synthesizer_obj, f)
 
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
@@ -345,7 +345,7 @@ def _score(
     compute_privacy_score=False,
     modality=None,
     dataset_name=None,
-    path=None,
+    synthesizer_path=None,
 ):
     if output is None:
         output = {}
@@ -365,7 +365,7 @@ def _score(
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, data.copy(), metadata, path
+            synthesizer, data.copy(), metadata, synthesizer_path=synthesizer_path
         )
 
         output['synthetic_data'] = synthetic_data
@@ -446,7 +446,7 @@ def _score_with_timeout(
     compute_privacy_score=False,
     modality=None,
     dataset_name=None,
-    path=None,
+    synthesizer_path=None,
 ):
     with multiprocessing_context():
         with multiprocessing.Manager() as manager:
@@ -464,7 +464,7 @@ def _score_with_timeout(
                     compute_privacy_score,
                     modality,
                     dataset_name,
-                    path,
+                    synthesizer_path,
                 ),
             )
 
@@ -565,7 +565,7 @@ def _run_job(args):
         compute_privacy_score,
         dataset_name,
         modality,
-        path,
+        synthesizer_path,
     ) = args
 
     name = synthesizer['name']
@@ -590,7 +590,7 @@ def _run_job(args):
                 compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
-                path=path,
+                synthesizer_path=synthesizer_path,
             )
         else:
             output = _score(
@@ -603,7 +603,7 @@ def _run_job(args):
                 compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
-                path=path,
+                synthesizer_path=synthesizer_path,
             )
     except Exception as error:
         output['exception'] = error
@@ -617,6 +617,15 @@ def _run_job(args):
         compute_privacy_score,
         cache_dir,
     )
+
+    if synthesizer_path is not None:
+        synth_path = Path(synthesizer_path['synthesizer'])
+        root_path = synth_path.parents[2]
+        result_file = root_path / 'results.csv'
+        if not result_file.exists():
+            scores.to_csv(result_file, index=False, mode='w')
+        else:
+            scores.to_csv(result_file, index=False, mode='a', header=False)
 
     return scores
 
@@ -888,7 +897,7 @@ def _validate_output_destination(output_destination):
 
 
 def _write_run_id_file(output_destination, synthesizers, job_args_list):
-    jobs = [[job[0]['name'], job[-3]] for job in job_args_list]
+    jobs = [[job[-3], job[0]['name']] for job in job_args_list]
     run_id = str(uuid.uuid4())[:8]
     metadata = {
         'run_id': run_id,
