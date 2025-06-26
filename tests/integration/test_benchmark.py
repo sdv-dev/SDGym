@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import os
 import re
 import sys
 import time
@@ -10,6 +11,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 from sdv.metadata.single_table import SingleTableMetadata
 from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
@@ -585,3 +587,44 @@ def test_benchmark_single_table_no_warnings():
         )
         future_warnings = [warning for warning in w if issubclass(warning.category, FutureWarning)]
         assert len(future_warnings) == 0
+
+
+def test_benchmark_single_table_with_output_destination(tmp_path):
+    """Test it works with the ``output_destination`` argument."""
+    # Setup
+    output_destination = str(tmp_path / 'benchmark_output')
+    today_date = pd.Timestamp.now().strftime('%m_%d_%Y')
+
+    # Run
+    results = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
+        sdv_datasets=['expedia_hotel_logs'],
+        output_destination=output_destination,
+    )
+
+    # Assert
+    directions = os.listdir(output_destination)
+    assert f'SDGym_results_{today_date}' in directions
+    for file in directions:
+        if file.endswith('.yaml'):
+            with open(os.path.join(output_destination, file), 'r') as f:
+                metadata = yaml.safe_load(f)
+                assert metadata['completed_date'] is not None
+                assert metadata['sdgym_version'] == sdgym.__version__
+        else:
+            subdirections = os.listdir(os.path.join(output_destination, file))
+            assert set(subdirections) == {'results.csv', f'expedia_hotel_logs_{today_date}'}
+            synthesizer_directions = os.listdir(
+                os.path.join(output_destination, file, f'expedia_hotel_logs_{today_date}')
+            )
+            assert set(synthesizer_directions) == {'TVAESynthesizer', 'GaussianCopulaSynthesizer'}
+            for synthesizer in synthesizer_directions:
+                synthesizer_files = os.listdir(
+                    os.path.join(
+                        output_destination, file, f'expedia_hotel_logs_{today_date}', synthesizer
+                    )
+                )
+                assert set(synthesizer_files) == {'synthesizer.pkl', 'synthetic_data.csv'}
+
+    saved_result = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
+    pd.testing.assert_frame_equal(results, saved_result, check_dtype=False)
