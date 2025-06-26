@@ -107,6 +107,46 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
+def _setup_output_destination(output_destination, synthesizers, datasets):
+    """Set up the output destination for the benchmark results.
+
+    Args:
+        output_destination (str or None):
+            The path to the output directory where results will be saved.
+            If None, no output will be saved.
+        synthesizers (list):
+            The list of synthesizers to benchmark.
+        datasets (list):
+            The list of datasets to benchmark.
+    """
+    if output_destination is None:
+        return {}
+
+    _validate_output_destination(output_destination)
+    output_path = Path(output_destination)
+    output_path.mkdir(parents=True, exist_ok=True)
+    today = datetime.today().strftime('%m_%d_%Y')
+    top_folder = output_path / f'SDGym_results_{today}'
+    top_folder.mkdir(parents=True, exist_ok=True)
+
+    paths = defaultdict(dict)
+    for dataset in datasets:
+        dataset_folder = top_folder / f'{dataset}_{today}'
+        dataset_folder.mkdir(parents=True, exist_ok=True)
+        paths[dataset]['meta'] = str(dataset_folder / 'meta.yaml')
+
+        for synth_name in synthesizers:
+            synth_folder = dataset_folder / synth_name
+            synth_folder.mkdir(parents=True, exist_ok=True)
+
+            paths[dataset][synth_name] = {
+                'synthesizer': str(synth_folder / 'synthesizer.pkl'),
+                'synthetic_data': str(synth_folder / 'synthetic_data.csv'),
+            }
+
+    return paths
+
+
 def _generate_job_args_list(
     limit_dataset_size,
     sdv_datasets,
@@ -114,6 +154,7 @@ def _generate_job_args_list(
     sdmetrics,
     detailed_results_folder,
     timeout,
+    output_destination,
     compute_quality_score,
     compute_diagnostic_score,
     compute_privacy_score,
@@ -133,7 +174,9 @@ def _generate_job_args_list(
         else get_dataset_paths(bucket=additional_datasets_folder)
     )
     datasets = sdv_datasets + additional_datasets
-
+    synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
+    dataset_names = [dataset.name for dataset in datasets]
+    paths = _setup_output_destination(output_destination, synthesizer_names, dataset_names)
     job_tuples = []
     for dataset in datasets:
         for synthesizer in synthesizers:
@@ -144,7 +187,7 @@ def _generate_job_args_list(
         data, metadata_dict = load_dataset(
             'single_table', dataset, limit_dataset_size=limit_dataset_size
         )
-
+        path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
         args = (
             synthesizer,
             data,
@@ -157,6 +200,7 @@ def _generate_job_args_list(
             compute_privacy_score,
             dataset.name,
             'single_table',
+            path,
         )
         job_args_list.append(args)
 
@@ -191,6 +235,10 @@ def _synthesize(synthesizer_dict, real_data, metadata, path=None):
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
     tracemalloc.clear_traces()
+    if path is not None:
+        synthetic_data.to_csv(path['synthetic_data'], index=False)
+        with open(path['synthesizer'], 'wb') as f:
+            pickle.dump(synthesizer_obj, f)
 
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
@@ -297,6 +345,7 @@ def _score(
     compute_privacy_score=False,
     modality=None,
     dataset_name=None,
+    path=None,
 ):
     if output is None:
         output = {}
@@ -316,7 +365,7 @@ def _score(
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, data.copy(), metadata
+            synthesizer, data.copy(), metadata, path
         )
 
         output['synthetic_data'] = synthetic_data
@@ -397,6 +446,7 @@ def _score_with_timeout(
     compute_privacy_score=False,
     modality=None,
     dataset_name=None,
+    path=None,
 ):
     with multiprocessing_context():
         with multiprocessing.Manager() as manager:
@@ -414,6 +464,7 @@ def _score_with_timeout(
                     compute_privacy_score,
                     modality,
                     dataset_name,
+                    path,
                 ),
             )
 
@@ -514,6 +565,7 @@ def _run_job(args):
         compute_privacy_score,
         dataset_name,
         modality,
+        path,
     ) = args
 
     name = synthesizer['name']
@@ -524,7 +576,6 @@ def _run_job(args):
         timeout,
         used_memory(),
     )
-
     output = {}
     try:
         if timeout:
@@ -539,6 +590,7 @@ def _run_job(args):
                 compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
+                path=path,
             )
         else:
             output = _score(
@@ -551,6 +603,7 @@ def _run_job(args):
                 compute_privacy_score=compute_privacy_score,
                 modality=modality,
                 dataset_name=dataset_name,
+                path=path,
             )
     except Exception as error:
         output['exception'] = error
@@ -834,66 +887,15 @@ def _validate_output_destination(output_destination):
         raise ValueError(f'The output path {output_destination} already exists.')
 
 
-def _setup_output_destination(
-    output_destination, synthesizers, custom_synthesizers, sdv_datasets, additional_datasets_folder
-):
-    """Set up the output destination for the benchmark results.
-
-    Args:
-        output_destination (str or None):
-            The path to the output directory where results will be saved.
-            If None, no output will be saved.
-        synthesizers (list):
-            The list of synthesizers to benchmark.
-        custom_synthesizers (list):
-            The list of custom synthesizers to benchmark.
-        sdv_datasets (list):
-            The list of SDV datasets to benchmark.
-        additional_datasets_folder (str or None):
-            The path to a folder containing additional datasets.
-    """
-    if output_destination is None:
-        return None
-
-    _validate_output_destination(output_destination)
-    os.makedirs(output_destination, exist_ok=True)
-    today = datetime.today().strftime('%m_%d_%Y')
-    top_folder = os.path.join(output_destination, f'SDGym_results_{today}')
-    os.makedirs(top_folder, exist_ok=True)
-    all_synthesizers = synthesizers + custom_synthesizers
-    all_datasets = sdv_datasets.copy()
-    if additional_datasets_folder:
-        additional_datasets = [
-            f'additional_datasets_folder/{name.split(".")[0]}'
-            for name in os.listdir(additional_datasets_folder)
-            if name.endswith('.csv')
-        ]
-        all_datasets.extend(additional_datasets)
-
-    paths = defaultdict(dict)
-    for dataset in all_datasets:
-        dataset_folder_name = f'{dataset}_{today}'
-        dataset_folder_path = os.path.join(top_folder, dataset_folder_name)
-        os.makedirs(dataset_folder_path, exist_ok=True)
-        paths[dataset]['meta'] = os.path.join(dataset_folder_path, 'meta.yaml')
-        for synth_name in all_synthesizers:
-            synth_folder_path = os.path.join(dataset_folder_path, synth_name)
-            os.makedirs(synth_folder_path, exist_ok=True)
-            synth_file = os.path.join(synth_folder_path, 'synthesizer.pkl')
-            data_file = os.path.join(synth_folder_path, 'synthetic_data.csv')
-            paths[dataset][synth_name] = {'synthesizer': synth_file, 'synthetic_data': data_file}
-
-    return paths
-
-
 def _write_run_id_file(output_destination, synthesizers, job_args_list):
+    jobs = [[job[0]['name'], job[-3]] for job in job_args_list]
     run_id = str(uuid.uuid4())[:8]
     metadata = {
         'run_id': run_id,
         'starting_date': datetime.today().strftime('%m_%d_%Y %H:%M:%S'),
         'completed_date': None,
         'sdgym_version': version('sdgym'),
-        'jobs': job_args_list,
+        'jobs': jobs,
     }
     for synthesizer in synthesizers:
         if synthesizer not in SDV_SINGLE_TABLE_SYNTHESIZERS:
@@ -1019,13 +1021,6 @@ def benchmark_single_table(
     _handle_deprecated_parameters(
         output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
     )
-    paths = _setup_output_destination(
-        output_destination,
-        synthesizers,
-        custom_synthesizers,
-        sdv_datasets,
-        additional_datasets_folder,
-    )
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
@@ -1036,7 +1031,6 @@ def benchmark_single_table(
         return None
 
     _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
-
     _create_detailed_results_directory(detailed_results_folder)
     job_args_list = _generate_job_args_list(
         limit_dataset_size,
@@ -1045,13 +1039,14 @@ def benchmark_single_table(
         sdmetrics,
         detailed_results_folder,
         timeout,
+        output_destination,
         compute_quality_score,
         compute_diagnostic_score,
         compute_privacy_score,
         synthesizers,
         custom_synthesizers,
     )
-    if paths is not None:
+    if output_destination is not None:
         run_id = _write_run_id_file(output_destination, synthesizers, job_args_list)
 
     if job_args_list:
@@ -1069,7 +1064,7 @@ def benchmark_single_table(
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
 
-    if paths is not None:
+    if output_destination is not None:
         _update_run_id_file(output_destination, run_id)
 
     return scores
