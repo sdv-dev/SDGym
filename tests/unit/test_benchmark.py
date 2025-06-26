@@ -378,22 +378,13 @@ def test__setup_output_destination(mock_validate, tmp_path):
     # Setup
     output_destination = tmp_path / 'output_destination'
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
-    customsynthesizers = ['CustomSynthesizer']
     datasets = ['adult', 'census']
-    additional_datasets_folder = tmp_path / 'additional_datasets'
-    additional_datasets_folder.mkdir()
-    additional_data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
-    additional_data.to_csv(additional_datasets_folder / 'additional_data.csv', index=False)
     today = datetime.today().strftime('%m_%d_%Y')
     base_path = output_destination / f'SDGym_results_{today}'
 
     # Run
-    result_1 = _setup_output_destination(
-        None, synthesizers, customsynthesizers, datasets, additional_datasets_folder
-    )
-    result_2 = _setup_output_destination(
-        output_destination, synthesizers, customsynthesizers, datasets, additional_datasets_folder
-    )
+    result_1 = _setup_output_destination(None, synthesizers, datasets)
+    result_2 = _setup_output_destination(output_destination, synthesizers, datasets)
 
     # Assert
     expected = {
@@ -408,12 +399,12 @@ def test__setup_output_destination(mock_validate, tmp_path):
                         base_path / f'{dataset}_{today}' / synth / 'synthetic_data.csv'
                     ),
                 }
-                for synth in synthesizers + customsynthesizers
+                for synth in synthesizers
             },
         }
-        for dataset in datasets + ['additional_datasets_folder/additional_data']
+        for dataset in datasets
     }
-    assert result_1 is None
+    assert result_1 == {}
     mock_validate.assert_called_once_with(output_destination)
     assert json.loads(json.dumps(result_2)) == expected
 
@@ -427,7 +418,11 @@ def test__write_run_id_file(mock_datetime, mock_uuid, tmp_path):
     output_destination.mkdir()
     mock_uuid.return_value = '123456789999'
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
-    jobs = ['job1', 'job2']
+    jobs = [
+        ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, None),
+        ({'name': 'CTGANSynthesizer'}, 'census', None, None),
+    ]
+    expected_jobs = [['GaussianCopulaSynthesizer', 'adult'], ['CTGANSynthesizer', 'census']]
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
 
     # Run
@@ -441,7 +436,7 @@ def test__write_run_id_file(mock_datetime, mock_uuid, tmp_path):
         run_id_data = yaml.safe_load(file)
         assert run_id_data['run_id'] == '12345678'
         assert run_id_data['starting_date'] == '06_26_2025'
-        assert run_id_data['jobs'] == jobs
+        assert run_id_data['jobs'] == expected_jobs
         assert run_id_data['sdgym_version'] == version('sdgym')
         assert run_id_data['sdv_version'] == version('sdv')
         assert run_id_data['realtabformer_version'] == version('realtabformer')
