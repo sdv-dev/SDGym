@@ -422,7 +422,7 @@ def test__write_run_id_file(mock_datetime, mock_uuid, tmp_path):
         ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, None),
         ({'name': 'CTGANSynthesizer'}, 'census', None, None),
     ]
-    expected_jobs = [['GaussianCopulaSynthesizer', 'adult'], ['CTGANSynthesizer', 'census']]
+    expected_jobs = [['adult', 'GaussianCopulaSynthesizer'], ['census', 'CTGANSynthesizer']]
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
 
     # Run
