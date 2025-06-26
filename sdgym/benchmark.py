@@ -7,10 +7,12 @@ import multiprocessing
 import os
 import pickle
 import tracemalloc
+import uuid
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime
+from importlib.metadata import version
 from pathlib import Path
 
 import boto3
@@ -19,6 +21,7 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
+import yaml
 from sdmetrics.reports.multi_table import (
     DiagnosticReport as MultiTableDiagnosticReport,
 )
@@ -65,6 +68,15 @@ DEFAULT_DATASETS = [
     'covtype',
 ]
 N_BYTES_IN_MB = 1000 * 1000
+EXTERNAL_SYNTHESIZER_TO_LIBRARY = {
+    'RealTabFormerSynthesizer': 'realtabformer',
+}
+SDV_SINGLE_TABLE_SYNTHESIZERS = [
+    'GaussianCopulaSynthesizer',
+    'CTGANSynthesizer',
+    'CopulaGANSynthesizer',
+    'TVAESynthesizer',
+]
 
 
 def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
@@ -151,7 +163,7 @@ def _generate_job_args_list(
     return job_args_list
 
 
-def _synthesize(synthesizer_dict, real_data, metadata):
+def _synthesize(synthesizer_dict, real_data, metadata, path=None):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
         assert issubclass(synthesizer, BaselineSynthesizer), (
@@ -874,6 +886,39 @@ def _setup_output_destination(
     return paths
 
 
+def _write_run_id_file(output_destination, synthesizers, job_args_list):
+    run_id = str(uuid.uuid4())[:8]
+    metadata = {
+        'run_id': run_id,
+        'starting_date': datetime.today().strftime('%m_%d_%Y %H:%M:%S'),
+        'completed_date': None,
+        'sdgym_version': version('sdgym'),
+        'jobs': job_args_list,
+    }
+    for synthesizer in synthesizers:
+        if synthesizer not in SDV_SINGLE_TABLE_SYNTHESIZERS:
+            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY[synthesizer]
+            library_version = version(ext_lib)
+            metadata[f'{ext_lib}_version'] = library_version
+        elif 'sdv' not in metadata.keys():
+            metadata['sdv_version'] = version('sdv')
+
+    with open(f'{output_destination}/run_{run_id}.yaml', 'w') as file:
+        yaml.dump(metadata, file)
+
+    return run_id
+
+
+def _update_run_id_file(output_destination, run_id):
+    run_file = Path(output_destination) / f'run_{run_id}.yaml'
+    with open(run_file, 'r') as f:
+        run_data = yaml.safe_load(f) or {}
+
+    run_data['completed_date'] = datetime.today().strftime('%m_%d_%Y %H:%M:%S')
+    with open(run_file, 'w') as f:
+        yaml.dump(run_data, f)
+
+
 def benchmark_single_table(
     synthesizers=DEFAULT_SYNTHESIZERS,
     custom_synthesizers=None,
@@ -933,6 +978,18 @@ def benchmark_single_table(
         timeout (int or ``None``):
             The maximum number of seconds to wait for synthetic data creation. If ``None``, no
             timeout is enforced.
+        output_destination (str or ``None``):
+            The path to the output directory where results will be saved. If ``None``, no
+            output is saved. The results are saved with the following structure:
+            output_destination/
+                run_<id>.yaml
+                SDGym_results_<date>/
+                    results.csv
+                    <dataset_name>_<date>/
+                    meta.yaml
+                    <synthesizer_name>/
+                        synthesizer.pkl
+                        synthetic_data.csv
         output_filepath (str or ``None``):
             A file path for where to write the output as a csv file. If ``None``, no output
             is written. If run_on_ec2 flag output_filepath needs to be defined and
@@ -981,7 +1038,6 @@ def benchmark_single_table(
     _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
 
     _create_detailed_results_directory(detailed_results_folder)
-
     job_args_list = _generate_job_args_list(
         limit_dataset_size,
         sdv_datasets,
@@ -995,6 +1051,8 @@ def benchmark_single_table(
         synthesizers,
         custom_synthesizers,
     )
+    if paths is not None:
+        run_id = _write_run_id_file(output_destination, synthesizers, job_args_list)
 
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
@@ -1010,5 +1068,8 @@ def benchmark_single_table(
 
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
+
+    if paths is not None:
+        _update_run_id_file(output_destination, run_id)
 
     return scores

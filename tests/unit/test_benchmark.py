@@ -1,10 +1,12 @@
 import json
 import re
 from datetime import datetime
+from importlib.metadata import version
 from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
 import pytest
+import yaml
 
 from sdgym import benchmark_single_table
 from sdgym.benchmark import (
@@ -14,7 +16,9 @@ from sdgym.benchmark import (
     _format_output,
     _handle_deprecated_parameters,
     _setup_output_destination,
+    _update_run_id_file,
     _validate_output_destination,
+    _write_run_id_file,
 )
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
@@ -412,3 +416,57 @@ def test__setup_output_destination(mock_validate, tmp_path):
     assert result_1 is None
     mock_validate.assert_called_once_with(output_destination)
     assert json.loads(json.dumps(result_2)) == expected
+
+
+@patch('sdgym.benchmark.uuid.uuid4')
+@patch('sdgym.benchmark.datetime')
+def test__write_run_id_file(mock_datetime, mock_uuid, tmp_path):
+    """Test the `_write_run_id_file` method."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    output_destination.mkdir()
+    mock_uuid.return_value = '123456789999'
+    mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
+    jobs = ['job1', 'job2']
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
+
+    # Run
+    run_id = _write_run_id_file(output_destination, synthesizers, jobs)
+
+    # Assert
+    assert run_id == '12345678'
+    run_id_file = output_destination / 'run_12345678.yaml'
+    assert run_id_file.exists()
+    with open(run_id_file, 'r') as file:
+        run_id_data = yaml.safe_load(file)
+        assert run_id_data['run_id'] == '12345678'
+        assert run_id_data['starting_date'] == '06_26_2025'
+        assert run_id_data['jobs'] == jobs
+        assert run_id_data['sdgym_version'] == version('sdgym')
+        assert run_id_data['sdv_version'] == version('sdv')
+        assert run_id_data['realtabformer_version'] == version('realtabformer')
+        assert run_id_data['completed_date'] is None
+
+
+@patch('sdgym.benchmark.datetime')
+def test__update_run_id_file(mock_datetime, tmp_path):
+    """Test the `_update_run_id_file` method."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    output_destination.mkdir()
+    run_id = '12345678'
+    mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
+    metadata = {'run_id': run_id, 'starting_date': '06_25_2025', 'completed_date': None}
+    run_id_file = output_destination / f'run_{run_id}.yaml'
+    with open(run_id_file, 'w') as file:
+        yaml.dump(metadata, file)
+
+    # Run
+    _update_run_id_file(output_destination, run_id)
+
+    # Assert
+    with open(run_id_file, 'r') as file:
+        run_id_data = yaml.safe_load(file)
+        assert run_id_data['completed_date'] == '06_26_2025'
+        assert run_id_data['starting_date'] == '06_25_2025'
+        assert run_id_data['run_id'] == run_id
