@@ -892,9 +892,6 @@ def _validate_output_destination(output_destination):
             'Please use `benchmark_single_table_aws` instead.'
         )
 
-    if os.path.exists(output_destination):
-        raise ValueError(f'The output path {output_destination} already exists.')
-
 
 def _write_run_id_file(output_destination, synthesizers, job_args_list):
     jobs = [[job[-3], job[0]['name']] for job in job_args_list]
