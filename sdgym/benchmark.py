@@ -140,8 +140,8 @@ def _setup_output_destination(output_destination, synthesizers, datasets):
             synth_folder.mkdir(parents=True, exist_ok=True)
 
             paths[dataset][synth_name] = {
-                'synthesizer': str(synth_folder / 'synthesizer.pkl'),
-                'synthetic_data': str(synth_folder / 'synthetic_data.csv'),
+                'synthesizer': str(synth_folder / f'{synth_name}_synthesizer.pkl'),
+                'synthetic_data': str(synth_folder / f'{synth_name}_synthetic_data.csv'),
             }
 
     return paths

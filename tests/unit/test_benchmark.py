@@ -388,10 +388,10 @@ def test__setup_output_destination(mock_validate, tmp_path):
             **{
                 synth: {
                     'synthesizer': str(
-                        base_path / f'{dataset}_{today}' / synth / 'synthesizer.pkl'
+                        base_path / f'{dataset}_{today}' / synth / f'{synth}_synthesizer.pkl'
                     ),
                     'synthetic_data': str(
-                        base_path / f'{dataset}_{today}' / synth / 'synthetic_data.csv'
+                        base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.csv'
                     ),
                 }
                 for synth in synthesizers
