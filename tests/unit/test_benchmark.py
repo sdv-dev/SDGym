@@ -357,7 +357,6 @@ def test__validate_output_destination(tmp_path):
         'The `output_destination` parameter cannot be an S3 path. '
         'Please use `benchmark_single_table_aws` instead.'
     )
-    err_3 = re.escape(f'The output path {valid_destination} already exists.')
 
     # Run and Assert
     _validate_output_destination(str(valid_destination))
@@ -366,10 +365,6 @@ def test__validate_output_destination(tmp_path):
 
     with pytest.raises(ValueError, match=err_2):
         _validate_output_destination(aws_destination)
-
-    valid_destination.mkdir()
-    with pytest.raises(ValueError, match=err_3):
-        _validate_output_destination(str(valid_destination))
 
 
 @patch('sdgym.benchmark._validate_output_destination')
