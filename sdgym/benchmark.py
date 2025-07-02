@@ -757,12 +757,12 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress, s3_client=N
             else:
                 workers = multiprocessing.cpu_count()
 
-    args_list = job_args_list.append(s3_client)
+    job_args_list = [(job_arg, s3_client) for job_arg in job_args_list]
     if workers in (0, 1):
-        scores = map(_run_job, args_list)
+        scores = map(_run_job, job_args_list)
     elif workers != 'dask':
         pool = concurrent.futures.ProcessPoolExecutor(workers)
-        scores = pool.map(_run_job, args_list)
+        scores = pool.map(_run_job, job_args_list)
 
     if show_progress:
         scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
