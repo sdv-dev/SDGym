@@ -317,9 +317,12 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, s3
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
     tracemalloc.clear_traces()
+    print('LAAAA')
+    print(synthesizer_path)
     if synthesizer_path is not None:
         if s3_client:
             bucket, keys = _parse_s3_paths(synthesizer_path)
+            print(bucket, keys)
             _upload_dataframe_to_s3(synthetic_data, s3_client, bucket, keys['synthetic_data'])
             _upload_pickle_to_s3(synthesizer_obj, s3_client, bucket, keys['synthesizer'])
 
@@ -986,7 +989,7 @@ def _validate_output_destination(output_destination, aws_keys=None):
 
 
 def _write_run_id_file(synthesizers, job_args_list, s3_client=None):
-    jobs = [[job[-4], job[0]['name']] for job in job_args_list]
+    jobs = [[job[-3], job[0]['name']] for job in job_args_list]
     output_directions = job_args_list[0][-1]
     path = output_directions['run_id']
     run_id = Path(path).stem
