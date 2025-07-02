@@ -1271,9 +1271,9 @@ response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
 encoded_data = response['Body'].read().decode('utf-8')
 serialized_data = base64.b64decode(encoded_data.encode('utf-8'))
 job_args_list = pickle.loads(serialized_data)
-run_id = _write_run_id_file({output_destination}, {synthesizers}, job_args_list, s3_client)
+run_id = _write_run_id_file('{output_destination}', {synthesizers}, job_args_list, s3_client)
 scores = _run_jobs(None, job_args_list, False)
-_update_run_id_file({output_destination}, run_id)
+_update_run_id_file('{output_destination}', run_id)
 s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
 
