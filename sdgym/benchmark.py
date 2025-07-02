@@ -904,6 +904,7 @@ def _create_instance_on_ec2(script_content):
     pip install --upgrade pip
     pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-414-benchmark_single_table_aws#egg=sdgym"
     pip install anyio
+    pip install s3fs
     echo "======== Configure AWS CLI ============"
     aws configure set aws_access_key_id {credentials.access_key}
     aws configure set aws_secret_access_key {credentials.secret_key}
