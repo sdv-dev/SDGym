@@ -899,7 +899,7 @@ def _create_instance_on_ec2(script_content):
     source ~/env/bin/activate
     echo "======== Install Dependencies in venv ============"
     pip install --upgrade pip
-    pip install sdgym[all]
+    pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-414-benchmark_single_table_aws#egg=sdgym"
     pip install anyio
     echo "======== Configure AWS CLI ============"
     aws configure set aws_access_key_id {credentials.access_key}
@@ -1302,7 +1302,7 @@ s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install sdgym[all]
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-414-benchmark_single_table_aws#egg=sdgym"
         pip install pandas
         pip install boto3
 
