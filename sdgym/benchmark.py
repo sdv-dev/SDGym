@@ -644,6 +644,7 @@ def _run_job(args):
         dataset_name,
         modality,
         synthesizer_path,
+        s3_client
     ) = args
 
     name = synthesizer['name']
@@ -697,13 +698,18 @@ def _run_job(args):
     )
 
     if synthesizer_path is not None:
-        synth_path = Path(synthesizer_path['synthesizer'])
-        root_path = synth_path.parents[2]
-        result_file = root_path / 'results.csv'
-        if not result_file.exists():
-            scores.to_csv(result_file, index=False, mode='w')
+        if s3_client:
+            bucket, keys = _parse_s3_paths(synthesizer_path)
+            print(bucket, keys)
+            _upload_dataframe_to_s3(scores, s3_client, bucket, keys['synthetic_data'])
         else:
-            scores.to_csv(result_file, index=False, mode='a', header=False)
+            synth_path = Path(synthesizer_path['synthesizer'])
+            root_path = synth_path.parents[2]
+            result_file = root_path / 'results.csv'
+            if not result_file.exists():
+                scores.to_csv(result_file, index=False, mode='w')
+            else:
+                scores.to_csv(result_file, index=False, mode='a', header=False)
 
     return scores
 
@@ -731,7 +737,7 @@ def _run_on_dask(jobs, verbose):
     return dask.compute(*persisted)
 
 
-def _run_jobs(multi_processing_config, job_args_list, show_progress):
+def _run_jobs(multi_processing_config, job_args_list, show_progress, s3_client=None):
     workers = 1
     if multi_processing_config:
         if multi_processing_config['package_name'] == 'dask':
@@ -744,11 +750,12 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
             else:
                 workers = multiprocessing.cpu_count()
 
+    args_list = job_args_list.append(s3_client)
     if workers in (0, 1):
-        scores = map(_run_job, job_args_list)
+        scores = map(_run_job, args_list)
     elif workers != 'dask':
         pool = concurrent.futures.ProcessPoolExecutor(workers)
-        scores = pool.map(_run_job, job_args_list)
+        scores = pool.map(_run_job, args_list)
 
     if show_progress:
         scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
@@ -1265,7 +1272,7 @@ encoded_data = response['Body'].read().decode('utf-8')
 serialized_data = base64.b64decode(encoded_data.encode('utf-8'))
 job_args_list = pickle.loads(serialized_data)
 run_id = _write_run_id_file('{output_destination}', {synthesizers}, job_args_list, s3_client)
-scores = _run_jobs(None, job_args_list, False)
+scores = _run_jobs(None, job_args_list, False, s3_client)
 _update_run_id_file('{output_destination}', run_id)
 s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
