@@ -386,14 +386,11 @@ def test__validate_output_destination_with_aws_keys(mock_validate):
 
     # Assert
     mock_validate.assert_called_once_with(
-        output_destination,
-        aws_keys['aws_access_key_id'],
-        aws_keys['aws_secret_access_key']
+        output_destination, aws_keys['aws_access_key_id'], aws_keys['aws_secret_access_key']
     )
 
 
-@patch('sdgym.benchmark._validate_output_destination')
-def test__setup_output_destination(mock_validate, tmp_path):
+def test__setup_output_destination(tmp_path):
     """Test the `_setup_output_destination` function."""
     # Setup
     output_destination = tmp_path / 'output_destination'
@@ -429,7 +426,6 @@ def test__setup_output_destination(mock_validate, tmp_path):
         for dataset in datasets
     }
     assert result_1 == {}
-    mock_validate.assert_called_once_with(output_destination)
     assert json.loads(json.dumps(result_2)) == expected
 
 
@@ -498,10 +494,7 @@ def test_setup_output_destination_aws():
 
     # Run
     paths = _setup_output_destination_aws(
-        output_destination,
-        synthesizers,
-        datasets,
-        s3_client_mock
+        output_destination, synthesizers, datasets, s3_client_mock
     )
 
     # Assert
@@ -588,16 +581,12 @@ def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_clie
 
     # Run
     result = _validate_aws_inputs(
-        output_destination=valid_url,
-        aws_access_key_id='AKIA...',
-        aws_secret_access_key='SECRET'
+        output_destination=valid_url, aws_access_key_id='AKIA...', aws_secret_access_key='SECRET'
     )
 
     # Assert
     mock_boto3_client.assert_called_once_with(
-        's3',
-        aws_access_key_id='AKIA...',
-        aws_secret_access_key='SECRET'
+        's3', aws_access_key_id='AKIA...', aws_secret_access_key='SECRET'
     )
     s3_client_mock.head_bucket.assert_called_once_with(Bucket='my-bucket')
     mock_check_write_permissions.assert_called_once_with(s3_client_mock, 'my-bucket')
@@ -607,25 +596,26 @@ def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_clie
 def test_validate_aws_inputs_invalid():
     """Test `_validate_aws_inputs` raises ValueError for invalid inputs."""
     # Setup
-    valid_url = 's3://my-bucket/some/path'
     invalid_url_type = 123
     invalid_url_no_s3 = 'https://my-bucket/path'
     invalid_url_empty_bucket = 's3://'
 
     # Run and Assert
-    with pytest.raises(ValueError, match=re.escape(
-        'The `output_destination` parameter must be a string representing the S3 URL.'
-    )):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            'The `output_destination` parameter must be a string representing the S3 URL.'
+        ),
+    ):
         _validate_aws_inputs(invalid_url_type, None, None)
 
-    with pytest.raises(ValueError, match=re.escape(
-        "'output_destination' must be an S3 URL starting with 's3://'. "
-    )):
+    with pytest.raises(
+        ValueError,
+        match=re.escape("'output_destination' must be an S3 URL starting with 's3://'. "),
+    ):
         _validate_aws_inputs(invalid_url_no_s3, None, None)
 
-    with pytest.raises(ValueError, match=re.escape(
-        f'Invalid S3 URL: {invalid_url_empty_bucket}'
-    )):
+    with pytest.raises(ValueError, match=re.escape(f'Invalid S3 URL: {invalid_url_empty_bucket}')):
         _validate_aws_inputs(invalid_url_empty_bucket, None, None)
 
 
@@ -638,8 +628,11 @@ def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock
     mock_boto3_client.return_value = s3_client_mock
     mock_check_write_permissions.return_value = False
 
-    with pytest.raises(PermissionError, match=re.escape(
-        'No write permissions for the S3 bucket: my-bucket. '
-        'Please check your AWS credentials or bucket policies.'
-    )):
+    with pytest.raises(
+        PermissionError,
+        match=re.escape(
+            'No write permissions for the S3 bucket: my-bucket. '
+            'Please check your AWS credentials or bucket policies.'
+        ),
+    ):
         _validate_aws_inputs(valid_url, None, None)
