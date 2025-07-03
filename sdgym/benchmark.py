@@ -983,6 +983,10 @@ def _handle_deprecated_parameters(
 
 
 def _validate_output_destination(output_destination, aws_keys=None):
+    """Validate the output destination parameter."""
+    if output_destination is None and aws_keys is None:
+        return
+
     if aws_keys is not None:
         return _validate_aws_inputs(
             output_destination, aws_keys['aws_access_key_id'], aws_keys['aws_secret_access_key']
@@ -1206,6 +1210,11 @@ def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_acces
 
     If credentials are not provided, the S3 bucket must be public.
     """
+    if not isinstance(output_destination, str):
+        raise ValueError(
+            'The `output_destination` parameter must be a string representing the S3 URL.'
+        )
+
     if not output_destination.startswith('s3://'):
         raise ValueError("'output_destination' must be an S3 URL starting with 's3://'. ")
 
@@ -1318,6 +1327,7 @@ s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
         pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-414-benchmark_single_table_aws#egg=sdgym"
+        pip install s3fs
 
         echo "======== Write Script ==========="
         cat << 'EOF' > ~/sdgym_script.py
