@@ -1195,6 +1195,7 @@ def benchmark_single_table(
         compute_privacy_score,
         synthesizers,
         custom_synthesizers,
+        s3_client=None,
     )
     if output_destination is not None:
         _write_run_id_file(synthesizers, job_args_list)
@@ -1347,11 +1348,11 @@ s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 EOF
 
         echo "======== Run Script ==========="
-        python ~/sdgym_script.py || true
+        python ~/sdgym_script.py
 
         echo "======== Complete ==========="
         INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+        aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region {region_name}
     """).strip()
 
     response = ec2_client.run_instances(
