@@ -1,8 +1,10 @@
+import io
 import json
+import pickle
 import re
 from datetime import datetime
 from importlib.metadata import version
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pandas as pd
 import pytest
@@ -16,9 +18,14 @@ from sdgym.benchmark import (
     _format_output,
     _handle_deprecated_parameters,
     _setup_output_destination,
+    _setup_output_destination_aws,
     _update_run_id_file,
+    _upload_dataframe_to_s3,
+    _upload_pickle_to_s3,
+    _validate_aws_inputs,
     _validate_output_destination,
     _write_run_id_file,
+    benchmark_single_table_aws,
 )
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
@@ -135,19 +142,15 @@ def test__directory_exists(mock_client):
     assert not _directory_exists('bucket', 'file_path/mock.csv')
 
 
-@patch('sdgym.benchmark.boto3.client')
-def test__check_write_permissions(mock_client):
+def test__check_write_permissions():
+    """Test the `_check_write_permissions` function."""
     # Setup
-    mock_client.return_value.put_object.side_effect = Exception('Simulated error')
+    mock_client = Mock()
 
     # Run and Assert
-    assert not _check_write_permissions('bucket')
-
-    # Setup for success
-    mock_client.return_value.put_object.side_effect = None
-
-    # Run and Assert
-    assert _check_write_permissions('bucket')
+    assert _check_write_permissions(mock_client, 'bucket')
+    mock_client.put_object.side_effect = Exception('Simulated error')
+    assert not _check_write_permissions(mock_client, 'bucket')
 
 
 @patch('sdgym.benchmark._directory_exists')
@@ -367,8 +370,26 @@ def test__validate_output_destination(tmp_path):
         _validate_output_destination(aws_destination)
 
 
-@patch('sdgym.benchmark._validate_output_destination')
-def test__setup_output_destination(mock_validate, tmp_path):
+@patch('sdgym.benchmark._validate_aws_inputs')
+def test__validate_output_destination_with_aws_keys(mock_validate):
+    """Test the `_validate_output_destination` function with AWS keys."""
+    # Setup
+    output_destination = 's3://my-bucket/path/to/file'
+    aws_keys = {
+        'aws_access_key_id': 'mock_access_key',
+        'aws_secret_access_key': 'mock_secret_key',
+    }
+
+    # Run
+    _validate_output_destination(output_destination, aws_keys)
+
+    # Assert
+    mock_validate.assert_called_once_with(
+        output_destination, aws_keys['aws_access_key_id'], aws_keys['aws_secret_access_key']
+    )
+
+
+def test__setup_output_destination(tmp_path):
     """Test the `_setup_output_destination` function."""
     # Setup
     output_destination = tmp_path / 'output_destination'
@@ -400,7 +421,6 @@ def test__setup_output_destination(mock_validate, tmp_path):
         for dataset in datasets
     }
     assert result_1 == {}
-    mock_validate.assert_called_once_with(output_destination)
     assert json.loads(json.dumps(result_2)) == expected
 
 
@@ -460,3 +480,213 @@ def test__update_run_id_file(mock_datetime, tmp_path):
         assert run_id_data['completed_date'] == '06_26_2025'
         assert run_id_data['starting_date'] == '06_25_2025'
         assert run_id_data['run_id'] == run_id
+
+
+def test_setup_output_destination_aws():
+    """Test the `_setup_output_destination_aws` function."""
+    # Setup
+    output_destination = 's3://my-bucket/results'
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
+    datasets = ['Dataset1', 'Dataset2']
+    s3_client_mock = Mock()
+
+    # Run
+    paths = _setup_output_destination_aws(
+        output_destination, synthesizers, datasets, s3_client_mock
+    )
+
+    # Assert
+    today = datetime.today().strftime('%m_%d_%Y')
+    bucket_name = 'my-bucket'
+    top_folder = f'results/SDGym_results_{today}'
+    expected_calls = [call(Bucket=bucket_name, Key=top_folder + '/')]
+    for dataset in datasets:
+        dataset_folder = f'{top_folder}/{dataset}_{today}'
+        expected_calls.append(call(Bucket=bucket_name, Key=dataset_folder + '/'))
+        for synth in synthesizers:
+            synth_folder = f'{dataset_folder}/{synth}'
+            expected_calls.append(call(Bucket=bucket_name, Key=synth_folder + '/'))
+
+    s3_client_mock.put_object.assert_has_calls(expected_calls, any_order=True)
+    for dataset in datasets:
+        for synth in synthesizers:
+            assert 'synthesizer' in paths[dataset][synth]
+            assert paths[dataset][synth]['synthesizer'] == (
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthesizer.pkl'
+            )
+            assert 'synthetic_data' in paths[dataset][synth]
+            assert paths[dataset][synth]['synthetic_data'] == (
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthetic_data.csv'
+            )
+
+
+def test_upload_dataframe_to_s3():
+    """Test the `_upload_dataframe_to_s3` function."""
+    # Setup
+    data = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
+    s3_client_mock = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/data.csv'
+
+    # Run
+    _upload_dataframe_to_s3(data, s3_client_mock, bucket_name, key)
+
+    # Assert
+    s3_client_mock.put_object.assert_called_once()
+    call_kwargs = s3_client_mock.put_object.call_args.kwargs
+    assert call_kwargs['Bucket'] == bucket_name
+    assert call_kwargs['Key'] == key
+    body = call_kwargs['Body']
+    assert isinstance(body, str)
+    csv_buffer = io.StringIO()
+    data.to_csv(csv_buffer, index=False)
+    expected_csv = csv_buffer.getvalue()
+    assert body == expected_csv
+
+
+def test_upload_pickle_to_s3():
+    """Test the `_upload_pickle_to_s3` function."""
+    # Setup
+    obj = {'foo': 'bar'}
+    s3_client_mock = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/object.pkl'
+
+    # Run
+    _upload_pickle_to_s3(obj, s3_client_mock, bucket_name, key)
+
+    # Assert
+    s3_client_mock.put_object.assert_called_once()
+    call_kwargs = s3_client_mock.put_object.call_args.kwargs
+    assert call_kwargs['Bucket'] == bucket_name
+    assert call_kwargs['Key'] == key
+    body = call_kwargs['Body']
+    assert isinstance(body, io.BytesIO)
+    body.seek(0)
+    unpickled_obj = pickle.load(body)
+    assert unpickled_obj == obj
+
+
+@patch('sdgym.benchmark.boto3.client')
+@patch('sdgym.benchmark._check_write_permissions')
+def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_client):
+    """Test `_validate_aws_inputs` with valid inputs and credentials."""
+    # Setup
+    valid_url = 's3://my-bucket/some/path'
+    s3_client_mock = Mock()
+    mock_boto3_client.return_value = s3_client_mock
+    mock_check_write_permissions.return_value = True
+
+    # Run
+    result = _validate_aws_inputs(
+        output_destination=valid_url, aws_access_key_id='AKIA...', aws_secret_access_key='SECRET'
+    )
+
+    # Assert
+    mock_boto3_client.assert_called_once_with(
+        's3', aws_access_key_id='AKIA...', aws_secret_access_key='SECRET'
+    )
+    s3_client_mock.head_bucket.assert_called_once_with(Bucket='my-bucket')
+    mock_check_write_permissions.assert_called_once_with(s3_client_mock, 'my-bucket')
+    assert result == s3_client_mock
+
+
+def test_validate_aws_inputs_invalid():
+    """Test `_validate_aws_inputs` raises ValueError for invalid inputs."""
+    # Setup
+    invalid_url_type = 123
+    invalid_url_no_s3 = 'https://my-bucket/path'
+    invalid_url_empty_bucket = 's3://'
+
+    # Run and Assert
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            'The `output_destination` parameter must be a string representing the S3 URL.'
+        ),
+    ):
+        _validate_aws_inputs(invalid_url_type, None, None)
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("'output_destination' must be an S3 URL starting with 's3://'. "),
+    ):
+        _validate_aws_inputs(invalid_url_no_s3, None, None)
+
+    with pytest.raises(ValueError, match=re.escape(f'Invalid S3 URL: {invalid_url_empty_bucket}')):
+        _validate_aws_inputs(invalid_url_empty_bucket, None, None)
+
+
+@patch('sdgym.benchmark.boto3.client')
+@patch('sdgym.benchmark._check_write_permissions')
+def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock_boto3_client):
+    """Test `_validate_aws_inputs` raises PermissionError when write permission is missing."""
+    valid_url = 's3://my-bucket/some/path'
+    s3_client_mock = Mock()
+    mock_boto3_client.return_value = s3_client_mock
+    mock_check_write_permissions.return_value = False
+
+    with pytest.raises(
+        PermissionError,
+        match=re.escape(
+            'No write permissions for the S3 bucket: my-bucket. '
+            'Please check your AWS credentials or bucket policies.'
+        ),
+    ):
+        _validate_aws_inputs(valid_url, None, None)
+
+
+@patch('sdgym.benchmark._validate_output_destination')
+@patch('sdgym.benchmark._generate_job_args_list')
+@patch('sdgym.benchmark._run_on_aws')
+def test_benchmark_single_table_aws(
+    mock_run_on_aws, mock_generate_job_args_list, mock_validate_output_destination
+):
+    """Test `benchmark_single_table_aws` method."""
+    # Setup
+    output_destination = 's3://sdgym-benchmark/Debug/Issue_414_test_3'
+    synthesizers = ['GaussianCopulaSynthesizer', 'TVAESynthesizer']
+    datasets = ['adult', 'census']
+    aws_access_key_id = '12345'
+    aws_secret_access_key = '67890'
+    mock_validate_output_destination.return_value = 's3_client_mock'
+    mock_generate_job_args_list.return_value = 'job_args_list_mock'
+
+    # Run
+    benchmark_single_table_aws(
+        output_destination=output_destination,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        synthesizers=synthesizers,
+        sdv_datasets=datasets,
+    )
+
+    # Assert
+    mock_validate_output_destination.assert_called_once_with(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    mock_generate_job_args_list.assert_called_once_with(
+        limit_dataset_size=False,
+        sdv_datasets=datasets,
+        additional_datasets_folder=None,
+        sdmetrics=None,
+        timeout=None,
+        output_destination=output_destination,
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        compute_privacy_score=True,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        custom_synthesizers=None,
+        s3_client='s3_client_mock',
+    )
+    mock_run_on_aws.assert_called_once_with(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client='s3_client_mock',
+        job_args_list='job_args_list_mock',
+    )
