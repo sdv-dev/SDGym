@@ -1,4 +1,6 @@
+import io
 import json
+import pickle
 import re
 from datetime import datetime
 from importlib.metadata import version
@@ -19,6 +21,9 @@ from sdgym.benchmark import (
     _setup_output_destination,
     _setup_output_destination_aws,
     _update_run_id_file,
+    _upload_dataframe_to_s3,
+    _upload_pickle_to_s3,
+    _validate_aws_inputs,
     _validate_output_destination,
     _write_run_id_file,
 )
@@ -137,19 +142,15 @@ def test__directory_exists(mock_client):
     assert not _directory_exists('bucket', 'file_path/mock.csv')
 
 
-@patch('sdgym.benchmark.boto3.client')
-def test__check_write_permissions(mock_client):
+def test__check_write_permissions():
+    """Test the `_check_write_permissions` function."""
     # Setup
-    mock_client.return_value.put_object.side_effect = Exception('Simulated error')
+    mock_client = Mock()
 
     # Run and Assert
-    assert not _check_write_permissions('bucket')
-
-    # Setup for success
-    mock_client.return_value.put_object.side_effect = None
-
-    # Run and Assert
-    assert _check_write_permissions('bucket')
+    assert _check_write_permissions(mock_client, 'bucket')
+    mock_client.put_object.side_effect = Exception('Simulated error')
+    assert not _check_write_permissions(mock_client, 'bucket')
 
 
 @patch('sdgym.benchmark._directory_exists')
@@ -370,6 +371,27 @@ def test__validate_output_destination(tmp_path):
         _validate_output_destination(aws_destination)
 
 
+@patch('sdgym.benchmark._validate_aws_inputs')
+def test__validate_output_destination_with_aws_keys(mock_validate):
+    """Test the `_validate_output_destination` function with AWS keys."""
+    # Setup
+    output_destination = 's3://my-bucket/path/to/file'
+    aws_keys = {
+        'aws_access_key_id': 'mock_access_key',
+        'aws_secret_access_key': 'mock_secret_key',
+    }
+
+    # Run
+    _validate_output_destination(output_destination, aws_keys)
+
+    # Assert
+    mock_validate.assert_called_once_with(
+        output_destination,
+        aws_keys['aws_access_key_id'],
+        aws_keys['aws_secret_access_key']
+    )
+
+
 @patch('sdgym.benchmark._validate_output_destination')
 def test__setup_output_destination(mock_validate, tmp_path):
     """Test the `_setup_output_destination` function."""
@@ -505,3 +527,119 @@ def test_setup_output_destination_aws():
             assert paths[dataset][synth]['synthetic_data'] == (
                 f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthetic_data.csv'
             )
+
+
+def test_upload_dataframe_to_s3():
+    """Test the `_upload_dataframe_to_s3` function."""
+    # Setup
+    data = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
+    s3_client_mock = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/data.csv'
+
+    # Run
+    _upload_dataframe_to_s3(data, s3_client_mock, bucket_name, key)
+
+    # Assert
+    s3_client_mock.put_object.assert_called_once()
+    call_kwargs = s3_client_mock.put_object.call_args.kwargs
+    assert call_kwargs['Bucket'] == bucket_name
+    assert call_kwargs['Key'] == key
+    body = call_kwargs['Body']
+    assert isinstance(body, str)
+    csv_buffer = io.StringIO()
+    data.to_csv(csv_buffer, index=False)
+    expected_csv = csv_buffer.getvalue()
+    assert body == expected_csv
+
+
+def test_upload_pickle_to_s3():
+    """Test the `_upload_pickle_to_s3` function."""
+    # Setup
+    obj = {'foo': 'bar'}
+    s3_client_mock = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/object.pkl'
+
+    # Run
+    _upload_pickle_to_s3(obj, s3_client_mock, bucket_name, key)
+
+    # Assert
+    s3_client_mock.put_object.assert_called_once()
+    call_kwargs = s3_client_mock.put_object.call_args.kwargs
+    assert call_kwargs['Bucket'] == bucket_name
+    assert call_kwargs['Key'] == key
+    body = call_kwargs['Body']
+    assert isinstance(body, io.BytesIO)
+    body.seek(0)
+    unpickled_obj = pickle.load(body)
+    assert unpickled_obj == obj
+
+
+@patch('sdgym.benchmark.boto3.client')
+@patch('sdgym.benchmark._check_write_permissions')
+def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_client):
+    """Test `_validate_aws_inputs` with valid inputs and credentials."""
+    # Setup
+    valid_url = 's3://my-bucket/some/path'
+    s3_client_mock = Mock()
+    mock_boto3_client.return_value = s3_client_mock
+    mock_check_write_permissions.return_value = True
+
+    # Run
+    result = _validate_aws_inputs(
+        output_destination=valid_url,
+        aws_access_key_id='AKIA...',
+        aws_secret_access_key='SECRET'
+    )
+
+    # Assert
+    mock_boto3_client.assert_called_once_with(
+        's3',
+        aws_access_key_id='AKIA...',
+        aws_secret_access_key='SECRET'
+    )
+    s3_client_mock.head_bucket.assert_called_once_with(Bucket='my-bucket')
+    mock_check_write_permissions.assert_called_once_with(s3_client_mock, 'my-bucket')
+    assert result == s3_client_mock
+
+
+def test_validate_aws_inputs_invalid():
+    """Test `_validate_aws_inputs` raises ValueError for invalid inputs."""
+    # Setup
+    valid_url = 's3://my-bucket/some/path'
+    invalid_url_type = 123
+    invalid_url_no_s3 = 'https://my-bucket/path'
+    invalid_url_empty_bucket = 's3://'
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=re.escape(
+        'The `output_destination` parameter must be a string representing the S3 URL.'
+    )):
+        _validate_aws_inputs(invalid_url_type, None, None)
+
+    with pytest.raises(ValueError, match=re.escape(
+        "'output_destination' must be an S3 URL starting with 's3://'. "
+    )):
+        _validate_aws_inputs(invalid_url_no_s3, None, None)
+
+    with pytest.raises(ValueError, match=re.escape(
+        f'Invalid S3 URL: {invalid_url_empty_bucket}'
+    )):
+        _validate_aws_inputs(invalid_url_empty_bucket, None, None)
+
+
+@patch('sdgym.benchmark.boto3.client')
+@patch('sdgym.benchmark._check_write_permissions')
+def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock_boto3_client):
+    """Test `_validate_aws_inputs` raises PermissionError when write permission is missing."""
+    valid_url = 's3://my-bucket/some/path'
+    s3_client_mock = Mock()
+    mock_boto3_client.return_value = s3_client_mock
+    mock_check_write_permissions.return_value = False
+
+    with pytest.raises(PermissionError, match=re.escape(
+        'No write permissions for the S3 bucket: my-bucket. '
+        'Please check your AWS credentials or bucket policies.'
+    )):
+        _validate_aws_inputs(valid_url, None, None)
