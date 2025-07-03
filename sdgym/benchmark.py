@@ -424,6 +424,7 @@ def _score(
     modality=None,
     dataset_name=None,
     synthesizer_path=None,
+    s3_client=None,
 ):
     if output is None:
         output = {}
@@ -443,7 +444,7 @@ def _score(
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, data.copy(), metadata, synthesizer_path=synthesizer_path
+            synthesizer, data.copy(), metadata, synthesizer_path=synthesizer_path, s3_client=s3_client
         )
 
         output['synthetic_data'] = synthetic_data
@@ -525,6 +526,7 @@ def _score_with_timeout(
     modality=None,
     dataset_name=None,
     synthesizer_path=None,
+    s3_client=None,
 ):
     with multiprocessing_context():
         with multiprocessing.Manager() as manager:
@@ -543,6 +545,7 @@ def _score_with_timeout(
                     modality,
                     dataset_name,
                     synthesizer_path,
+                    s3_client,
                 ),
             )
 
@@ -683,6 +686,7 @@ def _run_job(args):
                 modality=modality,
                 dataset_name=dataset_name,
                 synthesizer_path=synthesizer_path,
+                s3_client=s3_client
             )
     except Exception as error:
         output['exception'] = error
@@ -895,9 +899,8 @@ def _create_instance_on_ec2(script_content):
     source ~/env/bin/activate
     echo "======== Install Dependencies in venv ============"
     pip install --upgrade pip
-    pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-414-benchmark_single_table_aws#egg=sdgym"
+    pip install sdgym[all]
     pip install anyio
-    pip install s3fs
     echo "======== Configure AWS CLI ============"
     aws configure set aws_access_key_id {credentials.access_key}
     aws configure set aws_secret_access_key {credentials.secret_key}
@@ -1273,7 +1276,7 @@ serialized_data = base64.b64decode(encoded_data.encode('utf-8'))
 job_args_list = pickle.loads(serialized_data)
 run_id = _write_run_id_file('{output_destination}', {synthesizers}, job_args_list, s3_client)
 scores = _run_jobs(None, job_args_list, False, s3_client)
-_update_run_id_file('{output_destination}', run_id)
+_update_run_id_file('{output_destination}', run_id, s3_client)
 s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
 
@@ -1303,8 +1306,6 @@ s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
         pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-414-benchmark_single_table_aws#egg=sdgym"
-        pip install pandas
-        pip install boto3
 
         echo "======== Write Script ==========="
         cat << 'EOF' > ~/sdgym_script.py
