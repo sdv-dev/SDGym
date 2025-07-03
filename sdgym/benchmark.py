@@ -757,9 +757,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress, s3_client=N
             else:
                 workers = multiprocessing.cpu_count()
 
-    for job_args in job_args_list:
-        job_args.append(s3_client)
-
+    job_args_list = [job_args + (s3_client,) for job_args in job_args_list]
     if workers in (0, 1):
         scores = map(_run_job, job_args_list)
     elif workers != 'dask':

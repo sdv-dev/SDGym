@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pandas as pd
 import pytest
@@ -17,6 +17,7 @@ from sdgym.benchmark import (
     _format_output,
     _handle_deprecated_parameters,
     _setup_output_destination,
+    _setup_output_destination_aws,
     _update_run_id_file,
     _validate_output_destination,
     _write_run_id_file,
@@ -463,3 +464,44 @@ def test__update_run_id_file(mock_datetime, tmp_path):
         assert run_id_data['completed_date'] == '06_26_2025'
         assert run_id_data['starting_date'] == '06_25_2025'
         assert run_id_data['run_id'] == run_id
+
+
+def test_setup_output_destination_aws():
+    """Test the `_setup_output_destination_aws` function."""
+    # Setup
+    output_destination = 's3://my-bucket/results'
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
+    datasets = ['Dataset1', 'Dataset2']
+    s3_client_mock = Mock()
+
+    # Run
+    paths = _setup_output_destination_aws(
+        output_destination,
+        synthesizers,
+        datasets,
+        s3_client_mock
+    )
+
+    # Assert
+    today = datetime.today().strftime('%m_%d_%Y')
+    bucket_name = 'my-bucket'
+    top_folder = f'results/SDGym_results_{today}'
+    expected_calls = [call(Bucket=bucket_name, Key=top_folder + '/')]
+    for dataset in datasets:
+        dataset_folder = f'{top_folder}/{dataset}_{today}'
+        expected_calls.append(call(Bucket=bucket_name, Key=dataset_folder + '/'))
+        for synth in synthesizers:
+            synth_folder = f'{dataset_folder}/{synth}'
+            expected_calls.append(call(Bucket=bucket_name, Key=synth_folder + '/'))
+
+    s3_client_mock.put_object.assert_has_calls(expected_calls, any_order=True)
+    for dataset in datasets:
+        for synth in synthesizers:
+            assert 'synthesizer' in paths[dataset][synth]
+            assert paths[dataset][synth]['synthesizer'] == (
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthesizer.pkl'
+            )
+            assert 'synthetic_data' in paths[dataset][synth]
+            assert paths[dataset][synth]['synthetic_data'] == (
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthetic_data.csv'
+            )
