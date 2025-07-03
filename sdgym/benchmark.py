@@ -457,7 +457,8 @@ def _score(
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, data.copy(), metadata, synthesizer_path=synthesizer_path, s3_client=s3_client
+            synthesizer, data.copy(), metadata, synthesizer_path=synthesizer_path,
+            s3_client=s3_client
         )
 
         output['synthetic_data'] = synthetic_data
