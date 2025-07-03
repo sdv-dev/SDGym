@@ -1260,23 +1260,31 @@ def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_acces
     return s3_client
 
 
-def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
-    # Parse the S3 URL to get bucket name and path
+def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
+    """Store the job arguments in S3.
+
+    During a run we temporarily store the job arguments in S3 to be able to
+    retrieve them later in the EC2 instance. This is necessary because the
+    EC2 instance does not have access to the local file system of the machine
+    that initiated the run.
+    The pkl file generated will be deleted after the run is completed.
+    """
     parsed_url = urlparse(output_destination)
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
-
-    # Generate a unique filename for the job arguments
     job_args_key = f'job_args_list_{str(uuid.uuid4())}.pkl'
     if path:
         job_args_key = f'{path}/{job_args_key}' if path else job_args_key
 
-    # Serialize the job_args_list using pickle
     serialized_data = pickle.dumps(job_args_list)
     encoded_data = base64.b64encode(serialized_data).decode('utf-8')
-
-    # Store the encoded data in S3 (using just the bucket name)
     s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=encoded_data)
+
+    return bucket_name, job_args_key
+
+
+def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
+    bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
     credentials = s3_client._request_signer._credentials
     access_key = credentials.access_key
     secret_key = credentials.secret_key
@@ -1332,6 +1340,10 @@ s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
         echo "======== Update and Install Dependencies ============"
         sudo apt update -y
         sudo apt install -y python3-pip python3-venv awscli
+        echo "======== Configure AWS CLI ============"
+        aws configure set aws_access_key_id '{access_key}'
+        aws configure set aws_secret_access_key '{secret_key}'
+        aws configure set default.region '{region_name}'
 
         echo "======== Create Virtual Environment ============"
         python3 -m venv ~/env
@@ -1352,7 +1364,7 @@ EOF
 
         echo "======== Complete ==========="
         INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-        aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region {region_name}
+        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
     """).strip()
 
     response = ec2_client.run_instances(
