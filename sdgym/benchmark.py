@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import boto3
+import botocore.exceptions
 import cloudpickle
 import compress_pickle
 import numpy as np
@@ -283,7 +284,18 @@ def _upload_pickle_to_s3(obj, s3_client, bucket_name, key):
     s3_client.put_object(Bucket=bucket_name, Key=key, Body=bytes_buffer)
 
 
-def _upload_dataframe_to_s3(data, s3_client, bucket_name, key):
+def _upload_dataframe_to_s3(data, s3_client, bucket_name, key, append=False):
+    """Upload a dataframe to S3, optionally appending if the file already exists."""
+    if append:
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=key)
+            existing_csv = response['Body'].read().decode('utf-8')
+            existing_df = pd.read_csv(io.StringIO(existing_csv))
+            data = pd.concat([existing_df, data], ignore_index=True)
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] != 'NoSuchKey':
+                raise e
+
     csv_buffer = io.StringIO()
     data.to_csv(csv_buffer, index=False)
     s3_client.put_object(Bucket=bucket_name, Key=key, Body=csv_buffer.getvalue())
@@ -317,12 +329,9 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, s3
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
     tracemalloc.clear_traces()
-    print('LAAAA')
-    print(synthesizer_path)
     if synthesizer_path is not None:
         if s3_client:
             bucket, keys = _parse_s3_paths(synthesizer_path)
-            print(bucket, keys)
             _upload_dataframe_to_s3(synthetic_data, s3_client, bucket, keys['synthetic_data'])
             _upload_pickle_to_s3(synthesizer_obj, s3_client, bucket, keys['synthesizer'])
 
@@ -457,8 +466,11 @@ def _score(
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, data.copy(), metadata, synthesizer_path=synthesizer_path,
-            s3_client=s3_client
+            synthesizer,
+            data.copy(),
+            metadata,
+            synthesizer_path=synthesizer_path,
+            s3_client=s3_client,
         )
 
         output['synthetic_data'] = synthetic_data
@@ -661,7 +673,7 @@ def _run_job(args):
         dataset_name,
         modality,
         synthesizer_path,
-        s3_client
+        s3_client,
     ) = args
 
     name = synthesizer['name']
@@ -700,7 +712,7 @@ def _run_job(args):
                 modality=modality,
                 dataset_name=dataset_name,
                 synthesizer_path=synthesizer_path,
-                s3_client=s3_client
+                s3_client=s3_client,
             )
     except Exception as error:
         output['exception'] = error
@@ -718,8 +730,12 @@ def _run_job(args):
     if synthesizer_path is not None:
         if s3_client:
             bucket, keys = _parse_s3_paths(synthesizer_path)
-            print(bucket, keys)
-            _upload_dataframe_to_s3(scores, s3_client, bucket, keys['synthetic_data'])
+            synthesizer_path = keys['synthesizer']
+            parsed_url = urlparse(synthesizer_path)
+            key = parsed_url.path.lstrip('/')
+            root_folder = '/'.join(key.split('/')[:3])
+            results_key = f'{root_folder}/results.csv'
+            _upload_dataframe_to_s3(scores, s3_client, bucket, results_key, append=True)
         else:
             scores.to_csv(synthesizer_path['benchmark_result'], index=False)
 
@@ -1250,20 +1266,16 @@ def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
 
     # Generate a unique filename for the job arguments
-    job_args_key = f"job_args_list_{str(uuid.uuid4())}.pkl"
+    job_args_key = f'job_args_list_{str(uuid.uuid4())}.pkl'
     if path:
-        job_args_key = f"{path}/{job_args_key}" if path else job_args_key
+        job_args_key = f'{path}/{job_args_key}' if path else job_args_key
 
     # Serialize the job_args_list using pickle
     serialized_data = pickle.dumps(job_args_list)
     encoded_data = base64.b64encode(serialized_data).decode('utf-8')
 
     # Store the encoded data in S3 (using just the bucket name)
-    s3_client.put_object(
-        Bucket=bucket_name,
-        Key=job_args_key,
-        Body=encoded_data
-    )
+    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=encoded_data)
     credentials = s3_client._request_signer._credentials
     access_key = credentials.access_key
     secret_key = credentials.secret_key
@@ -1337,7 +1349,7 @@ EOF
         echo "======== Run Script ==========="
         python ~/sdgym_script.py || true
 
-        echo "======== Terminate Instance ==========="
+        echo "======== Complete ==========="
         INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
         aws ec2 terminate-instances --instance-ids $INSTANCE_ID
     """).strip()
