@@ -26,6 +26,7 @@ from sdgym.benchmark import (
     _validate_aws_inputs,
     _validate_output_destination,
     _write_run_id_file,
+    benchmark_single_table_aws,
 )
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
@@ -636,3 +637,59 @@ def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock
         ),
     ):
         _validate_aws_inputs(valid_url, None, None)
+
+
+@patch('sdgym.benchmark._validate_output_destination')
+@patch('sdgym.benchmark._generate_job_args_list')
+@patch('sdgym.benchmark._run_on_aws')
+def test_benchmark_single_table_aws(
+    mock_run_on_aws, mock_generate_job_args_list, mock_validate_output_destination
+):
+    """Test `benchmark_single_table_aws` method."""
+    # Setup
+    output_destination = 's3://sdgym-benchmark/Debug/Issue_414_test_3'
+    synthesizers = ['GaussianCopulaSynthesizer', 'TVAESynthesizer']
+    datasets = ['adult', 'census']
+    aws_access_key_id = '12345'
+    aws_secret_access_key = '67890'
+    mock_validate_output_destination.return_value = 's3_client_mock'
+    mock_generate_job_args_list.return_value = 'job_args_list_mock'
+
+    # Run
+    benchmark_single_table_aws(
+        output_destination=output_destination,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        synthesizers=synthesizers,
+        sdv_datasets=datasets,
+    )
+
+    # Assert
+    mock_validate_output_destination.assert_called_once_with(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    mock_generate_job_args_list.assert_called_once_with(
+        limit_dataset_size=False,
+        sdv_datasets=datasets,
+        additional_datasets_folder=None,
+        sdmetrics=None,
+        timeout=None,
+        output_destination=output_destination,
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        compute_privacy_score=True,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        custom_synthesizers=None,
+        s3_client='s3_client_mock',
+    )
+    mock_run_on_aws.assert_called_once_with(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client='s3_client_mock',
+        job_args_list='job_args_list_mock',
+    )

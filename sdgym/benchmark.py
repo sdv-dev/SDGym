@@ -1473,4 +1473,9 @@ def benchmark_single_table_aws(
             sdmetrics=sdmetrics,
         )
 
-    _run_on_aws(output_destination, synthesizers, s3_client, job_args_list)
+    _run_on_aws(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        job_args_list=job_args_list,
+    )
