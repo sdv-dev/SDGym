@@ -553,12 +553,11 @@ def _format_output(
 def _safe_append(scores, result_file):
     result_file = Path(result_file)
     result_file.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(result_file, 'a+') as f:
-        portalocker.lock(f, portalocker.LOCK_EX)
-        f.seek(0, 2)
-        is_empty = f.tell() == 0
-        scores.to_csv(f, index=False, header=is_empty)
+    with open(result_file, 'a+') as file:
+        portalocker.lock(file, portalocker.LOCK_EX)
+        file.seek(0, 2)
+        is_empty = file.tell() == 0
+        scores.to_csv(file, index=False, header=is_empty)
 
 
 def _run_job(args):
