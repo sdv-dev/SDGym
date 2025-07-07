@@ -856,14 +856,13 @@ def _create_instance_on_ec2(script_content):
 
 
 def _handle_deprecated_parameters(
-    output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
+    output_filepath, detailed_results_folder, multi_processing_config
 ):
     """Handle deprecated parameters and issue warnings."""
     parameters_to_deprecate = {
         'output_filepath': output_filepath,
         'detailed_results_folder': detailed_results_folder,
         'multi_processing_config': multi_processing_config,
-        'run_on_ec2': run_on_ec2,
     }
     parameters = []
     for name, value in parameters_to_deprecate.items():
@@ -873,9 +872,10 @@ def _handle_deprecated_parameters(
     if parameters:
         parameters = "', '".join(sorted(parameters))
         message = (
-            f"Parameters '{parameters}' are deprecated in the `benchmark_single_table` "
+            f"Parameters '{parameters}' are deprecated in the 'benchmark_single_table' "
             'function and will be removed in October 2025. '
-            'Please consider using `output_destination` instead.'
+            "For saving results, please use the 'output_destination' parameter. For running SDGym"
+            " remotely on AWS please use the 'benchmark_single_table_aws' method."
         )
         warnings.warn(message, FutureWarning)
 
@@ -1024,9 +1024,7 @@ def benchmark_single_table(
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
-    _handle_deprecated_parameters(
-        output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
-    )
+    _handle_deprecated_parameters(output_filepath, detailed_results_folder, multi_processing_config)
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
