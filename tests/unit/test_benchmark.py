@@ -67,7 +67,7 @@ def test_benchmark_single_table_deprecated_params(mock_handle_deprecated, tqdm_m
     )
 
     # Assert
-    mock_handle_deprecated.assert_called_once_with(None, None, None)
+    mock_handle_deprecated.assert_called_once_with(None, None, None, False)
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
 
 
@@ -325,6 +325,7 @@ def test__handle_deprecated_parameters():
     output_filepath = 's3://BucketName/path'
     detailed_results_folder = 'mock/path'
     multi_processing_config = {'num_processes': 4}
+    run_on_ec2 = True
     expected_message_1 = (
         "Parameters 'detailed_results_folder', 'output_filepath' are deprecated in the "
         "'benchmark_single_table' function and will be removed in October 2025. For saving"
@@ -332,20 +333,20 @@ def test__handle_deprecated_parameters():
         " on AWS please use the 'benchmark_single_table_aws' method."
     )
     expected_message_2 = (
-        "Parameters 'detailed_results_folder', 'multi_processing_config', 'output_filepath'"
-        " are deprecated in the 'benchmark_single_table' function and will be removed in October"
-        " 2025. For saving results, please use the 'output_destination' parameter. For running"
-        " SDGym remotely on AWS please use the 'benchmark_single_table_aws' method."
+        "Parameters 'detailed_results_folder', 'multi_processing_config', 'output_filepath',"
+        " 'run_on_ec2' are deprecated in the 'benchmark_single_table' function and will be removed"
+        " in October 2025. For saving results, please use the 'output_destination' parameter. For "
+        "running SDGym remotely on AWS please use the 'benchmark_single_table_aws' method."
     )
 
     # Run and Assert
-    _handle_deprecated_parameters(None, None, None)
+    _handle_deprecated_parameters(None, None, None, False)
     with pytest.warns(FutureWarning, match=expected_message_1):
-        _handle_deprecated_parameters(output_filepath, detailed_results_folder, None)
+        _handle_deprecated_parameters(output_filepath, detailed_results_folder, None, False)
 
     with pytest.warns(FutureWarning, match=expected_message_2):
         _handle_deprecated_parameters(
-            output_filepath, detailed_results_folder, multi_processing_config
+            output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
         )
 
 
