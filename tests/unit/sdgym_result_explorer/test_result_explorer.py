@@ -9,7 +9,43 @@ from botocore.exceptions import ClientError
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer
+from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer, _validate_path
+
+
+def test_validate_path_local(tmp_path):
+    """Test the `_validate_path` function for a local path."""
+    # Setup
+    path = tmp_path / 'local_results_folder'
+    path.mkdir()
+    expected_error = re.escape(
+        "The provided path 'invalid_path' is not a valid directory or S3 bucket."
+    )
+
+    # Run
+    is_valid = _validate_path(str(path))
+    with pytest.raises(ValueError, match=expected_error):
+        _validate_path('invalid_path')
+
+    # Assert
+    assert is_valid is False
+
+
+@patch('sdgym.sdgym_result_explorer.result_explorer._validate_bucket_access')
+def test_validate_path_s3(mock_validate_bucket_access):
+    """Test the `_validate_path` function for an S3 path."""
+    # Setup
+    path = 's3://my-bucket/results'
+    aws_access_key_id = 'my_access_key'
+    aws_secret_access_key = 'my_secret_key'
+
+    # Run
+    is_valid = _validate_path(path, aws_access_key_id, aws_secret_access_key)
+
+    # Assert
+    assert is_valid is True
+    mock_validate_bucket_access.assert_called_once_with(
+        path, aws_access_key_id, aws_secret_access_key
+    )
 
 
 class TestSDGymResultsExplorer:
