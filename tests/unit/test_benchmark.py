@@ -8,6 +8,7 @@ from unittest.mock import ANY, MagicMock, Mock, call, patch
 import pandas as pd
 import pytest
 import yaml
+from botocore.exceptions import NoCredentialsError
 
 from sdgym import benchmark_single_table
 from sdgym.benchmark import (
@@ -20,6 +21,7 @@ from sdgym.benchmark import (
     _setup_output_destination_aws,
     _update_run_id_file,
     _validate_aws_inputs,
+    _validate_bucket_access,
     _validate_output_destination,
     _write_run_id_file,
     benchmark_single_table_aws,
@@ -665,3 +667,39 @@ def test_benchmark_single_table_aws(
         aws_access_key_id='12345',
         aws_secret_access_key='67890',
     )
+
+
+@patch('sdgym.sdgym_result_explorer.result_explorer.boto3.client')
+def test__validate_bucket_access_with_credentials(mock_boto_client):
+    """Test `_validate_bucket_access` with a valid S3 bucket."""
+    # Setup
+    output_destination = 's3://my-bucket/results'
+    aws_access_key_id = 'test_access_key'
+    aws_secret_access_key = 'test_secret_key'
+
+    mock_s3_client = mock_boto_client.return_value
+
+    # Run
+    _validate_bucket_access(output_destination, aws_access_key_id, aws_secret_access_key)
+
+    # Assert
+    mock_boto_client.assert_called_once_with(
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
+    mock_s3_client.head_bucket.assert_called_once_with(Bucket='my-bucket')
+
+
+def test__validate_bucket_access_errors():
+    """Test `_validate_bucket_access` raises error for invalid input."""
+    # Setup
+    output_destination = 's3:/'
+    expected_error = re.escape(f'Invalid S3 URL: {output_destination}')
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_error):
+        _validate_bucket_access(output_destination)
+
+    with pytest.raises(NoCredentialsError, match='Unable to locate credentials'):
+        _validate_bucket_access('s3://bucket_name/')
