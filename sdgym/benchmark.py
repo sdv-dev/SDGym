@@ -14,13 +14,13 @@ from contextlib import contextmanager
 from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
-import portalocker
 
 import boto3
 import cloudpickle
 import compress_pickle
 import numpy as np
 import pandas as pd
+import portalocker
 import tqdm
 import yaml
 from sdmetrics.reports.multi_table import (
@@ -549,7 +549,8 @@ def _format_output(
 
     return scores
 
-def safe_append(scores, result_file):
+
+def _safe_append(scores, result_file):
     result_file = Path(result_file)
     result_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -558,6 +559,7 @@ def safe_append(scores, result_file):
         f.seek(0, 2)
         is_empty = f.tell() == 0
         scores.to_csv(f, index=False, header=is_empty)
+
 
 def _run_job(args):
     # Reset random seed
@@ -632,7 +634,7 @@ def _run_job(args):
         synth_path = Path(synthesizer_path['synthesizer'])
         root_path = synth_path.parents[2]
         result_file = root_path / 'results.csv'
-        safe_append(scores, result_file)
+        _safe_append(scores, result_file)
 
     return scores
 
