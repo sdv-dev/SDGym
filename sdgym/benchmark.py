@@ -1171,7 +1171,6 @@ def _validate_bucket_access(output_destination, aws_access_key_id=None, aws_secr
             aws_secret_access_key=aws_secret_access_key,
         )
     else:
-        # No credentials provided — rely on default session
         s3_client = boto3.client('s3')
 
     s3_client.head_bucket(Bucket=bucket_name)
