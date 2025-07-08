@@ -102,7 +102,6 @@ dev = [
 
     # Advanced testing
     'coverage>=4.5.12,<8',
-    'tox>=2.9.1,<5',
     'importlib-metadata>=3.6',
 
     # Invoke
