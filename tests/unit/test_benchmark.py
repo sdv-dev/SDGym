@@ -24,6 +24,7 @@ from sdgym.benchmark import (
     _write_run_id_file,
     benchmark_single_table_aws,
 )
+from sdgym.result_writer import LocalResultsWriter
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
 
@@ -435,6 +436,7 @@ def test__write_run_id_file(mock_datetime, tmp_path):
     output_destination.mkdir()
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
     file_name = {'run_id': f'{output_destination}/run_06_26_2025_1.yaml'}
+    result_writer = LocalResultsWriter(output_destination)
     jobs = [
         ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, file_name),
         ({'name': 'CTGANSynthesizer'}, 'census', None, None),
@@ -443,7 +445,7 @@ def test__write_run_id_file(mock_datetime, tmp_path):
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
 
     # Run
-    _write_run_id_file(synthesizers, jobs)
+    run_id = _write_run_id_file(synthesizers, jobs, result_writer)
 
     # Assert
     assert Path(file_name['run_id']).exists()
@@ -467,12 +469,13 @@ def test__update_run_id_file(mock_datetime, tmp_path):
     metadata = {'run_id': 'run_06_25_2025_1', 'starting_date': '06_25_2025', 'completed_date': None}
     run_id_file = output_destination / 'run_06_25_2025_1.yaml'
     run_id = 'run_06_25_2025_1'
+    result_writer = LocalResultsWriter(output_destination)
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
     with open(run_id_file, 'w') as file:
         yaml.dump(metadata, file)
 
     # Run
-    _update_run_id_file(run_id_file)
+    _update_run_id_file(run_id_file, result_writer)
 
     # Assert
     with open(run_id_file, 'r') as file:
