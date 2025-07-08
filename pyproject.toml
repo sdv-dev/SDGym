@@ -56,7 +56,6 @@ dependencies = [
     'rdt>=1.17.0',
     'sdmetrics>=0.20.1',
     'sdv>=1.21.0',
-    'portalocker>=3.0.0',
 ]
 
 [project.urls]
