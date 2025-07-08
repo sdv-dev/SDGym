@@ -8,19 +8,17 @@ The process of releasing a new version involves several steps:
 
 3. [Make a release candidate](#make-a-release-candidate)
 
-4. [Integration with SDV](#integration-with-sdv)
+4. [Milestone](#milestone)
 
-5. [Milestone](#milestone)
+5. [Update HISTORY](#update-history)
 
-6. [Update HISTORY](#update-history)
+6. [Check the release](#check-the-release)
 
-7. [Check the release](#check-the-release)
+7. [Update stable branch and bump version](#update-stable-branch-and-bump-version)
 
-8. [Update stable branch and bump version](#update-stable-branch-and-bump-version)
+8. [Create the Release on GitHub](#create-the-release-on-github)
 
-9. [Create the Release on GitHub](#create-the-release-on-github)
-
-10. [Close milestone and create new milestone](#close-milestone-and-create-new-milestone)
+9. [Close milestone and create new milestone](#close-milestone-and-create-new-milestone)
 
 ## Install SDGym from source
 
@@ -65,34 +63,6 @@ The execution has finished with no errors, 0 test skipped and 166 warnings.
 
 [actions]: https://github.com/sdv-dev/SDGym/actions
 [sdgym-pypi]: https://pypi.org/project/SDGym/#history
-
-## Integration with SDV
-
-### Create a branch on SDV to test the candidate
-
-Before doing the actual release, we need to test that the candidate works with SDV. To do this, we can create a branch on SDV that points to the release candidate we just created using the following steps:
-
-1. Create a new branch on the SDV repository.
-
-```bash
-git checkout -b test-sdgym-X.Y.Z
-```
-
-2. Update the pyproject.toml to set the minimum version of SDGym to be the same as the version of the release. For example,
-
-```toml
-'sdgym>=X.Y.Z.dev0'
-```
-
-3. Push this branch. This should trigger all the tests to run.
-
-```bash
-git push --set-upstream origin test-sdgym-X.Y.Z
-```
-
-4. Check the [Actions][sdv-actions] tab on SDV to make sure all the tests pass.
-
-[sdv-actions]: https://github.com/sdv-dev/SDV/actions
 
 ## Milestone
 
