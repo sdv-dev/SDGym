@@ -20,7 +20,6 @@ import cloudpickle
 import compress_pickle
 import numpy as np
 import pandas as pd
-import portalocker
 import tqdm
 import yaml
 from sdmetrics.reports.multi_table import (
@@ -143,6 +142,7 @@ def _setup_output_destination(output_destination, synthesizers, datasets):
             paths[dataset][synth_name] = {
                 'synthesizer': str(synth_folder / f'{synth_name}_synthesizer.pkl'),
                 'synthetic_data': str(synth_folder / f'{synth_name}_synthetic_data.csv'),
+                'benchmark_result': str(synth_folder / f'{synth_name}_benchmark_result.csv'),
             }
 
     return paths
@@ -550,16 +550,6 @@ def _format_output(
     return scores
 
 
-def _safe_append(scores, result_file):
-    result_file = Path(result_file)
-    result_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(result_file, 'a+') as file:
-        portalocker.lock(file, portalocker.LOCK_EX)
-        file.seek(0, 2)
-        is_empty = file.tell() == 0
-        scores.to_csv(file, index=False, header=is_empty)
-
-
 def _run_job(args):
     # Reset random seed
     np.random.seed()
@@ -630,10 +620,7 @@ def _run_job(args):
     )
 
     if synthesizer_path is not None:
-        synth_path = Path(synthesizer_path['synthesizer'])
-        root_path = synth_path.parents[2]
-        result_file = root_path / 'results.csv'
-        _safe_append(scores, result_file)
+        scores.to_csv(synthesizer_path['benchmark_result'], index=False)
 
     return scores
 
@@ -691,6 +678,15 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
         raise SDGymError('No valid Dataset/Synthesizer combination given.')
 
     scores = pd.concat(scores, ignore_index=True)
+    output_directions = job_args_list[0][-1]
+    if output_directions and isinstance(output_directions, dict):
+        synth_path = Path(output_directions['synthesizer'])
+        root_path = synth_path.parents[2]
+        result_file = root_path / 'results.csv'
+        if not result_file.exists():
+            scores.to_csv(result_file, index=False, mode='w')
+        else:
+            scores.to_csv(result_file, index=False, mode='a', header=False)
 
     return scores
 

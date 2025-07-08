@@ -604,6 +604,7 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
 
     # Assert
     directions = os.listdir(output_destination)
+    score_saved_separately = pd.DataFrame()
     assert f'SDGym_results_{today_date}' in directions
     for file in directions:
         if file.endswith('.yaml'):
@@ -618,7 +619,7 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
                 os.path.join(output_destination, file, f'fake_companies_{today_date}')
             )
             assert set(synthesizer_directions) == {'TVAESynthesizer', 'GaussianCopulaSynthesizer'}
-            for synthesizer in synthesizer_directions:
+            for synthesizer in sorted(synthesizer_directions):
                 synthesizer_files = os.listdir(
                     os.path.join(
                         output_destination, file, f'fake_companies_{today_date}', synthesizer
@@ -627,10 +628,24 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
                 assert set(synthesizer_files) == {
                     f'{synthesizer}_synthesizer.pkl',
                     f'{synthesizer}_synthetic_data.csv',
+                    f'{synthesizer}_benchmark_result.csv',
                 }
+                score = pd.read_csv(
+                    os.path.join(
+                        output_destination,
+                        file,
+                        f'fake_companies_{today_date}',
+                        synthesizer,
+                        f'{synthesizer}_benchmark_result.csv',
+                    )
+                )
+                score_saved_separately = pd.concat(
+                    [score_saved_separately, score], ignore_index=True
+                )
 
     saved_result = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
     pd.testing.assert_frame_equal(results, saved_result, check_dtype=False)
+    pd.testing.assert_frame_equal(results, score_saved_separately, check_dtype=False)
 
 
 def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
@@ -659,6 +674,7 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
 
     # Assert
     final_results = pd.concat([result_1, result_2], ignore_index=True)
+    score_saved_separately = pd.DataFrame()
     directions = os.listdir(output_destination)
     assert f'SDGym_results_{today_date}' in directions
     for file in directions:
@@ -674,7 +690,7 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
                 os.path.join(output_destination, file, f'fake_companies_{today_date}')
             )
             assert set(synthesizer_directions) == {'TVAESynthesizer', 'GaussianCopulaSynthesizer'}
-            for synthesizer in synthesizer_directions:
+            for synthesizer in sorted(synthesizer_directions):
                 synthesizer_files = os.listdir(
                     os.path.join(
                         output_destination, file, f'fake_companies_{today_date}', synthesizer
@@ -683,7 +699,21 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
                 assert set(synthesizer_files) == {
                     f'{synthesizer}_synthesizer.pkl',
                     f'{synthesizer}_synthetic_data.csv',
+                    f'{synthesizer}_benchmark_result.csv',
                 }
+                score = pd.read_csv(
+                    os.path.join(
+                        output_destination,
+                        file,
+                        f'fake_companies_{today_date}',
+                        synthesizer,
+                        f'{synthesizer}_benchmark_result.csv',
+                    )
+                )
+                score_saved_separately = pd.concat(
+                    [score_saved_separately, score], ignore_index=True
+                )
 
     saved_result = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
     pd.testing.assert_frame_equal(final_results, saved_result, check_dtype=False)
+    pd.testing.assert_frame_equal(final_results, score_saved_separately, check_dtype=False)
