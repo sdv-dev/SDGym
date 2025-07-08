@@ -1,6 +1,4 @@
-import io
 import json
-import pickle
 import re
 from datetime import datetime
 from importlib.metadata import version
@@ -21,8 +19,6 @@ from sdgym.benchmark import (
     _setup_output_destination,
     _setup_output_destination_aws,
     _update_run_id_file,
-    _upload_dataframe_to_s3,
-    _upload_pickle_to_s3,
     _validate_aws_inputs,
     _validate_output_destination,
     _write_run_id_file,
@@ -522,53 +518,6 @@ def test_setup_output_destination_aws():
             assert paths[dataset][synth]['synthetic_data'] == (
                 f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthetic_data.csv'
             )
-
-
-def test_upload_dataframe_to_s3():
-    """Test the `_upload_dataframe_to_s3` function."""
-    # Setup
-    data = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
-    s3_client_mock = Mock()
-    bucket_name = 'test-bucket'
-    key = 'path/to/data.csv'
-
-    # Run
-    _upload_dataframe_to_s3(data, s3_client_mock, bucket_name, key)
-
-    # Assert
-    s3_client_mock.put_object.assert_called_once()
-    call_kwargs = s3_client_mock.put_object.call_args.kwargs
-    assert call_kwargs['Bucket'] == bucket_name
-    assert call_kwargs['Key'] == key
-    body = call_kwargs['Body']
-    assert isinstance(body, str)
-    csv_buffer = io.StringIO()
-    data.to_csv(csv_buffer, index=False)
-    expected_csv = csv_buffer.getvalue()
-    assert body == expected_csv
-
-
-def test_upload_pickle_to_s3():
-    """Test the `_upload_pickle_to_s3` function."""
-    # Setup
-    obj = {'foo': 'bar'}
-    s3_client_mock = Mock()
-    bucket_name = 'test-bucket'
-    key = 'path/to/object.pkl'
-
-    # Run
-    _upload_pickle_to_s3(obj, s3_client_mock, bucket_name, key)
-
-    # Assert
-    s3_client_mock.put_object.assert_called_once()
-    call_kwargs = s3_client_mock.put_object.call_args.kwargs
-    assert call_kwargs['Bucket'] == bucket_name
-    assert call_kwargs['Key'] == key
-    body = call_kwargs['Body']
-    assert isinstance(body, io.BytesIO)
-    body.seek(0)
-    unpickled_obj = pickle.load(body)
-    assert unpickled_obj == obj
 
 
 @patch('sdgym.benchmark.boto3.client')

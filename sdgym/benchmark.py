@@ -2,7 +2,6 @@
 
 import base64
 import concurrent
-import io
 import logging
 import math
 import multiprocessing
@@ -20,7 +19,6 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import boto3
-import botocore.exceptions
 import cloudpickle
 import compress_pickle
 import numpy as np
@@ -45,7 +43,17 @@ from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
-from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
+from sdgym.s3 import (
+    S3_PREFIX,
+    _parse_s3_paths,
+    _parse_s3_uri,
+    _upload_dataframe_to_s3,
+    _upload_pickle_to_s3,
+    is_s3_path,
+    parse_s3_path,
+    write_csv,
+    write_file,
+)
 from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
@@ -114,7 +122,7 @@ def _create_detailed_results_directory(detailed_results_folder):
 
 def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client):
     paths = defaultdict(dict)
-    s3_path = output_destination[5:]
+    s3_path = output_destination[len(S3_PREFIX) :]
     parts = s3_path.split('/')
     bucket_name = parts[0]
     prefix_parts = parts[1:]
@@ -252,53 +260,6 @@ def _generate_job_args_list(
         job_args_list.append(args)
 
     return job_args_list
-
-
-def _parse_s3_uri(s3_uri):
-    assert s3_uri.startswith('s3://')
-    parts = s3_uri[5:].split('/', 1)
-    bucket = parts[0]
-    key = parts[1] if len(parts) > 1 else ''
-    return bucket, key
-
-
-def _parse_s3_paths(s3_paths_dict):
-    bucket = None
-    keys = {}
-    for k, s3_uri in s3_paths_dict.items():
-        b, key = _parse_s3_uri(s3_uri)
-        if bucket is None:
-            bucket = b
-        elif bucket != b:
-            raise ValueError('Different buckets found in the paths dict')
-
-        keys[k] = key
-
-    return bucket, keys
-
-
-def _upload_pickle_to_s3(obj, s3_client, bucket_name, key):
-    bytes_buffer = io.BytesIO()
-    pickle.dump(obj, bytes_buffer)
-    bytes_buffer.seek(0)
-    s3_client.put_object(Bucket=bucket_name, Key=key, Body=bytes_buffer)
-
-
-def _upload_dataframe_to_s3(data, s3_client, bucket_name, key, append=False):
-    """Upload a dataframe to S3, optionally appending if the file already exists."""
-    if append:
-        try:
-            response = s3_client.get_object(Bucket=bucket_name, Key=key)
-            existing_csv = response['Body'].read().decode('utf-8')
-            existing_df = pd.read_csv(io.StringIO(existing_csv))
-            data = pd.concat([existing_df, data], ignore_index=True)
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] != 'NoSuchKey':
-                raise e
-
-    csv_buffer = io.StringIO()
-    data.to_csv(csv_buffer, index=False)
-    s3_client.put_object(Bucket=bucket_name, Key=key, Body=csv_buffer.getvalue())
 
 
 def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, s3_client=None):
@@ -796,7 +757,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress, s3_client=N
         raise SDGymError('No valid Dataset/Synthesizer combination given.')
 
     scores = pd.concat(scores, ignore_index=True)
-    output_directions = job_args_list[0][-1]
+    output_directions = job_args_list[0][-2]
     if output_directions and isinstance(output_directions, dict):
         result_file = Path(output_directions['results'])
         if not result_file.exists():
@@ -1434,7 +1395,7 @@ def benchmark_single_table_aws(
             ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
             covtype]``. Use ``None`` to disable using any sdv datasets.
         additional_datasets_folder (str or ``None``):
-            The path to an S3 bucket). Datasets found in this folder are
+            The path to an S3 bucket. Datasets found in this folder are
             run in addition to the SDV datasets. If ``None``, no additional datasets are used.
         limit_dataset_size (bool):
             Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
