@@ -124,7 +124,10 @@ class TestSDGymResultsExplorer:
         dataset_name = 'my_dataset'
         synthesizer_name = 'my_synthesizer'
         type = 'synthesizer'
-        expected_filepath = f'{results_folder_name}/{dataset_name}_07_07_2025/{synthesizer_name}/{synthesizer_name}_synthesizer.pkl'
+        expected_filepath = (
+            f'{results_folder_name}/{dataset_name}_07_07_2025/{synthesizer_name}/'
+            f'{synthesizer_name}_synthesizer.pkl'
+        )
         explorer._handler.validate_access.return_value = expected_filepath
 
         # Run
