@@ -16,7 +16,7 @@ def test_end_to_end_local(tmp_path):
         synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
         sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
     )
-    today = time.strftime('%d_%m_%Y')
+    today = time.strftime('%m_%d_%Y')
 
     # Run
     result_explorer = SDGymResultsExplorer(output_destination)

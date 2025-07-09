@@ -427,3 +427,17 @@ class TestSDGymResultsExplorer:
             'single_table', 'path/to/adult/dataset', aws_key=None, aws_secret=None
         )
         pd.testing.assert_frame_equal(real_data, expected_data)
+
+    def test_load_real_data_invalid_dataset(self, tmp_path):
+        """Test `load_real_data` method with an invalid dataset."""
+        # Setup
+        dataset_name = 'invalid_dataset'
+        result_explorer = SDGymResultsExplorer(tmp_path)
+        expected_error_message = re.escape(
+            f"Dataset '{dataset_name}' is not a default dataset. "
+            'Please provide a valid dataset name.'
+        )
+
+        # Run and Assert
+        with pytest.raises(ValueError, match=expected_error_message):
+            result_explorer.load_real_data(dataset_name)

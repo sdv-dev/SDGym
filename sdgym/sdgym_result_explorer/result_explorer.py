@@ -117,7 +117,7 @@ class SDGymResultsExplorer:
         """Load the synthesizer object.
 
         Args:
-            run_folder_name (str): The name of the folder for the desired run.
+            results_folder_name (str): The name of the folder for the desired run.
             dataset_name (str): The name of the dataset.
             synthesizer_name (str): The name of the synthesizer (eg. ctgan).
 
@@ -147,7 +147,7 @@ class SDGymResultsExplorer:
         """Load the synthetic data created by a specific synthesizer for a given run and dataset.
 
         Args:
-            run_folder_name (str): The name of the folder for the desired run.
+            results_folder_name (str): The name of the folder for the desired run.
             dataset_name (str): The name of the dataset.
             synthesizer_name (str): The name of the synthesizer (eg. ctgan).
 
@@ -183,6 +183,11 @@ class SDGymResultsExplorer:
                 aws_key=self.aws_access_key_id,
                 aws_secret=self.aws_secret_access_key,
             )[0]
+        else:
+            raise ValueError(
+                f"Dataset '{dataset_name}' is not a default dataset. "
+                'Please provide a valid dataset name.'
+            )
 
         data, _ = load_dataset(
             'single_table',
