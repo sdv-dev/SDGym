@@ -95,7 +95,9 @@ class TestLocalResultsHandler:
         file_path = LocalResultsHandler.validate_access(handler, path_parts, 'synthesizer.pkl')
 
         # Assert
-        expected_file_path = 'results_folder_07_07_2025/my_dataset/synthesizer.pkl'
+        expected_file_path = os.path.join(
+            'results_folder_07_07_2025', 'my_dataset', 'synthesizer.pkl'
+        )
         assert file_path == expected_file_path
         mock_exists.assert_called_once_with(
             os.path.join(
