@@ -669,7 +669,7 @@ def test_benchmark_single_table_aws(
     )
 
 
-@patch('sdgym.sdgym_result_explorer.result_explorer.boto3.client')
+@patch('sdgym.benchmark.boto3.client')
 def test__validate_bucket_access_with_credentials(mock_boto_client):
     """Test `_validate_bucket_access` with a valid S3 bucket."""
     # Setup
