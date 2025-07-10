@@ -146,23 +146,20 @@ class TestLocalResultsHandler:
 class TestS3ResultsHandler:
     """Unit tests for the S3ResultsHandler class."""
 
-    @patch('sdgym.sdgym_result_explorer.result_handler.boto3.client')
-    def test__init__(self, mock_boto_client):
+    def test__init__(
+        self,
+    ):
         """Test the `__init__` method."""
         # Setup
-        mock_boto_client.return_value = 'client'
         path = 's3://my-bucket/prefix'
-        result_handler = S3ResultsHandler(path, 'access_key', 'secret_key')
+
+        # Run
+        result_handler = S3ResultsHandler(path, 's3_client')
 
         # Assert
-        assert result_handler.s3_client == 'client'
+        assert result_handler.s3_client == 's3_client'
         assert result_handler.bucket_name == 'my-bucket'
         assert result_handler.prefix == 'prefix/'
-        mock_boto_client.assert_called_once_with(
-            's3',
-            aws_access_key_id='access_key',
-            aws_secret_access_key='secret_key',
-        )
 
     def test_list_runs(self):
         """Test the `list_runs` method."""
@@ -190,7 +187,7 @@ class TestS3ResultsHandler:
         # Setup
         mock_s3_client = Mock()
         mock_s3_client.get_object.return_value = {'Body': Mock(read=lambda: b'col1,col2\n1,3\n2,4')}
-        result_handler = S3ResultsHandler('s3://my-bucket/prefix', 'access_key', 'secret_key')
+        result_handler = S3ResultsHandler('s3://my-bucket/prefix', mock_s3_client)
         result_handler.s3_client = mock_s3_client
 
         # Run
@@ -211,7 +208,7 @@ class TestS3ResultsHandler:
         mock_s3_client.get_object.return_value = {
             'Body': Mock(read=lambda: pickle.dumps(synthesizer))
         }
-        result_handler = S3ResultsHandler('s3://my-bucket/prefix', 'access_key', 'secret_key')
+        result_handler = S3ResultsHandler('s3://my-bucket/prefix', mock_s3_client)
         result_handler.s3_client = mock_s3_client
 
         # Run
@@ -223,13 +220,11 @@ class TestS3ResultsHandler:
             Bucket='my-bucket', Key='prefix/synthesizer.pkl'
         )
 
-    @patch('sdgym.sdgym_result_explorer.result_handler.boto3.client')
-    def test_validate_access_s3(self, mock_boto_client):
+    def test_validate_access_s3(self):
         """Test `validate_access` for S3 path when files exist."""
         # Setup
         mock_s3_client = Mock()
-        mock_boto_client.return_value = mock_s3_client
-        handler = S3ResultsHandler('s3://my-bucket/prefix', 'access_key', 'secret_key')
+        handler = S3ResultsHandler('s3://my-bucket/prefix', mock_s3_client)
         path_parts = ['results_folder_07_07_2025', 'my_dataset']
         end_filename = 'synthesizer.pkl'
         file_path = 'results_folder_07_07_2025/my_dataset/synthesizer.pkl'

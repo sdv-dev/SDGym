@@ -2,22 +2,22 @@
 
 import os
 
-from sdgym.benchmark import DEFAULT_DATASETS, _validate_bucket_access
+from sdgym.benchmark import DEFAULT_DATASETS
 from sdgym.datasets import get_dataset_paths, load_dataset
-from sdgym.s3 import is_s3_path
+from sdgym.s3 import _get_s3_client, is_s3_path
 from sdgym.sdgym_result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 
 
 def _validate_path(path, aws_access_key_id=None, aws_secret_access_key=None):
     """Validates the provided path to ensure it is either a local directory or an S3 bucket."""
     if is_s3_path(path):
-        _validate_bucket_access(path, aws_access_key_id, aws_secret_access_key)
-        return True
+        s3_client = _get_s3_client(path, aws_access_key_id, aws_secret_access_key)
+        return s3_client
     else:
         if not os.path.isdir(path):
             raise ValueError(f"The provided path '{path}' is not a valid directory or S3 bucket.")
 
-        return False
+        return None
 
 
 class SDGymResultsExplorer:
@@ -25,8 +25,9 @@ class SDGymResultsExplorer:
 
     def __init__(self, path, aws_access_key_id=None, aws_secret_access_key=None):
         self.path = path
-        if _validate_path(path, aws_access_key_id, aws_secret_access_key):
-            self._handler = S3ResultsHandler(path, aws_access_key_id, aws_secret_access_key)
+        s3_client = _validate_path(path, aws_access_key_id, aws_secret_access_key)
+        if s3_client:
+            self._handler = S3ResultsHandler(path, s3_client)
         else:
             self._handler = LocalResultsHandler(path)
 
@@ -74,7 +75,7 @@ class SDGymResultsExplorer:
             )[0]
         else:
             raise ValueError(
-                f"Dataset '{dataset_name}' is not a default dataset. "
+                f"Dataset '{dataset_name}' is not a SDGym dataset. "
                 'Please provide a valid dataset name.'
             )
 

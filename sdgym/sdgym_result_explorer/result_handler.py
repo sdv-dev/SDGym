@@ -5,7 +5,6 @@ import os
 import pickle
 from abc import ABC, abstractmethod
 
-import boto3
 import pandas as pd
 from botocore.exceptions import ClientError
 
@@ -70,12 +69,8 @@ class LocalResultsHandler(ResultsHandler):
 class S3ResultsHandler(ResultsHandler):
     """Results handler for AWS S3 storage."""
 
-    def __init__(self, path, aws_key, aws_secret):
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=aws_key,
-            aws_secret_access_key=aws_secret,
-        )
+    def __init__(self, path, s3_client):
+        self.s3_client = s3_client
         self.bucket_name = path.split('/')[2]
         self.prefix = '/'.join(path.split('/')[3:]).rstrip('/') + '/'
 
