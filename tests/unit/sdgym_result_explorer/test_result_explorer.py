@@ -105,14 +105,14 @@ class TestSDGymResultsExplorer:
         (path / 'run2').mkdir()
         result_explorer = SDGymResultsExplorer(str(path))
         result_explorer._handler = Mock()
-        result_explorer._handler.list_runs.return_value = ['run1', 'run2']
+        result_explorer._handler.list.return_value = ['run1', 'run2']
 
         # Run
         runs = result_explorer.list()
 
         # Assert
         assert runs == ['run1', 'run2']
-        result_explorer._handler.list_runs.assert_called_once()
+        result_explorer._handler.list.assert_called_once()
 
     def test__get_file_path(self):
         """Test `_get_file_path` for local and S3 paths."""

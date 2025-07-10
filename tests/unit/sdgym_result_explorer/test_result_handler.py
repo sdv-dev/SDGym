@@ -14,8 +14,8 @@ from sdgym.sdgym_result_explorer.result_handler import LocalResultsHandler, S3Re
 class TestLocalResultsHandler:
     """Unit tests for the LocalResultsHandler class."""
 
-    def test_list_runs(self, tmp_path):
-        """Test the `list_runs` method"""
+    def test_list(self, tmp_path):
+        """Test the `list` method"""
         # Setup
         path = tmp_path / 'results'
         path.mkdir()
@@ -24,7 +24,7 @@ class TestLocalResultsHandler:
         result_handler = LocalResultsHandler(str(path))
 
         # Run
-        runs = result_handler.list_runs()
+        runs = result_handler.list()
 
         # Assert
         assert set(runs) == {'run1', 'run2'}
@@ -161,8 +161,8 @@ class TestS3ResultsHandler:
         assert result_handler.bucket_name == 'my-bucket'
         assert result_handler.prefix == 'prefix/'
 
-    def test_list_runs(self):
-        """Test the `list_runs` method."""
+    def test_list(self):
+        """Test the `list` method."""
         # Setup
         mock_s3_client = Mock()
         mock_s3_client.list_objects_v2.return_value = {
@@ -174,7 +174,7 @@ class TestS3ResultsHandler:
         result_handler.prefix = 'results/'
 
         # Run
-        runs = S3ResultsHandler.list_runs(result_handler)
+        runs = S3ResultsHandler.list(result_handler)
 
         # Assert
         assert set(runs) == {'run1', 'run2'}

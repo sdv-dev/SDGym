@@ -36,7 +36,7 @@ class SDGymResultsExplorer:
 
     def list(self):
         """List all runs available in the results directory."""
-        return self._handler.list_runs()
+        return self._handler.list()
 
     def _get_file_path(self, results_folder_name, dataset_name, synthesizer_name, type):
         """Validate access to the synthesizer or synthetic data file."""
