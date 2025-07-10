@@ -13,7 +13,7 @@ class ResultsHandler(ABC):
     """Abstract base class for handling results storage and retrieval."""
 
     @abstractmethod
-    def list_runs(self):
+    def list(self):
         """List all runs in the results directory."""
         pass
 
@@ -39,7 +39,7 @@ class LocalResultsHandler(ResultsHandler):
     def __init__(self, base_path):
         self.base_path = base_path
 
-    def list_runs(self):
+    def list(self):
         """List all runs in the local filesystem."""
         return [
             d for d in os.listdir(self.base_path) if os.path.isdir(os.path.join(self.base_path, d))
@@ -74,7 +74,7 @@ class S3ResultsHandler(ResultsHandler):
         self.bucket_name = path.split('/')[2]
         self.prefix = '/'.join(path.split('/')[3:]).rstrip('/') + '/'
 
-    def list_runs(self):
+    def list(self):
         """List all runs in the S3 bucket."""
         response = self.s3_client.list_objects_v2(
             Bucket=self.bucket_name, Prefix=self.prefix, Delimiter='/'
