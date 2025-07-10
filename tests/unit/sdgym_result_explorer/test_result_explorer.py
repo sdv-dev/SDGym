@@ -114,8 +114,8 @@ class TestSDGymResultsExplorer:
         assert runs == ['run1', 'run2']
         result_explorer._handler.list_runs.assert_called_once()
 
-    def test__validate_access(self):
-        """Test `_validate_access` for local and S3 paths."""
+    def test__get_file_path(self):
+        """Test `_get_file_path` for local and S3 paths."""
         # Setup
         explorer = Mock()
         explorer._handler = Mock()
@@ -127,15 +127,15 @@ class TestSDGymResultsExplorer:
             f'{results_folder_name}/{dataset_name}_07_07_2025/{synthesizer_name}/'
             f'{synthesizer_name}_synthesizer.pkl'
         )
-        explorer._handler.validate_access.return_value = expected_filepath
+        explorer._handler.get_file_path.return_value = expected_filepath
 
         # Run
-        file_path = SDGymResultsExplorer._validate_access(
+        file_path = SDGymResultsExplorer._get_file_path(
             explorer, results_folder_name, dataset_name, synthesizer_name, type
         )
 
         # Assert
-        explorer._handler.validate_access.assert_called_once_with(
+        explorer._handler.get_file_path.assert_called_once_with(
             [results_folder_name, f'{dataset_name}_07_07_2025', synthesizer_name],
             f'{synthesizer_name}_synthesizer.pkl',
         )
@@ -149,7 +149,7 @@ class TestSDGymResultsExplorer:
         explorer._handler.load_synthesizer = Mock(
             return_value=GaussianCopulaSynthesizer(Metadata())
         )
-        explorer._validate_access = Mock(return_value='path/to/synthesizer.pkl')
+        explorer._get_file_path = Mock(return_value='path/to/synthesizer.pkl')
 
         # Run
         synthesizer = explorer.load_synthesizer(
@@ -159,7 +159,7 @@ class TestSDGymResultsExplorer:
         )
 
         # Assert
-        explorer._validate_access.assert_called_once_with(
+        explorer._get_file_path.assert_called_once_with(
             'results_folder_07_07_2025', 'my_dataset', 'my_synthesizer', 'synthesizer'
         )
         explorer._handler.load_synthesizer.assert_called_once_with('path/to/synthesizer.pkl')
@@ -171,7 +171,7 @@ class TestSDGymResultsExplorer:
         explorer._handler = Mock()
         data = pd.DataFrame({'column1': [1, 2], 'column2': [3, 4]})
         explorer._handler.load_synthetic_data = Mock(return_value=data)
-        explorer._validate_access = Mock(return_value='path/to/synthetic_data.csv')
+        explorer._get_file_path = Mock(return_value='path/to/synthetic_data.csv')
 
         # Run
         synthetic_data = explorer.load_synthetic_data(
@@ -181,7 +181,7 @@ class TestSDGymResultsExplorer:
         )
 
         # Assert
-        explorer._validate_access.assert_called_once_with(
+        explorer._get_file_path.assert_called_once_with(
             'results_folder_07_07_2025', 'my_dataset', 'my_synthesizer', 'synthetic_data'
         )
         explorer._handler.load_synthetic_data.assert_called_once_with('path/to/synthetic_data.csv')
