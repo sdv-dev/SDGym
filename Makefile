@@ -55,7 +55,6 @@ clean-coverage: ## remove coverage artifacts
 
 .PHONY: clean-test
 clean-test: ## remove test artifacts
-	rm -fr .tox/
 	rm -fr .pytest_cache
 
 .PHONY: clean
@@ -107,10 +106,6 @@ test: test-unit test-readme ## test everything that needs test dependencies
 
 .PHONY: test-devel
 test-devel: lint ## test everything that needs development dependencies
-
-.PHONY: test-all
-test-all: ## test using tox
-	tox -r
 
 .PHONY: coverage
 coverage: ## check code coverage quickly with the default Python
