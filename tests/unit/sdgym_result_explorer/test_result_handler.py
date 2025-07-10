@@ -82,8 +82,8 @@ class TestLocalResultsHandler:
 
     @patch('os.path.exists')
     @patch('os.path.isfile')
-    def test_validate_access_local(self, mock_isfile, mock_exists):
-        """Test `validate_access` when files exist."""
+    def test_get_file_path_local(self, mock_isfile, mock_exists):
+        """Test `get_file_path` when files exist."""
         # Setup
         handler = Mock()
         handler.base_path = '/local/results'
@@ -92,7 +92,7 @@ class TestLocalResultsHandler:
         mock_isfile.return_value = True
 
         # Run
-        file_path = LocalResultsHandler.validate_access(handler, path_parts, 'synthesizer.pkl')
+        file_path = LocalResultsHandler.get_file_path(handler, path_parts, 'synthesizer.pkl')
 
         # Assert
         expected_file_path = os.path.join(
@@ -117,8 +117,8 @@ class TestLocalResultsHandler:
 
     @patch('os.path.exists')
     @patch('os.path.isfile')
-    def test_validate_access_local_error(self, mock_isfile, mock_exists):
-        """Test `validate_access` for local path when files do not exist."""
+    def test_get_file_path_local_error(self, mock_isfile, mock_exists):
+        """Test `get_file_path` for local path when files do not exist."""
         # Setup
         handler = Mock()
         handler.base_path = '/local/results'
@@ -135,12 +135,12 @@ class TestLocalResultsHandler:
 
         # Run and Assert
         with pytest.raises(ValueError, match=error_message_1):
-            LocalResultsHandler.validate_access(handler, path_parts, 'synthesizer.pkl')
+            LocalResultsHandler.get_file_path(handler, path_parts, 'synthesizer.pkl')
 
         mock_exists.return_value = True
         mock_isfile.return_value = False
         with pytest.raises(ValueError, match=error_message_2):
-            LocalResultsHandler.validate_access(handler, path_parts, 'synthesizer.pkl')
+            LocalResultsHandler.get_file_path(handler, path_parts, 'synthesizer.pkl')
 
 
 class TestS3ResultsHandler:
@@ -220,8 +220,8 @@ class TestS3ResultsHandler:
             Bucket='my-bucket', Key='prefix/synthesizer.pkl'
         )
 
-    def test_validate_access_s3(self):
-        """Test `validate_access` for S3 path when files exist."""
+    def test_get_file_path_s3(self):
+        """Test `get_file_path` for S3 path when files exist."""
         # Setup
         mock_s3_client = Mock()
         handler = S3ResultsHandler('s3://my-bucket/prefix', mock_s3_client)
@@ -230,7 +230,7 @@ class TestS3ResultsHandler:
         file_path = 'results_folder_07_07_2025/my_dataset/synthesizer.pkl'
 
         # Run
-        result = handler.validate_access(path_parts, end_filename)
+        result = handler.get_file_path(path_parts, end_filename)
 
         # Assert
         assert result == file_path

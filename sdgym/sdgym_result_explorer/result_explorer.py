@@ -38,7 +38,7 @@ class SDGymResultsExplorer:
         """List all runs available in the results directory."""
         return self._handler.list_runs()
 
-    def _validate_access(self, results_folder_name, dataset_name, synthesizer_name, type):
+    def _get_file_path(self, results_folder_name, dataset_name, synthesizer_name, type):
         """Validate access to the synthesizer or synthetic data file."""
         end_filename = f'{synthesizer_name}_'
         if type == 'synthetic_data':
@@ -49,18 +49,18 @@ class SDGymResultsExplorer:
         date = '_'.join(results_folder_name.split('_')[-3:])
         path_parts = [results_folder_name, f'{dataset_name}_{date}', synthesizer_name]
 
-        return self._handler.validate_access(path_parts, end_filename)
+        return self._handler.get_file_path(path_parts, end_filename)
 
     def load_synthesizer(self, results_folder_name, dataset_name, synthesizer_name):
         """Load the synthesizer for a given dataset and synthesizer."""
-        file_path = self._validate_access(
+        file_path = self._get_file_path(
             results_folder_name, dataset_name, synthesizer_name, 'synthesizer'
         )
         return self._handler.load_synthesizer(file_path)
 
     def load_synthetic_data(self, results_folder_name, dataset_name, synthesizer_name):
         """Load the synthetic data for a given dataset and synthesizer."""
-        file_path = self._validate_access(
+        file_path = self._get_file_path(
             results_folder_name, dataset_name, synthesizer_name, 'synthetic_data'
         )
         return self._handler.load_synthetic_data(file_path)

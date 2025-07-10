@@ -18,7 +18,7 @@ class ResultsHandler(ABC):
         pass
 
     @abstractmethod
-    def validate_access(self, results_folder_name, dataset_name, synthesizer_name, type):
+    def get_file_path(self, results_folder_name, dataset_name, synthesizer_name, type):
         """Validate access to a specific file in the results directory."""
         pass
 
@@ -45,7 +45,7 @@ class LocalResultsHandler(ResultsHandler):
             d for d in os.listdir(self.base_path) if os.path.isdir(os.path.join(self.base_path, d))
         ]
 
-    def validate_access(self, path_parts, end_filename):
+    def get_file_path(self, path_parts, end_filename):
         """Validate access to a specific file in the local filesystem."""
         full_path = os.path.join(self.base_path, *path_parts)
         if not os.path.exists(full_path):
@@ -81,7 +81,7 @@ class S3ResultsHandler(ResultsHandler):
         )
         return [cp['Prefix'].split('/')[-2] for cp in response.get('CommonPrefixes', [])]
 
-    def validate_access(self, path_parts, end_filename):
+    def get_file_path(self, path_parts, end_filename):
         """Validate access to a specific file in S3."""
         file_path = '/'.join(path_parts + [end_filename])
         try:
