@@ -1167,24 +1167,6 @@ def benchmark_single_table(
     return scores
 
 
-def _validate_bucket_access(output_destination, aws_access_key_id=None, aws_secret_access_key=None):
-    parsed_url = urlparse(output_destination)
-    bucket_name = parsed_url.netloc
-    if not bucket_name:
-        raise ValueError(f'Invalid S3 URL: {output_destination}')
-
-    if aws_access_key_id and aws_secret_access_key:
-        s3_client = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-        )
-    else:
-        s3_client = boto3.client('s3')
-
-    s3_client.head_bucket(Bucket=bucket_name)
-
-
 def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_access_key):
     """Validate AWS S3 inputs for SDGym benchmark.
 

@@ -1,11 +1,15 @@
 import io
 import pickle
+import re
 from unittest.mock import Mock, patch
 
 import botocore
 import pandas as pd
+import pytest
+from botocore.exceptions import NoCredentialsError
 
 from sdgym.s3 import (
+    _get_s3_client,
     _upload_dataframe_to_s3,
     _upload_pickle_to_s3,
     is_s3_path,
@@ -283,3 +287,39 @@ def test_upload_pickle_to_s3():
     body.seek(0)
     unpickled_obj = pickle.load(body)
     assert unpickled_obj == obj
+
+
+@patch('sdgym.s3.boto3.client')
+def test__get_s3_client_with_credentials(mock_boto_client):
+    """Test `_get_s3_client` with a valid S3 bucket."""
+    # Setup
+    output_destination = 's3://my-bucket/results'
+    aws_access_key_id = 'test_access_key'
+    aws_secret_access_key = 'test_secret_key'
+
+    mock_s3_client = mock_boto_client.return_value
+
+    # Run
+    _get_s3_client(output_destination, aws_access_key_id, aws_secret_access_key)
+
+    # Assert
+    mock_boto_client.assert_called_once_with(
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
+    mock_s3_client.head_bucket.assert_called_once_with(Bucket='my-bucket')
+
+
+def test__get_s3_client_errors():
+    """Test `_get_s3_client` raises error for invalid input."""
+    # Setup
+    output_destination = 's3:/'
+    expected_error = re.escape(f'Invalid S3 URL: {output_destination}')
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_error):
+        _get_s3_client(output_destination)
+
+    with pytest.raises(NoCredentialsError, match='Unable to locate credentials'):
+        _get_s3_client('s3://bucket_name/')

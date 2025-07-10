@@ -20,30 +20,29 @@ def test_validate_path_local(tmp_path):
     )
 
     # Run
-    is_valid = _validate_path(str(path))
+    s3_client = _validate_path(str(path))
     with pytest.raises(ValueError, match=expected_error):
         _validate_path('invalid_path')
 
     # Assert
-    assert is_valid is False
+    assert s3_client is None
 
 
-@patch('sdgym.sdgym_result_explorer.result_explorer._validate_bucket_access')
-def test_validate_path_s3(mock_validate_bucket_access):
+@patch('sdgym.sdgym_result_explorer.result_explorer._get_s3_client')
+def test_validate_path_s3(mock_get_s3_client):
     """Test the `_validate_path` function for an S3 path."""
     # Setup
     path = 's3://my-bucket/results'
     aws_access_key_id = 'my_access_key'
     aws_secret_access_key = 'my_secret_key'
+    mock_get_s3_client.return_value = 's3_client'
 
     # Run
-    is_valid = _validate_path(path, aws_access_key_id, aws_secret_access_key)
+    s3_client = _validate_path(path, aws_access_key_id, aws_secret_access_key)
 
     # Assert
-    assert is_valid is True
-    mock_validate_bucket_access.assert_called_once_with(
-        path, aws_access_key_id, aws_secret_access_key
-    )
+    assert s3_client == 's3_client'
+    mock_get_s3_client.assert_called_once_with(path, aws_access_key_id, aws_secret_access_key)
 
 
 class TestSDGymResultsExplorer:
@@ -217,8 +216,7 @@ class TestSDGymResultsExplorer:
         dataset_name = 'invalid_dataset'
         result_explorer = SDGymResultsExplorer(tmp_path)
         expected_error_message = re.escape(
-            f"Dataset '{dataset_name}' is not a default dataset. "
-            'Please provide a valid dataset name.'
+            f"Dataset '{dataset_name}' is not a SDGym dataset. Please provide a valid dataset name."
         )
 
         # Run and Assert
