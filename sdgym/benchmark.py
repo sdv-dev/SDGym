@@ -117,13 +117,29 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
-def _get_increment_run_id(top_folder, today):
+def _get_increment_run_id(top_folder, today, s3_client=None):
     pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
     increments = []
-    for file in top_folder.glob(f'run_{today}_*.yaml'):
-        match = pattern.match(file.name)
-        if match:
-            increments.append(int(match.group(1)))
+    parsed = urlparse(str(top_folder))
+    if s3_client:
+        bucket = parsed.netloc
+        prefix = parsed.path.lstrip('/')
+        if not prefix.endswith('/'):
+            prefix += '/'
+
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+        contents = response.get('Contents', [])
+        for object in contents:
+            file_name = Path(object['Key']).name
+            match = pattern.match(file_name)
+            if match:
+                increments.append(int(match.group(1)))
+    else:
+        top_folder = Path(top_folder)
+        for file in top_folder.glob(f'run_{today}_*.yaml'):
+            match = pattern.match(file.name)
+            if match:
+                increments.append(int(match.group(1)))
 
     if increments:
         next_increment = max(increments) + 1
@@ -142,7 +158,7 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
     paths['bucket_name'] = bucket_name
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
-    increment = _get_increment_run_id(Path(top_folder), today)
+    increment = _get_increment_run_id(Path(top_folder), today, s3_client)
     s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'

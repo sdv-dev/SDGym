@@ -485,13 +485,15 @@ def test__update_run_id_file(mock_datetime, tmp_path):
         assert run_id_data['run_id'] == run_id
 
 
-def test_setup_output_destination_aws():
+@patch('sdgym.benchmark._get_increment_run_id')
+def test_setup_output_destination_aws(mock_get_increment_run_id):
     """Test the `_setup_output_destination_aws` function."""
     # Setup
     output_destination = 's3://my-bucket/results'
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
     datasets = ['Dataset1', 'Dataset2']
     s3_client_mock = Mock()
+    mock_get_increment_run_id.return_value = 1
 
     # Run
     paths = _setup_output_destination_aws(
@@ -503,6 +505,7 @@ def test_setup_output_destination_aws():
     bucket_name = 'my-bucket'
     top_folder = f'results/SDGym_results_{today}'
     expected_calls = [call(Bucket=bucket_name, Key=top_folder + '/')]
+    mock_get_increment_run_id.assert_called_once_with(Path(top_folder), today, s3_client_mock)
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'
         expected_calls.append(call(Bucket=bucket_name, Key=dataset_folder + '/'))
