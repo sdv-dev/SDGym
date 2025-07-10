@@ -445,7 +445,7 @@ def test__write_run_id_file(mock_datetime, tmp_path):
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
 
     # Run
-    run_id = _write_run_id_file(synthesizers, jobs, result_writer)
+    _write_run_id_file(synthesizers, jobs, result_writer)
 
     # Assert
     assert Path(file_name['run_id']).exists()
@@ -520,6 +520,18 @@ def test_setup_output_destination_aws():
             assert 'synthetic_data' in paths[dataset][synth]
             assert paths[dataset][synth]['synthetic_data'] == (
                 f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthetic_data.csv'
+            )
+            assert 'benchmark_result' in paths[dataset][synth]
+            assert paths[dataset][synth]['benchmark_result'] == (
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_benchmark_result.csv'
+            )
+            assert 'run_id' in paths[dataset][synth]
+            assert paths[dataset][synth]['run_id'] == (
+                f's3://{bucket_name}/{top_folder}/run_{today}_1.yaml'
+            )
+            assert 'results' in paths[dataset][synth]
+            assert paths[dataset][synth]['results'] == (
+                f's3://{bucket_name}/{top_folder}/results_{today}_1.csv'
             )
 
 

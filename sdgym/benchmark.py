@@ -10,12 +10,13 @@ import pickle
 import re
 import textwrap
 import tracemalloc
+import uuid
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime
 from importlib.metadata import version
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from urllib.parse import urlparse
 
 import boto3
@@ -116,6 +117,22 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
+def _get_increment_run_id(top_folder, today):
+    pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
+    increments = []
+    for file in top_folder.glob(f'run_{today}_*.yaml'):
+        match = pattern.match(file.name)
+        if match:
+            increments.append(int(match.group(1)))
+
+    if increments:
+        next_increment = max(increments) + 1
+    else:
+        next_increment = 1
+
+    return next_increment
+
+
 def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client):
     paths = defaultdict(dict)
     s3_path = output_destination[len(S3_PREFIX) :]
@@ -125,6 +142,7 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
     paths['bucket_name'] = bucket_name
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
+    increment = _get_increment_run_id(Path(top_folder), today)
     s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'
@@ -137,6 +155,8 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
                 'synthesizer': f's3://{bucket_name}/{synth_folder}/{synth_name}_synthesizer.pkl',
                 'synthetic_data': f's3://{bucket_name}/{synth_folder}/{synth_name}_synthetic_data.csv',
                 'benchmark_result': f's3://{bucket_name}/{synth_folder}/{synth_name}_benchmark_result.csv',
+                'results': f's3://{bucket_name}/{top_folder}/results_{today}_{increment}.csv',
+                'run_id': f's3://{bucket_name}/{top_folder}/run_{today}_{increment}.yaml',
             }
 
     return paths
@@ -165,17 +185,7 @@ def _setup_output_destination(output_destination, synthesizers, datasets, s3_cli
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = output_path / f'SDGym_results_{today}'
     top_folder.mkdir(parents=True, exist_ok=True)
-    pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
-    increments = []
-    for file in top_folder.glob(f'run_{today}_*.yaml'):
-        match = pattern.match(file.name)
-        if match:
-            increments.append(int(match.group(1)))
-
-    if increments:
-        next_increment = max(increments) + 1
-    else:
-        next_increment = 1
+    increment = _get_increment_run_id(top_folder, today)
     paths = defaultdict(dict)
     for dataset in datasets:
         dataset_folder = top_folder / f'{dataset}_{today}'
@@ -189,8 +199,8 @@ def _setup_output_destination(output_destination, synthesizers, datasets, s3_cli
                 'synthesizer': str(synth_folder / f'{synth_name}_synthesizer.pkl'),
                 'synthetic_data': str(synth_folder / f'{synth_name}_synthetic_data.csv'),
                 'benchmark_result': str(synth_folder / f'{synth_name}_benchmark_result.csv'),
-                'run_id': str(top_folder / f'run_{today}_{next_increment}.yaml'),
-                'results': str(top_folder / f'results_{today}_{next_increment}.csv'),
+                'run_id': str(top_folder / f'run_{today}_{increment}.yaml'),
+                'results': str(top_folder / f'results_{today}_{increment}.csv'),
             }
 
     return paths
@@ -742,16 +752,8 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress, result_writ
     output_directions = job_args_list[0][-2]
     result_writer = job_args_list[0][-1]
     if output_directions and result_writer:
-        path = output_directions['synthesizer']
-        if path.startswith(S3_PREFIX):
-            parsed = urlparse(path)
-            s3_key = PurePosixPath(parsed.path).parents[2] / 'results.csv'
-            result_file = f's3://{parsed.netloc}{s3_key}'
-        else:
-            root_path = Path(path).parents[2]
-            result_file = root_path / 'results.csv'
-
-        result_writer.write_dataframe(scores, result_file, append=True)
+        path = output_directions['results']
+        result_writer.write_dataframe(scores, path, append=True)
 
     return scores
 
@@ -972,6 +974,9 @@ def _validate_output_destination(output_destination, aws_keys=None):
 
 def _write_run_id_file(synthesizers, job_args_list, result_writer=None):
     jobs = [[job[-3], job[0]['name']] for job in job_args_list]
+    if not job_args_list or not job_args_list[0][-1]:
+        return
+
     output_directions = job_args_list[0][-1]
     path = output_directions['run_id']
     run_id = Path(path).stem
@@ -991,8 +996,7 @@ def _write_run_id_file(synthesizers, job_args_list, result_writer=None):
             metadata['sdv_version'] = version('sdv')
 
     if result_writer:
-        result_writer.write_yaml(metadata, f'{output_destination}/run_{run_id}.yaml')
-
+        result_writer.write_yaml(metadata, path)
 
 
 def _update_run_id_file(run_file, result_writer=None):
@@ -1245,9 +1249,10 @@ encoded_data = response['Body'].read().decode('utf-8')
 serialized_data = base64.b64decode(encoded_data.encode('utf-8'))
 job_args_list = pickle.loads(serialized_data)
 result_writer = S3ResultsWriter(s3_client=s3_client)
-run_id = _write_run_id_file('{output_destination}', {synthesizers}, job_args_list, result_writer)
+_write_run_id_file(, {synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
-_update_run_id_file('{output_destination}', run_id, result_writer)
+run_id_filename = job_args_list[0][-1]['run_id']
+_update_run_id_file(run_id_filename, result_writer)
 s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
 
