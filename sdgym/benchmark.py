@@ -6,8 +6,8 @@ import math
 import multiprocessing
 import os
 import pickle
+import re
 import tracemalloc
-import uuid
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
@@ -128,12 +128,22 @@ def _setup_output_destination(output_destination, synthesizers, datasets):
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = output_path / f'SDGym_results_{today}'
     top_folder.mkdir(parents=True, exist_ok=True)
+    pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
+    increments = []
+    for file in top_folder.glob(f'run_{today}_*.yaml'):
+        match = pattern.match(file.name)
+        if match:
+            increments.append(int(match.group(1)))
+
+    if increments:
+        next_increment = max(increments) + 1
+    else:
+        next_increment = 1
 
     paths = defaultdict(dict)
     for dataset in datasets:
         dataset_folder = top_folder / f'{dataset}_{today}'
         dataset_folder.mkdir(parents=True, exist_ok=True)
-        paths[dataset]['meta'] = str(dataset_folder / 'meta.yaml')
 
         for synth_name in synthesizers:
             synth_folder = dataset_folder / synth_name
@@ -143,6 +153,8 @@ def _setup_output_destination(output_destination, synthesizers, datasets):
                 'synthesizer': str(synth_folder / f'{synth_name}_synthesizer.pkl'),
                 'synthetic_data': str(synth_folder / f'{synth_name}_synthetic_data.csv'),
                 'benchmark_result': str(synth_folder / f'{synth_name}_benchmark_result.csv'),
+                'run_id': str(top_folder / f'run_{today}_{next_increment}.yaml'),
+                'results': str(top_folder / f'results_{today}_{next_increment}.csv'),
             }
 
     return paths
@@ -680,9 +692,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
     scores = pd.concat(scores, ignore_index=True)
     output_directions = job_args_list[0][-1]
     if output_directions and isinstance(output_directions, dict):
-        synth_path = Path(output_directions['synthesizer'])
-        root_path = synth_path.parents[2]
-        result_file = root_path / 'results.csv'
+        result_file = Path(output_directions['results'])
         if not result_file.exists():
             scores.to_csv(result_file, index=False, mode='w')
         else:
@@ -897,9 +907,11 @@ def _validate_output_destination(output_destination):
         )
 
 
-def _write_run_id_file(output_destination, synthesizers, job_args_list):
+def _write_run_id_file(synthesizers, job_args_list):
     jobs = [[job[-3], job[0]['name']] for job in job_args_list]
-    run_id = str(uuid.uuid4())[:8]
+    output_directions = job_args_list[0][-1]
+    path = output_directions['run_id']
+    run_id = Path(path).stem
     metadata = {
         'run_id': run_id,
         'starting_date': datetime.today().strftime('%m_%d_%Y %H:%M:%S'),
@@ -915,14 +927,11 @@ def _write_run_id_file(output_destination, synthesizers, job_args_list):
         elif 'sdv' not in metadata.keys():
             metadata['sdv_version'] = version('sdv')
 
-    with open(f'{output_destination}/run_{run_id}.yaml', 'w') as file:
+    with open(path, 'w') as file:
         yaml.dump(metadata, file)
 
-    return run_id
 
-
-def _update_run_id_file(output_destination, run_id):
-    run_file = Path(output_destination) / f'run_{run_id}.yaml'
+def _update_run_id_file(run_file):
     with open(run_file, 'r') as f:
         run_data = yaml.safe_load(f) or {}
 
@@ -1055,7 +1064,7 @@ def benchmark_single_table(
         custom_synthesizers,
     )
     if output_destination is not None:
-        run_id = _write_run_id_file(output_destination, synthesizers, job_args_list)
+        _write_run_id_file(synthesizers, job_args_list)
 
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
@@ -1073,6 +1082,7 @@ def benchmark_single_table(
         write_csv(scores, output_filepath, None, None)
 
     if output_destination is not None:
-        _update_run_id_file(output_destination, run_id)
+        run_id_filename = job_args_list[0][-1]['run_id']
+        _update_run_id_file(run_id_filename)
 
     return scores
