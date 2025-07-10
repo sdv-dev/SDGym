@@ -120,33 +120,27 @@ def _create_detailed_results_directory(detailed_results_folder):
 def _get_increment_run_id(top_folder, today, s3_client=None):
     pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
     increments = []
-    parsed = urlparse(str(top_folder))
     if s3_client:
-        bucket = parsed.netloc
-        prefix = parsed.path.lstrip('/')
-        if not prefix.endswith('/'):
-            prefix += '/'
-
-        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        contents = response.get('Contents', [])
-        for object in contents:
-            file_name = Path(object['Key']).name
-            match = pattern.match(file_name)
-            if match:
-                increments.append(int(match.group(1)))
+        bucket, prefix = parse_s3_path(top_folder)
+        try:
+            response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+            contents = response.get('Contents', [])
+            for object in contents:
+                file_name = Path(object['Key']).name
+                match = pattern.match(file_name)
+                if match:
+                    increments.append(int(match.group(1)))
+        except Exception:
+            return 1
     else:
-        top_folder = Path(top_folder)
+        if not top_folder.exists():
+            return 1
         for file in top_folder.glob(f'run_{today}_*.yaml'):
             match = pattern.match(file.name)
             if match:
                 increments.append(int(match.group(1)))
 
-    if increments:
-        next_increment = max(increments) + 1
-    else:
-        next_increment = 1
-
-    return next_increment
+    return max(increments) + 1 if increments else 1
 
 
 def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client):
@@ -158,7 +152,7 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
     paths['bucket_name'] = bucket_name
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
-    increment = _get_increment_run_id(Path(top_folder), today, s3_client)
+    increment = _get_increment_run_id(f's3://{bucket_name}/{top_folder}', today, s3_client)
     s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'
