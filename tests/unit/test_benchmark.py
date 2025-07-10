@@ -2,6 +2,7 @@ import json
 import re
 from datetime import datetime
 from importlib.metadata import version
+from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
@@ -385,7 +386,6 @@ def test__setup_output_destination(mock_validate, tmp_path):
     # Assert
     expected = {
         dataset: {
-            'meta': str(base_path / f'{dataset}_{today}' / 'meta.yaml'),
             **{
                 synth: {
                     'synthesizer': str(
@@ -397,6 +397,8 @@ def test__setup_output_destination(mock_validate, tmp_path):
                     'benchmark_result': str(
                         base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
                     ),
+                    'run_id': str(base_path / f'run_{today}_1.yaml'),
+                    'results': str(base_path / f'results_{today}_1.csv'),
                 }
                 for synth in synthesizers
             },
@@ -408,32 +410,29 @@ def test__setup_output_destination(mock_validate, tmp_path):
     assert json.loads(json.dumps(result_2)) == expected
 
 
-@patch('sdgym.benchmark.uuid.uuid4')
 @patch('sdgym.benchmark.datetime')
-def test__write_run_id_file(mock_datetime, mock_uuid, tmp_path):
+def test__write_run_id_file(mock_datetime, tmp_path):
     """Test the `_write_run_id_file` method."""
     # Setup
     output_destination = tmp_path / 'output_destination'
     output_destination.mkdir()
-    mock_uuid.return_value = '123456789999'
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
+    file_name = {'run_id': f'{output_destination}/run_06_26_2025_1.yaml'}
     jobs = [
-        ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, None),
+        ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, file_name),
         ({'name': 'CTGANSynthesizer'}, 'census', None, None),
     ]
     expected_jobs = [['adult', 'GaussianCopulaSynthesizer'], ['census', 'CTGANSynthesizer']]
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
 
     # Run
-    run_id = _write_run_id_file(output_destination, synthesizers, jobs)
+    _write_run_id_file(synthesizers, jobs)
 
     # Assert
-    assert run_id == '12345678'
-    run_id_file = output_destination / 'run_12345678.yaml'
-    assert run_id_file.exists()
-    with open(run_id_file, 'r') as file:
+    assert Path(file_name['run_id']).exists()
+    with open(file_name['run_id'], 'r') as file:
         run_id_data = yaml.safe_load(file)
-        assert run_id_data['run_id'] == '12345678'
+        assert run_id_data['run_id'] == 'run_06_26_2025_1'
         assert run_id_data['starting_date'] == '06_26_2025'
         assert run_id_data['jobs'] == expected_jobs
         assert run_id_data['sdgym_version'] == version('sdgym')
@@ -448,15 +447,15 @@ def test__update_run_id_file(mock_datetime, tmp_path):
     # Setup
     output_destination = tmp_path / 'output_destination'
     output_destination.mkdir()
-    run_id = '12345678'
+    metadata = {'run_id': 'run_06_25_2025_1', 'starting_date': '06_25_2025', 'completed_date': None}
+    run_id_file = output_destination / 'run_06_25_2025_1.yaml'
+    run_id = 'run_06_25_2025_1'
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
-    metadata = {'run_id': run_id, 'starting_date': '06_25_2025', 'completed_date': None}
-    run_id_file = output_destination / f'run_{run_id}.yaml'
     with open(run_id_file, 'w') as file:
         yaml.dump(metadata, file)
 
     # Run
-    _update_run_id_file(output_destination, run_id)
+    _update_run_id_file(run_id_file)
 
     # Assert
     with open(run_id_file, 'r') as file:
