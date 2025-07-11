@@ -1,7 +1,13 @@
+import json
+import re
+from datetime import datetime
+from importlib.metadata import version
+from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
 import pytest
+import yaml
 
 from sdgym import benchmark_single_table
 from sdgym.benchmark import (
@@ -9,6 +15,11 @@ from sdgym.benchmark import (
     _create_sdgym_script,
     _directory_exists,
     _format_output,
+    _handle_deprecated_parameters,
+    _setup_output_destination,
+    _update_run_id_file,
+    _validate_output_destination,
+    _write_run_id_file,
 )
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
@@ -33,7 +44,8 @@ def test_output_file_exists(path_mock):
 
 
 @patch('sdgym.benchmark.tqdm.tqdm')
-def test_progress_bar_updates(tqdm_mock):
+@patch('sdgym.benchmark._handle_deprecated_parameters')
+def test_benchmark_single_table_deprecated_params(mock_handle_deprecated, tqdm_mock):
     """Test that the benchmarking function updates the progress bar on one line."""
     # Setup
     scores_mock = MagicMock()
@@ -48,6 +60,7 @@ def test_progress_bar_updates(tqdm_mock):
     )
 
     # Assert
+    mock_handle_deprecated.assert_called_once_with(None, None, None)
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
 
 
@@ -301,3 +314,152 @@ def test__format_output():
         'NewMetric': [0.998],
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
+
+
+def test__handle_deprecated_parameters():
+    """Test the ``_handle_deprecated_parameters`` function."""
+    # Setup
+    output_filepath = 's3://BucketName/path'
+    detailed_results_folder = 'mock/path'
+    multi_processing_config = {'num_processes': 4}
+    expected_message_1 = (
+        "Parameters 'detailed_results_folder', 'output_filepath' are deprecated in the "
+        "'benchmark_single_table' function and will be removed in October 2025. For saving"
+        " results, please use the 'output_destination' parameter. For running SDGym remotely"
+        " on AWS please use the 'benchmark_single_table_aws' method."
+    )
+    expected_message_2 = (
+        "Parameters 'detailed_results_folder', 'multi_processing_config', 'output_filepath'"
+        " are deprecated in the 'benchmark_single_table' function and will be removed in October"
+        " 2025. For saving results, please use the 'output_destination' parameter. For running"
+        " SDGym remotely on AWS please use the 'benchmark_single_table_aws' method."
+    )
+
+    # Run and Assert
+    _handle_deprecated_parameters(None, None, None)
+    with pytest.warns(FutureWarning, match=expected_message_1):
+        _handle_deprecated_parameters(output_filepath, detailed_results_folder, None)
+
+    with pytest.warns(FutureWarning, match=expected_message_2):
+        _handle_deprecated_parameters(
+            output_filepath, detailed_results_folder, multi_processing_config
+        )
+
+
+def test__validate_output_destination(tmp_path):
+    """Test the `_validate_output_destination` function."""
+    # Setup
+    wrong_type = 12345
+    aws_destination = 's3://valid-bucket/path/to/file'
+    valid_destination = tmp_path / 'valid-destination'
+    err_1 = re.escape(
+        'The `output_destination` parameter must be a string representing the output path.'
+    )
+    err_2 = re.escape(
+        'The `output_destination` parameter cannot be an S3 path. '
+        'Please use `benchmark_single_table_aws` instead.'
+    )
+
+    # Run and Assert
+    _validate_output_destination(str(valid_destination))
+    with pytest.raises(ValueError, match=err_1):
+        _validate_output_destination(wrong_type)
+
+    with pytest.raises(ValueError, match=err_2):
+        _validate_output_destination(aws_destination)
+
+
+@patch('sdgym.benchmark._validate_output_destination')
+def test__setup_output_destination(mock_validate, tmp_path):
+    """Test the `_setup_output_destination` function."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
+    datasets = ['adult', 'census']
+    today = datetime.today().strftime('%m_%d_%Y')
+    base_path = output_destination / f'SDGym_results_{today}'
+
+    # Run
+    result_1 = _setup_output_destination(None, synthesizers, datasets)
+    result_2 = _setup_output_destination(output_destination, synthesizers, datasets)
+
+    # Assert
+    expected = {
+        dataset: {
+            **{
+                synth: {
+                    'synthesizer': str(
+                        base_path / f'{dataset}_{today}' / synth / f'{synth}_synthesizer.pkl'
+                    ),
+                    'synthetic_data': str(
+                        base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.csv'
+                    ),
+                    'benchmark_result': str(
+                        base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
+                    ),
+                    'run_id': str(base_path / f'run_{today}_1.yaml'),
+                    'results': str(base_path / f'results_{today}_1.csv'),
+                }
+                for synth in synthesizers
+            },
+        }
+        for dataset in datasets
+    }
+    assert result_1 == {}
+    mock_validate.assert_called_once_with(output_destination)
+    assert json.loads(json.dumps(result_2)) == expected
+
+
+@patch('sdgym.benchmark.datetime')
+def test__write_run_id_file(mock_datetime, tmp_path):
+    """Test the `_write_run_id_file` method."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    output_destination.mkdir()
+    mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
+    file_name = {'run_id': f'{output_destination}/run_06_26_2025_1.yaml'}
+    jobs = [
+        ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, file_name),
+        ({'name': 'CTGANSynthesizer'}, 'census', None, None),
+    ]
+    expected_jobs = [['adult', 'GaussianCopulaSynthesizer'], ['census', 'CTGANSynthesizer']]
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
+
+    # Run
+    _write_run_id_file(synthesizers, jobs)
+
+    # Assert
+    assert Path(file_name['run_id']).exists()
+    with open(file_name['run_id'], 'r') as file:
+        run_id_data = yaml.safe_load(file)
+        assert run_id_data['run_id'] == 'run_06_26_2025_1'
+        assert run_id_data['starting_date'] == '06_26_2025'
+        assert run_id_data['jobs'] == expected_jobs
+        assert run_id_data['sdgym_version'] == version('sdgym')
+        assert run_id_data['sdv_version'] == version('sdv')
+        assert run_id_data['realtabformer_version'] == version('realtabformer')
+        assert run_id_data['completed_date'] is None
+
+
+@patch('sdgym.benchmark.datetime')
+def test__update_run_id_file(mock_datetime, tmp_path):
+    """Test the `_update_run_id_file` method."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    output_destination.mkdir()
+    metadata = {'run_id': 'run_06_25_2025_1', 'starting_date': '06_25_2025', 'completed_date': None}
+    run_id_file = output_destination / 'run_06_25_2025_1.yaml'
+    run_id = 'run_06_25_2025_1'
+    mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
+    with open(run_id_file, 'w') as file:
+        yaml.dump(metadata, file)
+
+    # Run
+    _update_run_id_file(run_id_file)
+
+    # Assert
+    with open(run_id_file, 'r') as file:
+        run_id_data = yaml.safe_load(file)
+        assert run_id_data['completed_date'] == '06_26_2025'
+        assert run_id_data['starting_date'] == '06_25_2025'
+        assert run_id_data['run_id'] == run_id
