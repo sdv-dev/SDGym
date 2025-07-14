@@ -117,7 +117,7 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
-def _get_increment_run_id(top_folder, today, s3_client=None):
+def _get_run_id_increment(top_folder, today, s3_client=None):
     pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
     increments = []
     if s3_client:
@@ -145,14 +145,14 @@ def _get_increment_run_id(top_folder, today, s3_client=None):
 
 def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client):
     paths = defaultdict(dict)
-    s3_path = output_destination[len(S3_PREFIX) :]
+    s3_path = output_destination[len(S3_PREFIX) :].rstrip('/')
     parts = s3_path.split('/')
     bucket_name = parts[0]
     prefix_parts = parts[1:]
     paths['bucket_name'] = bucket_name
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
-    increment = _get_increment_run_id(f's3://{bucket_name}/{top_folder}', today, s3_client)
+    increment = _get_run_id_increment(f's3://{bucket_name}/{top_folder}', today, s3_client)
     s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'
@@ -195,7 +195,7 @@ def _setup_output_destination(output_destination, synthesizers, datasets, s3_cli
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = output_path / f'SDGym_results_{today}'
     top_folder.mkdir(parents=True, exist_ok=True)
-    increment = _get_increment_run_id(top_folder, today)
+    increment = _get_run_id_increment(top_folder, today)
     paths = defaultdict(dict)
     for dataset in datasets:
         dataset_folder = top_folder / f'{dataset}_{today}'
@@ -1219,8 +1219,7 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
     job_args_key = f'job_args_list_{str(uuid.uuid4())}.pkl'
-    if path:
-        job_args_key = f'{path}/{job_args_key}' if path else job_args_key
+    job_args_key = f'{path}/{job_args_key}' if path else job_args_key
 
     serialized_data = pickle.dumps(job_args_list)
     encoded_data = base64.b64encode(serialized_data).decode('utf-8')
@@ -1230,7 +1229,7 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
 
 
 def _get_s3_script_content(
-    access_key, secret_key, region_name, bucket_name, job_args_key, output_destination, synthesizers
+    access_key, secret_key, region_name, bucket_name, job_args_key, synthesizers
 ):
     return f"""
 import boto3
@@ -1306,7 +1305,7 @@ EOF
 
 def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
-    credentials = s3_client._request_signer._credentials
+    credentials = s3_client.get_credentials()
     access_key = credentials.access_key
     secret_key = credentials.secret_key
     region_name = s3_client.meta.region_name
@@ -1316,7 +1315,6 @@ def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
         region_name,
         bucket_name,
         job_args_key,
-        output_destination,
         synthesizers,
     )
 

@@ -1,6 +1,7 @@
 """S3 module."""
 
 import io
+import logging
 import pickle
 
 import boto3
@@ -8,6 +9,7 @@ import botocore
 import pandas as pd
 
 S3_PREFIX = 's3://'
+LOGGER = logging.getLogger(__name__)
 
 
 def is_s3_path(path):
@@ -191,6 +193,8 @@ def _upload_dataframe_to_s3(data, s3_client, bucket_name, key, append=False):
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] != 'NoSuchKey':
                 raise e
+            else:
+                LOGGER.info(f'File {key} does not exist, creating a new one.')
 
     csv_buffer = io.StringIO()
     data.to_csv(csv_buffer, index=False)
