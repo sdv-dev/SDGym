@@ -1305,10 +1305,11 @@ EOF
 
 def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
-    credentials = s3_client._request_signer._credentials
+    credentials = s3_client.meta.client.meta.session.get_credentials()
+    credentials = credentials.get_frozen_credentials()
     access_key = credentials.access_key
     secret_key = credentials.secret_key
-    region_name = s3_client.meta.region_name
+    region_name = 'us-east-1'
     script_content = _get_s3_script_content(
         access_key,
         secret_key,
