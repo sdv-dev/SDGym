@@ -10,7 +10,6 @@ import pickle
 import re
 import textwrap
 import tracemalloc
-import uuid
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
@@ -1218,7 +1217,8 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     parsed_url = urlparse(output_destination)
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
-    job_args_key = f'job_args_list_{str(uuid.uuid4())}.pkl'
+    run_id = job_args_list[0][-1]['run_id']
+    job_args_key = f'job_args_list_{run_id}.pkl'
     job_args_key = f'{path}/{job_args_key}' if path else job_args_key
 
     serialized_data = pickle.dumps(job_args_list)
