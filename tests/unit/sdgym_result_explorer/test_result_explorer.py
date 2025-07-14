@@ -6,76 +6,64 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer, _validate_path
+from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer, _validate_local_path
 from sdgym.sdgym_result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 
 
-def test_validate_path_local(tmp_path):
-    """Test the `_validate_path` function for a local path."""
+def test_validate_local_path(tmp_path):
+    """Test the `_validate_local_path` function for a local path."""
     # Setup
     path = tmp_path / 'local_results_folder'
     path.mkdir()
-    expected_error = re.escape(
-        "The provided path 'invalid_path' is not a valid directory or S3 bucket."
-    )
+    expected_error = re.escape("The provided path 'invalid_path' is not a valid local directory.")
 
     # Run
-    s3_client = _validate_path(str(path))
+    s3_client = _validate_local_path(str(path))
     with pytest.raises(ValueError, match=expected_error):
-        _validate_path('invalid_path')
+        _validate_local_path('invalid_path')
 
     # Assert
     assert s3_client is None
 
 
-@patch('sdgym.sdgym_result_explorer.result_explorer._get_s3_client')
-def test_validate_path_s3(mock_get_s3_client):
-    """Test the `_validate_path` function for an S3 path."""
-    # Setup
-    path = 's3://my-bucket/results'
-    aws_access_key_id = 'my_access_key'
-    aws_secret_access_key = 'my_secret_key'
-    mock_get_s3_client.return_value = 's3_client'
-
-    # Run
-    s3_client = _validate_path(path, aws_access_key_id, aws_secret_access_key)
-
-    # Assert
-    assert s3_client == 's3_client'
-    mock_get_s3_client.assert_called_once_with(path, aws_access_key_id, aws_secret_access_key)
-
-
 class TestSDGymResultsExplorer:
-    @patch('sdgym.sdgym_result_explorer.result_explorer._validate_path')
-    def test__init__local(self, mock_validate_path):
+    @patch('sdgym.sdgym_result_explorer.result_explorer.is_s3_path')
+    @patch('sdgym.sdgym_result_explorer.result_explorer._validate_local_path')
+    def test__init__local(self, mock_validate_local_path, mock_is_s3_path):
         """Test the ``__init__`` for accessing local folder."""
         # Setup
-        mock_validate_path.return_value = False
+        mock_is_s3_path.return_value = False
         path = 'local_results_folder'
 
         # Run
         result_explorer = SDGymResultsExplorer(path)
 
         # Assert
-        mock_validate_path.assert_called_once_with(path, None, None)
+        mock_validate_local_path.assert_called_once_with(path)
+        mock_is_s3_path.assert_called_once_with(path)
         assert isinstance(result_explorer._handler, LocalResultsHandler)
         assert result_explorer.path == path
         assert result_explorer.aws_access_key_id is None
         assert result_explorer.aws_secret_access_key is None
 
-    @patch('sdgym.sdgym_result_explorer.result_explorer._validate_path')
-    def test__init__s3(self, mock_validate_path):
+    @patch('sdgym.sdgym_result_explorer.result_explorer._get_s3_client')
+    @patch('sdgym.sdgym_result_explorer.result_explorer.is_s3_path')
+    def test__init__s3(self, mock_is_s3_path, mock_get_s3_client):
         """Test the ``__init__`` for accessing S3 bucket."""
         # Setup
         path = 's3://my-bucket/results'
         aws_access_key_id = 'my_access_key'
         aws_secret_access_key = 'my_secret_key'
-        mock_validate_path.return_value = True
+        mock_is_s3_path.return_value = True
+        s3_client = Mock()
+        mock_get_s3_client.return_value = s3_client
 
         # Run
         result_explorer = SDGymResultsExplorer(path, aws_access_key_id, aws_secret_access_key)
 
         # Assert
+        mock_is_s3_path.assert_called_once_with(path)
+        mock_get_s3_client.assert_called_once_with(path, aws_access_key_id, aws_secret_access_key)
         assert result_explorer.path == path
         assert result_explorer.aws_access_key_id == aws_access_key_id
         assert result_explorer.aws_secret_access_key == aws_secret_access_key

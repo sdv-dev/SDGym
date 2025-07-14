@@ -8,16 +8,10 @@ from sdgym.s3 import _get_s3_client, is_s3_path
 from sdgym.sdgym_result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 
 
-def _validate_path(path, aws_access_key_id=None, aws_secret_access_key=None):
-    """Validates the provided path to ensure it is either a local directory or an S3 bucket."""
-    if is_s3_path(path):
-        s3_client = _get_s3_client(path, aws_access_key_id, aws_secret_access_key)
-        return s3_client
-    else:
-        if not os.path.isdir(path):
-            raise ValueError(f"The provided path '{path}' is not a valid directory or S3 bucket.")
-
-        return None
+def _validate_local_path(path):
+    """Validates that the local path exists and is a directory."""
+    if not os.path.isdir(path):
+        raise ValueError(f"The provided path '{path}' is not a valid local directory.")
 
 
 class SDGymResultsExplorer:
@@ -25,14 +19,15 @@ class SDGymResultsExplorer:
 
     def __init__(self, path, aws_access_key_id=None, aws_secret_access_key=None):
         self.path = path
-        s3_client = _validate_path(path, aws_access_key_id, aws_secret_access_key)
-        if s3_client:
-            self._handler = S3ResultsHandler(path, s3_client)
-        else:
-            self._handler = LocalResultsHandler(path)
-
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
+
+        if is_s3_path(path):
+            s3_client = _get_s3_client(path, aws_access_key_id, aws_secret_access_key)
+            self._handler = S3ResultsHandler(path, s3_client)
+        else:
+            _validate_local_path(path)
+            self._handler = LocalResultsHandler(path)
 
     def list(self):
         """List all runs available in the results directory."""
