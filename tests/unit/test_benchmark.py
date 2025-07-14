@@ -662,4 +662,6 @@ def test_benchmark_single_table_aws(
         synthesizers=synthesizers,
         s3_client='s3_client_mock',
         job_args_list='job_args_list_mock',
+        aws_access_key_id='12345',
+        aws_secret_access_key='67890',
     )

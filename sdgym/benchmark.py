@@ -1303,16 +1303,19 @@ EOF
     """).strip()
 
 
-def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
+def _run_on_aws(
+    output_destination,
+    synthesizers,
+    s3_client,
+    job_args_list,
+    aws_access_key_id,
+    aws_secret_access_key,
+):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
-    credentials = s3_client.meta.client.meta.session.get_credentials()
-    credentials = credentials.get_frozen_credentials()
-    access_key = credentials.access_key
-    secret_key = credentials.secret_key
     region_name = 'us-east-1'
     script_content = _get_s3_script_content(
-        access_key,
-        secret_key,
+        aws_access_key_id,
+        aws_secret_access_key,
         region_name,
         bucket_name,
         job_args_key,
@@ -1321,13 +1324,15 @@ def _run_on_aws(output_destination, synthesizers, s3_client, job_args_list):
 
     # Create a session and EC2 client using the provided S3 client's credentials
     session = boto3.session.Session(
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
         region_name=region_name,
     )
     ec2_client = session.client('ec2')
     print(f'This instance is being created in region: {session.region_name}')  # noqa
-    user_data_script = _get_user_data_script(access_key, secret_key, region_name, script_content)
+    user_data_script = _get_user_data_script(
+        aws_access_key_id, aws_secret_access_key, region_name, script_content
+    )
     response = ec2_client.run_instances(
         ImageId='ami-080e1f13689e07408',
         InstanceType='g4dn.4xlarge',
@@ -1451,4 +1456,6 @@ def benchmark_single_table_aws(
         synthesizers=synthesizers,
         s3_client=s3_client,
         job_args_list=job_args_list,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
     )
