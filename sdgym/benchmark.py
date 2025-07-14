@@ -1217,7 +1217,8 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     parsed_url = urlparse(output_destination)
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
-    run_id = job_args_list[0][-1]['run_id']
+    filename = os.path.basename(job_args_list[0][-1]['run_id'])
+    run_id = os.path.splitext(filename)[0]
     job_args_key = f'job_args_list_{run_id}.pkl'
     job_args_key = f'{path}/{job_args_key}' if path else job_args_key
 
