@@ -84,4 +84,4 @@ class SDGymResultsExplorer:
 
     def summarize(self, folder_name):
         """Summarize the results in the specified folder."""
-        self._handler.get_file_path([folder_name], 'summary.json')
+        return self._handler.summarize(folder_name)

@@ -69,24 +69,33 @@ class LocalResultsHandler(ResultsHandler):
 
     def _get_results_files(self, folder_name):
         return [
-            f for f in os.listdir(os.path.join(self.base_path, folder_name))
+            f
+            for f in os.listdir(os.path.join(self.base_path, folder_name))
             if f.endswith('.csv') and f.startswith('results_')
         ]
 
-    def _get_results(self, file_names):
+    def _get_results(self, folder_name, file_names):
         return [
-            pd.read_csv(os.path.join(self.base_path, file_name)) for file_name in file_names
+            pd.read_csv(os.path.join(self.base_path, folder_name, file_name))
+            for file_name in file_names
         ]
 
     def _compute_wins(self, result):
         synthesizers = result['Synthesizer'].unique()
         datasets = result['Dataset'].unique()
-        for synthesizer in synthesizers:
-            for dataset in datasets:
-                loc_synthesizer = (result['Synthesizer'] == synthesizer) & (result['Dataset'] == dataset)
-                score_synthesizer = result.loc[loc_synthesizer]['Quality_Score']
-                score_baseline = result.loc[(result['Synthesizer'] == SYNTHESIZER_BASELINE) & (result['Dataset'] == dataset)]['Quality_Score']
-                result.loc[loc_synthesizer, 'Win'] = score_synthesizer.values > score_baseline.values
+        for dataset in datasets:
+            score_baseline = result.loc[
+                (result['Synthesizer'] == SYNTHESIZER_BASELINE) & (result['Dataset'] == dataset)
+            ]['Quality_Score'].to_numpy()
+            if score_baseline.size == 0:
+                continue
+
+            for synthesizer in synthesizers:
+                loc_synthesizer = (result['Synthesizer'] == synthesizer) & (
+                    result['Dataset'] == dataset
+                )
+                score_synthesizer = result.loc[loc_synthesizer]['Quality_Score'].to_numpy()
+                result.loc[loc_synthesizer, 'Win'] = score_synthesizer > score_baseline
 
     def _get_summarize_table(self, folder_to_results):
         """Create a summary table from the results."""
@@ -99,14 +108,14 @@ class LocalResultsHandler(ResultsHandler):
 
     def summarize(self, folder_name):
         """Summarize the results in the specified folder."""
-        date = pd.to_datetime(folder_name[-10:])
-        other_folders = [
-            f for f in os.listdir(self.base_path) if f.startswith(folder_name[:-11])
-        ]
+        dates = []
+        date = pd.to_datetime(folder_name[-10:], format='%m_%d_%Y')
+        other_folders = [f for f in os.listdir(self.base_path) if f.startswith(folder_name[:-11])]
         all_folder = other_folders + [folder_name]
         folder_to_results = {}
+        dates_to_folder = {}
         for folder in all_folder:
-            folder_date = pd.to_datetime(folder[-10:])
+            folder_date = pd.to_datetime(folder[-10:], format='%m_%d_%Y')
             if folder_date > date:
                 continue
 
@@ -114,17 +123,26 @@ class LocalResultsHandler(ResultsHandler):
             if not result_filenames:
                 continue
 
-            results = self._get_results(result_filenames)
+            results = self._get_results(folder, result_filenames)
             if not results:
                 continue
 
             aggregated_results = pd.concat(results, ignore_index=True)
-            aggregated_results = aggregated_results.drop_duplicates(subset=['dataset_name', 'synthesizer_name'])
+            aggregated_results = aggregated_results.drop_duplicates(
+                subset=['Dataset', 'Synthesizer']
+            )
             self._compute_wins(aggregated_results)
             folder_to_results[folder] = aggregated_results
+            dates_to_folder[folder_date] = folder
+            dates.append(folder_date)
 
         summarized_table = self._get_summarize_table(folder_to_results)
-        return summarized_table
+        ordered_dates = sorted(dates)
+        ordered_folder_names = []
+        for date in reversed(ordered_dates):
+            ordered_folder_names.append(dates_to_folder[date])
+
+        return summarized_table[ordered_folder_names]
 
 
 class S3ResultsHandler(ResultsHandler):
