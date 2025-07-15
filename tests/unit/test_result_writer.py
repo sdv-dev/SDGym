@@ -117,12 +117,12 @@ class TestS3ResultsWriter:
         # Assert
         assert result_writer.s3_client == 's3_client'
 
-    @patch('sdgym.result_writer._parse_s3_uri')
-    def test_write_dataframe(self, mock_parse_s3_uri):
+    @patch('sdgym.result_writer.parse_s3_path')
+    def test_write_dataframe(self, mockparse_s3_path):
         """Test the `write_dataframe` method."""
         # Setup
         mock_s3_client = Mock()
-        mock_parse_s3_uri.return_value = ('bucket_name', 'key_prefix/test_data.csv')
+        mockparse_s3_path.return_value = ('bucket_name', 'key_prefix/test_data.csv')
         result_writer = S3ResultsWriter(mock_s3_client)
         data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
 
@@ -130,19 +130,19 @@ class TestS3ResultsWriter:
         result_writer.write_dataframe(data, 'test_data.csv')
 
         # Assert
-        mock_parse_s3_uri.assert_called_once_with('test_data.csv')
+        mockparse_s3_path.assert_called_once_with('test_data.csv')
         mock_s3_client.put_object.assert_called_once_with(
             Body=data.to_csv(index=False).encode(),
             Bucket='bucket_name',
             Key='key_prefix/test_data.csv',
         )
 
-    @patch('sdgym.result_writer._parse_s3_uri')
-    def test_write_dataframe_append(self, mock_parse_s3_uri):
+    @patch('sdgym.result_writer.parse_s3_path')
+    def test_write_dataframe_append(self, mockparse_s3_path):
         """Test `write_dataframe` with append mode."""
         # Setup
         mock_s3_client = Mock()
-        mock_parse_s3_uri.return_value = ('bucket_name', 'key_prefix/test_data.csv')
+        mockparse_s3_path.return_value = ('bucket_name', 'key_prefix/test_data.csv')
         data1 = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
         mock_s3_client.get_object.return_value = {
             'Body': Mock(read=lambda: data1.to_csv(index=False).encode())
@@ -154,7 +154,7 @@ class TestS3ResultsWriter:
         result_writer.write_dataframe(data2, 'test_data.csv', append=True)
 
         # Assert
-        mock_parse_s3_uri.assert_called_with('test_data.csv')
+        mockparse_s3_path.assert_called_with('test_data.csv')
         mock_s3_client.get_object.assert_called_with(
             Bucket='bucket_name', Key='key_prefix/test_data.csv'
         )
@@ -164,12 +164,12 @@ class TestS3ResultsWriter:
             Key='key_prefix/test_data.csv',
         )
 
-    @patch('sdgym.result_writer._parse_s3_uri')
-    def test_write_pickle(self, mock_parse_s3_uri):
+    @patch('sdgym.result_writer.parse_s3_path')
+    def test_write_pickle(self, mockparse_s3_path):
         """Test the `write_pickle` method."""
         # Setup
         mock_s3_client = Mock()
-        mock_parse_s3_uri.return_value = ('bucket_name', 'key_prefix/test_object.pkl')
+        mockparse_s3_path.return_value = ('bucket_name', 'key_prefix/test_object.pkl')
         result_writer = S3ResultsWriter(mock_s3_client)
         obj = {'key': 'value'}
 
@@ -177,19 +177,19 @@ class TestS3ResultsWriter:
         result_writer.write_pickle(obj, 'test_object.pkl')
 
         # Assert
-        mock_parse_s3_uri.assert_called_once_with('test_object.pkl')
+        mockparse_s3_path.assert_called_once_with('test_object.pkl')
         mock_s3_client.put_object.assert_called_once_with(
             Body=pickle.dumps(obj),
             Bucket='bucket_name',
             Key='key_prefix/test_object.pkl',
         )
 
-    @patch('sdgym.result_writer._parse_s3_uri')
-    def test_write_yaml(self, mock_parse_s3_uri):
+    @patch('sdgym.result_writer.parse_s3_path')
+    def test_write_yaml(self, mockparse_s3_path):
         """Test the `write_yaml` method."""
         # Setup
         mock_s3_client = Mock()
-        mock_parse_s3_uri.return_value = ('bucket_name', 'key_prefix/test_data.yaml')
+        mockparse_s3_path.return_value = ('bucket_name', 'key_prefix/test_data.yaml')
         result_writer = S3ResultsWriter(mock_s3_client)
         data = {'key': 'value'}
 
@@ -197,19 +197,19 @@ class TestS3ResultsWriter:
         result_writer.write_yaml(data, 'test_data.yaml')
 
         # Assert
-        mock_parse_s3_uri.assert_called_once_with('test_data.yaml')
+        mockparse_s3_path.assert_called_once_with('test_data.yaml')
         mock_s3_client.put_object.assert_called_once_with(
             Body=yaml.dump(data).encode(),
             Bucket='bucket_name',
             Key='key_prefix/test_data.yaml',
         )
 
-    @patch('sdgym.result_writer._parse_s3_uri')
-    def test_write_yaml_append(self, mock_parse_s3_uri):
+    @patch('sdgym.result_writer.parse_s3_path')
+    def test_write_yaml_append(self, mockparse_s3_path):
         """Test `write_yaml` with append mode."""
         # Setup
         mock_s3_client = Mock()
-        mock_parse_s3_uri.return_value = ('bucket_name', 'key_prefix/test_data.yaml')
+        mockparse_s3_path.return_value = ('bucket_name', 'key_prefix/test_data.yaml')
         data1 = {'key1': 'value1'}
         data2 = {'key2': 'value2'}
         mock_s3_client.get_object.return_value = {
@@ -221,7 +221,7 @@ class TestS3ResultsWriter:
         result_writer.write_yaml(data2, 'test_data.yaml', append=True)
 
         # Assert
-        mock_parse_s3_uri.assert_called_with('test_data.yaml')
+        mockparse_s3_path.assert_called_with('test_data.yaml')
         mock_s3_client.get_object.assert_called_with(
             Bucket='bucket_name', Key='key_prefix/test_data.yaml'
         )

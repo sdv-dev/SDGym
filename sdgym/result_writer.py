@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from sdgym.s3 import _parse_s3_uri
+from sdgym.s3 import parse_s3_path
 
 
 class ResultsWriter(ABC):
@@ -75,7 +75,7 @@ class S3ResultsWriter(ResultsWriter):
 
     def write_dataframe(self, data, s3_uri, append=False):
         """Write a DataFrame to S3 as a CSV file."""
-        bucket, key = _parse_s3_uri(s3_uri)
+        bucket, key = parse_s3_path(s3_uri)
         if append:
             try:
                 response = self.s3_client.get_object(Bucket=bucket, Key=key)
@@ -91,7 +91,7 @@ class S3ResultsWriter(ResultsWriter):
 
     def write_pickle(self, obj, s3_uri):
         """Write a Python object to S3 as a pickle file."""
-        bucket, key = _parse_s3_uri(s3_uri)
+        bucket, key = parse_s3_path(s3_uri)
         buffer = io.BytesIO()
         pickle.dump(obj, buffer)
         buffer.seek(0)
@@ -99,7 +99,7 @@ class S3ResultsWriter(ResultsWriter):
 
     def write_yaml(self, data, s3_uri, append=False):
         """Write data to a YAML file in S3."""
-        bucket, key = _parse_s3_uri(s3_uri)
+        bucket, key = parse_s3_path(s3_uri)
         run_data = {}
         if append:
             try:

@@ -35,17 +35,15 @@ def parse_s3_path(path):
             `s3://<bucket-name>/path/to/dir`.
 
     Returns:
-        tuple:
-            A tuple containing (`bucket_name`, `key_prefix`) where `bucket_name`
-            is the name of the s3 bucket, and `key_prefix` is the remainder
-            of the s3 path.
+        tuple: (bucket_name, key_prefix)
     """
-    bucket_parts = path.replace(S3_PREFIX, '').split('/')
-    bucket_name = bucket_parts[0]
+    if not path.startswith(S3_PREFIX):
+        raise ValueError(f'Invalid S3 URI: {path}')
 
-    key_prefix = ''
-    if len(bucket_parts) > 1:
-        key_prefix = '/'.join(bucket_parts[1:])
+    path_without_prefix = path[len(S3_PREFIX) :]
+    parts = path_without_prefix.split('/', 1)
+    bucket_name = parts[0]
+    key_prefix = parts[1] if len(parts) > 1 else ''
 
     return bucket_name, key_prefix
 
@@ -152,19 +150,11 @@ def write_csv(data, path, aws_key, aws_secret):
     write_file(data_contents, path, aws_key, aws_secret)
 
 
-def _parse_s3_uri(s3_uri):
-    assert s3_uri.startswith('s3://')
-    parts = s3_uri[5:].split('/', 1)
-    bucket = parts[0]
-    key = parts[1] if len(parts) > 1 else ''
-    return bucket, key
-
-
 def _parse_s3_paths(s3_paths_dict):
     bucket = None
     keys = {}
     for k, s3_uri in s3_paths_dict.items():
-        b, key = _parse_s3_uri(s3_uri)
+        b, key = parse_s3_path(s3_uri)
         if bucket is None:
             bucket = b
         elif bucket != b:
