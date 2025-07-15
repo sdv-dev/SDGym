@@ -81,3 +81,7 @@ class SDGymResultsExplorer:
             aws_secret=self.aws_secret_access_key,
         )
         return data
+
+    def summarize(self, folder_name):
+        """Summarize the results in the specified folder."""
+        self._handler.get_file_path([folder_name], 'summary.json')
