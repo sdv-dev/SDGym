@@ -18,7 +18,7 @@ class ResultsHandler(ABC):
         pass
 
     @abstractmethod
-    def get_file_path(self, results_folder_name, dataset_name, synthesizer_name, type):
+    def get_file_path(self, path_parts, end_filename):
         """Validate access to a specific file in the results directory."""
         pass
 
