@@ -436,7 +436,7 @@ def test__write_run_id_file(mock_datetime, tmp_path):
     output_destination.mkdir()
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
     file_name = {'run_id': f'{output_destination}/run_06_26_2025_1.yaml'}
-    result_writer = LocalResultsWriter(output_destination)
+    result_writer = LocalResultsWriter()
     jobs = [
         ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, file_name),
         ({'name': 'CTGANSynthesizer'}, 'census', None, None),
@@ -469,7 +469,7 @@ def test__update_run_id_file(mock_datetime, tmp_path):
     metadata = {'run_id': 'run_06_25_2025_1', 'starting_date': '06_25_2025', 'completed_date': None}
     run_id_file = output_destination / 'run_06_25_2025_1.yaml'
     run_id = 'run_06_25_2025_1'
-    result_writer = LocalResultsWriter(output_destination)
+    result_writer = LocalResultsWriter()
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
     with open(run_id_file, 'w') as file:
         yaml.dump(metadata, file)

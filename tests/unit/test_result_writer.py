@@ -1,5 +1,4 @@
 import pickle
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -9,30 +8,20 @@ from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
 
 
 class TestLocalResultsWriter:
-    def test__init__(self):
-        """Test the __init__ method."""
-        # Setup
-        base_path = '/tmp/sdgym_results'
-
-        # Run
-        result_writer = LocalResultsWriter(base_path)
-
-        # Assert
-        assert result_writer.base_path == Path(base_path)
-
     def test_write_dataframe(self, tmp_path):
         """Test the `write_dataframe` method."""
         # Setup
         base_path = tmp_path / 'sdgym_results'
         base_path.mkdir(parents=True, exist_ok=True)
-        result_writer = LocalResultsWriter(base_path)
+        result_writer = LocalResultsWriter()
+        file_path = base_path / 'test_data.csv'
         data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
 
         # Run
-        result_writer.write_dataframe(data, 'test_data.csv')
+        result_writer.write_dataframe(data, file_path)
 
         # Assert
-        expected_data = pd.read_csv(base_path / 'test_data.csv')
+        expected_data = pd.read_csv(file_path)
         pd.testing.assert_frame_equal(data, expected_data)
 
     def test_write_dataframe_append(self, tmp_path):
@@ -40,16 +29,17 @@ class TestLocalResultsWriter:
         # Setup
         base_path = tmp_path / 'sdgym_results'
         base_path.mkdir(parents=True, exist_ok=True)
-        result_writer = LocalResultsWriter(base_path)
+        result_writer = LocalResultsWriter()
+        file_path = base_path / 'test_data.csv'
         data1 = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
         data2 = pd.DataFrame({'col1': [5, 6], 'col2': [7, 8]})
 
         # Run
-        result_writer.write_dataframe(data1, 'test_data.csv')
-        result_writer.write_dataframe(data2, 'test_data.csv', append=True)
+        result_writer.write_dataframe(data1, file_path)
+        result_writer.write_dataframe(data2, file_path, append=True)
 
         # Assert
-        expected_data = pd.read_csv(base_path / 'test_data.csv')
+        expected_data = pd.read_csv(file_path)
         expected_combined = pd.concat([data1, data2], ignore_index=True)
         pd.testing.assert_frame_equal(expected_combined, expected_data)
 
@@ -58,14 +48,15 @@ class TestLocalResultsWriter:
         # Setup
         base_path = tmp_path / 'sdgym_results'
         base_path.mkdir(parents=True, exist_ok=True)
-        result_writer = LocalResultsWriter(base_path)
+        result_writer = LocalResultsWriter()
+        file_path = base_path / 'test_object.pkl'
         obj = {'key': 'value'}
 
         # Run
-        result_writer.write_pickle(obj, 'test_object.pkl')
+        result_writer.write_pickle(obj, file_path)
 
         # Assert
-        with open(base_path / 'test_object.pkl', 'rb') as f:
+        with open(file_path, 'rb') as f:
             loaded_obj = pickle.load(f)
 
         assert loaded_obj == obj
@@ -75,14 +66,15 @@ class TestLocalResultsWriter:
         # Setup
         base_path = tmp_path / 'sdgym_results'
         base_path.mkdir(parents=True, exist_ok=True)
-        result_writer = LocalResultsWriter(base_path)
+        result_writer = LocalResultsWriter()
+        file_path = base_path / 'test_data.yaml'
         data = {'key': 'value'}
 
         # Run
-        result_writer.write_yaml(data, 'test_data.yaml')
+        result_writer.write_yaml(data, file_path)
 
         # Assert
-        with open(base_path / 'test_data.yaml', 'r') as f:
+        with open(file_path, 'r') as f:
             loaded_data = yaml.safe_load(f)
 
         assert loaded_data == data
@@ -92,16 +84,17 @@ class TestLocalResultsWriter:
         # Setup
         base_path = tmp_path / 'sdgym_results'
         base_path.mkdir(parents=True, exist_ok=True)
-        result_writer = LocalResultsWriter(base_path)
+        file_path = base_path / 'test_data.yaml'
+        result_writer = LocalResultsWriter()
         data1 = {'key1': 'value1'}
         data2 = {'key2': 'value2'}
 
         # Run
-        result_writer.write_yaml(data1, 'test_data.yaml')
-        result_writer.write_yaml(data2, 'test_data.yaml', append=True)
+        result_writer.write_yaml(data1, file_path)
+        result_writer.write_yaml(data2, file_path, append=True)
 
         # Assert
-        with open(base_path / 'test_data.yaml', 'r') as f:
+        with open(file_path, 'r') as f:
             loaded_data = yaml.safe_load(f)
 
         expected_data = {**data1, **data2}

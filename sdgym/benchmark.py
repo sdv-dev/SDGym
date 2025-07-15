@@ -1116,7 +1116,7 @@ def benchmark_single_table(
         output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
     )
     _validate_output_destination(output_destination)
-    result_writer = LocalResultsWriter(output_destination) if output_destination else None
+    result_writer = LocalResultsWriter()
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
