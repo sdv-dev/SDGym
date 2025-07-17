@@ -3,6 +3,7 @@
 import io
 import logging
 import pickle
+from urllib.parse import urlparse
 
 import boto3
 import botocore
@@ -189,3 +190,23 @@ def _upload_dataframe_to_s3(data, s3_client, bucket_name, key, append=False):
     csv_buffer = io.StringIO()
     data.to_csv(csv_buffer, index=False)
     s3_client.put_object(Bucket=bucket_name, Key=key, Body=csv_buffer.getvalue())
+
+
+def _get_s3_client(output_destination, aws_access_key_id=None, aws_secret_access_key=None):
+    parsed_url = urlparse(output_destination)
+    bucket_name = parsed_url.netloc
+    if not bucket_name:
+        raise ValueError(f'Invalid S3 URL: {output_destination}')
+
+    if aws_access_key_id and aws_secret_access_key:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+        )
+    else:
+        s3_client = boto3.client('s3')
+
+    s3_client.head_bucket(Bucket=bucket_name)
+
+    return s3_client
