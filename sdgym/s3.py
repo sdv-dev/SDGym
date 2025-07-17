@@ -1,9 +1,15 @@
 """S3 module."""
 
+import io
+import logging
+import pickle
+
 import boto3
 import botocore
+import pandas as pd
 
 S3_PREFIX = 's3://'
+LOGGER = logging.getLogger(__name__)
 
 
 def is_s3_path(path):
@@ -29,17 +35,15 @@ def parse_s3_path(path):
             `s3://<bucket-name>/path/to/dir`.
 
     Returns:
-        tuple:
-            A tuple containing (`bucket_name`, `key_prefix`) where `bucket_name`
-            is the name of the s3 bucket, and `key_prefix` is the remainder
-            of the s3 path.
+        tuple: (bucket_name, key_prefix)
     """
-    bucket_parts = path.replace(S3_PREFIX, '').split('/')
-    bucket_name = bucket_parts[0]
+    if not path.startswith(S3_PREFIX):
+        raise ValueError(f'Invalid S3 URI: {path}')
 
-    key_prefix = ''
-    if len(bucket_parts) > 1:
-        key_prefix = '/'.join(bucket_parts[1:])
+    path_without_prefix = path[len(S3_PREFIX) :]
+    parts = path_without_prefix.split('/', 1)
+    bucket_name = parts[0]
+    key_prefix = parts[1] if len(parts) > 1 else ''
 
     return bucket_name, key_prefix
 
@@ -144,3 +148,44 @@ def write_csv(data, path, aws_key, aws_secret):
     """
     data_contents = data.to_csv(index=False).encode('utf-8')
     write_file(data_contents, path, aws_key, aws_secret)
+
+
+def _parse_s3_paths(s3_paths_dict):
+    bucket = None
+    keys = {}
+    for k, s3_uri in s3_paths_dict.items():
+        b, key = parse_s3_path(s3_uri)
+        if bucket is None:
+            bucket = b
+        elif bucket != b:
+            raise ValueError('Different buckets found in the paths dict')
+
+        keys[k] = key
+
+    return bucket, keys
+
+
+def _upload_pickle_to_s3(obj, s3_client, bucket_name, key):
+    bytes_buffer = io.BytesIO()
+    pickle.dump(obj, bytes_buffer)
+    bytes_buffer.seek(0)
+    s3_client.put_object(Bucket=bucket_name, Key=key, Body=bytes_buffer)
+
+
+def _upload_dataframe_to_s3(data, s3_client, bucket_name, key, append=False):
+    """Upload a dataframe to S3, optionally appending if the file already exists."""
+    if append:
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=key)
+            existing_csv = response['Body'].read().decode('utf-8')
+            existing_df = pd.read_csv(io.StringIO(existing_csv))
+            data = pd.concat([existing_df, data], ignore_index=True)
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] != 'NoSuchKey':
+                raise e
+            else:
+                LOGGER.info(f'File {key} does not exist, creating a new one.')
+
+    csv_buffer = io.StringIO()
+    data.to_csv(csv_buffer, index=False)
+    s3_client.put_object(Bucket=bucket_name, Key=key, Body=csv_buffer.getvalue())

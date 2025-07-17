@@ -1,8 +1,18 @@
+import io
+import pickle
 from unittest.mock import Mock, patch
 
+import botocore
 import pandas as pd
 
-from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
+from sdgym.s3 import (
+    _upload_dataframe_to_s3,
+    _upload_pickle_to_s3,
+    is_s3_path,
+    parse_s3_path,
+    write_csv,
+    write_file,
+)
 
 
 def test_is_s3_path_with_local_dir():
@@ -205,3 +215,71 @@ def test_write_csv(write_file_mock):
     input_data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
     expected_content = input_data.to_csv(index=False).encode('utf-8')
     write_file_mock.assert_called_once_with(expected_content, path, None, None)
+
+
+def test_upload_dataframe_to_s3():
+    """Test the `_upload_dataframe_to_s3` function."""
+    # Setup
+    data = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
+    s3_client_mock = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/data.csv'
+
+    # Run
+    _upload_dataframe_to_s3(data, s3_client_mock, bucket_name, key)
+
+    # Assert
+    s3_client_mock.put_object.assert_called_once()
+    call_kwargs = s3_client_mock.put_object.call_args.kwargs
+    assert call_kwargs['Bucket'] == bucket_name
+    assert call_kwargs['Key'] == key
+    body = call_kwargs['Body']
+    assert isinstance(body, str)
+    csv_buffer = io.StringIO()
+    data.to_csv(csv_buffer, index=False)
+    expected_csv = csv_buffer.getvalue()
+    assert body == expected_csv
+
+
+@patch('sdgym.s3.LOGGER')
+def test_upload_dataframe_to_s3_no_existing_file(logger_mock):
+    """Test the `_upload_dataframe_to_s3` function when no existing file is present."""
+    # Setup
+    data = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
+    s3_client_mock = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/data.csv'
+    expected_log = f'File {key} does not exist, creating a new one.'
+    s3_client_mock.get_object.side_effect = botocore.exceptions.ClientError(
+        {'Error': {'Code': 'NoSuchKey'}}, 'GetObject'
+    )
+
+    # Run
+    _upload_dataframe_to_s3(data, s3_client_mock, bucket_name, key, append=True)
+
+    # Assert
+    s3_client_mock.put_object.assert_called_once()
+    logger_mock.info.assert_called_once_with(expected_log)
+
+
+def test_upload_pickle_to_s3():
+    """Test the `_upload_pickle_to_s3` function."""
+    # Setup
+    obj = {'foo': 'bar'}
+    s3_client_mock = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/object.pkl'
+
+    # Run
+    _upload_pickle_to_s3(obj, s3_client_mock, bucket_name, key)
+
+    # Assert
+    s3_client_mock.put_object.assert_called_once()
+    call_kwargs = s3_client_mock.put_object.call_args.kwargs
+    assert call_kwargs['Bucket'] == bucket_name
+    assert call_kwargs['Key'] == key
+    body = call_kwargs['Body']
+    assert isinstance(body, io.BytesIO)
+    body.seek(0)
+    unpickled_obj = pickle.load(body)
+    assert unpickled_obj == obj

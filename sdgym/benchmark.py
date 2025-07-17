@@ -1,5 +1,6 @@
 """Main SDGym benchmarking module."""
 
+import base64
 import concurrent
 import logging
 import math
@@ -7,6 +8,7 @@ import multiprocessing
 import os
 import pickle
 import re
+import textwrap
 import tracemalloc
 import warnings
 from collections import defaultdict
@@ -14,6 +16,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
+from urllib.parse import urlparse
 
 import boto3
 import cloudpickle
@@ -21,7 +24,6 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
-import yaml
 from sdmetrics.reports.multi_table import (
     DiagnosticReport as MultiTableDiagnosticReport,
 )
@@ -40,7 +42,14 @@ from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
-from sdgym.s3 import is_s3_path, parse_s3_path, write_csv, write_file
+from sdgym.result_writer import LocalResultsWriter
+from sdgym.s3 import (
+    S3_PREFIX,
+    is_s3_path,
+    parse_s3_path,
+    write_csv,
+    write_file,
+)
 from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
@@ -107,7 +116,62 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
-def _setup_output_destination(output_destination, synthesizers, datasets):
+def _get_run_id_increment(top_folder, today, s3_client=None):
+    pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
+    increments = []
+    if s3_client:
+        bucket, prefix = parse_s3_path(top_folder)
+        try:
+            response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+            contents = response.get('Contents', [])
+            for object in contents:
+                file_name = Path(object['Key']).name
+                match = pattern.match(file_name)
+                if match:
+                    increments.append(int(match.group(1)))
+        except Exception:
+            return 1
+    else:
+        if not top_folder.exists():
+            return 1
+        for file in top_folder.glob(f'run_{today}_*.yaml'):
+            match = pattern.match(file.name)
+            if match:
+                increments.append(int(match.group(1)))
+
+    return max(increments) + 1 if increments else 1
+
+
+def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client):
+    paths = defaultdict(dict)
+    s3_path = output_destination[len(S3_PREFIX) :].rstrip('/')
+    parts = s3_path.split('/')
+    bucket_name = parts[0]
+    prefix_parts = parts[1:]
+    paths['bucket_name'] = bucket_name
+    today = datetime.today().strftime('%m_%d_%Y')
+    top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
+    increment = _get_run_id_increment(f's3://{bucket_name}/{top_folder}', today, s3_client)
+    s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
+    for dataset in datasets:
+        dataset_folder = f'{top_folder}/{dataset}_{today}'
+        s3_client.put_object(Bucket=bucket_name, Key=dataset_folder + '/')
+        paths[dataset]['meta'] = f's3://{bucket_name}/{dataset_folder}/meta.yaml'
+        for synth_name in synthesizers:
+            synth_folder = f'{dataset_folder}/{synth_name}'
+            s3_client.put_object(Bucket=bucket_name, Key=synth_folder + '/')
+            paths[dataset][synth_name] = {
+                'synthesizer': f's3://{bucket_name}/{synth_folder}/{synth_name}_synthesizer.pkl',
+                'synthetic_data': f's3://{bucket_name}/{synth_folder}/{synth_name}_synthetic_data.csv',
+                'benchmark_result': f's3://{bucket_name}/{synth_folder}/{synth_name}_benchmark_result.csv',
+                'results': f's3://{bucket_name}/{top_folder}/results_{today}_{increment}.csv',
+                'run_id': f's3://{bucket_name}/{top_folder}/run_{today}_{increment}.yaml',
+            }
+
+    return paths
+
+
+def _setup_output_destination(output_destination, synthesizers, datasets, s3_client=None):
     """Set up the output destination for the benchmark results.
 
     Args:
@@ -119,27 +183,18 @@ def _setup_output_destination(output_destination, synthesizers, datasets):
         datasets (list):
             The list of datasets to benchmark.
     """
+    if s3_client:
+        return _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client)
+
     if output_destination is None:
         return {}
 
-    _validate_output_destination(output_destination)
     output_path = Path(output_destination)
     output_path.mkdir(parents=True, exist_ok=True)
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = output_path / f'SDGym_results_{today}'
     top_folder.mkdir(parents=True, exist_ok=True)
-    pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
-    increments = []
-    for file in top_folder.glob(f'run_{today}_*.yaml'):
-        match = pattern.match(file.name)
-        if match:
-            increments.append(int(match.group(1)))
-
-    if increments:
-        next_increment = max(increments) + 1
-    else:
-        next_increment = 1
-
+    increment = _get_run_id_increment(top_folder, today)
     paths = defaultdict(dict)
     for dataset in datasets:
         dataset_folder = top_folder / f'{dataset}_{today}'
@@ -153,8 +208,8 @@ def _setup_output_destination(output_destination, synthesizers, datasets):
                 'synthesizer': str(synth_folder / f'{synth_name}_synthesizer.pkl'),
                 'synthetic_data': str(synth_folder / f'{synth_name}_synthetic_data.csv'),
                 'benchmark_result': str(synth_folder / f'{synth_name}_benchmark_result.csv'),
-                'run_id': str(top_folder / f'run_{today}_{next_increment}.yaml'),
-                'results': str(top_folder / f'results_{today}_{next_increment}.csv'),
+                'run_id': str(top_folder / f'run_{today}_{increment}.yaml'),
+                'results': str(top_folder / f'results_{today}_{increment}.csv'),
             }
 
     return paths
@@ -173,6 +228,7 @@ def _generate_job_args_list(
     compute_privacy_score,
     synthesizers,
     custom_synthesizers,
+    s3_client,
 ):
     # Get list of synthesizer objects
     synthesizers = [] if synthesizers is None else synthesizers
@@ -189,7 +245,9 @@ def _generate_job_args_list(
     datasets = sdv_datasets + additional_datasets
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
     dataset_names = [dataset.name for dataset in datasets]
-    paths = _setup_output_destination(output_destination, synthesizer_names, dataset_names)
+    paths = _setup_output_destination(
+        output_destination, synthesizer_names, dataset_names, s3_client=s3_client
+    )
     job_tuples = []
     for dataset in datasets:
         for synthesizer in synthesizers:
@@ -220,7 +278,7 @@ def _generate_job_args_list(
     return job_args_list
 
 
-def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None):
+def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, result_writer=None):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
         assert issubclass(synthesizer, BaselineSynthesizer), (
@@ -248,10 +306,9 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None):
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
     tracemalloc.stop()
     tracemalloc.clear_traces()
-    if synthesizer_path is not None:
-        synthetic_data.to_csv(synthesizer_path['synthetic_data'], index=False)
-        with open(synthesizer_path['synthesizer'], 'wb') as f:
-            pickle.dump(synthesizer_obj, f)
+    if synthesizer_path is not None and result_writer is not None:
+        result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
+        result_writer.write_pickle(synthesizer_obj, synthesizer_path['synthesizer'])
 
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
@@ -359,6 +416,7 @@ def _score(
     modality=None,
     dataset_name=None,
     synthesizer_path=None,
+    result_writer=None,
 ):
     if output is None:
         output = {}
@@ -378,7 +436,11 @@ def _score(
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
         synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer, data.copy(), metadata, synthesizer_path=synthesizer_path
+            synthesizer,
+            data.copy(),
+            metadata,
+            synthesizer_path=synthesizer_path,
+            result_writer=result_writer,
         )
 
         output['synthetic_data'] = synthetic_data
@@ -460,6 +522,7 @@ def _score_with_timeout(
     modality=None,
     dataset_name=None,
     synthesizer_path=None,
+    result_writer=None,
 ):
     with multiprocessing_context():
         with multiprocessing.Manager() as manager:
@@ -478,6 +541,7 @@ def _score_with_timeout(
                     modality,
                     dataset_name,
                     synthesizer_path,
+                    result_writer,
                 ),
             )
 
@@ -579,6 +643,7 @@ def _run_job(args):
         dataset_name,
         modality,
         synthesizer_path,
+        result_writer,
     ) = args
 
     name = synthesizer['name']
@@ -604,6 +669,7 @@ def _run_job(args):
                 modality=modality,
                 dataset_name=dataset_name,
                 synthesizer_path=synthesizer_path,
+                result_writer=result_writer,
             )
         else:
             output = _score(
@@ -617,6 +683,7 @@ def _run_job(args):
                 modality=modality,
                 dataset_name=dataset_name,
                 synthesizer_path=synthesizer_path,
+                result_writer=result_writer,
             )
     except Exception as error:
         output['exception'] = error
@@ -631,8 +698,8 @@ def _run_job(args):
         cache_dir,
     )
 
-    if synthesizer_path is not None:
-        scores.to_csv(synthesizer_path['benchmark_result'], index=False)
+    if synthesizer_path and result_writer:
+        result_writer.write_dataframe(scores, synthesizer_path['benchmark_result'])
 
     return scores
 
@@ -660,7 +727,7 @@ def _run_on_dask(jobs, verbose):
     return dask.compute(*persisted)
 
 
-def _run_jobs(multi_processing_config, job_args_list, show_progress):
+def _run_jobs(multi_processing_config, job_args_list, show_progress, result_writer=None):
     workers = 1
     if multi_processing_config:
         if multi_processing_config['package_name'] == 'dask':
@@ -673,6 +740,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
             else:
                 workers = multiprocessing.cpu_count()
 
+    job_args_list = [job_args + (result_writer,) for job_args in job_args_list]
     if workers in (0, 1):
         scores = map(_run_job, job_args_list)
     elif workers != 'dask':
@@ -690,13 +758,11 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress):
         raise SDGymError('No valid Dataset/Synthesizer combination given.')
 
     scores = pd.concat(scores, ignore_index=True)
-    output_directions = job_args_list[0][-1]
-    if output_directions and isinstance(output_directions, dict):
-        result_file = Path(output_directions['results'])
-        if not result_file.exists():
-            scores.to_csv(result_file, index=False, mode='w')
-        else:
-            scores.to_csv(result_file, index=False, mode='a', header=False)
+    output_directions = job_args_list[0][-2]
+    result_writer = job_args_list[0][-1]
+    if output_directions and result_writer:
+        path = output_directions['results']
+        result_writer.write_dataframe(scores, path, append=True)
 
     return scores
 
@@ -739,18 +805,16 @@ def _directory_exists(bucket_name, s3_file_path):
     return 'Contents' in response or 'CommonPrefixes' in response
 
 
-def _check_write_permissions(bucket_name):
-    s3 = boto3.client('s3')
-    # Check write permissions by attempting to upload an empty object to the bucket
+def _check_write_permissions(s3_client, bucket_name):
     try:
-        s3.put_object(Bucket=bucket_name, Key='__test__', Body=b'')
+        s3_client.put_object(Bucket=bucket_name, Key='__test__', Body=b'')
         write_permission = True
     except Exception:
         write_permission = False
     finally:
         # Clean up the test object
         if write_permission:
-            s3.delete_object(Bucket=bucket_name, Key='__test__')
+            s3_client.delete_object(Bucket=bucket_name, Key='__test__')
     return write_permission
 
 
@@ -870,13 +934,14 @@ def _create_instance_on_ec2(script_content):
 
 
 def _handle_deprecated_parameters(
-    output_filepath, detailed_results_folder, multi_processing_config
+    output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
 ):
     """Handle deprecated parameters and issue warnings."""
     parameters_to_deprecate = {
         'output_filepath': output_filepath,
         'detailed_results_folder': detailed_results_folder,
         'multi_processing_config': multi_processing_config,
+        'run_on_ec2': run_on_ec2,
     }
     parameters = []
     for name, value in parameters_to_deprecate.items():
@@ -894,7 +959,16 @@ def _handle_deprecated_parameters(
         warnings.warn(message, FutureWarning)
 
 
-def _validate_output_destination(output_destination):
+def _validate_output_destination(output_destination, aws_keys=None):
+    """Validate the output destination parameter."""
+    if output_destination is None and aws_keys is None:
+        return
+
+    if aws_keys is not None:
+        return _validate_aws_inputs(
+            output_destination, aws_keys['aws_access_key_id'], aws_keys['aws_secret_access_key']
+        )
+
     if not isinstance(output_destination, str):
         raise ValueError(
             'The `output_destination` parameter must be a string representing the output path.'
@@ -907,8 +981,11 @@ def _validate_output_destination(output_destination):
         )
 
 
-def _write_run_id_file(synthesizers, job_args_list):
+def _write_run_id_file(synthesizers, job_args_list, result_writer=None):
     jobs = [[job[-3], job[0]['name']] for job in job_args_list]
+    if not job_args_list or not job_args_list[0][-1]:
+        return
+
     output_directions = job_args_list[0][-1]
     path = output_directions['run_id']
     run_id = Path(path).stem
@@ -927,17 +1004,15 @@ def _write_run_id_file(synthesizers, job_args_list):
         elif 'sdv' not in metadata.keys():
             metadata['sdv_version'] = version('sdv')
 
-    with open(path, 'w') as file:
-        yaml.dump(metadata, file)
+    if result_writer:
+        result_writer.write_yaml(metadata, path)
 
 
-def _update_run_id_file(run_file):
-    with open(run_file, 'r') as f:
-        run_data = yaml.safe_load(f) or {}
-
-    run_data['completed_date'] = datetime.today().strftime('%m_%d_%Y %H:%M:%S')
-    with open(run_file, 'w') as f:
-        yaml.dump(run_data, f)
+def _update_run_id_file(run_file, result_writer=None):
+    completed_date = datetime.today().strftime('%m_%d_%Y %H:%M:%S')
+    update = {'completed_date': completed_date}
+    if result_writer:
+        result_writer.write_yaml(update, run_file, append=True)
 
 
 def benchmark_single_table(
@@ -1037,7 +1112,11 @@ def benchmark_single_table(
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
-    _handle_deprecated_parameters(output_filepath, detailed_results_folder, multi_processing_config)
+    _handle_deprecated_parameters(
+        output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
+    )
+    _validate_output_destination(output_destination)
+    result_writer = LocalResultsWriter()
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
         if output_filepath is not None:
@@ -1062,12 +1141,12 @@ def benchmark_single_table(
         compute_privacy_score,
         synthesizers,
         custom_synthesizers,
+        s3_client=None,
     )
-    if output_destination is not None:
-        _write_run_id_file(synthesizers, job_args_list)
 
+    _write_run_id_file(synthesizers, job_args_list, result_writer)
     if job_args_list:
-        scores = _run_jobs(multi_processing_config, job_args_list, show_progress)
+        scores = _run_jobs(multi_processing_config, job_args_list, show_progress, result_writer)
 
     # If no synthesizers/datasets are passed, return an empty dataframe
     else:
@@ -1081,8 +1160,303 @@ def benchmark_single_table(
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
 
-    if output_destination is not None:
+    if output_destination:
         run_id_filename = job_args_list[0][-1]['run_id']
-        _update_run_id_file(run_id_filename)
+        _update_run_id_file(run_id_filename, result_writer)
 
     return scores
+
+
+def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_access_key):
+    """Validate AWS S3 inputs for SDGym benchmark.
+
+    If credentials are not provided, the S3 bucket must be public.
+    """
+    if not isinstance(output_destination, str):
+        raise ValueError(
+            'The `output_destination` parameter must be a string representing the S3 URL.'
+        )
+
+    if not output_destination.startswith('s3://'):
+        raise ValueError("'output_destination' must be an S3 URL starting with 's3://'. ")
+
+    parsed_url = urlparse(output_destination)
+    bucket_name = parsed_url.netloc
+    if not bucket_name:
+        raise ValueError(f'Invalid S3 URL: {output_destination}')
+
+    if aws_access_key_id and aws_secret_access_key:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+        )
+    else:
+        # No credentials provided — rely on default session
+        s3_client = boto3.client('s3')
+
+    s3_client.head_bucket(Bucket=bucket_name)
+    if not _check_write_permissions(s3_client, bucket_name):
+        raise PermissionError(
+            f'No write permissions for the S3 bucket: {bucket_name}. '
+            'Please check your AWS credentials or bucket policies.'
+        )
+
+    return s3_client
+
+
+def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
+    """Store the job arguments in S3.
+
+    During a run we temporarily store the job arguments in S3 to be able to
+    retrieve them later in the EC2 instance. This is necessary because the
+    EC2 instance does not have access to the local file system of the machine
+    that initiated the run.
+    The pkl file generated will be deleted after the run is completed.
+    """
+    parsed_url = urlparse(output_destination)
+    bucket_name = parsed_url.netloc
+    path = parsed_url.path.lstrip('/') if parsed_url.path else ''
+    filename = os.path.basename(job_args_list[0][-1]['run_id'])
+    run_id = os.path.splitext(filename)[0]
+    job_args_key = f'job_args_list_{run_id}.pkl'
+    job_args_key = f'{path}{job_args_key}' if path else job_args_key
+
+    serialized_data = pickle.dumps(job_args_list)
+    encoded_data = base64.b64encode(serialized_data).decode('utf-8')
+    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=encoded_data)
+
+    return bucket_name, job_args_key
+
+
+def _get_s3_script_content(
+    access_key, secret_key, region_name, bucket_name, job_args_key, synthesizers
+):
+    return f"""
+import boto3
+import pickle
+import base64
+import pandas as pd
+import sdgym
+from sdgym.synthesizers.sdv import (
+    CopulaGANSynthesizer, CTGANSynthesizer,
+    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer,
+    SDVRelationalSynthesizer, SDVTabularSynthesizer, TVAESynthesizer
+)
+from sdgym.synthesizers import RealTabFormerSynthesizer
+from sdgym.benchmark import _run_jobs, _write_run_id_file, _update_run_id_file
+from io import StringIO
+from sdgym.result_writer import S3ResultsWriter
+
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id='{access_key}',
+    aws_secret_access_key='{secret_key}',
+    region_name='{region_name}'
+)
+response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
+encoded_data = response['Body'].read().decode('utf-8')
+serialized_data = base64.b64decode(encoded_data.encode('utf-8'))
+job_args_list = pickle.loads(serialized_data)
+result_writer = S3ResultsWriter(s3_client=s3_client)
+_write_run_id_file({synthesizers}, job_args_list, result_writer)
+scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
+run_id_filename = job_args_list[0][-1]['run_id']
+_update_run_id_file(run_id_filename, result_writer)
+s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
+"""
+
+
+def _get_user_data_script(access_key, secret_key, region_name, script_content):
+    return textwrap.dedent(f"""\
+        #!/bin/bash
+        set -e
+        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+        echo "======== Update and Install Dependencies ============"
+        sudo apt update -y
+        sudo apt install -y python3-pip python3-venv awscli
+        echo "======== Configure AWS CLI ============"
+        aws configure set aws_access_key_id '{access_key}'
+        aws configure set aws_secret_access_key '{secret_key}'
+        aws configure set default.region '{region_name}'
+
+        echo "======== Create Virtual Environment ============"
+        python3 -m venv ~/env
+        source ~/env/bin/activate
+
+        echo "======== Install Dependencies in venv ============"
+        pip install --upgrade pip
+        pip install "sdgym[all]"
+        pip install s3fs
+
+        echo "======== Write Script ==========="
+        cat << 'EOF' > ~/sdgym_script.py
+{script_content}
+EOF
+
+        echo "======== Run Script ==========="
+        python ~/sdgym_script.py
+
+        echo "======== Complete ==========="
+        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+    """).strip()
+
+
+def _run_on_aws(
+    output_destination,
+    synthesizers,
+    s3_client,
+    job_args_list,
+    aws_access_key_id,
+    aws_secret_access_key,
+):
+    bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
+    region_name = 'us-east-1'
+    script_content = _get_s3_script_content(
+        aws_access_key_id,
+        aws_secret_access_key,
+        region_name,
+        bucket_name,
+        job_args_key,
+        synthesizers,
+    )
+
+    # Create a session and EC2 client using the provided S3 client's credentials
+    session = boto3.session.Session(
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name,
+    )
+    ec2_client = session.client('ec2')
+    print(f'This instance is being created in region: {session.region_name}')  # noqa
+    user_data_script = _get_user_data_script(
+        aws_access_key_id, aws_secret_access_key, region_name, script_content
+    )
+    response = ec2_client.run_instances(
+        ImageId='ami-080e1f13689e07408',
+        InstanceType='g4dn.4xlarge',
+        MinCount=1,
+        MaxCount=1,
+        UserData=user_data_script,
+        TagSpecifications=[
+            {'ResourceType': 'instance', 'Tags': [{'Key': 'Name', 'Value': 'SDGym_Temp'}]}
+        ],
+        BlockDeviceMappings=[
+            {
+                'DeviceName': '/dev/sda1',
+                'Ebs': {
+                    'VolumeSize': 32,
+                    'VolumeType': 'gp2',
+                },
+            }
+        ],
+    )
+
+    # Wait until the instance is running
+    instance_id = response['Instances'][0]['InstanceId']
+    waiter = ec2_client.get_waiter('instance_status_ok')
+    waiter.wait(InstanceIds=[instance_id])
+    print(f'Job kicked off for SDGym on {instance_id}')  # noqa
+
+
+def benchmark_single_table_aws(
+    output_destination,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    synthesizers=DEFAULT_SYNTHESIZERS,
+    sdv_datasets=DEFAULT_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    compute_privacy_score=True,
+    sdmetrics=None,
+    timeout=None,
+):
+    """Run the SDGym benchmark on single-table datasets.
+
+    Args:
+        output_destination (str):
+            An S3 bucket or filepath. The results output folder will be written here.
+            Should be structured as:
+            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
+        aws_access_key_id (str): The AWS access key id. Optional
+        aws_secret_access_key (str): The AWS secret access key. Optional
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to
+            ``[GaussianCopulaSynthesizer, CTGANSynthesizer]``. The available options
+            are:
+                - ``GaussianCopulaSynthesizer``
+                - ``CTGANSynthesizer``
+                - ``CopulaGANSynthesizer``
+                - ``TVAESynthesizer``
+                - ``RealTabFormerSynthesizer``
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to an S3 bucket. Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        compute_privacy_score (bool):
+            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
+        sdmetrics (list[str]):
+            A list of the different SDMetrics to use.
+            If you'd like to input specific parameters into the metric, provide a tuple with
+            the metric name followed by a dictionary of the parameters.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
+    """
+    s3_client = _validate_output_destination(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=sdmetrics,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=compute_privacy_score,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        custom_synthesizers=None,
+        s3_client=s3_client,
+    )
+    if not job_args_list:
+        return _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=compute_privacy_score,
+            sdmetrics=sdmetrics,
+        )
+
+    _run_on_aws(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        job_args_list=job_args_list,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
