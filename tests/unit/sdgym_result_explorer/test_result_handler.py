@@ -93,6 +93,46 @@ class TestResultsHandler:
         # Assert
         assert info == {folder: {'date': '07_15_2025', 'sdgym_version': '0.9.0', '# datasets': 3}}
 
+    def test__process_results(self):
+        """Test the `_process_results` method."""
+        # Setup
+        results = [
+            pd.DataFrame({
+                'Dataset': ['A', 'A', 'B', 'B', 'C'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'Synth2', 'Synth1'],
+                'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+            }),
+            pd.DataFrame({
+                'Dataset': ['D', 'D', 'D'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth1'],
+                'Quality_Score': [0.7, 0.8, 0.9],
+            }),
+        ]
+        invalid_results = [
+            pd.DataFrame({
+                'Dataset': ['A', 'A', 'B', 'B', 'C'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth3', 'Synth2', 'Synth1'],
+                'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+            }),
+        ]
+        handler = Mock()
+        expected_error_message = re.escape(
+            'There is no dataset that has been run by all synthesizers. Cannot summarize results.'
+        )
+
+        # Run
+        processed_results = ResultsHandler._process_results(handler, results)
+        with pytest.raises(ValueError, match=expected_error_message):
+            ResultsHandler._process_results(handler, invalid_results)
+
+        # Assert
+        expected_results = pd.DataFrame({
+            'Dataset': ['A', 'A', 'B', 'B', 'D', 'D'],
+            'Synthesizer': ['Synth1', 'Synth2'] * 3,
+            'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.7, 0.8],
+        })
+        pd.testing.assert_frame_equal(processed_results, expected_results)
+
     def test_summarize(self):
         """Test the `summarize` method."""
         # Setup
@@ -124,12 +164,14 @@ class TestResultsHandler:
             'Synthesizer': ['Synth1'],
         }).set_index('Synthesizer')
         handler._get_summarize_table = Mock(return_value=result)
+        handler._process_results = Mock(return_value=aggregated_results)
 
         # Run
-        summary = ResultsHandler.summarize(handler, folder_name)
+        summary, benchmark_result = ResultsHandler.summarize(handler, folder_name)
 
         # Assert
         pd.testing.assert_frame_equal(summary, result)
+        pd.testing.assert_frame_equal(benchmark_result, aggregated_results)
         handler.list.assert_called_once()
         handler._get_results_files.assert_called_once_with(
             folder_name, prefix='results_', suffix='.csv'
@@ -137,6 +179,7 @@ class TestResultsHandler:
         handler._get_results.assert_called_once_with(
             folder_name, ['results_1.csv', 'results_2.csv']
         )
+        handler._process_results.assert_called_once_with(result_list)
         compute_wing_args = handler._compute_wins.call_args[0][0]
         pd.testing.assert_frame_equal(compute_wing_args, aggregated_results)
         _get_column_name_infos_args = handler._get_column_name_infos.call_args[0][0]

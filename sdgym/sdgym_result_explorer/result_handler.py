@@ -12,6 +12,7 @@ import yaml
 from botocore.exceptions import ClientError
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
+RESULTS_FOLDER_PREFIX = 'SDGym_results_'
 
 
 class ResultsHandler(ABC):
@@ -104,16 +105,34 @@ class ResultsHandler(ABC):
 
         return folder_to_info
 
+    def _process_results(self, results):
+        """Process results to ensure they are unique and each dataset has all synthesizers."""
+        aggregated_results = pd.concat(results, ignore_index=True)
+        aggregated_results = aggregated_results.drop_duplicates(subset=['Dataset', 'Synthesizer'])
+        all_synthesizers = aggregated_results['Synthesizer'].unique()
+        dataset_synth_counts = aggregated_results.groupby('Dataset')['Synthesizer'].nunique()
+        valid_datasets = dataset_synth_counts[dataset_synth_counts == len(all_synthesizers)].index
+        filtered_results = aggregated_results[aggregated_results['Dataset'].isin(valid_datasets)]
+        if filtered_results.empty:
+            raise ValueError(
+                'There is no dataset that has been run by all synthesizers. Cannot '
+                'summarize results.'
+            )
+
+        return filtered_results.reset_index(drop=True)
+
     def summarize(self, folder_name):
         """Summarize the results in the specified folder."""
-        all_folder = [f for f in self.list() if f.startswith(folder_name[:-11])]
-        if folder_name not in all_folder:
+        all_folders = [f for f in self.list() if f.startswith(RESULTS_FOLDER_PREFIX)]
+        if folder_name not in all_folders:
             raise ValueError(f'Folder "{folder_name}" does not exist in the results directory.')
 
         date = pd.to_datetime(folder_name[-10:], format='%m_%d_%Y')
         folder_to_results = {}
-        for folder in all_folder:
-            folder_date = pd.to_datetime(folder[-10:], format='%m_%d_%Y')
+        for folder in all_folders:
+            folder_date = pd.to_datetime(
+                folder.removeprefix(RESULTS_FOLDER_PREFIX), format='%m_%d_%Y'
+            )
             if folder_date > date:
                 continue
 
@@ -125,17 +144,14 @@ class ResultsHandler(ABC):
             if not results:
                 continue
 
-            aggregated_results = pd.concat(results, ignore_index=True)
-            aggregated_results = aggregated_results.drop_duplicates(
-                subset=['Dataset', 'Synthesizer']
-            )
+            aggregated_results = self._process_results(results)
             self._compute_wins(aggregated_results)
             folder_to_results[folder] = aggregated_results
             folder_infos = self._get_column_name_infos(folder_to_results)
 
         summarized_table = self._get_summarize_table(folder_to_results, folder_infos)
 
-        return summarized_table
+        return summarized_table, folder_to_results[folder_name]
 
 
 class LocalResultsHandler(ResultsHandler):
