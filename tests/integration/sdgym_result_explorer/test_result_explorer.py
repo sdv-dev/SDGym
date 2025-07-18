@@ -67,7 +67,7 @@ def test_summarize():
         'tests/integration/sdgym_result_explorer/_benchmark_results/'
         'SDGym_results_10_11_2024/results_10_11_2024_1.csv',
     )
-    expected_results['Win'] = expected_results['Win'].astype(int)
+    expected_results['Win'] = expected_results['Win'].astype('int64')
     expected_summary = expected_summary.set_index('Synthesizer')
     pd.testing.assert_frame_equal(summary, expected_summary)
     pd.testing.assert_frame_equal(results, expected_results)
