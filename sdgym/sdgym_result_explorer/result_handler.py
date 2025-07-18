@@ -13,6 +13,8 @@ from botocore.exceptions import ClientError
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
+RUN_ID_PREFIX = 'run_'
+RESULTS_FILE_PREFIX = 'results_'
 
 
 class ResultsHandler(ABC):
@@ -89,7 +91,7 @@ class ResultsHandler(ABC):
     def _get_column_name_infos(self, folder_to_results):
         folder_to_info = {}
         for folder, results in folder_to_results.items():
-            yaml_files = self._get_results_files(folder, prefix='run_', suffix='.yaml')
+            yaml_files = self._get_results_files(folder, prefix=RUN_ID_PREFIX, suffix='.yaml')
             if not yaml_files:
                 continue
 
@@ -134,7 +136,9 @@ class ResultsHandler(ABC):
             if folder_date > date:
                 continue
 
-            result_filenames = self._get_results_files(folder, prefix='results_', suffix='.csv')
+            result_filenames = self._get_results_files(
+                folder, prefix=RESULTS_FILE_PREFIX, suffix='.csv'
+            )
             if not result_filenames:
                 continue
 
