@@ -130,9 +130,7 @@ class ResultsHandler(ABC):
         date = pd.to_datetime(folder_name[-10:], format='%m_%d_%Y')
         folder_to_results = {}
         for folder in all_folders:
-            folder_date = pd.to_datetime(
-                folder.removeprefix(RESULTS_FOLDER_PREFIX), format='%m_%d_%Y'
-            )
+            folder_date = pd.to_datetime(folder[len(RESULTS_FOLDER_PREFIX) :], format='%m_%d_%Y')
             if folder_date > date:
                 continue
 
