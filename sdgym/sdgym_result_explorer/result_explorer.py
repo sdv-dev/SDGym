@@ -81,3 +81,17 @@ class SDGymResultsExplorer:
             aws_secret=self.aws_secret_access_key,
         )
         return data
+
+    def summarize(self, folder_name):
+        """Summarize the results in the specified folder.
+
+        Args:
+            folder_name (str):
+                The name of the results folder to summarize.
+
+        Returns:
+            tuple (pd.DataFrame, pd.DataFrame):
+                - A summary DataFrame with the number of Wins per synthesizer.
+                - A DataFrame with the results of the benchmark for the specified folder.
+        """
+        return self._handler.summarize(folder_name)
