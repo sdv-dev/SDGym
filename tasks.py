@@ -202,3 +202,8 @@ def rmdir(c, path):
         shutil.rmtree(path, onerror=remove_readonly)
     except PermissionError:
         pass
+
+@task
+def sdgym_benchmark(c):
+    """Run the SDGym benchmark."""
+    c.run('python sdgym/_run_benchmark.py')
