@@ -8,7 +8,7 @@ datasets = ['expedia_hotel_logs', 'child']
     
 
 if __name__ == '__main__':
-    for synthesizer in ['GaussianCopulaSynthesizer', 'TVAESynthesizer']:
+    for synthesizer in ['GaussianCopulaSynthesizer']:
         benchmark_single_table_aws(
             output_destination=OUTPUT_DESTINATION_AWS,
             aws_access_key_id=aws_key, aws_secret_access_key=aws_secret,

@@ -195,6 +195,7 @@ exclude = [
     ".ipynb_checkpoints",
     "tasks.py",
     "static_code_analysis.txt",
+    "*.ipynb"
 ]
 
 [tool.ruff.lint]
