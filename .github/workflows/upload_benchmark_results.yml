@@ -2,6 +2,10 @@ name: Upload SDGym Benchmark results
 
 on:
   workflow_dispatch:
+    inputs:
+      date:
+        description: 'Benchmark date (YYYY-MM-DD), defaults to the first of the current month'
+        required: false
   schedule:
     - cron: '0 6 * * *'
 
@@ -29,6 +33,11 @@ jobs:
         AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         
       run: |
-        BENCHMARK_DATE=$(date -u "+%Y-%m-01")  # First of current month, in UTC
+        if [ -z "${{ github.event.inputs.date }}" ]; then
+          BENCHMARK_DATE=$(date -u "+%Y-%m-01")
+        else
+          BENCHMARK_DATE="${{ github.event.inputs.date }}"
+        fi
+
         echo "Benchmark date: $BENCHMARK_DATE"
         invoke upload_benchmark_results --date "$BENCHMARK_DATE"
