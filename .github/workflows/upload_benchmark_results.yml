@@ -43,4 +43,4 @@ jobs:
         fi
 
         echo "Benchmark date: $BENCHMARK_DATE"
-        invoke upload_benchmark_results --date "$BENCHMARK_DATE"
+        invoke upload-benchmark-results --date "$BENCHMARK_DATE"
