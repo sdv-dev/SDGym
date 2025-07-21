@@ -1,7 +1,7 @@
 import os
 
 from sdgym.benchmark import SDV_SINGLE_TABLE_SYNTHESIZERS, benchmark_single_table_aws
-from sdgym.run_benchmark import OUTPUT_DESTINATION_AWS, RESULT_UPLOADED
+from sdgym._run_benchmark import OUTPUT_DESTINATION_AWS, RESULTS_UPLOADED
 
 aws_key = os.getenv('AWS_ACCESS_KEY_ID')
 aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
@@ -10,7 +10,7 @@ datasets = ['expedia_hotel_logs', 'fake_companies']
 
 
 if __name__ == '__main__':
-    RESULT_UPLOADED = False
+    RESULTS_UPLOADED = False
     for synthesizer in ['GaussianCopulaSynthesizer', 'TVAESynthesizer']:
         benchmark_single_table_aws(
             output_destination=OUTPUT_DESTINATION_AWS,
