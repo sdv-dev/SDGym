@@ -95,3 +95,7 @@ class SDGymResultsExplorer:
                 - A DataFrame with the results of the benchmark for the specified folder.
         """
         return self._handler.summarize(folder_name)
+
+    def all_runs_complete(self, folder_name):
+        """Check if all runs in the specified folder are complete."""
+        return self._handler.all_runs_complete(folder_name)
