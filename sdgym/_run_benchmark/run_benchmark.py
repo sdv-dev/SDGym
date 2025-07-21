@@ -1,7 +1,7 @@
 import os
 
-from sdgym.benchmark import SDV_SINGLE_TABLE_SYNTHESIZERS, benchmark_single_table_aws
 from sdgym._run_benchmark import OUTPUT_DESTINATION_AWS, RESULTS_UPLOADED
+from sdgym.benchmark import SDV_SINGLE_TABLE_SYNTHESIZERS, benchmark_single_table_aws
 
 aws_key = os.getenv('AWS_ACCESS_KEY_ID')
 aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
