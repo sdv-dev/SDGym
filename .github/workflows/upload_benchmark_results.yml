@@ -1,6 +1,9 @@
 name: Upload SDGym Benchmark results
 
 on:
+  push:
+    branches:
+      - issue-425-workflow-sdgym
   workflow_dispatch:
     inputs:
       date:
