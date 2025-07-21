@@ -168,6 +168,11 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
                 'run_id': f's3://{bucket_name}/{top_folder}/run_{today}_{increment}.yaml',
             }
 
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=f'{top_folder}/run_{today}_{increment}.yaml',
+        Body='completed_date: null\n'.encode('utf-8'),
+    )
     return paths
 
 
@@ -1218,10 +1223,8 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
     filename = os.path.basename(job_args_list[0][-1]['run_id'])
-    print(filename)
     run_id = os.path.splitext(filename)[0]
     job_args_key = f'job_args_list_{run_id}.pkl'
-    print(f'Storing job args in S3: {bucket_name}/{path}{job_args_key}')
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = pickle.dumps(job_args_list)
