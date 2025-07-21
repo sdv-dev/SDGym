@@ -100,7 +100,7 @@ class ResultsHandler(ABC):
                 results['Synthesizer'] == SYNTHESIZER_BASELINE, 'Dataset'
             ].nunique()
             folder_to_info[folder] = {
-                'date': run_id_info.get('starting_date')[:10],
+                'date': run_id_info.get('starting_date')[:10],  # Extract only the YYYY-MM-DD
                 'sdgym_version': run_id_info.get('sdgym_version'),
                 '# datasets': num_datasets,
             }
