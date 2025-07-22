@@ -1,6 +1,5 @@
 """Main SDGym benchmarking module."""
 
-import base64
 import concurrent
 import logging
 import math
@@ -24,6 +23,7 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
+from botocore.config import Config
 from sdmetrics.reports.multi_table import (
     DiagnosticReport as MultiTableDiagnosticReport,
 )
@@ -1260,9 +1260,7 @@ s3_client = boto3.client(
     region_name='{region_name}'
 )
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
-encoded_data = response['Body'].read().decode('utf-8')
-serialized_data = base64.b64decode(encoded_data.encode('utf-8'))
-job_args_list = pickle.loads(serialized_data)
+job_args_list = pickle.loads(response['Body'].read())
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_run_id_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
@@ -1427,12 +1425,14 @@ def benchmark_single_table_aws(
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
+    config = Config(connect_timeout=30, read_timeout=300)
     s3_client = _validate_output_destination(
         output_destination,
         aws_keys={
             'aws_access_key_id': aws_access_key_id,
             'aws_secret_access_key': aws_secret_access_key,
         },
+        config=config,
     )
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
