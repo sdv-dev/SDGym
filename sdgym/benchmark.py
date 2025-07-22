@@ -1261,6 +1261,13 @@ from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
+if not LOGGER.handlers:
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    LOGGER.addHandler(handler)
+
 
 s3_client = boto3.client(
     's3',
