@@ -694,7 +694,6 @@ def _run_job(args):
     except Exception as error:
         output['exception'] = error
 
-    print('LA 1')
     scores = _format_output(
         output,
         name,
@@ -704,12 +703,9 @@ def _run_job(args):
         compute_privacy_score,
         cache_dir,
     )
-    print('LA 2')
     if synthesizer_path and result_writer:
-        print(synthesizer_path['benchmark_result'])
         result_writer.write_dataframe(scores, synthesizer_path['benchmark_result'])
 
-    print('LA 3')
     return scores
 
 
@@ -1201,6 +1197,7 @@ def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_acces
             's3',
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
+            region_name='us-east-1',
             config=config,
         )
     else:
@@ -1393,7 +1390,7 @@ def benchmark_single_table_aws(
     limit_dataset_size=False,
     compute_quality_score=True,
     compute_diagnostic_score=True,
-    compute_privacy_score=True,
+    compute_privacy_score=False,
     sdmetrics=None,
     timeout=None,
 ):
