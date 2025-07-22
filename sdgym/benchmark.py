@@ -693,6 +693,7 @@ def _run_job(args):
     except Exception as error:
         output['exception'] = error
 
+    print('LA 1')
     scores = _format_output(
         output,
         name,
@@ -702,10 +703,12 @@ def _run_job(args):
         compute_privacy_score,
         cache_dir,
     )
-
+    print('LA 2')
     if synthesizer_path and result_writer:
+        print(synthesizer_path['benchmark_result'])
         result_writer.write_dataframe(scores, synthesizer_path['benchmark_result'])
 
+    print('LA 3')
     return scores
 
 
