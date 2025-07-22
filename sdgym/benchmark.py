@@ -64,6 +64,7 @@ from sdgym.utils import (
 )
 
 LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
 DEFAULT_DATASETS = [
     'adult',
