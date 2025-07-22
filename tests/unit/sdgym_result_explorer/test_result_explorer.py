@@ -210,3 +210,26 @@ class TestSDGymResultsExplorer:
         # Run and Assert
         with pytest.raises(ValueError, match=expected_error_message):
             result_explorer.load_real_data(dataset_name)
+
+    def test_summarize(self, tmp_path):
+        """Test the `summarize` method."""
+        # Setup
+        output_destination = str(tmp_path / 'benchmark_output')
+        (tmp_path / 'benchmark_output' / 'SDGym_results_07_07_2025').mkdir(parents=True)
+        result_explorer = SDGymResultsExplorer(output_destination)
+        result_explorer._handler = Mock()
+        results = pd.DataFrame({
+            'Synthesizer': ['CTGANSynthesizer', 'CopulaGANSynthesizer', 'TVAESynthesizer'],
+            '10_11_2024 - # datasets: 9 - sdgym version: 0.9.1': [6, 4, 5],
+            '05_10_2024 - # datasets: 9 - sdgym version: 0.8.0': [4, 4, 5],
+            '04_05_2024 - # datasets: 9 - sdgym version: 0.7.0': [5, 3, 5],
+        })
+        results = results.set_index('Synthesizer')
+        result_explorer._handler.summarize = Mock(return_value=results)
+
+        # Run
+        summary = result_explorer.summarize('SDGym_results_07_07_2025')
+
+        # Assert
+        result_explorer._handler.summarize.assert_called_once_with('SDGym_results_07_07_2025')
+        pd.testing.assert_frame_equal(summary, results)

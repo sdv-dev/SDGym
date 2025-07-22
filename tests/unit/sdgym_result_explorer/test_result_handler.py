@@ -8,7 +8,184 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.sdgym_result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
+from sdgym.sdgym_result_explorer.result_handler import (
+    LocalResultsHandler,
+    ResultsHandler,
+    S3ResultsHandler,
+)
+
+
+class TestResultsHandler:
+    """Unit tests for the ResultsHandler class."""
+
+    def test__compute_wins(self):
+        """Test the `_compute_wins` method."""
+        # Setup
+        data = pd.DataFrame({
+            'Dataset': ['A', 'A', 'B', 'B'],
+            'Synthesizer': [
+                'GaussianCopulaSynthesizer',
+                'Synth1',
+                'GaussianCopulaSynthesizer',
+                'Synth1',
+            ],
+            'Quality_Score': [0.5, 0.6, 0.7, 0.6],
+        })
+        handler = LocalResultsHandler(base_path='.')
+
+        # Run
+        handler._compute_wins(data)
+
+        # Assert
+        expected_wins = [0, 1, 0, 0]
+        assert data['Win'].tolist() == expected_wins
+
+    def test__get_summarize_table(self):
+        """Test the `_get_summarize_table` method."""
+        # Setup
+        folder_to_results = {
+            'SDGym_results_07_15_2025': pd.DataFrame({
+                'Dataset': ['A', 'B', 'C'] * 3,
+                'Synthesizer': ['GaussianCopulaSynthesizer'] * 3 + ['Synth1'] * 3 + ['Synth2'] * 3,
+                'Win': [0, 0, 0, 1, 1, 0, 0, 1, 0],
+            })
+        }
+        folder_infos = {
+            'SDGym_results_07_15_2025': {
+                'date': '07_15_2025',
+                'sdgym_version': '0.9.0',
+                '# datasets': 3,
+            }
+        }
+        handler = Mock()
+
+        # Run
+        result = ResultsHandler._get_summarize_table(handler, folder_to_results, folder_infos)
+
+        # Assert
+        expected_summary = pd.DataFrame({
+            '07_15_2025 - # datasets: 3 - sdgym version: 0.9.0': [2, 1],
+            'Synthesizer': ['Synth1', 'Synth2'],
+        })
+        expected_summary = expected_summary.set_index('Synthesizer')
+        pd.testing.assert_frame_equal(result, expected_summary)
+
+    def test_get_column_name_infos(self):
+        """Test the `_get_column_name_infos` method."""
+        # Setup
+        folder = 'SDGym_results_07_15_2025'
+        yaml_content = {
+            'starting_date': '07_15_2025 15:56:03',
+            'sdgym_version': '0.9.0',
+        }
+        result = pd.DataFrame({
+            'Dataset': ['A', 'B', 'C'],
+            'Synthesizer': ['GaussianCopulaSynthesizer'] * 3,
+        })
+        folder_to_results = {folder: result}
+        handler = Mock()
+        handler._get_results_files = Mock(return_value=['run_config.yaml'])
+        handler._load_yaml_file = Mock(return_value=yaml_content)
+
+        # Run
+        info = ResultsHandler._get_column_name_infos(handler, folder_to_results)
+
+        # Assert
+        assert info == {folder: {'date': '07_15_2025', 'sdgym_version': '0.9.0', '# datasets': 3}}
+
+    def test__process_results(self):
+        """Test the `_process_results` method."""
+        # Setup
+        results = [
+            pd.DataFrame({
+                'Dataset': ['A', 'A', 'B', 'B', 'C'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'Synth2', 'Synth1'],
+                'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+            }),
+            pd.DataFrame({
+                'Dataset': ['D', 'D', 'D'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth1'],
+                'Quality_Score': [0.7, 0.8, 0.9],
+            }),
+        ]
+        invalid_results = [
+            pd.DataFrame({
+                'Dataset': ['A', 'A', 'B', 'B', 'C'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth3', 'Synth2', 'Synth1'],
+                'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+            }),
+        ]
+        handler = Mock()
+        expected_error_message = re.escape(
+            'There is no dataset that has been run by all synthesizers. Cannot summarize results.'
+        )
+
+        # Run
+        processed_results = ResultsHandler._process_results(handler, results)
+        with pytest.raises(ValueError, match=expected_error_message):
+            ResultsHandler._process_results(handler, invalid_results)
+
+        # Assert
+        expected_results = pd.DataFrame({
+            'Dataset': ['A', 'A', 'B', 'B', 'D', 'D'],
+            'Synthesizer': ['Synth1', 'Synth2'] * 3,
+            'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.7, 0.8],
+        })
+        pd.testing.assert_frame_equal(processed_results, expected_results)
+
+    def test_summarize(self):
+        """Test the `summarize` method."""
+        # Setup
+        folder_name = 'SDGym_results_07_15_2025'
+        handler = Mock()
+        handler.list = Mock(return_value=[folder_name])
+        handler._get_results_files = Mock(return_value=['results_1.csv', 'results_2.csv'])
+        result_1 = pd.DataFrame({
+            'Dataset': ['A', 'B'],
+            'Synthesizer': ['Synth1'] * 2,
+            'Quality_Score': [0.5, 0.6],
+        })
+        result_2 = pd.DataFrame({
+            'Dataset': ['A', 'B'],
+            'Synthesizer': ['Synth2'] * 2,
+            'Quality_Score': [0.7, 0.8],
+        })
+        result_list = [result_1, result_2]
+        handler._get_results = Mock(return_value=result_list)
+        aggregated_results = pd.concat(result_list, ignore_index=True)
+        handler._compute_wins = Mock()
+        handler._get_column_name_infos = Mock(
+            return_value={
+                folder_name: {'date': '07_15_2025', 'sdgym_version': '0.9.0', '# datasets': 1}
+            }
+        )
+        result = pd.DataFrame({
+            '07_15_2025 - # datasets: 1 - sdgym version: 0.9.0': [1],
+            'Synthesizer': ['Synth1'],
+        }).set_index('Synthesizer')
+        handler._get_summarize_table = Mock(return_value=result)
+        handler._process_results = Mock(return_value=aggregated_results)
+
+        # Run
+        summary, benchmark_result = ResultsHandler.summarize(handler, folder_name)
+
+        # Assert
+        pd.testing.assert_frame_equal(summary, result)
+        pd.testing.assert_frame_equal(benchmark_result, aggregated_results)
+        handler.list.assert_called_once()
+        handler._get_results_files.assert_called_once_with(
+            folder_name, prefix='results_', suffix='.csv'
+        )
+        handler._get_results.assert_called_once_with(
+            folder_name, ['results_1.csv', 'results_2.csv']
+        )
+        handler._process_results.assert_called_once_with(result_list)
+        compute_wing_args = handler._compute_wins.call_args[0][0]
+        pd.testing.assert_frame_equal(compute_wing_args, aggregated_results)
+        _get_column_name_infos_args = handler._get_column_name_infos.call_args[0][0]
+        for folder, agg_result in _get_column_name_infos_args.items():
+            assert folder == folder_name
+            pd.testing.assert_frame_equal(agg_result, aggregated_results)
 
 
 class TestLocalResultsHandler:
