@@ -1259,14 +1259,17 @@ from sdgym.synthesizers import RealTabFormerSynthesizer
 from sdgym.benchmark import _run_jobs, _write_run_id_file, _update_run_id_file
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
-if not LOGGER.handlers:
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    LOGGER.addHandler(handler)
+LOGGER.info("This should show up on CloudWatch / logs")
+
 
 
 s3_client = boto3.client(
