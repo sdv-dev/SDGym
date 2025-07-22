@@ -1186,8 +1186,7 @@ def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_acces
     if not output_destination.startswith('s3://'):
         raise ValueError("'output_destination' must be an S3 URL starting with 's3://'. ")
 
-    parsed_url = urlparse(output_destination)
-    bucket_name = parsed_url.netloc
+    bucket_name, _ = parse_s3_path(output_destination)
     if not bucket_name:
         raise ValueError(f'Invalid S3 URL: {output_destination}')
 
