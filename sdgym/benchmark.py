@@ -1003,9 +1003,10 @@ def _write_run_id_file(synthesizers, job_args_list, result_writer=None):
     }
     for synthesizer in synthesizers:
         if synthesizer not in SDV_SINGLE_TABLE_SYNTHESIZERS:
-            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY[synthesizer]
-            library_version = version(ext_lib)
-            metadata[f'{ext_lib}_version'] = library_version
+            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY.get(synthesizer)
+            if ext_lib:
+                library_version = version(ext_lib)
+                metadata[f'{ext_lib}_version'] = library_version
         elif 'sdv' not in metadata.keys():
             metadata['sdv_version'] = version('sdv')
 
