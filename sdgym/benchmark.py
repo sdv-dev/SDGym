@@ -1249,6 +1249,7 @@ import pickle
 import base64
 import pandas as pd
 import sdgym
+import logging
 from sdgym.synthesizers.sdv import (
     CopulaGANSynthesizer, CTGANSynthesizer,
     GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer,
@@ -1258,6 +1259,8 @@ from sdgym.synthesizers import RealTabFormerSynthesizer
 from sdgym.benchmark import _run_jobs, _write_run_id_file, _update_run_id_file
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 s3_client = boto3.client(
     's3',
