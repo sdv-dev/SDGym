@@ -1229,8 +1229,7 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = pickle.dumps(job_args_list)
-    encoded_data = base64.b64encode(serialized_data).decode('utf-8')
-    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=encoded_data)
+    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=serialized_data)
 
     return bucket_name, job_args_key
 
