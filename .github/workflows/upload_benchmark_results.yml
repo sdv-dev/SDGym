@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - issue-425-workflow-sdgym
+  workflow_run:
+    workflows: ["Run SDGym Benchmark"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       date:
