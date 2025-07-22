@@ -8,7 +8,6 @@ aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
 datasets = ['expedia_hotel_logs', 'fake_companies']
 
 if __name__ == '__main__':
-    run_benchmark.RESULTS_UPLOADED = False
     for synthesizer in ['GaussianCopulaSynthesizer', 'TVAESynthesizer']:
         benchmark_single_table_aws(
             output_destination=run_benchmark.OUTPUT_DESTINATION_AWS,
