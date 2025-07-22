@@ -542,9 +542,12 @@ def test_setup_output_destination_aws(mock_get_run_id_increment):
 
 @patch('sdgym.benchmark.boto3.client')
 @patch('sdgym.benchmark._check_write_permissions')
-def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_client):
+@patch('sdgym.benchmark.Config')
+def test_validate_aws_inputs_valid(mock_config, mock_check_write_permissions, mock_boto3_client):
     """Test `_validate_aws_inputs` with valid inputs and credentials."""
     # Setup
+    config_mock = Mock()
+    mock_config.return_value = config_mock
     valid_url = 's3://my-bucket/some/path'
     s3_client_mock = Mock()
     mock_boto3_client.return_value = s3_client_mock
@@ -557,7 +560,7 @@ def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_clie
 
     # Assert
     mock_boto3_client.assert_called_once_with(
-        's3', aws_access_key_id='AKIA...', aws_secret_access_key='SECRET'
+        's3', aws_access_key_id='AKIA...', aws_secret_access_key='SECRET', config=config_mock
     )
     s3_client_mock.head_bucket.assert_called_once_with(Bucket='my-bucket')
     mock_check_write_permissions.assert_called_once_with(s3_client_mock, 'my-bucket')

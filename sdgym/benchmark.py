@@ -1191,15 +1191,17 @@ def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_acces
     if not bucket_name:
         raise ValueError(f'Invalid S3 URL: {output_destination}')
 
+    config = Config(connect_timeout=30, read_timeout=300)
     if aws_access_key_id and aws_secret_access_key:
         s3_client = boto3.client(
             's3',
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
+            config=config,
         )
     else:
         # No credentials provided — rely on default session
-        s3_client = boto3.client('s3')
+        s3_client = boto3.client('s3', config=config)
 
     s3_client.head_bucket(Bucket=bucket_name)
     if not _check_write_permissions(s3_client, bucket_name):
@@ -1425,14 +1427,12 @@ def benchmark_single_table_aws(
         pandas.DataFrame:
             A table containing one row per synthesizer + dataset + metric.
     """
-    config = Config(connect_timeout=30, read_timeout=300)
     s3_client = _validate_output_destination(
         output_destination,
         aws_keys={
             'aws_access_key_id': aws_access_key_id,
             'aws_secret_access_key': aws_secret_access_key,
         },
-        config=config,
     )
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
