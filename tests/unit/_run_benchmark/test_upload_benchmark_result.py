@@ -12,6 +12,7 @@ from sdgym._run_benchmark.upload_benchmark_results import (
     upload_results,
     write_uploaded_marker,
 )
+from sdgym.s3 import S3_REGION
 
 
 @patch('sdgym._run_benchmark.upload_benchmark_results.argparse.ArgumentParser')
@@ -120,7 +121,10 @@ def test_get_run_name_and_s3_vars(
     assert result == expected_result
     mock_get_run_name.assert_called_once_with('2023-10-01')
     mock_boto_client.assert_called_once_with(
-        's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=S3_REGION,
     )
     mock_parse_s3_path.assert_called_once_with(mock_output_destination_aws)
 
