@@ -26,8 +26,8 @@ def test_make_summary_spreadsheet(
 
     The ``make_summary_spreadsheet`` function is expected to extract the correct
     columns from the input file and add them to the correct sheets. It should
-    then use the ``aws_key`` and ``aws_secret`` provided to call ``sdgym.s3.write_file``
-    and save the output document.
+    then use the ``aws_access_key_id`` and ``aws_secret_access_key`` provided to
+    call ``sdgym.s3.write_file`` and save the output document.
 
     Input:
     - file path to results csv.
