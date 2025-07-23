@@ -372,21 +372,23 @@ def test__validate_output_destination(tmp_path):
 
 
 @patch('sdgym.benchmark._validate_aws_inputs')
-def test__validate_output_destination_with_aws_keys(mock_validate):
+def test__validate_output_destination_with_aws_access_key_ids(mock_validate):
     """Test the `_validate_output_destination` function with AWS keys."""
     # Setup
     output_destination = 's3://my-bucket/path/to/file'
-    aws_keys = {
+    aws_access_key_ids = {
         'aws_access_key_id': 'mock_access_key',
         'aws_secret_access_key': 'mock_secret_key',
     }
 
     # Run
-    _validate_output_destination(output_destination, aws_keys)
+    _validate_output_destination(output_destination, aws_access_key_ids)
 
     # Assert
     mock_validate.assert_called_once_with(
-        output_destination, aws_keys['aws_access_key_id'], aws_keys['aws_secret_access_key']
+        output_destination,
+        aws_access_key_ids['aws_access_key_id'],
+        aws_access_key_ids['aws_secret_access_key'],
     )
 
 

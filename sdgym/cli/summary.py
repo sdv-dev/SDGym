@@ -289,7 +289,11 @@ def _add_summary(data, modality, baselines, writer):
 
 
 def make_summary_spreadsheet(
-    results_csv_path, output_path=None, baselines=None, aws_key=None, aws_secret=None
+    results_csv_path,
+    output_path=None,
+    baselines=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
 ):
     """Create a spreadsheet document organizing information from results.
 
@@ -307,7 +311,7 @@ def make_summary_spreadsheet(
             Optional dict mapping modalities to a list of baseline
             model names. If not provided, a default dict is used.
     """
-    results = read_csv(results_csv_path, aws_key, aws_secret)
+    results = read_csv(results_csv_path, aws_access_key_id, aws_secret_access_key)
     data = preprocess(results)
     baselines = baselines or MODALITY_BASELINES
     output_path = output_path or re.sub('.csv$', '.xlsx', results_csv_path)
@@ -319,4 +323,4 @@ def make_summary_spreadsheet(
         _add_summary(df, modality, modality_baselines, writer)
 
     writer.save()
-    write_file(output.getvalue(), output_path, aws_key, aws_secret)
+    write_file(output.getvalue(), output_path, aws_access_key_id, aws_secret_access_key)
