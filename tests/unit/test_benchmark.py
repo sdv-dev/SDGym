@@ -25,6 +25,7 @@ from sdgym.benchmark import (
     benchmark_single_table_aws,
 )
 from sdgym.result_writer import LocalResultsWriter
+from sdgym.s3 import S3_REGION
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
 
@@ -560,7 +561,11 @@ def test_validate_aws_inputs_valid(mock_config, mock_check_write_permissions, mo
 
     # Assert
     mock_boto3_client.assert_called_once_with(
-        's3', aws_access_key_id='AKIA...', aws_secret_access_key='SECRET', config=config_mock
+        's3',
+        aws_access_key_id='AKIA...',
+        aws_secret_access_key='SECRET',
+        region_name=S3_REGION,
+        config=config_mock,
     )
     s3_client_mock.head_bucket.assert_called_once_with(Bucket='my-bucket')
     mock_check_write_permissions.assert_called_once_with(s3_client_mock, 'my-bucket')
@@ -654,7 +659,7 @@ def test_benchmark_single_table_aws(
         output_destination=output_destination,
         compute_quality_score=True,
         compute_diagnostic_score=True,
-        compute_privacy_score=True,
+        compute_privacy_score=False,
         synthesizers=synthesizers,
         detailed_results_folder=None,
         custom_synthesizers=None,

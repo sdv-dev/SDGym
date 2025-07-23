@@ -10,6 +10,7 @@ import botocore
 import pandas as pd
 
 S3_PREFIX = 's3://'
+S3_REGION = 'us-east-1'
 LOGGER = logging.getLogger(__name__)
 
 
