@@ -45,6 +45,7 @@ from sdgym.progress import TqdmLogger, progress
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.s3 import (
     S3_PREFIX,
+    S3_REGION,
     is_s3_path,
     parse_s3_path,
     write_csv,
@@ -331,7 +332,6 @@ def _compute_scores(
     modality,
     dataset_name,
 ):
-    LOGGER.info('ROM Computing scores for dataset %s', dataset_name)
     metrics = metrics or []
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, modality='single-table')
@@ -369,7 +369,6 @@ def _compute_scores(
             # re-inject list to multiprocessing output
             output['scores'] = scores
 
-    LOGGER.info('ROM before diagnostic score')
     if compute_diagnostic_score:
         start = get_utc_now()
         if modality == 'single_table':
@@ -381,7 +380,6 @@ def _compute_scores(
         output['diagnostic_score_time'] = calculate_score_time(start)
         output['diagnostic_score'] = diagnostic_report.get_score()
 
-    LOGGER.info('ROM before quality score')
     if compute_quality_score:
         start = get_utc_now()
         if modality == 'single_table':
@@ -390,12 +388,9 @@ def _compute_scores(
             quality_report = MultiTableQualityReport()
 
         quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
-        LOGGER.info('ROM Quality report generated')
         output['quality_score_time'] = calculate_score_time(start)
-        LOGGER.info('ROM before quality score get_score')
         output['quality_score'] = quality_report.get_score()
 
-    LOGGER.info('ROM before privacy score')
     if compute_privacy_score:
         start = get_utc_now()
         num_rows = len(synthetic_data)
@@ -1202,7 +1197,7 @@ def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_acces
             's3',
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
-            region_name='us-east-1',
+            region_name=S3_REGION,
             config=config,
         )
     else:
@@ -1248,31 +1243,9 @@ def _get_s3_script_content(
     return f"""
 import boto3
 import pickle
-import base64
-import pandas as pd
-import sdgym
-import logging
-from sdgym.synthesizers.sdv import (
-    CopulaGANSynthesizer, CTGANSynthesizer,
-    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer,
-    SDVRelationalSynthesizer, SDVTabularSynthesizer, TVAESynthesizer
-)
-from sdgym.synthesizers import RealTabFormerSynthesizer
 from sdgym.benchmark import _run_jobs, _write_run_id_file, _update_run_id_file
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
-import sys
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
-)
-
-LOGGER = logging.getLogger(__name__)
-LOGGER.info("This should show up on CloudWatch / logs")
-
-
 
 s3_client = boto3.client(
     's3',
@@ -1337,11 +1310,10 @@ def _run_on_aws(
     aws_secret_access_key,
 ):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
-    region_name = 'us-east-1'
     script_content = _get_s3_script_content(
         aws_access_key_id,
         aws_secret_access_key,
-        region_name,
+        S3_REGION,
         bucket_name,
         job_args_key,
         synthesizers,
@@ -1351,12 +1323,12 @@ def _run_on_aws(
     session = boto3.session.Session(
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name,
+        region_name=S3_REGION,
     )
     ec2_client = session.client('ec2')
     print(f'This instance is being created in region: {session.region_name}')  # noqa
     user_data_script = _get_user_data_script(
-        aws_access_key_id, aws_secret_access_key, region_name, script_content
+        aws_access_key_id, aws_secret_access_key, S3_REGION, script_content
     )
     response = ec2_client.run_instances(
         ImageId='ami-080e1f13689e07408',
