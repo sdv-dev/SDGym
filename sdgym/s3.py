@@ -209,6 +209,7 @@ def _get_s3_client(output_destination, aws_access_key_id=None, aws_secret_access
             's3',
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
+            region_name=S3_REGION,
         )
     else:
         s3_client = boto3.client('s3')
