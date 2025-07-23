@@ -14,6 +14,7 @@ from sdgym.datasets import (
     get_dataset_paths,
     load_dataset,
 )
+from sdgym.s3 import S3_REGION
 
 
 class AnyConfigWith:
@@ -136,7 +137,10 @@ def test__download_dataset_private_bucket(boto3_mock, tmpdir):
 
     # asserts
     boto3_mock.client.assert_called_once_with(
-        's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=S3_REGION,
     )
     s3_mock.get_object.assert_called_once_with(
         Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip'
