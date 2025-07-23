@@ -65,7 +65,6 @@ from sdgym.utils import (
 )
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
 DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
 DEFAULT_DATASETS = [
     'adult',
@@ -1367,7 +1366,7 @@ def benchmark_single_table_aws(
     limit_dataset_size=False,
     compute_quality_score=True,
     compute_diagnostic_score=True,
-    compute_privacy_score=False,
+    compute_privacy_score=True,
     sdmetrics=None,
     timeout=None,
 ):
