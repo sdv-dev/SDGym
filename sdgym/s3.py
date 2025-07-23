@@ -68,7 +68,10 @@ def get_s3_client(aws_access_key_id=None, aws_secret_access_key=None):
     if aws_access_key_id is not None and aws_secret_access_key is not None:
         # credentials available
         return boto3.client(
-            's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=S3_REGION,
         )
     else:
         if boto3.Session().get_credentials():
