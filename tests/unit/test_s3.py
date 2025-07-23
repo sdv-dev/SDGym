@@ -9,6 +9,7 @@ import pytest
 from botocore.exceptions import NoCredentialsError
 
 from sdgym.s3 import (
+    S3_REGION,
     _get_s3_client,
     _upload_dataframe_to_s3,
     _upload_pickle_to_s3,
@@ -178,7 +179,10 @@ def test_write_file_s3(boto3_mock):
 
     # asserts
     boto3_mock.client.assert_called_once_with(
-        's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=S3_REGION,
     )
     s3_mock.put_object.assert_called_once_with(
         Bucket=bucket_name,
@@ -307,6 +311,7 @@ def test__get_s3_client_with_credentials(mock_boto_client):
         's3',
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+        region_name=S3_REGION,
     )
     mock_s3_client.head_bucket.assert_called_once_with(Bucket='my-bucket')
 
