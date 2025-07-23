@@ -9,7 +9,7 @@ from botocore.exceptions import ClientError
 
 from sdgym._run_benchmark import OUTPUT_DESTINATION_AWS
 from sdgym.result_writer import S3ResultsWriter
-from sdgym.s3 import parse_s3_path
+from sdgym.s3 import S3_REGION, parse_s3_path
 from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer
 
 LOGGER = logging.getLogger(__name__)
@@ -57,7 +57,10 @@ def get_run_name_and_s3_vars(aws_access_key_id, aws_secret_access_key):
     run_name = get_run_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     s3_client = boto3.client(
-        's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=S3_REGION,
     )
 
     return run_name, s3_client, bucket, prefix

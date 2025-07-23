@@ -659,7 +659,7 @@ def test_benchmark_single_table_aws(
         output_destination=output_destination,
         compute_quality_score=True,
         compute_diagnostic_score=True,
-        compute_privacy_score=False,
+        compute_privacy_score=True,
         synthesizers=synthesizers,
         detailed_results_folder=None,
         custom_synthesizers=None,
