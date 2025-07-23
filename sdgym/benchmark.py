@@ -331,6 +331,7 @@ def _compute_scores(
     modality,
     dataset_name,
 ):
+    LOGGER.info('ROM Computing scores for dataset %s', dataset_name)
     metrics = metrics or []
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, modality='single-table')
@@ -368,6 +369,7 @@ def _compute_scores(
             # re-inject list to multiprocessing output
             output['scores'] = scores
 
+    LOGGER.info('ROM before diagnostic score')
     if compute_diagnostic_score:
         start = get_utc_now()
         if modality == 'single_table':
@@ -379,6 +381,7 @@ def _compute_scores(
         output['diagnostic_score_time'] = calculate_score_time(start)
         output['diagnostic_score'] = diagnostic_report.get_score()
 
+    LOGGER.info('ROM before quality score')
     if compute_quality_score:
         start = get_utc_now()
         if modality == 'single_table':
@@ -387,9 +390,12 @@ def _compute_scores(
             quality_report = MultiTableQualityReport()
 
         quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
+        LOGGER.info('ROM Quality report generated')
         output['quality_score_time'] = calculate_score_time(start)
+        LOGGER.info('ROM before quality score get_score')
         output['quality_score'] = quality_report.get_score()
 
+    LOGGER.info('ROM before privacy score')
     if compute_privacy_score:
         start = get_utc_now()
         num_rows = len(synthetic_data)
