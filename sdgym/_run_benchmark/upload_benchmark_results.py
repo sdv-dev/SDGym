@@ -87,14 +87,16 @@ def upload_results(aws_access_key_id, aws_secret_access_key, run_name, s3_client
 
 
 def main():
-    aws_key = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
-    run_name, s3_client, bucket, prefix = get_run_name_and_s3_vars(aws_key, aws_secret)
+    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    run_name, s3_client, bucket, prefix = get_run_name_and_s3_vars(
+        aws_access_key_id, aws_secret_access_key
+    )
     if upload_already_done(s3_client, bucket, prefix, run_name):
         LOGGER.info('Benchmark results have already been uploaded. Exiting.')
         sys.exit(0)
 
-    upload_results(aws_key, aws_secret, run_name, s3_client, bucket, prefix)
+    upload_results(aws_access_key_id, aws_secret_access_key, run_name, s3_client, bucket, prefix)
 
 
 if __name__ == '__main__':

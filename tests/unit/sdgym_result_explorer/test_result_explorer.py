@@ -191,10 +191,13 @@ class TestSDGymResultsExplorer:
 
         # Assert
         mock_get_dataset_paths.assert_called_once_with(
-            datasets=[dataset_name], aws_key=None, aws_secret=None
+            datasets=[dataset_name], aws_access_key_id=None, aws_secret_access_key=None
         )
         mock_load_dataset.assert_called_once_with(
-            'single_table', 'path/to/adult/dataset', aws_key=None, aws_secret=None
+            'single_table',
+            'path/to/adult/dataset',
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
         )
         pd.testing.assert_frame_equal(real_data, expected_data)
 

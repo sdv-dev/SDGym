@@ -120,8 +120,8 @@ def test_write_file(tmpdir):
     Input:
     - contents of the local file
     - path to the local file
-    - aws_key is None
-    - aws_secret is None
+    - aws_access_key_id is None
+    - aws_secret_access_key is None
 
     Output:
     - None
@@ -151,14 +151,14 @@ def test_write_file_s3(boto3_mock):
     Input:
     - contents of the s3 file
     - path to the s3 file location
-    - aws_key for aws authentication
-    - aws_secret for aws authentication
+    - aws_access_key_id for aws authentication
+    - aws_secret_access_key for aws authentication
 
     Output:
     - None
 
     Side effects:
-    - s3 client creation with aws credentials (aws_key, aws_secret)
+    - s3 client creation with aws credentials (aws_access_key_id, aws_secret_access_key)
     - s3 method call to create a file in the given bucket with the
       given contents
     """
@@ -167,18 +167,18 @@ def test_write_file_s3(boto3_mock):
     bucket_name = 'my-bucket'
     key = 'test.txt'
     path = f's3://{bucket_name}/{key}'
-    aws_key = 'my-key'
-    aws_secret = 'my-secret'
+    aws_access_key_id = 'my-key'
+    aws_secret_access_key = 'my-secret'
 
     s3_mock = Mock()
     boto3_mock.client.return_value = s3_mock
 
     # run
-    write_file(content_str.encode('utf-8'), path, aws_key, aws_secret)
+    write_file(content_str.encode('utf-8'), path, aws_access_key_id, aws_secret_access_key)
 
     # asserts
     boto3_mock.client.assert_called_once_with(
-        's3', aws_access_key_id=aws_key, aws_secret_access_key=aws_secret
+        's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
     )
     s3_mock.put_object.assert_called_once_with(
         Bucket=bucket_name,
@@ -199,8 +199,8 @@ def test_write_csv(write_file_mock):
     Input:
     - data to be written to the csv file
     - path of the desired csv file
-    - aws_key is None
-    - aws_secret is None
+    - aws_access_key_id is None
+    - aws_secret_access_key is None
 
     Output:
     - None

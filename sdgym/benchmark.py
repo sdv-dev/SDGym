@@ -242,11 +242,25 @@ def _generate_job_args_list(
     synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
 
     # Get list of dataset paths
-    sdv_datasets = [] if sdv_datasets is None else get_dataset_paths(datasets=sdv_datasets)
+    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+    aws_secret_access_key_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    sdv_datasets = (
+        []
+        if sdv_datasets is None
+        else get_dataset_paths(
+            datasets=sdv_datasets,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key_key,
+        )
+    )
     additional_datasets = (
         []
         if additional_datasets_folder is None
-        else get_dataset_paths(bucket=additional_datasets_folder)
+        else get_dataset_paths(
+            bucket=additional_datasets_folder,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key_key,
+        )
     )
     datasets = sdv_datasets + additional_datasets
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]

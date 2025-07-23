@@ -110,8 +110,8 @@ def test__download_dataset_private_bucket(boto3_mock, tmpdir):
     modality = 'single_table'
     dataset = 'my_dataset'
     bucket = 's3://my_bucket'
-    aws_key = 'my_key'
-    aws_secret = 'my_secret'
+    aws_access_key_id = 'my_key'
+    aws_secret_access_key = 'my_secret'
     bytesio = io.BytesIO()
 
     with ZipFile(bytesio, mode='w') as zf:
@@ -130,13 +130,13 @@ def test__download_dataset_private_bucket(boto3_mock, tmpdir):
         dataset,
         datasets_path=str(tmpdir),
         bucket=bucket,
-        aws_key=aws_key,
-        aws_secret=aws_secret,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
     )
 
     # asserts
     boto3_mock.client.assert_called_once_with(
-        's3', aws_access_key_id=aws_key, aws_secret_access_key=aws_secret
+        's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
     )
     s3_mock.get_object.assert_called_once_with(
         Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip'
