@@ -9,7 +9,7 @@ on:
     - cron: '0 5 1 * *'
 
 jobs:
-  sdgym-benchmark:
+  run-sdgym-benchmark:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -31,4 +31,4 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
 
-      run: invoke sdgym-benchmark
+      run: invoke run-sdgym-benchmark
