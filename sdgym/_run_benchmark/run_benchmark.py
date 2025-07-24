@@ -2,12 +2,12 @@ import json
 import os
 from datetime import datetime, timezone
 
+from botocore.exceptions import ClientError
+
 import sdgym._run_benchmark as run_benchmark
 from sdgym._run_benchmark._utils import get_run_name
 from sdgym.benchmark import benchmark_single_table_aws
 from sdgym.s3 import get_s3_client, parse_s3_path
-
-datasets = ['expedia_hotel_logs', 'fake_companies']  # DEFAULT_DATASETS
 
 
 def append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str):
@@ -21,7 +21,7 @@ def append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str):
         object = s3_client.get_object(Bucket=bucket, Key=f'{prefix}{key}')
         body = object['Body'].read().decode('utf-8')
         data = json.loads(body)
-    except s3_client.exceptions.ClientError as e:
+    except ClientError as e:
         if e.response['Error']['Code'] == 'NoSuchKey':
             data = {'runs': []}
         else:
@@ -36,13 +36,12 @@ def main():
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    for synthesizer in ['GaussianCopulaSynthesizer', 'TVAESynthesizer']:
+    for synthesizer in run_benchmark.SYNTHESIZERS:
         benchmark_single_table_aws(
             output_destination=run_benchmark.OUTPUT_DESTINATION_AWS,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
             synthesizers=[synthesizer],
-            sdv_datasets=datasets,
             compute_privacy_score=False,
         )
 

@@ -206,7 +206,7 @@ def test_main_already_upload(
 
     # Assert
     mock_get_run_name_and_s3_vars.assert_called_once_with('my_access_key', 'my_secret_key')
-    mock_logger.info.assert_called_once_with(expected_log_message)
+    mock_logger.warning.assert_called_once_with(expected_log_message)
     mock_upload_results.assert_not_called()
 
 
