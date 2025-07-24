@@ -155,6 +155,19 @@ class ResultsHandler(ABC):
 
         return summarized_table, folder_to_results[folder_name]
 
+    def all_runs_complete(self, folder_name):
+        """Check if all runs in the specified folder are complete."""
+        yaml_files = self._get_results_files(folder_name, prefix=RUN_ID_PREFIX, suffix='.yaml')
+        if not yaml_files:
+            return False
+
+        for yaml_file in yaml_files:
+            run_id_info = self._load_yaml_file(folder_name, yaml_file)
+            if run_id_info.get('completed_date') is None:
+                return False
+
+        return True
+
 
 class LocalResultsHandler(ResultsHandler):
     """Results handler for local filesystem."""

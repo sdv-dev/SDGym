@@ -1,6 +1,5 @@
 """Main SDGym benchmarking module."""
 
-import base64
 import concurrent
 import logging
 import math
@@ -24,6 +23,7 @@ import compress_pickle
 import numpy as np
 import pandas as pd
 import tqdm
+from botocore.config import Config
 from sdmetrics.reports.multi_table import (
     DiagnosticReport as MultiTableDiagnosticReport,
 )
@@ -45,6 +45,7 @@ from sdgym.progress import TqdmLogger, progress
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.s3 import (
     S3_PREFIX,
+    S3_REGION,
     is_s3_path,
     parse_s3_path,
     write_csv,
@@ -168,6 +169,11 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
                 'run_id': f's3://{bucket_name}/{top_folder}/run_{today}_{increment}.yaml',
             }
 
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=f'{top_folder}/run_{today}_{increment}.yaml',
+        Body='completed_date: null\n'.encode('utf-8'),
+    )
     return paths
 
 
@@ -236,11 +242,25 @@ def _generate_job_args_list(
     synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
 
     # Get list of dataset paths
-    sdv_datasets = [] if sdv_datasets is None else get_dataset_paths(datasets=sdv_datasets)
+    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+    aws_secret_access_key_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    sdv_datasets = (
+        []
+        if sdv_datasets is None
+        else get_dataset_paths(
+            datasets=sdv_datasets,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key_key,
+        )
+    )
     additional_datasets = (
         []
         if additional_datasets_folder is None
-        else get_dataset_paths(bucket=additional_datasets_folder)
+        else get_dataset_paths(
+            bucket=additional_datasets_folder,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key_key,
+        )
     )
     datasets = sdv_datasets + additional_datasets
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
@@ -697,7 +717,6 @@ def _run_job(args):
         compute_privacy_score,
         cache_dir,
     )
-
     if synthesizer_path and result_writer:
         result_writer.write_dataframe(scores, synthesizer_path['benchmark_result'])
 
@@ -998,9 +1017,10 @@ def _write_run_id_file(synthesizers, job_args_list, result_writer=None):
     }
     for synthesizer in synthesizers:
         if synthesizer not in SDV_SINGLE_TABLE_SYNTHESIZERS:
-            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY[synthesizer]
-            library_version = version(ext_lib)
-            metadata[f'{ext_lib}_version'] = library_version
+            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY.get(synthesizer)
+            if ext_lib:
+                library_version = version(ext_lib)
+                metadata[f'{ext_lib}_version'] = library_version
         elif 'sdv' not in metadata.keys():
             metadata['sdv_version'] = version('sdv')
 
@@ -1180,20 +1200,22 @@ def _validate_aws_inputs(output_destination, aws_access_key_id, aws_secret_acces
     if not output_destination.startswith('s3://'):
         raise ValueError("'output_destination' must be an S3 URL starting with 's3://'. ")
 
-    parsed_url = urlparse(output_destination)
-    bucket_name = parsed_url.netloc
+    bucket_name, _ = parse_s3_path(output_destination)
     if not bucket_name:
         raise ValueError(f'Invalid S3 URL: {output_destination}')
 
+    config = Config(connect_timeout=30, read_timeout=300)
     if aws_access_key_id and aws_secret_access_key:
         s3_client = boto3.client(
             's3',
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
+            region_name=S3_REGION,
+            config=config,
         )
     else:
         # No credentials provided — rely on default session
-        s3_client = boto3.client('s3')
+        s3_client = boto3.client('s3', config=config)
 
     s3_client.head_bucket(Bucket=bucket_name)
     if not _check_write_permissions(s3_client, bucket_name):
@@ -1223,8 +1245,7 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = pickle.dumps(job_args_list)
-    encoded_data = base64.b64encode(serialized_data).decode('utf-8')
-    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=encoded_data)
+    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=serialized_data)
 
     return bucket_name, job_args_key
 
@@ -1235,15 +1256,6 @@ def _get_s3_script_content(
     return f"""
 import boto3
 import pickle
-import base64
-import pandas as pd
-import sdgym
-from sdgym.synthesizers.sdv import (
-    CopulaGANSynthesizer, CTGANSynthesizer,
-    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer,
-    SDVRelationalSynthesizer, SDVTabularSynthesizer, TVAESynthesizer
-)
-from sdgym.synthesizers import RealTabFormerSynthesizer
 from sdgym.benchmark import _run_jobs, _write_run_id_file, _update_run_id_file
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
@@ -1255,9 +1267,7 @@ s3_client = boto3.client(
     region_name='{region_name}'
 )
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
-encoded_data = response['Body'].read().decode('utf-8')
-serialized_data = base64.b64decode(encoded_data.encode('utf-8'))
-job_args_list = pickle.loads(serialized_data)
+job_args_list = pickle.loads(response['Body'].read())
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_run_id_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
@@ -1287,7 +1297,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install "sdgym[all]"
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-425-workflow-sdgym#egg=sdgym"
         pip install s3fs
 
         echo "======== Write Script ==========="
@@ -1313,11 +1323,10 @@ def _run_on_aws(
     aws_secret_access_key,
 ):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
-    region_name = 'us-east-1'
     script_content = _get_s3_script_content(
         aws_access_key_id,
         aws_secret_access_key,
-        region_name,
+        S3_REGION,
         bucket_name,
         job_args_key,
         synthesizers,
@@ -1327,12 +1336,12 @@ def _run_on_aws(
     session = boto3.session.Session(
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name,
+        region_name=S3_REGION,
     )
     ec2_client = session.client('ec2')
     print(f'This instance is being created in region: {session.region_name}')  # noqa
     user_data_script = _get_user_data_script(
-        aws_access_key_id, aws_secret_access_key, region_name, script_content
+        aws_access_key_id, aws_secret_access_key, S3_REGION, script_content
     )
     response = ec2_client.run_instances(
         ImageId='ami-080e1f13689e07408',
