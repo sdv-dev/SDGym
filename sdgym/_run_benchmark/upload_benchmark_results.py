@@ -1,8 +1,7 @@
-import argparse
+import json
 import logging
 import os
 import sys
-from datetime import datetime
 
 import boto3
 from botocore.exceptions import ClientError
@@ -15,19 +14,15 @@ from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer
 LOGGER = logging.getLogger(__name__)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--date', type=str, help='Benchmark date (YYYY-MM-DD)')
-    return parser.parse_args()
-
-
-def get_run_name(date_str):
+def get_latest_run_from_file(s3_client, bucket, key):
     try:
-        date = datetime.strptime(date_str, '%Y-%m-%d')
-    except ValueError:
-        raise ValueError(f'Invalid date format: {date_str}. Expected YYYY-MM-DD.')
-
-    return f'SDGym_results_{date.month:02d}_{date.day:02d}_{date.year}'
+        object = s3_client.get_object(Bucket=bucket, Key=key)
+        body = object['Body'].read().decode('utf-8')
+        data = json.loads(body)
+        latest = sorted(data['runs'], key=lambda x: x['date'])[-1]
+        return latest['run_name']
+    except s3_client.exceptions.ClientError as e:
+        raise RuntimeError(f'Failed to read {key} from S3: {e}')
 
 
 def write_uploaded_marker(s3_client, bucket, prefix, run_name):
@@ -48,13 +43,6 @@ def upload_already_done(s3_client, bucket, prefix, run_name):
 
 
 def get_run_name_and_s3_vars(aws_access_key_id, aws_secret_access_key):
-    args = parse_args()
-    if args.date:
-        date_str = args.date
-    else:
-        date_str = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
-
-    run_name = get_run_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     s3_client = boto3.client(
         's3',
@@ -62,6 +50,7 @@ def get_run_name_and_s3_vars(aws_access_key_id, aws_secret_access_key):
         aws_secret_access_key=aws_secret_access_key,
         region_name=S3_REGION,
     )
+    run_name = get_latest_run_from_file(s3_client, bucket, f'{prefix}_BENCHMARK_DATES.json')
 
     return run_name, s3_client, bucket, prefix
 
@@ -75,7 +64,7 @@ def upload_results(aws_access_key_id, aws_secret_access_key, run_name, s3_client
     result_writer = S3ResultsWriter(s3_client)
 
     if not result_explorer.all_runs_complete(run_name):
-        LOGGER.info(f'Run {run_name} is not complete yet. Exiting.')
+        LOGGER.warning(f'Run {run_name} is not complete yet. Exiting.')
         sys.exit(0)
 
     LOGGER.info(f'Run {run_name} is complete! Proceeding with summarization...')
