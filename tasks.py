@@ -204,7 +204,7 @@ def rmdir(c, path):
         pass
 
 @task
-def sdgym_benchmark(c):
+def run_sdgym_benchmark(c):
     """Run the SDGym benchmark."""
     c.run('python sdgym/_run_benchmark/run_benchmark.py')
 
