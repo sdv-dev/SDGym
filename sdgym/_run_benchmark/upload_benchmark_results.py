@@ -82,7 +82,7 @@ def main():
         aws_access_key_id, aws_secret_access_key
     )
     if upload_already_done(s3_client, bucket, prefix, run_name):
-        LOGGER.info('Benchmark results have already been uploaded. Exiting.')
+        LOGGER.warning('Benchmark results have already been uploaded. Exiting.')
         sys.exit(0)
 
     upload_results(aws_access_key_id, aws_secret_access_key, run_name, s3_client, bucket, prefix)
