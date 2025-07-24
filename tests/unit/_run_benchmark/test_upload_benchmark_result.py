@@ -4,45 +4,13 @@ import pytest
 from botocore.exceptions import ClientError
 
 from sdgym._run_benchmark.upload_benchmark_results import (
-    get_run_name,
     get_run_name_and_s3_vars,
     main,
-    parse_args,
     upload_already_done,
     upload_results,
     write_uploaded_marker,
 )
 from sdgym.s3 import S3_REGION
-
-
-@patch('sdgym._run_benchmark.upload_benchmark_results.argparse.ArgumentParser')
-def test_parse_args(mock_argparse):
-    """Test the `parse_args` method."""
-    # Setup
-    parser = mock_argparse.return_value
-    parser.parse_args.return_value = Mock(date='01-07-2025')
-    mock_argparse.return_value.add_argument = Mock()
-
-    # Run
-    args = parse_args()
-
-    # Assert
-    assert args.date == '01-07-2025'
-    parser.add_argument.assert_called_once_with(
-        '--date', type=str, help='Benchmark date (YYYY-MM-DD)'
-    )
-    parser.parse_args.assert_called_once()
-
-
-def test_get_run_name():
-    """Test the `get_run_name` method."""
-    # Setup
-    expected_error_message = 'Invalid date format: invalid-date. Expected YYYY-MM-DD.'
-
-    # Run and Assert
-    assert get_run_name('2023-10-01') == 'SDGym_results_10_01_2023'
-    with pytest.raises(ValueError, match=expected_error_message):
-        get_run_name('invalid-date')
 
 
 def test_write_uploaded_marker():
@@ -92,34 +60,30 @@ def test_upload_already_done():
     assert result_false is False
 
 
-@patch('sdgym._run_benchmark.upload_benchmark_results.get_run_name')
 @patch('sdgym._run_benchmark.upload_benchmark_results.boto3.client')
 @patch('sdgym._run_benchmark.upload_benchmark_results.parse_s3_path')
 @patch('sdgym._run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
-@patch('sdgym._run_benchmark.upload_benchmark_results.parse_args')
+@patch('sdgym._run_benchmark.upload_benchmark_results.get_latest_run_from_file')
 def test_get_run_name_and_s3_vars(
-    mock_parse_args,
+    mock_get_latest_run_from_file,
     mock_output_destination_aws,
     mock_parse_s3_path,
     mock_boto_client,
-    mock_get_run_name,
 ):
     """Test the `get_run_name_and_s3_vars` method."""
     # Setup
-    mock_parse_args.return_value.date = '2023-10-01'
     aws_access_key_id = 'my_access_key'
     aws_secret_access_key = 'my_secret_key'
     expected_result = ('SDGym_results_10_01_2023', 's3_client', 'bucket', 'prefix')
-    mock_get_run_name.return_value = 'SDGym_results_10_01_2023'
     mock_boto_client.return_value = 's3_client'
     mock_parse_s3_path.return_value = ('bucket', 'prefix')
+    mock_get_latest_run_from_file.return_value = 'SDGym_results_10_01_2023'
 
     # Run
     result = get_run_name_and_s3_vars(aws_access_key_id, aws_secret_access_key)
 
     # Assert
     assert result == expected_result
-    mock_get_run_name.assert_called_once_with('2023-10-01')
     mock_boto_client.assert_called_once_with(
         's3',
         aws_access_key_id=aws_access_key_id,
@@ -127,6 +91,9 @@ def test_get_run_name_and_s3_vars(
         region_name=S3_REGION,
     )
     mock_parse_s3_path.assert_called_once_with(mock_output_destination_aws)
+    mock_get_latest_run_from_file.assert_called_once_with(
+        's3_client', 'bucket', 'prefix_BENCHMARK_DATES.json'
+    )
 
 
 @patch('sdgym._run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
@@ -202,7 +169,7 @@ def test_upload_results_not_all_runs_complete(
         )
 
     # Assert
-    mock_logger.info.assert_called_once_with(f'Run {run_name} is not complete yet. Exiting.')
+    mock_logger.warning.assert_called_once_with(f'Run {run_name} is not complete yet. Exiting.')
     mock_sdgym_results_explorer.assert_called_once_with(
         mock_output_destination_aws,
         aws_access_key_id=aws_access_key_id,

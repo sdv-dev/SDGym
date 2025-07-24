@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import call, patch
 
 from sdgym._run_benchmark import OUTPUT_DESTINATION_AWS
@@ -6,10 +7,12 @@ from sdgym._run_benchmark.run_benchmark import main
 
 @patch('sdgym._run_benchmark.run_benchmark.benchmark_single_table_aws')
 @patch('sdgym._run_benchmark.run_benchmark.os.getenv')
-def test_main(mock_getenv, mock_benchmark_single_table_aws):
+@patch('sdgym._run_benchmark.run_benchmark.append_benchmark_run')
+def test_main(mock_append_benchmark_run, mock_getenv, mock_benchmark_single_table_aws):
     """Test the `main` method."""
     # Setup
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key']
+    date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
     # Run
     main()
@@ -31,3 +34,8 @@ def test_main(mock_getenv, mock_benchmark_single_table_aws):
         )
 
     mock_benchmark_single_table_aws.assert_has_calls(expected_calls)
+    mock_append_benchmark_run.assert_called_once_with(
+        'my_access_key',
+        'my_secret_key',
+        date,
+    )
