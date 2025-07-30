@@ -49,7 +49,7 @@ def main():
     for synthesizer_group in SYNTHESIZERS_SPLIT[:2]:
         benchmark_single_table_aws(
             output_destination=OUTPUT_DESTINATION_AWS,
-            dataset=['expedia_hotel_logs', 'fake_companies'],
+            sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
             synthesizers=synthesizer_group,
