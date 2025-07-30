@@ -10,8 +10,9 @@ from sdgym.benchmark import benchmark_single_table_aws
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     OUTPUT_DESTINATION_AWS,
-    SYNTHESIZERS,
+    SYNTHESIZERS_SPLIT,
     get_result_folder_name,
+    post_benchmark_launch_message,
 )
 from sdgym.s3 import get_s3_client, parse_s3_path
 
@@ -45,16 +46,18 @@ def main():
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    for synthesizer in SYNTHESIZERS:
+    for synthesizer_group in SYNTHESIZERS_SPLIT[:2]:
         benchmark_single_table_aws(
             output_destination=OUTPUT_DESTINATION_AWS,
+            dataset=['expedia_hotel_logs', 'fake_companies'],
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
-            synthesizers=[synthesizer],
+            synthesizers=synthesizer_group,
             compute_privacy_score=False,
         )
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str)
+    post_benchmark_launch_message()
 
 
 if __name__ == '__main__':
