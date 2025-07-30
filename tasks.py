@@ -206,9 +206,9 @@ def rmdir(c, path):
 @task
 def run_sdgym_benchmark(c):
     """Run the SDGym benchmark."""
-    c.run('python sdgym/_run_benchmark/run_benchmark.py')
+    c.run('python sdgym/run_benchmark/run_benchmark.py')
 
 @task
 def upload_benchmark_results(c, date=None):
     """Upload the benchmark results to S3."""
-    c.run(f'python sdgym/_run_benchmark/upload_benchmark_results.py {date}')
+    c.run(f'python sdgym/run_benchmark/upload_benchmark_results.py {date}')
