@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 import pytest
 from botocore.exceptions import ClientError
 
-from sdgym._run_benchmark.upload_benchmark_results import (
-    get_run_name_and_s3_vars,
+from sdgym.run_benchmark.upload_benchmark_results import (
+    get_result_folder_name_and_s3_vars,
     main,
     upload_already_done,
     upload_results,
@@ -60,17 +60,17 @@ def test_upload_already_done():
     assert result_false is False
 
 
-@patch('sdgym._run_benchmark.upload_benchmark_results.boto3.client')
-@patch('sdgym._run_benchmark.upload_benchmark_results.parse_s3_path')
-@patch('sdgym._run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
-@patch('sdgym._run_benchmark.upload_benchmark_results.get_latest_run_from_file')
-def test_get_run_name_and_s3_vars(
+@patch('sdgym.run_benchmark.upload_benchmark_results.boto3.client')
+@patch('sdgym.run_benchmark.upload_benchmark_results.parse_s3_path')
+@patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_latest_run_from_file')
+def test_get_result_folder_name_and_s3_vars(
     mock_get_latest_run_from_file,
     mock_output_destination_aws,
     mock_parse_s3_path,
     mock_boto_client,
 ):
-    """Test the `get_run_name_and_s3_vars` method."""
+    """Test the `get_result_folder_name_and_s3_vars` method."""
     # Setup
     aws_access_key_id = 'my_access_key'
     aws_secret_access_key = 'my_secret_key'
@@ -80,7 +80,7 @@ def test_get_run_name_and_s3_vars(
     mock_get_latest_run_from_file.return_value = 'SDGym_results_10_01_2023'
 
     # Run
-    result = get_run_name_and_s3_vars(aws_access_key_id, aws_secret_access_key)
+    result = get_result_folder_name_and_s3_vars(aws_access_key_id, aws_secret_access_key)
 
     # Assert
     assert result == expected_result
@@ -96,11 +96,11 @@ def test_get_run_name_and_s3_vars(
     )
 
 
-@patch('sdgym._run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
-@patch('sdgym._run_benchmark.upload_benchmark_results.S3ResultsWriter')
-@patch('sdgym._run_benchmark.upload_benchmark_results.write_uploaded_marker')
-@patch('sdgym._run_benchmark.upload_benchmark_results.LOGGER')
-@patch('sdgym._run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
+@patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.S3ResultsWriter')
+@patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
+@patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
+@patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
 def test_upload_results(
     mock_output_destination_aws,
     mock_logger,
@@ -138,11 +138,11 @@ def test_upload_results(
     mock_write_uploaded_marker.assert_called_once_with(s3_client, bucket, prefix, run_name)
 
 
-@patch('sdgym._run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
-@patch('sdgym._run_benchmark.upload_benchmark_results.S3ResultsWriter')
-@patch('sdgym._run_benchmark.upload_benchmark_results.write_uploaded_marker')
-@patch('sdgym._run_benchmark.upload_benchmark_results.LOGGER')
-@patch('sdgym._run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
+@patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.S3ResultsWriter')
+@patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
+@patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
+@patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
 def test_upload_results_not_all_runs_complete(
     mock_output_destination_aws,
     mock_logger,
@@ -181,22 +181,27 @@ def test_upload_results_not_all_runs_complete(
     mock_write_uploaded_marker.assert_not_called()
 
 
-@patch('sdgym._run_benchmark.upload_benchmark_results.get_run_name_and_s3_vars')
-@patch('sdgym._run_benchmark.upload_benchmark_results.upload_results')
-@patch('sdgym._run_benchmark.upload_benchmark_results.upload_already_done')
-@patch('sdgym._run_benchmark.upload_benchmark_results.LOGGER')
-@patch('sdgym._run_benchmark.upload_benchmark_results.os.getenv')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_result_folder_name_and_s3_vars')
+@patch('sdgym.run_benchmark.upload_benchmark_results.upload_results')
+@patch('sdgym.run_benchmark.upload_benchmark_results.upload_already_done')
+@patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
+@patch('sdgym.run_benchmark.upload_benchmark_results.os.getenv')
 def test_main_already_upload(
     mock_getenv,
     mock_logger,
     mock_upload_already_done,
     mock_upload_results,
-    mock_get_run_name_and_s3_vars,
+    mock_get_result_folder_name_and_s3_vars,
 ):
     """Test the `method` when results are already uploaded."""
     # Setup
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key']
-    mock_get_run_name_and_s3_vars.return_value = ('run_name', 's3_client', 'bucket', 'prefix')
+    mock_get_result_folder_name_and_s3_vars.return_value = (
+        'run_name',
+        's3_client',
+        'bucket',
+        'prefix',
+    )
     mock_upload_already_done.return_value = True
     expected_log_message = 'Benchmark results have already been uploaded. Exiting.'
 
@@ -205,29 +210,41 @@ def test_main_already_upload(
         main()
 
     # Assert
-    mock_get_run_name_and_s3_vars.assert_called_once_with('my_access_key', 'my_secret_key')
+    mock_get_result_folder_name_and_s3_vars.assert_called_once_with(
+        'my_access_key', 'my_secret_key'
+    )
     mock_logger.warning.assert_called_once_with(expected_log_message)
     mock_upload_results.assert_not_called()
 
 
-@patch('sdgym._run_benchmark.upload_benchmark_results.get_run_name_and_s3_vars')
-@patch('sdgym._run_benchmark.upload_benchmark_results.upload_results')
-@patch('sdgym._run_benchmark.upload_benchmark_results.upload_already_done')
-@patch('sdgym._run_benchmark.upload_benchmark_results.os.getenv')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_result_folder_name_and_s3_vars')
+@patch('sdgym.run_benchmark.upload_benchmark_results.upload_results')
+@patch('sdgym.run_benchmark.upload_benchmark_results.upload_already_done')
+@patch('sdgym.run_benchmark.upload_benchmark_results.os.getenv')
 def test_main(
-    mock_getenv, mock_upload_already_done, mock_upload_results, mock_get_run_name_and_s3_vars
+    mock_getenv,
+    mock_upload_already_done,
+    mock_upload_results,
+    mock_get_result_folder_name_and_s3_vars,
 ):
     """Test the `main` method."""
     # Setup
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key']
-    mock_get_run_name_and_s3_vars.return_value = ('run_name', 's3_client', 'bucket', 'prefix')
+    mock_get_result_folder_name_and_s3_vars.return_value = (
+        'run_name',
+        's3_client',
+        'bucket',
+        'prefix',
+    )
     mock_upload_already_done.return_value = False
 
     # Run
     main()
 
     # Assert
-    mock_get_run_name_and_s3_vars.assert_called_once_with('my_access_key', 'my_secret_key')
+    mock_get_result_folder_name_and_s3_vars.assert_called_once_with(
+        'my_access_key', 'my_secret_key'
+    )
     mock_upload_already_done.assert_called_once_with('s3_client', 'bucket', 'prefix', 'run_name')
     mock_upload_results.assert_called_once_with(
         'my_access_key', 'my_secret_key', 'run_name', 's3_client', 'bucket', 'prefix'
