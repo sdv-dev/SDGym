@@ -5,7 +5,7 @@ from unittest.mock import Mock, call, patch
 from botocore.exceptions import ClientError
 
 from sdgym.run_benchmark.run_benchmark import append_benchmark_run, main
-from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, SYNTHESIZERS
+from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, SYNTHESIZERS_SPLIT
 
 
 @patch('sdgym.run_benchmark.run_benchmark.get_s3_client')
@@ -103,7 +103,13 @@ def test_append_benchmark_run_new_file(
 @patch('sdgym.run_benchmark.run_benchmark.benchmark_single_table_aws')
 @patch('sdgym.run_benchmark.run_benchmark.os.getenv')
 @patch('sdgym.run_benchmark.run_benchmark.append_benchmark_run')
-def test_main(mock_append_benchmark_run, mock_getenv, mock_benchmark_single_table_aws):
+@patch('sdgym.run_benchmark.run_benchmark.post_benchmark_launch_message')
+def test_main(
+    mock_post_benchmark_launch_message,
+    mock_append_benchmark_run,
+    mock_getenv,
+    mock_benchmark_single_table_aws,
+):
     """Test the `main` method."""
     # Setup
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key']
@@ -116,13 +122,14 @@ def test_main(mock_append_benchmark_run, mock_getenv, mock_benchmark_single_tabl
     mock_getenv.assert_any_call('AWS_ACCESS_KEY_ID')
     mock_getenv.assert_any_call('AWS_SECRET_ACCESS_KEY')
     expected_calls = []
-    for synthesizer in SYNTHESIZERS:
+    for synthesizer in SYNTHESIZERS_SPLIT:
         expected_calls.append(
             call(
                 output_destination=OUTPUT_DESTINATION_AWS,
                 aws_access_key_id='my_access_key',
                 aws_secret_access_key='my_secret_key',
-                synthesizers=[synthesizer],
+                synthesizers=synthesizer,
+                sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
                 compute_privacy_score=False,
             )
         )
@@ -133,3 +140,4 @@ def test_main(mock_append_benchmark_run, mock_getenv, mock_benchmark_single_tabl
         'my_secret_key',
         date,
     )
+    mock_post_benchmark_launch_message.assert_called_once_with(date)

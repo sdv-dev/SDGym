@@ -15,10 +15,13 @@ KEY_DATE_FILE = '_BENCHMARK_DATES.json'
 SYNTHESIZERS_SPLIT = [
     ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer'],
     ['TVAESynthesizer'],
-    ['CopulaGANSynthesizer'],
-    ['CTGANSynthesizer'],
-    ['RealTabFormerSynthesizer'],
 ]
+
+"""
+['CopulaGANSynthesizer'],
+['CTGANSynthesizer'],
+['RealTabFormerSynthesizer'],
+"""
 
 
 def get_result_folder_name(date_str):
@@ -49,10 +52,12 @@ def post_slack_message(channel, text):
     client.chat_postMessage(channel=channel, text=text)
 
 
-def post_benchmark_launch_message():
+def post_benchmark_launch_message(date_str):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
     channel = DEBUG_SLACK_CHANNEL
-    body = 'SDGym benchmark has been launched! Results will be available soon.'
+    body = '🏃 SDGym benchmark has been launched! EC2 Instances are running. '
+    body += 'Intermediate results can be found '
+    body += f'<{OUTPUT_DESTINATION_AWS}{get_result_folder_name(date_str)} |here>.\n'
     post_slack_message(channel, body)
 
 
@@ -60,7 +65,7 @@ def post_run_summary(folder_name):
     """Post run summary to sdv-alerts slack channel."""
     channel = DEBUG_SLACK_CHANNEL
     body = ''
-    body += f'SDGym benchmark results for {folder_name} are available!\n'
+    body += f'🤸🏻‍♀️ SDGym benchmark results for {folder_name} are available!🏋️‍♀️ \n'
     body += (
         f'Check the results <{OUTPUT_DESTINATION_AWS}{folder_name}/{folder_name}_summary'
         '.csv|here>.\n'
