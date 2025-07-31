@@ -62,31 +62,31 @@ jobs:
         cd target-repo
         git checkout gatsby-home
 
-    - name: Copy summary to target repo
+    - name: Copy summary and create PR
+      env:
+        FOLDER_NAME: ${{ env.FOLDER_NAME }}
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
         cp pr-staging/SDGym_summary_${FOLDER_NAME}.csv target-repo/assets/
+
         cd target-repo
         git config --local user.name "github-actions[bot]"
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
         git checkout -b sdgym-benchmark-upload-${FOLDER_NAME}
         git add assets/
         git commit -m "Upload SDGym Benchmark Summary ($FOLDER_NAME)"
-        git push https://sdv-team:${{ secrets.GH_TOKEN }}@github.com/sdv-dev/sdv-dev.github.io.git \
-          sdgym-benchmark-upload-${FOLDER_NAME}
 
-    - name: Create PR in target repo
-      run: |
-        gh pr create \
-          --repo sdv-dev/sdv-dev.github.io \
-          --base gatsby-home \
+        git remote set-url origin https://sdv-team:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git
+        git push origin sdgym-benchmark-upload-${FOLDER_NAME}
+
+        gh pr create --repo sdv-dev/sdv-dev.github.io \
           --head sdgym-benchmark-upload-${FOLDER_NAME} \
+          --base gatsby-home \
           --title "Upload SDGym Benchmark Summary ($FOLDER_NAME)" \
-          --body "This is an **auto-generated PR** with the latest SDGym benchmark summary."
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          --body "Automated benchmark summary upload"
 
     - name: Send Slack notification
-      if: env.SKIP_UPLOAD != 'true'
       env:
         SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
       run: |
