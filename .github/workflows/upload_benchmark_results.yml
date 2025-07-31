@@ -37,18 +37,26 @@ jobs:
 
       run: |
         invoke upload-benchmark-results
-    - name: Create pull request for SDGym benchmark result
+    - name: Prepare summary file for PR
+      run: |
+        mkdir pr-staging
+        # Assuming the summary CSV is stored in $GITHUB_LOCAL_RESULTS_DIR/summary.csv
+        cp $GITHUB_LOCAL_RESULTS_DIR/summary.csv pr-staging/SDGym_summary_${{ env.FOLDER_NAME }}.csv
+
+    - name: Create pull request for SDGym benchmark summary
       id: create_pr
       if: env.SKIP_UPLOAD != 'true'
-      uses: peter-evans/create-pull-request@v4
+      uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: "Upload SDGym Benchmark Results (${{ env.FOLDER_NAME }})"
+        repository: sdv-dev/sdv-dev.github.io
+        path: pr-staging
+        commit-message: "Upload SDGym Benchmark Summary (${{ env.FOLDER_NAME }})"
         author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
         committer: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
-        title: "Upload SDGym Benchmark Results - ${{ env.FOLDER_NAME }}"
+        title: "Upload SDGym Benchmark Summary - ${{ env.FOLDER_NAME }}"
         body: |
-          This is an **auto-generated PR** for uploading SDGym benchmark latest results.
+          This is an **auto-generated PR** with the latest SDGym benchmark summary.
         branch: sdgym-benchmark-upload
         branch-suffix: short-commit-hash
         base: gatsby-home
