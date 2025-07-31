@@ -26,7 +26,6 @@ jobs:
     - name: Install dependencies
       run: |
           python -m pip install --upgrade pip
-          python -m pip install invoke
           python -m pip install -e .[dev]
           
     - name: Upload SDGym Benchmark
@@ -43,17 +42,17 @@ jobs:
       if: env.SKIP_UPLOAD != 'true'
       uses: peter-evans/create-pull-request@v4
       with:
-        token: ${{ secrets.GH_ACCESS_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: "Upload SDGym Benchmark Results (${{ env.FOLDER_NAME }})"
         author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
         committer: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
         title: "Upload SDGym Benchmark Results - ${{ env.FOLDER_NAME }}"
         body: |
           This is an **auto-generated PR** for uploading SDGym benchmark latest results.
-
         branch: sdgym-benchmark-upload
         branch-suffix: short-commit-hash
         base: gatsby-home
+        delete-branch: true
 
     - name: Send Slack notification
       if: env.SKIP_UPLOAD != 'true'
