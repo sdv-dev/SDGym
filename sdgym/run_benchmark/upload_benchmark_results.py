@@ -92,6 +92,7 @@ def upload_results(
     )
     local_export_dir = os.environ.get('GITHUB_LOCAL_RESULTS_DIR')
     if local_export_dir:
+        os.makedirs(local_export_dir, exist_ok=True)
         local_results_writer.write_dataframe(
             summary, f'{local_export_dir}/{folder_name}_summary.csv', index=True
         )
@@ -106,7 +107,7 @@ def main():
     folder_name, s3_client, bucket, prefix = get_result_folder_name_and_s3_vars(
         aws_access_key_id, aws_secret_access_key
     )
-    github_env = os.environ.get('GITHUB_ENV')
+    github_env = os.getenv('GITHUB_ENV')
     if upload_already_done(s3_client, bucket, prefix, folder_name):
         LOGGER.warning('Benchmark results have already been uploaded. Exiting.')
         if github_env:
