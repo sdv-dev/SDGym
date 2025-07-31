@@ -39,6 +39,7 @@ jobs:
         GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
       run: |
         invoke upload-benchmark-results
+        echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
     - name: Check skip upload flag
       run: |
@@ -50,6 +51,8 @@ jobs:
     - name: Prepare summary file for PR
       run: |
         mkdir pr-staging
+        echo "Looking for: $GITHUB_LOCAL_RESULTS_DIR/${FOLDER_NAME}_summary.csv"
+        ls -l "$GITHUB_LOCAL_RESULTS_DIR"
         cp "$GITHUB_LOCAL_RESULTS_DIR/${FOLDER_NAME}_summary.csv" \
            "pr-staging/SDGym_summary_${FOLDER_NAME}.csv"
 
