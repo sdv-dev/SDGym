@@ -5,6 +5,8 @@ from datetime import datetime
 
 from slack_sdk import WebClient
 
+from sdgym.s3 import parse_s3_path
+
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/Issue_425/'
 UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/Issue_425/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
@@ -34,6 +36,13 @@ def get_result_folder_name(date_str):
     return f'SDGym_results_{date.month:02d}_{date.day:02d}_{date.year}'
 
 
+def get_s3_console_link(bucket, prefix):
+    """Get the S3 console link for the specified bucket and prefix."""
+    return (
+        f'https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={prefix}&showversions=false'
+    )
+
+
 def _get_slack_client():
     """Create an authenticated Slack client.
 
@@ -55,20 +64,21 @@ def post_slack_message(channel, text):
 def post_benchmark_launch_message(date_str):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
     channel = DEBUG_SLACK_CHANNEL
+    folder_name = get_result_folder_name(date_str)
+    bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
+    url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/')
     body = '🏃 SDGym benchmark has been launched! EC2 Instances are running. '
-    body += 'Intermediate results can be found '
-    body += f'<{OUTPUT_DESTINATION_AWS}{get_result_folder_name(date_str)} |here>.\n'
+    body += f'Intermediate results can be found <<{url_link} |here>.\n'
     post_slack_message(channel, body)
 
 
 def post_run_summary(folder_name):
     """Post run summary to sdv-alerts slack channel."""
     channel = DEBUG_SLACK_CHANNEL
+    bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
+    url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/{folder_name}_summary.csv')
     body = ''
     body += f'🤸🏻‍♀️ SDGym benchmark results for {folder_name} are available!🏋️‍♀️ \n'
-    body += (
-        f'Check the results <{OUTPUT_DESTINATION_AWS}{folder_name}/{folder_name}_summary'
-        '.csv|here>.\n'
-    )
+    body += f'Check the results <<{url_link} |here>.\n'
 
     post_slack_message(channel, body)
