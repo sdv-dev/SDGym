@@ -8,7 +8,7 @@ import sys
 import boto3
 from botocore.exceptions import ClientError
 
-from sdgym.result_writer import S3ResultsWriter
+from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
 from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS
 from sdgym.s3 import S3_REGION, parse_s3_path
 from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer
@@ -62,7 +62,7 @@ def get_result_folder_name_and_s3_vars(aws_access_key_id, aws_secret_access_key)
 
 
 def upload_results(
-    aws_access_key_id, aws_secret_access_key, folder_name, s3_client, bucket, prefix
+    aws_access_key_id, aws_secret_access_key, folder_name, s3_client, bucket, prefix, github_env
 ):
     """Upload benchmark results to S3."""
     result_explorer = SDGymResultsExplorer(
@@ -71,16 +71,31 @@ def upload_results(
         aws_secret_access_key=aws_secret_access_key,
     )
     result_writer = S3ResultsWriter(s3_client)
-
+    local_results_writer = LocalResultsWriter()
     if not result_explorer.all_runs_complete(folder_name):
         LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
-        sys.exit(0)
+        if github_env:
+            with open(github_env, 'a') as env_file:
+                env_file.write('SKIP_UPLOAD=true\n')
 
-    LOGGER.info(f'Run {folder_name} is complete! Proceeding with summarization...')
+        sys.exit(0)
+    else:
+        LOGGER.info(f'Run {folder_name} is complete! Proceeding with summarization...')
+        if github_env:
+            with open(github_env, 'a') as env_file:
+                env_file.write('SKIP_UPLOAD=false\n')
+                env_file.write(f'FOLDER_NAME={folder_name}\n')
+
     summary, _ = result_explorer.summarize(folder_name)
     result_writer.write_dataframe(
         summary, f'{OUTPUT_DESTINATION_AWS}{folder_name}/{folder_name}_summary.csv', index=True
     )
+    local_export_dir = os.environ.get('GITHUB_LOCAL_RESULTS_DIR')
+    if local_export_dir:
+        local_results_writer.write_dataframe(
+            summary, f'{local_export_dir}/{folder_name}_summary.csv', index=True
+        )
+
     write_uploaded_marker(s3_client, bucket, prefix, folder_name)
 
 
@@ -91,11 +106,18 @@ def main():
     folder_name, s3_client, bucket, prefix = get_result_folder_name_and_s3_vars(
         aws_access_key_id, aws_secret_access_key
     )
+    github_env = os.environ.get('GITHUB_ENV')
     if upload_already_done(s3_client, bucket, prefix, folder_name):
         LOGGER.warning('Benchmark results have already been uploaded. Exiting.')
+        if github_env:
+            with open(github_env, 'a') as env_file:
+                env_file.write('SKIP_UPLOAD=true\n')
+
         sys.exit(0)
 
-    upload_results(aws_access_key_id, aws_secret_access_key, folder_name, s3_client, bucket, prefix)
+    upload_results(
+        aws_access_key_id, aws_secret_access_key, folder_name, s3_client, bucket, prefix, github_env
+    )
 
 
 if __name__ == '__main__':

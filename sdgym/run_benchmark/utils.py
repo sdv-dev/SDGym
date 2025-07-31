@@ -68,17 +68,20 @@ def post_benchmark_launch_message(date_str):
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/')
     body = '🏃 SDGym benchmark has been launched! EC2 Instances are running. '
-    body += f'Intermediate results can be found <<{url_link} |here>.\n'
+    body += f'Intermediate results can be found <{url_link} |here>.\n'
     post_slack_message(channel, body)
 
 
-def post_run_summary(folder_name):
-    """Post run summary to sdv-alerts slack channel."""
+def post_benchmark_uploaded_message(folder_name, pr_url=None):
+    """Post benchmark uploaded message to sdv-alerts slack channel."""
     channel = DEBUG_SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/{folder_name}_summary.csv')
-    body = ''
-    body += f'🤸🏻‍♀️ SDGym benchmark results for {folder_name} are available!🏋️‍♀️ \n'
-    body += f'Check the results <<{url_link} |here>.\n'
+    body = (
+        f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
+        f'Check the results <{url_link} |here>.\n'
+    )
+    if pr_url:
+        body += f'Waiting on merging this PR to update GitHub directory: <{pr_url}|PR Link>\n'
 
     post_slack_message(channel, body)
