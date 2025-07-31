@@ -101,7 +101,11 @@ def test_get_result_folder_name_and_s3_vars(
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
+@patch('sdgym.run_benchmark.upload_benchmark_results.LocalResultsWriter')
+@patch('sdgym.run_benchmark.upload_benchmark_results.os.environ.get')
 def test_upload_results(
+    mock_os_environ_get,
+    mock_local_results_writer,
     mock_output_destination_aws,
     mock_logger,
     mock_write_uploaded_marker,
@@ -119,9 +123,18 @@ def test_upload_results(
     result_explorer_instance = mock_sdgym_results_explorer.return_value
     result_explorer_instance.all_runs_complete.return_value = True
     result_explorer_instance.summarize.return_value = ('summary', 'results')
+    mock_os_environ_get.return_value = '/tmp/sdgym_results'
 
     # Run
-    upload_results(aws_access_key_id, aws_secret_access_key, run_name, s3_client, bucket, prefix)
+    upload_results(
+        aws_access_key_id,
+        aws_secret_access_key,
+        run_name,
+        s3_client,
+        bucket,
+        prefix,
+        github_env=None,
+    )
 
     # Assert
     mock_logger.info.assert_called_once_with(
@@ -136,6 +149,9 @@ def test_upload_results(
     result_explorer_instance.summarize.assert_called_once_with(run_name)
     mock_s3_results_writer.return_value.write_dataframe.assert_called_once()
     mock_write_uploaded_marker.assert_called_once_with(s3_client, bucket, prefix, run_name)
+    mock_local_results_writer.return_value.write_dataframe.assert_called_once_with(
+        'summary', '/tmp/sdgym_results/SDGym_results_10_01_2023_summary.csv', index=True
+    )
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
@@ -165,7 +181,13 @@ def test_upload_results_not_all_runs_complete(
     # Run
     with pytest.raises(SystemExit, match='0'):
         upload_results(
-            aws_access_key_id, aws_secret_access_key, run_name, s3_client, bucket, prefix
+            aws_access_key_id,
+            aws_secret_access_key,
+            run_name,
+            s3_client,
+            bucket,
+            prefix,
+            github_env=None,
         )
 
     # Assert
@@ -247,5 +269,5 @@ def test_main(
     )
     mock_upload_already_done.assert_called_once_with('s3_client', 'bucket', 'prefix', 'run_name')
     mock_upload_results.assert_called_once_with(
-        'my_access_key', 'my_secret_key', 'run_name', 's3_client', 'bucket', 'prefix'
+        'my_access_key', 'my_secret_key', 'run_name', 's3_client', 'bucket', 'prefix', None
     )

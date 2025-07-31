@@ -1,6 +1,9 @@
 name: Upload SDGym Benchmark results
 
 on:
+  push:
+    branches:
+      - issue-425-workflow-sdgym
   workflow_run:
     workflows: ["Run SDGym Benchmark"]
     types:
@@ -28,10 +31,37 @@ jobs:
           
     - name: Upload SDGym Benchmark
       env:
-        SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
-        
+        GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
+
       run: |
         invoke upload-benchmark-results
+    - name: Create pull request for SDGym benchmark result
+      id: create_pr
+      if: env.SKIP_UPLOAD != 'true'
+      uses: peter-evans/create-pull-request@v4
+      with:
+        token: ${{ secrets.GH_ACCESS_TOKEN }}
+        commit-message: "Upload SDGym Benchmark Results (${{ env.FOLDER_NAME }})"
+        author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+        committer: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+        title: "Upload SDGym Benchmark Results - ${{ env.FOLDER_NAME }}"
+        body: |
+          This is an **auto-generated PR** for uploading SDGym benchmark latest results.
+
+        branch: sdgym-benchmark-upload
+        branch-suffix: short-commit-hash
+        base: gatsby-home
+
+    - name: Send Slack notification
+      if: env.SKIP_UPLOAD != 'true'
+      env:
+        SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+        
+      run: |
+        invoke notify-sdgym-benchmark-uploaded \
+          --folder-name ${{ env.FOLDER_NAME }} \
+          --pr-url "${{ steps.create_pr.outputs.pull-request-url }}"
+
