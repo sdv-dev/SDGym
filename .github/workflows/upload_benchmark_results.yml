@@ -65,7 +65,6 @@ jobs:
     - name: Copy summary and create PR
       env:
         FOLDER_NAME: ${{ env.FOLDER_NAME }}
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cp pr-staging/SDGym_summary_${FOLDER_NAME}.csv target-repo/assets/
 
@@ -77,7 +76,7 @@ jobs:
         git add assets/
         git commit -m "Upload SDGym Benchmark Summary ($FOLDER_NAME)"
 
-        git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git
+        git remote set-url origin https://sdv-team:${{ secrets.GH_TOKEN }}@github.com/sdv-dev/sdv-dev.github.io
         git push origin sdgym-benchmark-upload-${FOLDER_NAME}
 
         gh pr create --repo sdv-dev/sdv-dev.github.io \
