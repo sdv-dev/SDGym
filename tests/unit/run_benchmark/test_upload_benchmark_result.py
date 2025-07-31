@@ -217,7 +217,7 @@ def test_main_already_upload(
 ):
     """Test the `method` when results are already uploaded."""
     # Setup
-    mock_getenv.side_effect = ['my_access_key', 'my_secret_key']
+    mock_getenv.side_effect = ['my_access_key', 'my_secret_key', None]
     mock_get_result_folder_name_and_s3_vars.return_value = (
         'run_name',
         's3_client',
@@ -251,7 +251,7 @@ def test_main(
 ):
     """Test the `main` method."""
     # Setup
-    mock_getenv.side_effect = ['my_access_key', 'my_secret_key']
+    mock_getenv.side_effect = ['my_access_key', 'my_secret_key', None]
     mock_get_result_folder_name_and_s3_vars.return_value = (
         'run_name',
         's3_client',

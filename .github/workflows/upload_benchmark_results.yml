@@ -15,19 +15,21 @@ on:
 jobs:
   upload-sdgym-benchmark:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
     - name: Set up latest Python
       uses: actions/setup-python@v5
       with:
         python-version-file: 'pyproject.toml'
+
     - name: Install dependencies
       run: |
-          python -m pip install --upgrade pip
-          python -m pip install invoke
-          python -m pip install -e .[dev]
+        python -m pip install --upgrade pip
+        python -m pip install -e .[dev]
           
     - name: Upload SDGym Benchmark
       env:
@@ -35,33 +37,58 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
-
       run: |
         invoke upload-benchmark-results
-    - name: Create pull request for SDGym benchmark result
-      id: create_pr
-      if: env.SKIP_UPLOAD != 'true'
-      uses: peter-evans/create-pull-request@v4
-      with:
-        token: ${{ secrets.GH_ACCESS_TOKEN }}
-        commit-message: "Upload SDGym Benchmark Results (${{ env.FOLDER_NAME }})"
-        author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
-        committer: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
-        title: "Upload SDGym Benchmark Results - ${{ env.FOLDER_NAME }}"
-        body: |
-          This is an **auto-generated PR** for uploading SDGym benchmark latest results.
+        echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
-        branch: sdgym-benchmark-upload
-        branch-suffix: short-commit-hash
-        base: gatsby-home
+    - name: Check skip upload flag
+      run: |
+        if [ "${SKIP_UPLOAD}" = "true" ]; then
+          echo "Upload skipped. Exiting workflow."
+          exit 0
+        fi
+    - name: Prepare summary file for PR
+      run: |
+        mkdir pr-staging
+        echo "Looking for: $GITHUB_LOCAL_RESULTS_DIR/${FOLDER_NAME}_summary.csv"
+        ls -l "$GITHUB_LOCAL_RESULTS_DIR"
+        cp "$GITHUB_LOCAL_RESULTS_DIR/${FOLDER_NAME}_summary.csv" \
+           "pr-staging/SDGym_summary_${FOLDER_NAME}.csv"
+
+    - name: Checkout target repo (sdv-dev.github.io)
+      run: |
+        git clone https://github.com/sdv-dev/sdv-dev.github.io.git target-repo
+        cd target-repo
+        git checkout gatsby-home
+    - name: Copy summary and create PR
+      env:
+        FOLDER_NAME: ${{ env.FOLDER_NAME }}
+      run: |
+        cp pr-staging/SDGym_summary_${FOLDER_NAME}.csv target-repo/assets/
+
+        cd target-repo
+        git checkout -b sdgym-benchmark-upload-${FOLDER_NAME}
+        git config --local user.name "${GITHUB_ACTOR}"
+        git config --local user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+
+        git add assets/
+        git commit -m "Upload SDGym Benchmark Summary ($FOLDER_NAME)"
+
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/sdv-dev/sdv-dev.github.io.git
+        git push origin sdgym-benchmark-upload-${FOLDER_NAME}
+
+        gh pr create \
+          --repo sdv-dev/sdv-dev.github.io \
+          --head sdgym-benchmark-upload-${FOLDER_NAME} \
+          --base gatsby-home \
+          --title "Upload SDGym Benchmark Summary ($FOLDER_NAME)" \
+          --body "Automated benchmark summary upload" \
+          --assignee "${{ github.actor }}"
 
     - name: Send Slack notification
-      if: env.SKIP_UPLOAD != 'true'
       env:
         SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
-        
       run: |
         invoke notify-sdgym-benchmark-uploaded \
-          --folder-name ${{ env.FOLDER_NAME }} \
-          --pr-url "${{ steps.create_pr.outputs.pull-request-url }}"
-
+          --folder-name $FOLDER_NAME \
+          --pr-url "$(gh pr view --json url -q .url)"
