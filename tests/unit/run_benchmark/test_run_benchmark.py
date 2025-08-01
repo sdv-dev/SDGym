@@ -129,8 +129,8 @@ def test_main(
                 aws_access_key_id='my_access_key',
                 aws_secret_access_key='my_secret_key',
                 synthesizers=synthesizer,
-                sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
                 compute_privacy_score=False,
+                timeout=345600,
             )
         )
 

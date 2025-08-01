@@ -35,43 +35,39 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
       run: |
         invoke upload-benchmark-results
         echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
-    - name: Check skip upload flag
-      run: |
-        if [ "${SKIP_UPLOAD}" = "true" ]; then
-          echo "Upload skipped. Exiting workflow."
-          exit 0
-        fi
     - name: Prepare files for PR
+      if: env.SKIP_UPLOAD != 'true'
       run: |
         mkdir pr-staging
         echo "Looking for files in: $GITHUB_LOCAL_RESULTS_DIR"
         ls -l "$GITHUB_LOCAL_RESULTS_DIR"
         for f in "$GITHUB_LOCAL_RESULTS_DIR"/${FOLDER_NAME}_*.csv; do
           base=$(basename "$f")
-          cp "$f" "pr-staging/SDGym_${base}"
+          cp "$f" "pr-staging/${base}"
         done
 
         echo "Files staged for PR:"
         ls -l pr-staging
 
     - name: Checkout target repo (sdv-dev.github.io)
+      if: env.SKIP_UPLOAD != 'true'
       run: |
         git clone https://github.com/sdv-dev/sdv-dev.github.io.git target-repo
         cd target-repo
         git checkout gatsby-home
 
     - name: Copy results and create PR
+      if: env.SKIP_UPLOAD != 'true'
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         FOLDER_NAME: ${{ env.FOLDER_NAME }}
       run: |
-        cp pr-staging/* target-repo/assets/
+        cp pr-staging/* target-repo/assets/sdgym-leaderboard-files/
         cd target-repo
         git checkout -b sdgym-benchmark-upload-${FOLDER_NAME}
         git config --local user.name "github-actions[bot]"
@@ -82,18 +78,27 @@ jobs:
         git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git
         git push origin sdgym-benchmark-upload-${FOLDER_NAME}
 
-        # Create PR
         gh pr create \
           --repo sdv-dev/sdv-dev.github.io \
           --head sdgym-benchmark-upload-${FOLDER_NAME} \
           --base gatsby-home \
           --title "Upload SDGym Benchmark Results ($FOLDER_NAME)" \
-          --body "Automated SDGym benchmark results upload"
+          --body "Automated benchmark results upload" \
+          --reviewer "pcarapic15"
+
+        # Capture PR URL
+        PR_URL=$(gh pr view sdgym-benchmark-upload-${FOLDER_NAME} \
+        --repo sdv-dev/sdv-dev.github.io \
+        --json url -q .url)
+
+        echo "PR URL: $PR_URL"
+        echo "PR_URL=$PR_URL" >> $GITHUB_ENV
 
     - name: Send Slack notification
+      if: env.SKIP_UPLOAD != 'true'
       env:
         SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
       run: |
         invoke notify-sdgym-benchmark-uploaded \
-          --folder-name $FOLDER_NAME \
-          --pr-url "$(gh pr view --json url -q .url)"
+          --folder-name "$FOLDER_NAME" \
+          --pr-url "$PR_URL"
