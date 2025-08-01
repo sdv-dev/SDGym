@@ -49,13 +49,10 @@ PLOTLY_MARKERS = [
 SYNTHESIZERS_SPLIT = [
     ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer'],
     ['TVAESynthesizer'],
+    ['CopulaGANSynthesizer'],
+    ['CTGANSynthesizer'],
+    ['RealTabFormerSynthesizer'],
 ]
-
-"""
-['CopulaGANSynthesizer'],
-['CTGANSynthesizer'],
-['RealTabFormerSynthesizer'],
-"""
 
 
 def get_result_folder_name(date_str):
