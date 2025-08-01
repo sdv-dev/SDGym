@@ -71,7 +71,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         FOLDER_NAME: ${{ env.FOLDER_NAME }}
       run: |
-        cp pr-staging/* target-repo/assets/
+        cp pr-staging/* target-repo/assets/sdgym-leaderboard-files/
         cd target-repo
         git checkout -b sdgym-benchmark-upload-${FOLDER_NAME}
         git config --local user.name "github-actions[bot]"
@@ -93,7 +93,14 @@ jobs:
     - name: Send Slack notification
       env:
         SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+        FOLDER_NAME: ${{ env.FOLDER_NAME }}
       run: |
+        PR_URL=$(gh pr view \
+          --repo sdv-dev/sdv-dev.github.io \
+          --head sdgym-benchmark-upload-${FOLDER_NAME} \
+          --json url -q .url || echo "")
+        echo "Resolved PR URL: $PR_URL"
+        
         invoke notify-sdgym-benchmark-uploaded \
-          --folder-name $FOLDER_NAME \
-          --pr-url "$(gh pr view --json url -q .url)"
+          --folder-name "$FOLDER_NAME" \
+          --pr-url "$PR_URL"
