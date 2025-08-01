@@ -47,7 +47,10 @@ jobs:
           echo "Upload skipped. Exiting workflow."
           exit 0
         fi
-
+    - name: Set commit author to original pusher
+      run: |
+        git config --local user.name "${{ github.event.pusher.name }}"
+        git config --local user.email "${{ github.event.pusher.email }}"
     - name: Prepare summary file for PR
       run: |
         mkdir pr-staging
@@ -69,21 +72,21 @@ jobs:
         cp pr-staging/SDGym_summary_${FOLDER_NAME}.csv target-repo/assets/
 
         cd target-repo
-        git config --local user.name "github-actions[bot]"
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
         git checkout -b sdgym-benchmark-upload-${FOLDER_NAME}
         git add assets/
         git commit -m "Upload SDGym Benchmark Summary ($FOLDER_NAME)"
 
-        git remote set-url origin https://sdv-team:${{ secrets.GH_TOKEN }}@github.com/sdv-dev/sdv-dev.github.io
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/sdv-dev/sdv-dev.github.io.git
         git push origin sdgym-benchmark-upload-${FOLDER_NAME}
 
-        gh pr create --repo sdv-dev/sdv-dev.github.io \
-          --head sdgym-benchmark-upload-${FOLDER_NAME} \
-          --base gatsby-home \
-          --title "Upload SDGym Benchmark Summary ($FOLDER_NAME)" \
-          --body "Automated benchmark summary upload"
+        gh pr create \
+        --repo sdv-dev/sdv-dev.github.io \
+        --head sdgym-benchmark-upload-${FOLDER_NAME} \
+        --base gatsby-home \
+        --title "Upload SDGym Benchmark Summary ($FOLDER_NAME)" \
+        --body "Automated benchmark summary upload" \
+        --assignee "${{ github.actor }}"
+
 
     - name: Send Slack notification
       env:
