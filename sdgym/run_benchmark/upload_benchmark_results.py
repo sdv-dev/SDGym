@@ -9,7 +9,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
-from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS
+from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, get_df_to_plot
 from sdgym.s3 import S3_REGION, parse_s3_path
 from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer
 
@@ -86,7 +86,8 @@ def upload_results(
                 env_file.write('SKIP_UPLOAD=false\n')
                 env_file.write(f'FOLDER_NAME={folder_name}\n')
 
-    summary, _ = result_explorer.summarize(folder_name)
+    summary, results = result_explorer.summarize(folder_name)
+    df_to_plot = get_df_to_plot(results)
     result_writer.write_dataframe(
         summary, f'{OUTPUT_DESTINATION_AWS}{folder_name}/{folder_name}_summary.csv', index=True
     )
@@ -95,6 +96,9 @@ def upload_results(
         os.makedirs(local_export_dir, exist_ok=True)
         local_results_writer.write_dataframe(
             summary, f'{local_export_dir}/{folder_name}_summary.csv', index=True
+        )
+        local_results_writer.write_dataframe(
+            df_to_plot, f'{local_export_dir}/{folder_name}_plot_data.csv', index=False
         )
 
     write_uploaded_marker(s3_client, bucket, prefix, folder_name)

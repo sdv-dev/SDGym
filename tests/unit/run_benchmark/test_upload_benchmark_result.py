@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from botocore.exceptions import ClientError
@@ -103,7 +103,9 @@ def test_get_result_folder_name_and_s3_vars(
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LocalResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.environ.get')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_df_to_plot')
 def test_upload_results(
+    mock_get_df_to_plot,
     mock_os_environ_get,
     mock_local_results_writer,
     mock_output_destination_aws,
@@ -124,6 +126,7 @@ def test_upload_results(
     result_explorer_instance.all_runs_complete.return_value = True
     result_explorer_instance.summarize.return_value = ('summary', 'results')
     mock_os_environ_get.return_value = '/tmp/sdgym_results'
+    mock_get_df_to_plot.return_value = 'df_to_plot'
 
     # Run
     upload_results(
@@ -149,9 +152,13 @@ def test_upload_results(
     result_explorer_instance.summarize.assert_called_once_with(run_name)
     mock_s3_results_writer.return_value.write_dataframe.assert_called_once()
     mock_write_uploaded_marker.assert_called_once_with(s3_client, bucket, prefix, run_name)
-    mock_local_results_writer.return_value.write_dataframe.assert_called_once_with(
-        'summary', '/tmp/sdgym_results/SDGym_results_10_01_2023_summary.csv', index=True
-    )
+    mock_local_results_writer.return_value.write_dataframe.assert_has_calls([
+        call('summary', '/tmp/sdgym_results/SDGym_results_10_01_2023_summary.csv', index=True),
+        call(
+            'df_to_plot', '/tmp/sdgym_results/SDGym_results_10_01_2023_plot_data.csv', index=False
+        ),
+    ])
+    mock_get_df_to_plot.assert_called_once_with('results')
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
