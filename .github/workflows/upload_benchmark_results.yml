@@ -47,43 +47,48 @@ jobs:
           echo "Upload skipped. Exiting workflow."
           exit 0
         fi
-    - name: Prepare summary file for PR
+    - name: Prepare files for PR
       run: |
         mkdir pr-staging
-        echo "Looking for: $GITHUB_LOCAL_RESULTS_DIR/${FOLDER_NAME}_summary.csv"
+        echo "Looking for files in: $GITHUB_LOCAL_RESULTS_DIR"
         ls -l "$GITHUB_LOCAL_RESULTS_DIR"
-        cp "$GITHUB_LOCAL_RESULTS_DIR/${FOLDER_NAME}_summary.csv" \
-           "pr-staging/SDGym_summary_${FOLDER_NAME}.csv"
+        for f in "$GITHUB_LOCAL_RESULTS_DIR"/${FOLDER_NAME}_*.csv; do
+          base=$(basename "$f")
+          cp "$f" "pr-staging/SDGym_${base}"
+        done
+
+        echo "Files staged for PR:"
+        ls -l pr-staging
 
     - name: Checkout target repo (sdv-dev.github.io)
       run: |
         git clone https://github.com/sdv-dev/sdv-dev.github.io.git target-repo
         cd target-repo
         git checkout gatsby-home
-    - name: Copy summary and create PR
+
+    - name: Copy results and create PR
       env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
         FOLDER_NAME: ${{ env.FOLDER_NAME }}
       run: |
-        cp pr-staging/SDGym_summary_${FOLDER_NAME}.csv target-repo/assets/
-
+        cp pr-staging/* target-repo/assets/
         cd target-repo
         git checkout -b sdgym-benchmark-upload-${FOLDER_NAME}
-        git config --local user.name "${GITHUB_ACTOR}"
-        git config --local user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
         git add assets/
-        git commit -m "Upload SDGym Benchmark Summary ($FOLDER_NAME)"
-
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/sdv-dev/sdv-dev.github.io.git
+        git commit -m "Upload SDGym Benchmark Results ($FOLDER_NAME)"
+        git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git
         git push origin sdgym-benchmark-upload-${FOLDER_NAME}
 
+        # Create PR
         gh pr create \
           --repo sdv-dev/sdv-dev.github.io \
           --head sdgym-benchmark-upload-${FOLDER_NAME} \
           --base gatsby-home \
-          --title "Upload SDGym Benchmark Summary ($FOLDER_NAME)" \
-          --body "Automated benchmark summary upload" \
-          --assignee "${{ github.actor }}"
+          --title "Upload SDGym Benchmark Results ($FOLDER_NAME)" \
+          --body "Automated SDGym benchmark results upload"
 
     - name: Send Slack notification
       env:
