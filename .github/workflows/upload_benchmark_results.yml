@@ -40,13 +40,8 @@ jobs:
         invoke upload-benchmark-results
         echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
-    - name: Check skip upload flag
-      run: |
-        if [ "${SKIP_UPLOAD}" = "true" ]; then
-          echo "Upload skipped. Exiting workflow."
-          exit 78
-        fi
     - name: Prepare files for PR
+      if: env.SKIP_UPLOAD != 'true'
       run: |
         mkdir pr-staging
         echo "Looking for files in: $GITHUB_LOCAL_RESULTS_DIR"
@@ -60,12 +55,14 @@ jobs:
         ls -l pr-staging
 
     - name: Checkout target repo (sdv-dev.github.io)
+      if: env.SKIP_UPLOAD != 'true'
       run: |
         git clone https://github.com/sdv-dev/sdv-dev.github.io.git target-repo
         cd target-repo
         git checkout gatsby-home
 
     - name: Copy results and create PR
+      if: env.SKIP_UPLOAD != 'true'
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         FOLDER_NAME: ${{ env.FOLDER_NAME }}
@@ -87,18 +84,18 @@ jobs:
           --base gatsby-home \
           --title "Upload SDGym Benchmark Results ($FOLDER_NAME)" \
           --body "Automated benchmark results upload" \
-          --assignee "pcarapic15"
+          --reviewer "pcarapic15"
 
         # Capture PR URL
-        PR_URL=$(gh pr view \
-          --repo sdv-dev/sdv-dev.github.io \
-          --head sdgym-benchmark-upload-${FOLDER_NAME} \
-          --json url -q .url)
+        PR_URL=$(gh pr view sdgym-benchmark-upload-${FOLDER_NAME} \
+        --repo sdv-dev/sdv-dev.github.io \
+        --json url -q .url)
 
         echo "PR URL: $PR_URL"
         echo "PR_URL=$PR_URL" >> $GITHUB_ENV
 
     - name: Send Slack notification
+      if: env.SKIP_UPLOAD != 'true'
       env:
         SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
       run: |
