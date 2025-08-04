@@ -8,8 +8,8 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
-OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/Issue_425/'
-UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/Issue_425/'
+OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
+UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
@@ -47,8 +47,7 @@ PLOTLY_MARKERS = [
 
 # The synthesizers inside the same list will be run by the same ec2 instance
 SYNTHESIZERS_SPLIT = [
-    ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer'],
-    ['TVAESynthesizer'],
+    ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer', 'TVAESynthesizer'],
     ['CopulaGANSynthesizer'],
     ['CTGANSynthesizer'],
     ['RealTabFormerSynthesizer'],
