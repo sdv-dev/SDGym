@@ -1275,7 +1275,7 @@ _write_run_id_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
 run_id_filename = job_args_list[0][-1]['run_id']
 _update_run_id_file(run_id_filename, result_writer)
-s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
+#s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
 
 
