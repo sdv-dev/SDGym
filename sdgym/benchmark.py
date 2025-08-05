@@ -545,7 +545,7 @@ def _score_with_timeout(
     synthesizer_path=None,
     result_writer=None,
 ):
-    output = {}
+    output = {} if isinstance(result_writer, S3ResultsWriter) else None
     args = (
         synthesizer,
         data,
@@ -561,36 +561,28 @@ def _score_with_timeout(
         result_writer,
     )
     if isinstance(result_writer, S3ResultsWriter):
-        process = threading.Thread(
-            target=_score,
-            args=args,
-            daemon=True,
-        )
-        process.start()
-        process.join(timeout)
-        if process.is_alive():
+        thread = threading.Thread(target=_score, args=args, daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
             LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
             return {'timeout': True, 'error': 'Timeout'}
 
-        return process.result
+        return output
 
     with multiprocessing_context():
         with multiprocessing.Manager() as manager:
             output = manager.dict()
-            process = multiprocessing.Process(
-                target=_score,
-                args=args,
-            )
-
+            args = args[:4] + (output,) + args[5:]  # replace output=None with manager.dict()
+            process = multiprocessing.Process(target=_score, args=args)
             process.start()
             process.join(timeout)
-            process.terminate()
-
-            output = dict(output)
-            if output.get('timeout'):
+            if process.is_alive():
                 LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
+                process.terminate()
+                return {'timeout': True, 'error': 'Timeout'}
 
-            return output
+            return dict(output)
 
 
 def _format_output(
