@@ -10,7 +10,7 @@ import tomli
 from invoke import task
 from packaging.requirements import Requirement
 from packaging.version import Version
-
+from sdgym.run_benchmark.utils import post_benchmark_uploaded_message
 COMPARISONS = {'>=': operator.ge, '>': operator.gt, '<': operator.lt, '<=': operator.le}
 EGG_STRING = '#egg='
 
@@ -202,3 +202,18 @@ def rmdir(c, path):
         shutil.rmtree(path, onerror=remove_readonly)
     except PermissionError:
         pass
+
+@task
+def run_sdgym_benchmark(c):
+    """Run the SDGym benchmark."""
+    c.run('python sdgym/run_benchmark/run_benchmark.py')
+
+@task
+def upload_benchmark_results(c):
+    """Upload the benchmark results to S3."""
+    c.run(f'python sdgym/run_benchmark/upload_benchmark_results.py')
+
+@task
+def notify_sdgym_benchmark_uploaded(c, folder_name, pr_url=None):
+    """Notify Slack about the SDGym benchmark upload."""
+    post_benchmark_uploaded_message(folder_name, pr_url)
