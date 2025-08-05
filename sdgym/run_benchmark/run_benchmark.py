@@ -46,15 +46,14 @@ def main():
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    for synthesizer_group in SYNTHESIZERS_SPLIT[:2]:
+    for synthesizer_group in SYNTHESIZERS_SPLIT:
         benchmark_single_table_aws(
             output_destination=OUTPUT_DESTINATION_AWS,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
-            sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
             synthesizers=synthesizer_group,
             compute_privacy_score=False,
-            timeout=1,  # 4 days
+            timeout=345600,  # 4 days
         )
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str)
