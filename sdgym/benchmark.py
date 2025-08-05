@@ -577,12 +577,13 @@ def _score_with_timeout(
             process = multiprocessing.Process(target=_score, args=args)
             process.start()
             process.join(timeout)
-            if process.is_alive():
-                LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
-                process.terminate()
-                return {'timeout': True, 'error': 'Timeout'}
+            process.terminate()
 
-            return dict(output)
+            output = dict(output)
+            if output.get('timeout'):
+                LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
+
+            return output
 
 
 def _format_output(
