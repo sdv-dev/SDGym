@@ -547,8 +547,15 @@ def _score_with_timeout(
     with multiprocessing_context():
         with multiprocessing.Manager() as manager:
             output = manager.dict()
+
+            def safe_score(*args):
+                try:
+                    _score(*args)
+                except Exception as e:
+                    output['error'] = str(e)
+
             process = multiprocessing.Process(
-                target=_score,
+                target=safe_score,
                 args=(
                     synthesizer,
                     data,
@@ -567,13 +574,26 @@ def _score_with_timeout(
 
             process.start()
             process.join(timeout)
-            process.terminate()
 
-            output = dict(output)
-            if output.get('timeout'):
-                LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
+            if process.is_alive():
+                output['timeout'] = True
+                process.terminate()
+                process.join()  # ensure termination completes
 
-            return output
+            result = dict(output)
+            if result.get('timeout'):
+                LOGGER.error(
+                    'Timeout running %s on dataset %s',
+                    synthesizer['name'], dataset_name
+                )
+            elif result.get('error'):
+                LOGGER.error(
+                    'Error running %s on dataset %s: %s',
+                    synthesizer['name'], dataset_name, result['error']
+                )
+
+            return result
+
 
 
 def _format_output(
@@ -677,8 +697,6 @@ def _run_job(args):
     output = {}
     try:
         if timeout:
-            print('LAAA')
-            print(timeout)
             output = _score_with_timeout(
                 timeout=timeout,
                 synthesizer=synthesizer,

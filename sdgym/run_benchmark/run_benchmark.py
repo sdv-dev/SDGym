@@ -46,7 +46,7 @@ def main():
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    for synthesizer_group in SYNTHESIZERS_SPLIT:
+    for synthesizer_group in SYNTHESIZERS_SPLIT[:2]:
         benchmark_single_table_aws(
             output_destination=OUTPUT_DESTINATION_AWS,
             aws_access_key_id=aws_access_key_id,
