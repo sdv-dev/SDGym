@@ -12,7 +12,6 @@ from sdgym.run_benchmark.utils import (
     OUTPUT_DESTINATION_AWS,
     SYNTHESIZERS_SPLIT,
     get_result_folder_name,
-    post_benchmark_launch_message,
 )
 from sdgym.s3 import get_s3_client, parse_s3_path
 
@@ -58,7 +57,7 @@ def main():
         )
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str)
-    #post_benchmark_launch_message(date_str)
+    # post_benchmark_launch_message(date_str)
 
 
 if __name__ == '__main__':
