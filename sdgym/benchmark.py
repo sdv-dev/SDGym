@@ -8,6 +8,7 @@ import os
 import pickle
 import re
 import textwrap
+import threading
 import tracemalloc
 import warnings
 from collections import defaultdict
@@ -42,7 +43,7 @@ from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
-from sdgym.result_writer import LocalResultsWriter
+from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
 from sdgym.s3 import (
     S3_PREFIX,
     S3_REGION,
@@ -544,56 +545,52 @@ def _score_with_timeout(
     synthesizer_path=None,
     result_writer=None,
 ):
+    output = {}
+    args = (
+        synthesizer,
+        data,
+        metadata,
+        metrics,
+        output,
+        compute_quality_score,
+        compute_diagnostic_score,
+        compute_privacy_score,
+        modality,
+        dataset_name,
+        synthesizer_path,
+        result_writer,
+    )
+    if isinstance(result_writer, S3ResultsWriter):
+        process = threading.Thread(
+            target=_score,
+            args=args,
+            daemon=True,
+        )
+        process.start()
+        process.join(timeout)
+        if process.is_alive():
+            LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
+            return {'timeout': True, 'error': 'Timeout'}
+
+        return process.result
+
     with multiprocessing_context():
         with multiprocessing.Manager() as manager:
             output = manager.dict()
-
-            def safe_score(*args):
-                try:
-                    _score(*args)
-                except Exception as e:
-                    output['error'] = str(e)
-
             process = multiprocessing.Process(
-                target=safe_score,
-                args=(
-                    synthesizer,
-                    data,
-                    metadata,
-                    metrics,
-                    output,
-                    compute_quality_score,
-                    compute_diagnostic_score,
-                    compute_privacy_score,
-                    modality,
-                    dataset_name,
-                    synthesizer_path,
-                    result_writer,
-                ),
+                target=_score,
+                args=args,
             )
 
             process.start()
             process.join(timeout)
+            process.terminate()
 
-            if process.is_alive():
-                output['timeout'] = True
-                process.terminate()
-                process.join()  # ensure termination completes
+            output = dict(output)
+            if output.get('timeout'):
+                LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
 
-            result = dict(output)
-            if result.get('timeout'):
-                LOGGER.error(
-                    'Timeout running %s on dataset %s',
-                    synthesizer['name'], dataset_name
-                )
-            elif result.get('error'):
-                LOGGER.error(
-                    'Error running %s on dataset %s: %s',
-                    synthesizer['name'], dataset_name, result['error']
-                )
-
-            return result
-
+            return output
 
 
 def _format_output(
@@ -1293,7 +1290,7 @@ _write_run_id_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
 run_id_filename = job_args_list[0][-1]['run_id']
 _update_run_id_file(run_id_filename, result_writer)
-#s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
+s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
 
 
