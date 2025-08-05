@@ -51,13 +51,14 @@ def main():
             output_destination=OUTPUT_DESTINATION_AWS,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
+            sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
             synthesizers=synthesizer_group,
             compute_privacy_score=False,
             timeout=345600,  # 4 days
         )
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str)
-    post_benchmark_launch_message(date_str)
+    #post_benchmark_launch_message(date_str)
 
 
 if __name__ == '__main__':
