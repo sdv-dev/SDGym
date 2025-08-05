@@ -1,9 +1,6 @@
 name: Upload SDGym Benchmark results
 
 on:
-  push:
-    branches:
-      - issue-425-workflow-sdgym
   workflow_run:
     workflows: ["Run SDGym Benchmark"]
     types:

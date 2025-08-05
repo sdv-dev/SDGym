@@ -677,6 +677,8 @@ def _run_job(args):
     output = {}
     try:
         if timeout:
+            print('LAAA')
+            print(timeout)
             output = _score_with_timeout(
                 timeout=timeout,
                 synthesizer=synthesizer,
