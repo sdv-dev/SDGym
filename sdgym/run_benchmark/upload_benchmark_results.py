@@ -11,7 +11,7 @@ from botocore.exceptions import ClientError
 from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
 from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, get_df_to_plot
 from sdgym.s3 import S3_REGION, parse_s3_path
-from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer
+from sdgym.result_explorer.result_explorer import ResultsExplorer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ def upload_results(
     aws_access_key_id, aws_secret_access_key, folder_name, s3_client, bucket, prefix, github_env
 ):
     """Upload benchmark results to S3."""
-    result_explorer = SDGymResultsExplorer(
+    result_explorer = ResultsExplorer(
         OUTPUT_DESTINATION_AWS,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
