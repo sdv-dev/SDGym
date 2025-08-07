@@ -244,7 +244,7 @@ class TestLocalResultsHandler:
             / folder_name
             / f'{dataset_name}_07_07_2025'
             / synthesizer_name
-            / f'{synthesizer_name}_synthesizer.pkl'
+            / f'{synthesizer_name}.pkl'
         )
         synthesizer.save(synthesizer_path)
         result_handler = LocalResultsHandler(str(tmp_path))
