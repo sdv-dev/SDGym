@@ -4,8 +4,8 @@ import os
 
 from sdgym.benchmark import DEFAULT_DATASETS
 from sdgym.datasets import get_dataset_paths, load_dataset
+from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 from sdgym.s3 import _get_s3_client, is_s3_path
-from sdgym.sdgym_result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 
 
 def _validate_local_path(path):
@@ -14,7 +14,7 @@ def _validate_local_path(path):
         raise ValueError(f"The provided path '{path}' is not a valid local directory.")
 
 
-class SDGymResultsExplorer:
+class ResultsExplorer:
     """Explorer for SDGym benchmark results, supporting both local and S3 storage."""
 
     def __init__(self, path, aws_access_key_id=None, aws_secret_access_key=None):

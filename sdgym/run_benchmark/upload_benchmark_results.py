@@ -21,7 +21,7 @@ from scipy.interpolate import interp1d
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, get_df_to_plot
 from sdgym.s3 import S3_REGION, parse_s3_path
-from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer
+from sdgym.result_explorer.result_explorer import ResultsExplorer
 
 LOGGER = logging.getLogger(__name__)
 SYNTHESIZER_TO_GLOBAL_POSITION = {
@@ -202,7 +202,7 @@ def upload_results(
     """Upload benchmark results to S3, GDrive, and save locally."""
     folder_name = folder_infos['folder_name']
     run_date = folder_infos['date']
-    result_explorer = SDGymResultsExplorer(
+    result_explorer = ResultsExplorer(
         OUTPUT_DESTINATION_AWS,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
