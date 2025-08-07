@@ -8,7 +8,7 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.sdgym_result_explorer.result_handler import (
+from sdgym.result_explorer.result_handler import (
     LocalResultsHandler,
     ResultsHandler,
     S3ResultsHandler,

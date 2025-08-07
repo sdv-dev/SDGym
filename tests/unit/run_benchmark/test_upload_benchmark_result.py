@@ -154,7 +154,7 @@ def test_upload_to_drive_file_not_found(tmp_path):
         upload_to_drive(missing_file, 'fake_file_id')
 
 
-@patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
@@ -221,7 +221,7 @@ def test_upload_results(
     mock_get_df_to_plot.assert_called_once_with('results')
 
 
-@patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
