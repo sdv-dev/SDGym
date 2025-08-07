@@ -8,10 +8,10 @@ import sys
 import boto3
 from botocore.exceptions import ClientError
 
+from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
 from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, get_df_to_plot
 from sdgym.s3 import S3_REGION, parse_s3_path
-from sdgym.result_explorer.result_explorer import ResultsExplorer
 
 LOGGER = logging.getLogger(__name__)
 
