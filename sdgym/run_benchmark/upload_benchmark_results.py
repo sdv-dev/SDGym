@@ -18,10 +18,10 @@ from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 from scipy.interpolate import interp1d
 
+from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, get_df_to_plot
 from sdgym.s3 import S3_REGION, parse_s3_path
-from sdgym.result_explorer.result_explorer import ResultsExplorer
 
 LOGGER = logging.getLogger(__name__)
 SYNTHESIZER_TO_GLOBAL_POSITION = {
