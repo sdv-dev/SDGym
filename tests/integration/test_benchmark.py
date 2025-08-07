@@ -630,7 +630,7 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
             )
         )
         assert set(synthesizer_files) == {
-            f'{synthesizer}_synthesizer.pkl',
+            f'{synthesizer}.pkl',
             f'{synthesizer}_synthetic_data.csv',
             f'{synthesizer}_benchmark_result.csv',
         }
@@ -706,7 +706,7 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
             )
         )
         assert set(synthesizer_files) == {
-            f'{synthesizer}_synthesizer.pkl',
+            f'{synthesizer}.pkl',
             f'{synthesizer}_synthetic_data.csv',
             f'{synthesizer}_benchmark_result.csv',
         }
