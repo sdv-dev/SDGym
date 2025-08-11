@@ -96,7 +96,7 @@ def test_get_result_folder_name_and_s3_vars(
     )
 
 
-@patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.S3ResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
@@ -161,7 +161,7 @@ def test_upload_results(
     mock_get_df_to_plot.assert_called_once_with('results')
 
 
-@patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.S3ResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
