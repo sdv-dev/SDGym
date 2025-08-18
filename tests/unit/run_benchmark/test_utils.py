@@ -140,26 +140,26 @@ def test_post_benchmark_uploaded_message(
 @patch('sdgym.run_benchmark.utils.post_slack_message')
 @patch('sdgym.run_benchmark.utils.get_s3_console_link')
 @patch('sdgym.run_benchmark.utils.parse_s3_path')
-def test_post_benchmark_uploaded_message_with_pull_request(
+def test_post_benchmark_uploaded_message_with_commit(
     mock_parse_s3_path,
     mock_get_s3_console_link,
     mock_post_slack_message,
 ):
-    """Test the `post_benchmark_uploaded_message` with a pull request URL."""
+    """Test the `post_benchmark_uploaded_message` with a commit URL."""
     # Setup
     folder_name = 'SDGym_results_10_01_2023'
-    pr_url = 'https://github.com/user/repo/pull/123'
+    commit_url = 'https://github.com/user/repo/pull/123'
     mock_parse_s3_path.return_value = ('my-bucket', 'my-prefix/')
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
     expected_body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results <{url} |here>.\n'
-        f'Waiting on merging this PR to update GitHub directory: <{pr_url}|PR Link>\n'
+        f'or on GitHub: <{commit_url}|Commit Link>\n'
     )
 
     # Run
-    post_benchmark_uploaded_message(folder_name, pr_url)
+    post_benchmark_uploaded_message(folder_name, commit_url)
 
     # Assert
     mock_post_slack_message.assert_called_once_with(DEBUG_SLACK_CHANNEL, expected_body)

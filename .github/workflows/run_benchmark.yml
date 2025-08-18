@@ -1,9 +1,6 @@
 name: Run SDGym Benchmark
 
 on:
-  push:
-    branches:
-      - issue-425-workflow-sdgym
   workflow_dispatch:
   schedule:
     - cron: '0 5 5 * *'
