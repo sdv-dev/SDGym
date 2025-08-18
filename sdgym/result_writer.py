@@ -39,7 +39,7 @@ class LocalResultsWriter(ResultsWriter):
         if file_path.exists() and append:
             data.to_csv(file_path, mode='a', index=index, header=False)
         else:
-            data.to_csv(file_path, mode='w', index=False)
+            data.to_csv(file_path, mode='w', index=index, header=True)
 
     def write_pickle(self, obj, file_path):
         """Write a Python object to a pickle file."""

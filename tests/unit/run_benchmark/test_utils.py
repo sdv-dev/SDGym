@@ -123,7 +123,7 @@ def test_post_benchmark_uploaded_message(
     mock_get_s3_console_link.return_value = url
     expected_body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
-        f'Check the results <{url} |here>.\n'
+        f'Check the results <{url} |here>'
     )
 
     # Run
@@ -154,7 +154,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     mock_get_s3_console_link.return_value = url
     expected_body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
-        f'Check the results <{url} |here>.\n'
+        f'Check the results <{url} |here> '
         f'or on GitHub: <{commit_url}|Commit Link>\n'
     )
 
