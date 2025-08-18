@@ -1,6 +1,9 @@
 name: Upload SDGym Benchmark results
 
 on:
+  push:
+    branches:
+      - issue-425-workflow-sdgym
   workflow_run:
     workflows: ["Run SDGym Benchmark"]
     types:
@@ -66,30 +69,20 @@ jobs:
       run: |
         cp pr-staging/* target-repo/assets/sdgym-leaderboard-files/
         cd target-repo
-        git checkout -b sdgym-benchmark-upload-${FOLDER_NAME}
+        git checkout gatsby-home
         git config --local user.name "github-actions[bot]"
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
         git add assets/
-        git commit -m "Upload SDGym Benchmark Results ($FOLDER_NAME)"
+        git commit -m "Upload SDGym Benchmark Results ($FOLDER_NAME)" || echo "No changes to commit"
         git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git
-        git push origin sdgym-benchmark-upload-${FOLDER_NAME}
+        git push origin gatsby-home
 
-        gh pr create \
-          --repo sdv-dev/sdv-dev.github.io \
-          --head sdgym-benchmark-upload-${FOLDER_NAME} \
-          --base gatsby-home \
-          --title "Upload SDGym Benchmark Results ($FOLDER_NAME)" \
-          --body "Automated benchmark results upload" \
-          --reviewer "pcarapic15"
+        COMMIT_HASH=$(git rev-parse HEAD)
+        COMMIT_URL="https://github.com/sdv-dev/sdv-dev.github.io/commit/${COMMIT_HASH}"
 
-        # Capture PR URL
-        PR_URL=$(gh pr view sdgym-benchmark-upload-${FOLDER_NAME} \
-        --repo sdv-dev/sdv-dev.github.io \
-        --json url -q .url)
-
-        echo "PR URL: $PR_URL"
-        echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+        echo "Commit URL: $COMMIT_URL"
+        echo "COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
 
     - name: Send Slack notification
       if: env.SKIP_UPLOAD != 'true'
@@ -98,4 +91,4 @@ jobs:
       run: |
         invoke notify-sdgym-benchmark-uploaded \
           --folder-name "$FOLDER_NAME" \
-          --pr-url "$PR_URL"
+          --commit-url "$COMMIT_URL"

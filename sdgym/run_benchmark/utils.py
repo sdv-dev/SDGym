@@ -100,7 +100,7 @@ def post_benchmark_launch_message(date_str):
     post_slack_message(channel, body)
 
 
-def post_benchmark_uploaded_message(folder_name, pr_url=None):
+def post_benchmark_uploaded_message(folder_name, commit_url=None):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
     channel = DEBUG_SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
@@ -109,8 +109,8 @@ def post_benchmark_uploaded_message(folder_name, pr_url=None):
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results <{url_link} |here>.\n'
     )
-    if pr_url:
-        body += f'Waiting on merging this PR to update GitHub directory: <{pr_url}|PR Link>\n'
+    if commit_url:
+        body += f'or on GitHub: <{commit_url}|Commit Link>\n'
 
     post_slack_message(channel, body)
 
