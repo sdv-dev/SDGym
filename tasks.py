@@ -214,6 +214,6 @@ def upload_benchmark_results(c):
     c.run(f'python sdgym/run_benchmark/upload_benchmark_results.py')
 
 @task
-def notify_sdgym_benchmark_uploaded(c, folder_name, pr_url=None):
+def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None):
     """Notify Slack about the SDGym benchmark upload."""
-    post_benchmark_uploaded_message(folder_name, pr_url)
+    post_benchmark_uploaded_message(folder_name, commit_url)
