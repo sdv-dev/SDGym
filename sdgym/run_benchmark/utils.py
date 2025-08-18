@@ -107,10 +107,10 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None):
     url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/{folder_name}_summary.csv')
     body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
-        f'Check the results <{url_link} |here>.\n'
+        f'Check the results <{url_link} |here>'
     )
     if commit_url:
-        body += f'or on GitHub: <{commit_url}|Commit Link>\n'
+        body += f' or on GitHub: <{commit_url}|Commit Link>\n'
 
     post_slack_message(channel, body)
 

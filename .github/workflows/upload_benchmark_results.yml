@@ -1,9 +1,6 @@
 name: Upload SDGym Benchmark results
 
 on:
-  push:
-    branches:
-      - issue-425-workflow-sdgym
   workflow_run:
     workflows: ["Run SDGym Benchmark"]
     types:
@@ -40,7 +37,7 @@ jobs:
         invoke upload-benchmark-results
         echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
-    - name: Prepare files for PR
+    - name: Prepare files for commit
       if: env.SKIP_UPLOAD != 'true'
       run: |
         mkdir pr-staging
@@ -61,7 +58,7 @@ jobs:
         cd target-repo
         git checkout gatsby-home
 
-    - name: Copy results and create PR
+    - name: Copy results and commit
       if: env.SKIP_UPLOAD != 'true'
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
