@@ -47,10 +47,8 @@ dependencies = [
     "scipy>=1.12.0;python_version>='3.12' and python_version<'3.13'",
     "scipy>=1.14.1;python_version>='3.13'",
     'tabulate>=0.8.3,<0.9',
-    "torch>=1.13.0;python_version<'3.11'",
-    "torch>=2.0.0;python_version>='3.11' and python_version<'3.12'",
-    "torch>=2.2.0;python_version>='3.12' and python_version<'3.13'",
-    "torch>=2.6.0;python_version>='3.13'",
+    "torch>=2.2.0;python_version>='3.8' and python_version<'3.9'",
+    "torch>=2.6.0;python_version>='3.9'",
     'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
     'rdt>=1.17.0',
@@ -71,10 +69,9 @@ sdgym = { main = 'sdgym.cli.__main__:main' }
 [project.optional-dependencies]
 dask = ['dask', 'distributed']
 realtabformer = [
-    'realtabformer>=0.2.2',
-    "torch>=2.1.0;python_version>='3.8' and python_version<'3.12'",
-    "torch>=2.2.0;python_version>='3.12' and python_version<'3.13'",
-    "torch>=2.6.0;python_version>='3.13'",
+    'realtabformer>=0.2.3',
+    "torch>=2.2.0;python_version>='3.8' and python_version<'3.9'",
+    "torch>=2.6.0;python_version>='3.9'",
     'transformers<4.51',
 ]
 test = [
