@@ -23,7 +23,7 @@ def get_latest_run_from_file(s3_client, bucket, key):
         body = object['Body'].read().decode('utf-8')
         data = json.loads(body)
         latest = sorted(data['runs'], key=lambda x: x['date'])[-1]
-        return latest['folder_name']
+        return latest
     except s3_client.exceptions.ClientError as e:
         raise RuntimeError(f'Failed to read {key} from S3: {e}')
 
@@ -56,15 +56,17 @@ def get_result_folder_name_and_s3_vars(aws_access_key_id, aws_secret_access_key)
         aws_secret_access_key=aws_secret_access_key,
         region_name=S3_REGION,
     )
-    folder_name = get_latest_run_from_file(s3_client, bucket, f'{prefix}_BENCHMARK_DATES.json')
+    folder_infos = get_latest_run_from_file(s3_client, bucket, f'{prefix}_BENCHMARK_DATES.json')
 
-    return folder_name, s3_client, bucket, prefix
+    return folder_infos['folder_name'], s3_client, bucket, prefix
 
 
 def upload_results(
-    aws_access_key_id, aws_secret_access_key, folder_name, s3_client, bucket, prefix, github_env
+    aws_access_key_id, aws_secret_access_key, folder_infos, s3_client, bucket, prefix, github_env
 ):
     """Upload benchmark results to S3."""
+    folder_name = folder_infos['folder_name']
+    run_date = folder_infos['date']
     result_explorer = SDGymResultsExplorer(
         OUTPUT_DESTINATION_AWS,
         aws_access_key_id=aws_access_key_id,
@@ -94,11 +96,13 @@ def upload_results(
     local_export_dir = os.environ.get('GITHUB_LOCAL_RESULTS_DIR')
     if local_export_dir:
         os.makedirs(local_export_dir, exist_ok=True)
-        local_results_writer.write_dataframe(
-            summary, f'{local_export_dir}/{folder_name}_summary.csv', index=True
-        )
-        local_results_writer.write_dataframe(
-            df_to_plot, f'{local_export_dir}/{folder_name}_plot_data.csv', index=False
+        datas = {
+            'Wins': summary,
+            f'{run_date}_plot_data': df_to_plot,
+            f'{run_date}_Detailed_results': results,
+        }
+        local_results_writer.write_xlsx(
+            datas, f'{local_export_dir}/{folder_name}_results.xlsx'
         )
 
     write_uploaded_marker(s3_client, bucket, prefix, folder_name)
@@ -108,11 +112,11 @@ def main():
     """Main function to upload benchmark results."""
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    folder_name, s3_client, bucket, prefix = get_result_folder_name_and_s3_vars(
+    folder_infos, s3_client, bucket, prefix = get_result_folder_name_and_s3_vars(
         aws_access_key_id, aws_secret_access_key
     )
     github_env = os.getenv('GITHUB_ENV')
-    if upload_already_done(s3_client, bucket, prefix, folder_name):
+    if upload_already_done(s3_client, bucket, prefix, folder_infos['folder_name']):
         LOGGER.warning('Benchmark results have already been uploaded. Exiting.')
         if github_env:
             with open(github_env, 'a') as env_file:
@@ -121,7 +125,7 @@ def main():
         sys.exit(0)
 
     upload_results(
-        aws_access_key_id, aws_secret_access_key, folder_name, s3_client, bucket, prefix, github_env
+        aws_access_key_id, aws_secret_access_key, folder_infos, s3_client, bucket, prefix, github_env
     )
 
 

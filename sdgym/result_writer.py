@@ -41,6 +41,23 @@ class LocalResultsWriter(ResultsWriter):
         else:
             data.to_csv(file_path, mode='w', index=index, header=True)
 
+    def write_xlsx(self, dataframes, file_path, index=False):
+        """
+        Write DataFrames to an Excel file, updating existing sheets or adding new ones,
+        while keeping all other sheets intact.
+        """
+        file_path = Path(file_path)
+
+        if file_path.exists():
+            with pd.ExcelWriter(file_path, mode="a", engine="openpyxl", if_sheet_exists="replace") as writer:
+                for sheet_name, df in dataframes.items():
+                    df.to_excel(writer, sheet_name=sheet_name, index=index)
+        else:
+            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                for sheet_name, df in dataframes.items():
+                    df.to_excel(writer, sheet_name=sheet_name, index=index)
+
+
     def write_pickle(self, obj, file_path):
         """Write a Python object to a pickle file."""
         with open(file_path, 'wb') as f:
