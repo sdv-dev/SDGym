@@ -30,6 +30,7 @@ jobs:
           
     - name: Upload SDGym Benchmark
       env:
+        PYDRIVE_CREDENTIALS: ${{ secrets.PYDRIVE_CREDENTIALS }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
@@ -69,7 +70,6 @@ jobs:
         git checkout gatsby-home
         git config --local user.name "github-actions[bot]"
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
         git add assets/
         git commit -m "Upload SDGym Benchmark Results ($FOLDER_NAME)" || echo "No changes to commit"
         git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git

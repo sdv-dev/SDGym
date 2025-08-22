@@ -1,13 +1,19 @@
-from unittest.mock import Mock, call, patch
+import json
+from pathlib import Path
+from unittest.mock import Mock, patch
 
+import pandas as pd
 import pytest
 from botocore.exceptions import ClientError
 
 from sdgym.run_benchmark.upload_benchmark_results import (
+    SDGYM_FILE_ID,
+    generate_graph,
     get_result_folder_name_and_s3_vars,
     main,
     upload_already_done,
     upload_results,
+    upload_to_drive,
     write_uploaded_marker,
 )
 from sdgym.s3 import S3_REGION
@@ -96,30 +102,143 @@ def test_get_result_folder_name_and_s3_vars(
     )
 
 
+@patch('sdgym.run_benchmark.upload_benchmark_results.px.scatter')
+@patch('sdgym.run_benchmark.upload_benchmark_results.px')
+def test_generate_graph(mock_px, mock_scatter):
+    """Test the `generate_graph` method."""
+    # Setup
+    data = pd.DataFrame({
+        'Aggregated_Time': [10, 100, 1000],
+        'Quality_Score': [0.6, 0.7, 0.8],
+        'Synthesizer': ['Synth1', 'Synth2', 'Synth3'],
+        'Marker': ['circle', 'square', 'diamond'],
+        'Color': ['red', 'blue', 'green'],
+        'Pareto': [True, False, True],
+    })
+    mock_colors = Mock()
+    mock_px.colors.qualitative.Plotly = mock_colors
+    figure = Mock()
+    mock_px.scatter.return_value = figure
+    figure.data = []
+
+    # Run
+    result = generate_graph(data)
+
+    # Assert
+    assert result == figure
+    mock_scatter.assert_called_once_with(
+        data,
+        x='Aggregated_Time',
+        y='Quality_Score',
+        color='Synthesizer',
+        text='Synthesizer',
+        title='Mean Quality Score vs Aggregated Time (Over All Datasets)',
+        labels={'Aggregated_Time': 'Aggregated Time [s]', 'Quality_Score': 'Mean Quality Score'},
+        log_x=True,
+    )
+    figure.update_layout.assert_called_once_with(
+        xaxis=dict(
+            tickformat='.0e',
+            tickmode='array',
+            tickvals=[1e1, 1e2, 1e3, 1e4, 1e5, 1e6],
+            ticktext=[
+                '10<sup>1</sup>',
+                '10<sup>2</sup>',
+                '10<sup>3</sup>',
+                '10<sup>4</sup>',
+                '10<sup>5</sup>',
+                '10<sup>6</sup>',
+            ],
+            showgrid=False,
+            zeroline=False,
+            title='Aggregated Time [s]',
+            range=[0.6, 6],
+        ),
+        yaxis=dict(showgrid=False, zeroline=False, range=[0.54, 0.92]),
+        plot_bgcolor='#F5F5F8',
+    )
+
+
+@patch('sdgym.run_benchmark.upload_benchmark_results.GoogleDrive')
+@patch('sdgym.run_benchmark.upload_benchmark_results.GoogleAuth')
+@patch('sdgym.run_benchmark.upload_benchmark_results.OAuth2Credentials')
+@patch('sdgym.run_benchmark.upload_benchmark_results.os.environ', new_callable=dict)
+def test_upload_to_drive_success(mock_environ, mock_oauth, mock_auth, mock_drive, tmp_path):
+    """Test `upload_to_drive` uploads a file successfully."""
+    # Setup
+    file_path = tmp_path / 'test.xlsx'
+    file_path.write_text('dummy content')
+
+    creds_dict = {
+        'access_token': 'token',
+        'client_id': 'client',
+        'client_secret': 'secret',
+        'refresh_token': 'refresh',
+    }
+    mock_environ['PYDRIVE_CREDENTIALS'] = json.dumps(creds_dict)
+
+    mock_drive_instance = Mock()
+    mock_drive.return_value = mock_drive_instance
+    mock_file = Mock()
+    mock_drive_instance.CreateFile.return_value = mock_file
+
+    # Run
+    upload_to_drive(file_path, 'fake_file_id')
+
+    # Assert
+    mock_oauth.assert_called_once_with(
+        access_token='token',
+        client_id='client',
+        client_secret='secret',
+        refresh_token='refresh',
+        token_expiry=None,
+        token_uri='https://oauth2.googleapis.com/token',
+        user_agent=None,
+    )
+    mock_auth.assert_called_once()
+    mock_drive.assert_called_once_with(mock_auth.return_value)
+    mock_drive_instance.CreateFile.assert_called_once_with({'id': 'fake_file_id'})
+    mock_file.SetContentFile.assert_called_once_with(file_path)
+    mock_file.Upload.assert_called_once_with(param={'supportsAllDrives': True})
+
+
+def test_upload_to_drive_file_not_found(tmp_path):
+    """Test `upload_to_drive` raises FileNotFoundError for missing file."""
+    # Setup
+    missing_file = str(Path(tmp_path / 'missing.xlsx'))
+
+    # Run and Assert
+    with pytest.raises(FileNotFoundError, match=f'File not found: {missing_file}'):
+        upload_to_drive(missing_file, 'fake_file_id')
+
+
 @patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
-@patch('sdgym.run_benchmark.upload_benchmark_results.S3ResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LocalResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.environ.get')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_df_to_plot')
+@patch('sdgym.run_benchmark.upload_benchmark_results.generate_graph')
+@patch('sdgym.run_benchmark.upload_benchmark_results.upload_to_drive')
 def test_upload_results(
+    mock_upload_to_drive,
+    mock_generate_graph,
     mock_get_df_to_plot,
     mock_os_environ_get,
     mock_local_results_writer,
     mock_output_destination_aws,
     mock_logger,
     mock_write_uploaded_marker,
-    mock_s3_results_writer,
     mock_sdgym_results_explorer,
 ):
     """Test the `upload_results` method."""
     # Setup
     aws_access_key_id = 'my_access_key'
     aws_secret_access_key = 'my_secret_key'
-    run_name = 'SDGym_results_10_01_2023'
-    s3_client = 's3_client'
+    folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
+    run_name = folder_infos['folder_name']
+    s3_client = Mock()
     bucket = 'bucket'
     prefix = 'prefix'
     result_explorer_instance = mock_sdgym_results_explorer.return_value
@@ -127,12 +246,20 @@ def test_upload_results(
     result_explorer_instance.summarize.return_value = ('summary', 'results')
     mock_os_environ_get.return_value = '/tmp/sdgym_results'
     mock_get_df_to_plot.return_value = 'df_to_plot'
+    mock_generate_graph.return_value = 'plot_image'
+    datas = {
+        'Wins': 'summary',
+        '10_01_2023_Detailed_results': 'results',
+        '10_01_2023_plot_data': 'df_to_plot',
+        '10_01_2023_plot_image': 'plot_image',
+    }
+    local_path = str(Path('/tmp/sdgym_results/SDGym Monthly Run.xlsx'))
 
     # Run
     upload_results(
         aws_access_key_id,
         aws_secret_access_key,
-        run_name,
+        folder_infos,
         s3_client,
         bucket,
         prefix,
@@ -140,6 +267,8 @@ def test_upload_results(
     )
 
     # Assert
+    mock_upload_to_drive.assert_called_once_with(local_path, SDGYM_FILE_ID)
+    mock_generate_graph.assert_called_once()
     mock_logger.info.assert_called_once_with(
         f'Run {run_name} is complete! Proceeding with summarization...'
     )
@@ -150,19 +279,12 @@ def test_upload_results(
     )
     result_explorer_instance.all_runs_complete.assert_called_once_with(run_name)
     result_explorer_instance.summarize.assert_called_once_with(run_name)
-    mock_s3_results_writer.return_value.write_dataframe.assert_called_once()
     mock_write_uploaded_marker.assert_called_once_with(s3_client, bucket, prefix, run_name)
-    mock_local_results_writer.return_value.write_dataframe.assert_has_calls([
-        call('summary', '/tmp/sdgym_results/SDGym_results_10_01_2023_summary.csv', index=True),
-        call(
-            'df_to_plot', '/tmp/sdgym_results/SDGym_results_10_01_2023_plot_data.csv', index=False
-        ),
-    ])
+    mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(datas, local_path)
     mock_get_df_to_plot.assert_called_once_with('results')
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.SDGymResultsExplorer')
-@patch('sdgym.run_benchmark.upload_benchmark_results.S3ResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
@@ -170,15 +292,15 @@ def test_upload_results_not_all_runs_complete(
     mock_output_destination_aws,
     mock_logger,
     mock_write_uploaded_marker,
-    mock_s3_results_writer,
     mock_sdgym_results_explorer,
 ):
     """Test the `upload_results` when not all runs are complete."""
     # Setup
     aws_access_key_id = 'my_access_key'
     aws_secret_access_key = 'my_secret_key'
-    run_name = 'SDGym_results_10_01_2023'
-    s3_client = 's3_client'
+    folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
+    run_name = folder_infos['folder_name']
+    s3_client = Mock()
     bucket = 'bucket'
     prefix = 'prefix'
     result_explorer_instance = mock_sdgym_results_explorer.return_value
@@ -190,7 +312,7 @@ def test_upload_results_not_all_runs_complete(
         upload_results(
             aws_access_key_id,
             aws_secret_access_key,
-            run_name,
+            folder_infos,
             s3_client,
             bucket,
             prefix,
@@ -206,7 +328,6 @@ def test_upload_results_not_all_runs_complete(
     )
     result_explorer_instance.all_runs_complete.assert_called_once_with(run_name)
     result_explorer_instance.summarize.assert_not_called()
-    mock_s3_results_writer.return_value.write_dataframe.assert_not_called()
     mock_write_uploaded_marker.assert_not_called()
 
 
@@ -225,8 +346,9 @@ def test_main_already_upload(
     """Test the `method` when results are already uploaded."""
     # Setup
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key', None]
+    folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
     mock_get_result_folder_name_and_s3_vars.return_value = (
-        'run_name',
+        folder_infos,
         's3_client',
         'bucket',
         'prefix',
@@ -259,8 +381,9 @@ def test_main(
     """Test the `main` method."""
     # Setup
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key', None]
+    folder_infos = {'folder_name': 'SDGym_results_10_11_2024', 'date': '10_11_2024'}
     mock_get_result_folder_name_and_s3_vars.return_value = (
-        'run_name',
+        folder_infos,
         's3_client',
         'bucket',
         'prefix',
@@ -274,7 +397,9 @@ def test_main(
     mock_get_result_folder_name_and_s3_vars.assert_called_once_with(
         'my_access_key', 'my_secret_key'
     )
-    mock_upload_already_done.assert_called_once_with('s3_client', 'bucket', 'prefix', 'run_name')
+    mock_upload_already_done.assert_called_once_with(
+        's3_client', 'bucket', 'prefix', folder_infos['folder_name']
+    )
     mock_upload_results.assert_called_once_with(
-        'my_access_key', 'my_secret_key', 'run_name', 's3_client', 'bucket', 'prefix', None
+        'my_access_key', 'my_secret_key', folder_infos, 's3_client', 'bucket', 'prefix', None
     )
