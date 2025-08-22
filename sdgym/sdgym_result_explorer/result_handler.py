@@ -86,6 +86,9 @@ class ResultsHandler(ABC):
             summarized_results[column_name] = column_data
 
         summarized_results = summarized_results.fillna('-')
+        summarized_results = summarized_results.reset_index()
+        summarized_results = summarized_results.rename(columns={'index': 'Synthesizer'})
+
         return summarized_results
 
     def _get_column_name_infos(self, folder_to_results):
@@ -121,6 +124,7 @@ class ResultsHandler(ABC):
                 'summarize results.'
             )
 
+        filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
         return filtered_results.reset_index(drop=True)
 
     def summarize(self, folder_name):

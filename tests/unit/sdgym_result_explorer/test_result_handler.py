@@ -64,10 +64,9 @@ class TestResultsHandler:
 
         # Assert
         expected_summary = pd.DataFrame({
-            '07_15_2025 - # datasets: 3 - sdgym version: 0.9.0': [2, 1],
             'Synthesizer': ['Synth1', 'Synth2'],
+            '07_15_2025 - # datasets: 3 - sdgym version: 0.9.0': [2, 1],
         })
-        expected_summary = expected_summary.set_index('Synthesizer')
         pd.testing.assert_frame_equal(result, expected_summary)
 
     def test_get_column_name_infos(self):
