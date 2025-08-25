@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -208,7 +209,7 @@ def test_upload_to_drive_file_not_found(tmp_path):
     missing_file = str(Path(tmp_path / 'missing.xlsx'))
 
     # Run and Assert
-    with pytest.raises(FileNotFoundError, match=f'File not found: {missing_file}'):
+    with pytest.raises(FileNotFoundError, match=re.escape(f'File not found: {missing_file}')):
         upload_to_drive(missing_file, 'fake_file_id')
 
 
