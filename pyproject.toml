@@ -56,7 +56,8 @@ dependencies = [
     'sdv>=1.21.0',
     'openpyxl>=3.0.0',
     'kaleido>=0.2.1',
-    'pillow>=11.0.0',
+    "pillow>=9.0.0,<11.0.0; python_version<'3.9'",
+    "pillow>=11.0.0; python_version>='3.9'",
     'pydrive2>=1.4.0,<2.0.0'
 ]
 
