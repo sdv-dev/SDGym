@@ -410,9 +410,7 @@ def test__setup_output_destination(tmp_path):
         dataset: {
             **{
                 synth: {
-                    'synthesizer': str(
-                        base_path / f'{dataset}_{today}' / synth / f'{synth}_synthesizer.pkl'
-                    ),
+                    'synthesizer': str(base_path / f'{dataset}_{today}' / synth / f'{synth}.pkl'),
                     'synthetic_data': str(
                         base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.csv'
                     ),
@@ -523,7 +521,7 @@ def test_setup_output_destination_aws(mock_get_run_id_increment):
         for synth in synthesizers:
             assert 'synthesizer' in paths[dataset][synth]
             assert paths[dataset][synth]['synthesizer'] == (
-                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthesizer.pkl'
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}.pkl'
             )
             assert 'synthetic_data' in paths[dataset][synth]
             assert paths[dataset][synth]['synthetic_data'] == (
