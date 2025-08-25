@@ -3,12 +3,12 @@ import time
 import pandas as pd
 from sdv.single_table import TVAESynthesizer
 
+from sdgym import ResultsExplorer
 from sdgym.benchmark import benchmark_single_table
-from sdgym.sdgym_result_explorer import SDGymResultsExplorer
 
 
 def test_end_to_end_local(tmp_path):
-    """Test the SDGymResultsExplorer end-to-end with local paths."""
+    """Test the ResultsExplorer end-to-end with local paths."""
     # Setup
     output_destination = str(tmp_path / 'benchmark_output')
     benchmark_single_table(
@@ -19,7 +19,7 @@ def test_end_to_end_local(tmp_path):
     today = time.strftime('%m_%d_%Y')
 
     # Run
-    result_explorer = SDGymResultsExplorer(output_destination)
+    result_explorer = ResultsExplorer(output_destination)
     runs = result_explorer.list()
     synthetic_data = result_explorer.load_synthetic_data(
         results_folder_name=runs[0],
@@ -50,8 +50,8 @@ def test_end_to_end_local(tmp_path):
 def test_summarize():
     """Test the `summarize` method."""
     # Setup
-    output_destination = 'tests/integration/sdgym_result_explorer/_benchmark_results'
-    result_explorer = SDGymResultsExplorer(output_destination)
+    output_destination = 'tests/integration/result_explorer/_benchmark_results'
+    result_explorer = ResultsExplorer(output_destination)
 
     # Run
     summary, results = result_explorer.summarize('SDGym_results_10_11_2024')
@@ -65,7 +65,7 @@ def test_summarize():
     })
     expected_results = (
         pd.read_csv(
-            'tests/integration/sdgym_result_explorer/_benchmark_results/'
+            'tests/integration/result_explorer/_benchmark_results/'
             'SDGym_results_10_11_2024/results_10_11_2024_1.csv',
         )
         .sort_values(by=['Dataset', 'Synthesizer'])
