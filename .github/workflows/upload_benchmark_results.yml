@@ -47,9 +47,11 @@ jobs:
         mkdir pr-staging
         echo "Looking for files in: $GITHUB_LOCAL_RESULTS_DIR"
         ls -l "$GITHUB_LOCAL_RESULTS_DIR"
-        for f in "$GITHUB_LOCAL_RESULTS_DIR"/${FOLDER_NAME}_*.csv; do
-          base=$(basename "$f")
-          cp "$f" "pr-staging/${base}"
+        for f in "$GITHUB_LOCAL_RESULTS_DIR"/*; do
+          if [ -f "$f" ]; then
+            base=$(basename "$f")
+            cp "$f" "pr-staging/${base}"
+          fi
         done
 
         echo "Files staged for PR:"

@@ -54,15 +54,12 @@ class LocalResultsWriter:
             temp_images[sheet_name] = img_path
 
     def write_xlsx(self, data, file_path, index=False):
-        """Write DataFrames and Plotly figures to an Excel file.
+        """Write DataFrames to an Excel file.
 
-        - DataFrames are saved as tables in their own sheets.
-        - Plotly figures are exported to PNG and embedded in their own sheets.
-        - Temporary PNG files are deleted after embedding.
+        - Each DataFrame is saved as a table in its own sheet.
         - Newly written sheets are moved to the front.
         """
         file_path = Path(file_path)
-        temp_images = {}
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if file_path.exists():
             writer = pd.ExcelWriter(
@@ -72,22 +69,16 @@ class LocalResultsWriter:
             writer = pd.ExcelWriter(file_path, mode='w', engine='openpyxl')
 
         with writer:
-            for sheet_name, obj in data.items():
-                self.process_data(writer, file_path, temp_images, sheet_name, obj, index=index)
+            for sheet_name, df in data.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=index)
 
         wb = load_workbook(file_path)
-        for sheet_name, img_path in temp_images.items():
-            ws = wb[sheet_name] if sheet_name in wb.sheetnames else wb.create_sheet(sheet_name)
-            ws.add_image(XLImage(img_path), 'A1')
-
         for sheet_name in reversed(data.keys()):
             ws = wb[sheet_name]
             wb._sheets.remove(ws)
             wb._sheets.insert(0, ws)
 
         wb.save(file_path)
-        for img_path in temp_images.values():
-            img_path.unlink(missing_ok=True)
 
     def write_pickle(self, obj, file_path):
         """Write a Python object to a pickle file."""
