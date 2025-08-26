@@ -13,6 +13,7 @@ UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
+GDRIVE_LINK = 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=sharing'
 PLOTLY_MARKERS = [
     'circle',
     'square',
@@ -107,10 +108,12 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None):
     url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/{folder_name}_summary.csv')
     body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
-        f'Check the results <{url_link} |here>'
+        f'Check the results:\n'
+        f' - On GDrive: <{GDRIVE_LINK}|link>\n'
+        f' - On S3: <{url_link}|link>\n'
     )
     if commit_url:
-        body += f' or on GitHub: <{commit_url}|Commit Link>\n'
+        body += f' - On GitHub: <{commit_url}|link>\n'
 
     post_slack_message(channel, body)
 

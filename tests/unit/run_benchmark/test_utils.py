@@ -5,6 +5,7 @@ import pytest
 
 from sdgym.run_benchmark.utils import (
     DEBUG_SLACK_CHANNEL,
+    GDRIVE_LINK,
     OUTPUT_DESTINATION_AWS,
     _get_slack_client,
     get_df_to_plot,
@@ -123,7 +124,9 @@ def test_post_benchmark_uploaded_message(
     mock_get_s3_console_link.return_value = url
     expected_body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
-        f'Check the results <{url} |here>'
+        f'Check the results:\n'
+        f' - On GDrive: <{GDRIVE_LINK}|link>\n'
+        f' - On S3: <{url}|link>\n'
     )
 
     # Run
@@ -154,8 +157,10 @@ def test_post_benchmark_uploaded_message_with_commit(
     mock_get_s3_console_link.return_value = url
     expected_body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
-        f'Check the results <{url} |here> '
-        f'or on GitHub: <{commit_url}|Commit Link>\n'
+        f'Check the results:\n'
+        f' - On GDrive: <{GDRIVE_LINK}|link>\n'
+        f' - On S3: <{url}|link>\n'
+        f' - On GitHub: <{commit_url}|link>\n'
     )
 
     # Run
