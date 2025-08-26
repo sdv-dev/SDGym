@@ -89,7 +89,7 @@ def upload_to_drive(file_path, file_id):
     if not file_path.exists():
         raise FileNotFoundError(f'File not found: {file_path}')
 
-    creds_dict = json.loads(os.environ['PYDRIVE_CREDENTIALS'])
+    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
     creds = OAuth2Credentials(
         access_token=creds_dict['access_token'],
         client_id=creds_dict.get('client_id'),

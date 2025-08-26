@@ -117,7 +117,7 @@ def test_upload_to_drive_success(mock_environ, mock_oauth, mock_auth, mock_drive
         'client_secret': 'secret',
         'refresh_token': 'refresh',
     }
-    mock_environ['PYDRIVE_CREDENTIALS'] = json.dumps(creds_dict)
+    mock_environ['PYDRIVE_TOKEN'] = json.dumps(creds_dict)
 
     mock_drive_instance = Mock()
     mock_drive.return_value = mock_drive_instance
