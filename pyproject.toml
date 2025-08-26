@@ -56,11 +56,6 @@ dependencies = [
     'rdt>=1.17.0',
     'sdmetrics>=0.20.1',
     'sdv>=1.21.0',
-    "openpyxl>=3.0.0; python_version<'3.9'",
-    "openpyxl>=3.1.2; python_version>='3.9'",
-    'kaleido>=0.2.1',
-    'pillow>=10.0.0',
-    'pydrive2>=1.4.0,<2.0.0'
 ]
 
 [project.urls]
@@ -111,6 +106,9 @@ dev = [
 
     # Invoke
     'invoke',
+    "openpyxl>=3.0.0; python_version<'3.9'",
+    "openpyxl>=3.1.2; python_version>='3.9'",
+    'pydrive2>=1.4.0,<2.0.0'
 ]
 readme = ['rundoc>=0.4.3,<0.5',]
 all = [

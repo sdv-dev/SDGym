@@ -3,13 +3,11 @@ import re
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import pandas as pd
 import pytest
 from botocore.exceptions import ClientError
 
 from sdgym.run_benchmark.upload_benchmark_results import (
     SDGYM_FILE_ID,
-    generate_graph,
     get_result_folder_name_and_s3_vars,
     main,
     upload_already_done,
@@ -103,63 +101,6 @@ def test_get_result_folder_name_and_s3_vars(
     )
 
 
-@patch('sdgym.run_benchmark.upload_benchmark_results.px.scatter')
-@patch('sdgym.run_benchmark.upload_benchmark_results.px')
-def test_generate_graph(mock_px, mock_scatter):
-    """Test the `generate_graph` method."""
-    # Setup
-    data = pd.DataFrame({
-        'Aggregated_Time': [10, 100, 1000],
-        'Quality_Score': [0.6, 0.7, 0.8],
-        'Synthesizer': ['Synth1', 'Synth2', 'Synth3'],
-        'Marker': ['circle', 'square', 'diamond'],
-        'Color': ['red', 'blue', 'green'],
-        'Pareto': [True, False, True],
-    })
-    mock_colors = Mock()
-    mock_px.colors.qualitative.Plotly = mock_colors
-    figure = Mock()
-    mock_px.scatter.return_value = figure
-    figure.data = []
-
-    # Run
-    result = generate_graph(data)
-
-    # Assert
-    assert result == figure
-    mock_scatter.assert_called_once_with(
-        data,
-        x='Aggregated_Time',
-        y='Quality_Score',
-        color='Synthesizer',
-        text='Synthesizer',
-        title='Mean Quality Score vs Aggregated Time (Over All Datasets)',
-        labels={'Aggregated_Time': 'Aggregated Time [s]', 'Quality_Score': 'Mean Quality Score'},
-        log_x=True,
-    )
-    figure.update_layout.assert_called_once_with(
-        xaxis=dict(
-            tickformat='.0e',
-            tickmode='array',
-            tickvals=[1e1, 1e2, 1e3, 1e4, 1e5, 1e6],
-            ticktext=[
-                '10<sup>1</sup>',
-                '10<sup>2</sup>',
-                '10<sup>3</sup>',
-                '10<sup>4</sup>',
-                '10<sup>5</sup>',
-                '10<sup>6</sup>',
-            ],
-            showgrid=False,
-            zeroline=False,
-            title='Aggregated Time [s]',
-            range=[0.6, 6],
-        ),
-        yaxis=dict(showgrid=False, zeroline=False, range=[0.54, 0.92]),
-        plot_bgcolor='#F5F5F8',
-    )
-
-
 @patch('sdgym.run_benchmark.upload_benchmark_results.GoogleDrive')
 @patch('sdgym.run_benchmark.upload_benchmark_results.GoogleAuth')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OAuth2Credentials')
@@ -220,11 +161,9 @@ def test_upload_to_drive_file_not_found(tmp_path):
 @patch('sdgym.run_benchmark.upload_benchmark_results.LocalResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.environ.get')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_df_to_plot')
-@patch('sdgym.run_benchmark.upload_benchmark_results.generate_graph')
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_to_drive')
 def test_upload_results(
     mock_upload_to_drive,
-    mock_generate_graph,
     mock_get_df_to_plot,
     mock_os_environ_get,
     mock_local_results_writer,
@@ -247,12 +186,10 @@ def test_upload_results(
     result_explorer_instance.summarize.return_value = ('summary', 'results')
     mock_os_environ_get.return_value = '/tmp/sdgym_results'
     mock_get_df_to_plot.return_value = 'df_to_plot'
-    mock_generate_graph.return_value = 'plot_image'
     datas = {
         'Wins': 'summary',
         '10_01_2023_Detailed_results': 'results',
         '10_01_2023_plot_data': 'df_to_plot',
-        '10_01_2023_plot_image': 'plot_image',
     }
     local_path = str(Path('/tmp/sdgym_results/SDGym Monthly Run.xlsx'))
 
@@ -269,7 +206,6 @@ def test_upload_results(
 
     # Assert
     mock_upload_to_drive.assert_called_once_with(local_path, SDGYM_FILE_ID)
-    mock_generate_graph.assert_called_once()
     mock_logger.info.assert_called_once_with(
         f'Run {run_name} is complete! Proceeding with summarization...'
     )
