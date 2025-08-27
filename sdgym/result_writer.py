@@ -9,7 +9,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import yaml
 from openpyxl import load_workbook
-from openpyxl.drawing.image import Image as XLImage
 
 from sdgym.s3 import parse_s3_path
 

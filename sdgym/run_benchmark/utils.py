@@ -105,7 +105,7 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
     channel = DEBUG_SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
-    url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/{folder_name}_summary.csv')
+    url_link = get_s3_console_link(bucket, f'{prefix}SDGym Monthly Run.xlsx')
     body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
