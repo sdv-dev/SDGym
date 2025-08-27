@@ -136,7 +136,7 @@ def test_post_benchmark_uploaded_message(
     mock_post_slack_message.assert_called_once_with(DEBUG_SLACK_CHANNEL, expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', f'my-prefix/{folder_name}/{folder_name}_summary.csv'
+        'my-bucket', 'my-prefix/SDGym Monthly Run.xlsx'
     )
 
 
@@ -170,7 +170,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     mock_post_slack_message.assert_called_once_with(DEBUG_SLACK_CHANNEL, expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', f'my-prefix/{folder_name}/{folder_name}_summary.csv'
+        'my-bucket', 'my-prefix/SDGym Monthly Run.xlsx'
     )
 
 
