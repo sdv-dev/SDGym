@@ -10,7 +10,6 @@ import tomli
 from invoke import task
 from packaging.requirements import Requirement
 from packaging.version import Version
-from sdgym.run_benchmark.utils import post_benchmark_uploaded_message
 COMPARISONS = {'>=': operator.ge, '>': operator.gt, '<': operator.lt, '<=': operator.le}
 EGG_STRING = '#egg='
 
@@ -216,4 +215,6 @@ def upload_benchmark_results(c):
 @task
 def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None):
     """Notify Slack about the SDGym benchmark upload."""
+    from sdgym.run_benchmark.utils import post_benchmark_uploaded_message
+
     post_benchmark_uploaded_message(folder_name, commit_url)
