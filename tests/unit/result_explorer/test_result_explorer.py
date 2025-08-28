@@ -6,8 +6,8 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.sdgym_result_explorer.result_explorer import SDGymResultsExplorer, _validate_local_path
-from sdgym.sdgym_result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
+from sdgym.result_explorer.result_explorer import ResultsExplorer, _validate_local_path
+from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 
 
 def test_validate_local_path(tmp_path):
@@ -26,9 +26,9 @@ def test_validate_local_path(tmp_path):
     assert s3_client is None
 
 
-class TestSDGymResultsExplorer:
-    @patch('sdgym.sdgym_result_explorer.result_explorer.is_s3_path')
-    @patch('sdgym.sdgym_result_explorer.result_explorer._validate_local_path')
+class TestResultsExplorer:
+    @patch('sdgym.result_explorer.result_explorer.is_s3_path')
+    @patch('sdgym.result_explorer.result_explorer._validate_local_path')
     def test__init__local(self, mock_validate_local_path, mock_is_s3_path):
         """Test the ``__init__`` for accessing local folder."""
         # Setup
@@ -36,7 +36,7 @@ class TestSDGymResultsExplorer:
         path = 'local_results_folder'
 
         # Run
-        result_explorer = SDGymResultsExplorer(path)
+        result_explorer = ResultsExplorer(path)
 
         # Assert
         mock_validate_local_path.assert_called_once_with(path)
@@ -46,8 +46,8 @@ class TestSDGymResultsExplorer:
         assert result_explorer.aws_access_key_id is None
         assert result_explorer.aws_secret_access_key is None
 
-    @patch('sdgym.sdgym_result_explorer.result_explorer._get_s3_client')
-    @patch('sdgym.sdgym_result_explorer.result_explorer.is_s3_path')
+    @patch('sdgym.result_explorer.result_explorer._get_s3_client')
+    @patch('sdgym.result_explorer.result_explorer.is_s3_path')
     def test__init__s3(self, mock_is_s3_path, mock_get_s3_client):
         """Test the ``__init__`` for accessing S3 bucket."""
         # Setup
@@ -59,7 +59,7 @@ class TestSDGymResultsExplorer:
         mock_get_s3_client.return_value = s3_client
 
         # Run
-        result_explorer = SDGymResultsExplorer(path, aws_access_key_id, aws_secret_access_key)
+        result_explorer = ResultsExplorer(path, aws_access_key_id, aws_secret_access_key)
 
         # Assert
         mock_is_s3_path.assert_called_once_with(path)
@@ -76,7 +76,7 @@ class TestSDGymResultsExplorer:
         path.mkdir()
         (path / 'run1').mkdir()
         (path / 'run2').mkdir()
-        result_explorer = SDGymResultsExplorer(str(path))
+        result_explorer = ResultsExplorer(str(path))
 
         # Run
         runs = result_explorer.list()
@@ -91,7 +91,7 @@ class TestSDGymResultsExplorer:
         path.mkdir()
         (path / 'run1').mkdir()
         (path / 'run2').mkdir()
-        result_explorer = SDGymResultsExplorer(str(path))
+        result_explorer = ResultsExplorer(str(path))
         result_explorer._handler = Mock()
         result_explorer._handler.list.return_value = ['run1', 'run2']
 
@@ -118,7 +118,7 @@ class TestSDGymResultsExplorer:
         explorer._handler.get_file_path.return_value = expected_filepath
 
         # Run
-        file_path = SDGymResultsExplorer._get_file_path(
+        file_path = ResultsExplorer._get_file_path(
             explorer, results_folder_name, dataset_name, synthesizer_name, type
         )
 
@@ -132,7 +132,7 @@ class TestSDGymResultsExplorer:
     def test_load_synthesizer(self, tmp_path):
         """Test `load_synthesizer` method."""
         # Setup
-        explorer = SDGymResultsExplorer(str(tmp_path))
+        explorer = ResultsExplorer(str(tmp_path))
         explorer._handler = Mock()
         explorer._handler.load_synthesizer = Mock(
             return_value=GaussianCopulaSynthesizer(Metadata())
@@ -155,7 +155,7 @@ class TestSDGymResultsExplorer:
 
     def test_load_synthetic_data(self, tmp_path):
         # Setup
-        explorer = SDGymResultsExplorer(str(tmp_path))
+        explorer = ResultsExplorer(str(tmp_path))
         explorer._handler = Mock()
         data = pd.DataFrame({'column1': [1, 2], 'column2': [3, 4]})
         explorer._handler.load_synthetic_data = Mock(return_value=data)
@@ -175,8 +175,8 @@ class TestSDGymResultsExplorer:
         explorer._handler.load_synthetic_data.assert_called_once_with('path/to/synthetic_data.csv')
         pd.testing.assert_frame_equal(synthetic_data, data)
 
-    @patch('sdgym.sdgym_result_explorer.result_explorer.load_dataset')
-    @patch('sdgym.sdgym_result_explorer.result_explorer.get_dataset_paths')
+    @patch('sdgym.result_explorer.result_explorer.load_dataset')
+    @patch('sdgym.result_explorer.result_explorer.get_dataset_paths')
     def test_load_real_data(self, mock_get_dataset_paths, mock_load_dataset, tmp_path):
         """Test `load_real_data` method."""
         # Setup
@@ -184,7 +184,7 @@ class TestSDGymResultsExplorer:
         mock_get_dataset_paths.return_value = ['path/to/adult/dataset']
         expected_data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
         mock_load_dataset.return_value = (expected_data, None)
-        result_explorer = SDGymResultsExplorer(tmp_path)
+        result_explorer = ResultsExplorer(tmp_path)
 
         # Run
         real_data = result_explorer.load_real_data(dataset_name)
@@ -205,7 +205,7 @@ class TestSDGymResultsExplorer:
         """Test `load_real_data` method with an invalid dataset."""
         # Setup
         dataset_name = 'invalid_dataset'
-        result_explorer = SDGymResultsExplorer(tmp_path)
+        result_explorer = ResultsExplorer(tmp_path)
         expected_error_message = re.escape(
             f"Dataset '{dataset_name}' is not a SDGym dataset. Please provide a valid dataset name."
         )
@@ -219,7 +219,7 @@ class TestSDGymResultsExplorer:
         # Setup
         output_destination = str(tmp_path / 'benchmark_output')
         (tmp_path / 'benchmark_output' / 'SDGym_results_07_07_2025').mkdir(parents=True)
-        result_explorer = SDGymResultsExplorer(output_destination)
+        result_explorer = ResultsExplorer(output_destination)
         result_explorer._handler = Mock()
         results = pd.DataFrame({
             'Synthesizer': ['CTGANSynthesizer', 'CopulaGANSynthesizer', 'TVAESynthesizer'],
