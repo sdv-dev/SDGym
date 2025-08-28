@@ -86,6 +86,9 @@ class ResultsHandler(ABC):
             summarized_results[column_name] = column_data
 
         summarized_results = summarized_results.fillna('-')
+        summarized_results = summarized_results.reset_index()
+        summarized_results = summarized_results.rename(columns={'index': 'Synthesizer'})
+
         return summarized_results
 
     def _get_column_name_infos(self, folder_to_results):
@@ -121,6 +124,7 @@ class ResultsHandler(ABC):
                 'summarize results.'
             )
 
+        filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
         return filtered_results.reset_index(drop=True)
 
     def summarize(self, folder_name):
@@ -154,6 +158,19 @@ class ResultsHandler(ABC):
         summarized_table = self._get_summarize_table(folder_to_results, folder_infos)
 
         return summarized_table, folder_to_results[folder_name]
+
+    def all_runs_complete(self, folder_name):
+        """Check if all runs in the specified folder are complete."""
+        yaml_files = self._get_results_files(folder_name, prefix=RUN_ID_PREFIX, suffix='.yaml')
+        if not yaml_files:
+            return False
+
+        for yaml_file in yaml_files:
+            run_id_info = self._load_yaml_file(folder_name, yaml_file)
+            if run_id_info.get('completed_date') is None:
+                return False
+
+        return True
 
 
 class LocalResultsHandler(ResultsHandler):

@@ -28,7 +28,12 @@ def _get_bucket_name(bucket):
 
 
 def _download_dataset(
-    modality, dataset_name, datasets_path=None, bucket=None, aws_key=None, aws_secret=None
+    modality,
+    dataset_name,
+    datasets_path=None,
+    bucket=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
 ):
     """Download a dataset and extract it into the given ``datasets_path``."""
     datasets_path = datasets_path or DATASETS_PATH / dataset_name
@@ -36,7 +41,7 @@ def _download_dataset(
     bucket_name = _get_bucket_name(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
-    s3 = get_s3_client(aws_key, aws_secret)
+    s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
     obj = s3.get_object(Bucket=bucket_name, Key=f'{modality.upper()}/{dataset_name}.zip')
     bytes_io = io.BytesIO(obj['Body'].read())
 
@@ -45,7 +50,14 @@ def _download_dataset(
         zf.extractall(datasets_path)
 
 
-def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=None, aws_secret=None):
+def _get_dataset_path(
+    modality,
+    dataset,
+    datasets_path,
+    bucket=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+):
     dataset = Path(dataset)
     if dataset.exists():
         return dataset
@@ -62,7 +74,12 @@ def _get_dataset_path(modality, dataset, datasets_path, bucket=None, aws_key=Non
             return local_path
 
     _download_dataset(
-        modality, dataset, dataset_path, bucket=bucket, aws_key=aws_key, aws_secret=aws_secret
+        modality,
+        dataset,
+        dataset_path,
+        bucket=bucket,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
     )
     return dataset_path
 
@@ -88,8 +105,8 @@ def load_dataset(
     dataset,
     datasets_path=None,
     bucket=None,
-    aws_key=None,
-    aws_secret=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
     limit_dataset_size=None,
 ):
     """Get the data and metadata of a dataset.
@@ -105,9 +122,9 @@ def load_dataset(
         bucket (str):
             The AWS bucket where to get the dataset. This will only be used if both ``dataset``
             and ``dataset_path`` don't exist.
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with s3, if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate with s3, if provided.
         limit_dataset_size (bool):
             Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
@@ -118,7 +135,9 @@ def load_dataset(
         pd.DataFrame, dict:
             The data and medatata of a dataset.
     """
-    dataset_path = _get_dataset_path(modality, dataset, datasets_path, bucket, aws_key, aws_secret)
+    dataset_path = _get_dataset_path(
+        modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+    )
     with open(dataset_path / f'{dataset_path.name}.csv') as data_csv:
         data = pd.read_csv(data_csv)
 
@@ -153,12 +172,14 @@ def get_available_datasets(modality='single_table'):
     return _get_available_datasets(modality)
 
 
-def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None):
+def _get_available_datasets(
+    modality, bucket=None, aws_access_key_id=None, aws_secret_access_key=None
+):
     if modality not in MODALITIES:
         modalities_list = ', '.join(MODALITIES)
         raise ValueError(f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
 
-    s3 = get_s3_client(aws_key, aws_secret)
+    s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
 
@@ -182,7 +203,11 @@ def _get_available_datasets(modality, bucket=None, aws_key=None, aws_secret=None
 
 
 def get_dataset_paths(
-    datasets=None, datasets_path=None, bucket=None, aws_key=None, aws_secret=None
+    datasets=None,
+    datasets_path=None,
+    bucket=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
 ):
     """Build the full path to datasets and ensure they exist.
 
@@ -193,9 +218,9 @@ def get_dataset_paths(
             The path of the datasets.
         bucket (str):
             The AWS bucket where to get the dataset.
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with s3, if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate with s3, if provided.
 
     Returns:
@@ -230,6 +255,8 @@ def get_dataset_paths(
             ].tolist()
 
     return [
-        _get_dataset_path('single_table', dataset, datasets_path, bucket, aws_key, aws_secret)
+        _get_dataset_path(
+            'single_table', dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+        )
         for dataset in datasets
     ]

@@ -10,6 +10,7 @@ import botocore
 import pandas as pd
 
 S3_PREFIX = 's3://'
+S3_REGION = 'us-east-1'
 LOGGER = logging.getLogger(__name__)
 
 
@@ -49,14 +50,14 @@ def parse_s3_path(path):
     return bucket_name, key_prefix
 
 
-def get_s3_client(aws_key=None, aws_secret=None):
+def get_s3_client(aws_access_key_id=None, aws_secret_access_key=None):
     """Get the boto client for interfacing with AWS s3.
 
     Args:
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with
             s3, if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate
             with s3, if provided.
 
@@ -64,9 +65,14 @@ def get_s3_client(aws_key=None, aws_secret=None):
         boto3.session.Session.client:
             The s3 client that can be used to read / write to s3.
     """
-    if aws_key is not None and aws_secret is not None:
+    if aws_access_key_id is not None and aws_secret_access_key is not None:
         # credentials available
-        return boto3.client('s3', aws_access_key_id=aws_key, aws_secret_access_key=aws_secret)
+        return boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=S3_REGION,
+        )
     else:
         if boto3.Session().get_credentials():
             # credentials available and will be detected automatically
@@ -78,7 +84,7 @@ def get_s3_client(aws_key=None, aws_secret=None):
         return boto3.client('s3', config=config)
 
 
-def write_file(data_contents, path, aws_key, aws_secret):
+def write_file(data_contents, path, aws_access_key_id, aws_secret_access_key):
     """Write a file to the given path with the given contents.
 
     If the path is an s3 directory, we will use the given aws credentials
@@ -90,10 +96,10 @@ def write_file(data_contents, path, aws_key, aws_secret):
         path (str):
             The path to write the file to, which can be either local
             or an s3 path.
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with s3,
             if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate
             with s3, if provided.
 
@@ -109,7 +115,7 @@ def write_file(data_contents, path, aws_key, aws_secret):
         write_mode = 'wb'
 
     if is_s3_path(path):
-        s3 = get_s3_client(aws_key, aws_secret)
+        s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
         bucket_name, key = parse_s3_path(path)
         s3.put_object(
             Bucket=bucket_name,
@@ -125,7 +131,7 @@ def write_file(data_contents, path, aws_key, aws_secret):
                 f.write(data_contents)
 
 
-def write_csv(data, path, aws_key, aws_secret):
+def write_csv(data, path, aws_access_key_id, aws_secret_access_key):
     """Write a csv file to the given path with the given contents.
 
     If the path is an s3 directory, we will use the given aws credentials
@@ -137,10 +143,10 @@ def write_csv(data, path, aws_key, aws_secret):
         path (str):
             The path to write the file to, which can be either local
             or an s3 path.
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with s3,
             if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate
             with s3, if provided.
 
@@ -148,7 +154,7 @@ def write_csv(data, path, aws_key, aws_secret):
         none
     """
     data_contents = data.to_csv(index=False).encode('utf-8')
-    write_file(data_contents, path, aws_key, aws_secret)
+    write_file(data_contents, path, aws_access_key_id, aws_secret_access_key)
 
 
 def _parse_s3_paths(s3_paths_dict):
@@ -203,6 +209,7 @@ def _get_s3_client(output_destination, aws_access_key_id=None, aws_secret_access
             's3',
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
+            region_name=S3_REGION,
         )
     else:
         s3_client = boto3.client('s3')

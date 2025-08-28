@@ -82,6 +82,10 @@ test = [
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
     'tomli>=2.0.0,<3',
+    'slack-sdk>=3.23,<4.0',
+    "openpyxl>=3.0.0; python_version<'3.9'",
+    "openpyxl>=3.1.2; python_version>='3.9'",
+    'pydrive2>=1.4.0,<2.0.0'
 ]
 dev = [
     'sdgym[dask, test]',
@@ -195,6 +199,7 @@ exclude = [
     ".ipynb_checkpoints",
     "tasks.py",
     "static_code_analysis.txt",
+    "*.ipynb"
 ]
 
 [tool.ruff.lint]

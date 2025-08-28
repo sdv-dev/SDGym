@@ -6,7 +6,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import pandas as pd
+import plotly.graph_objects as go
 import yaml
+from openpyxl import load_workbook
 
 from sdgym.s3 import parse_s3_path
 
@@ -30,16 +32,52 @@ class ResultsWriter(ABC):
         pass
 
 
-class LocalResultsWriter(ResultsWriter):
-    """Results writer for local file system."""
+class LocalResultsWriter:
+    """Local results writer for saving results to the local filesystem."""
 
-    def write_dataframe(self, data, file_path, append=False):
+    def write_dataframe(self, data, file_path, append=False, index=False):
         """Write a DataFrame to a CSV file."""
         file_path = Path(file_path)
         if file_path.exists() and append:
-            data.to_csv(file_path, mode='a', index=False, header=False)
+            data.to_csv(file_path, mode='a', index=index, header=False)
         else:
-            data.to_csv(file_path, mode='w', index=False)
+            data.to_csv(file_path, mode='w', index=index, header=True)
+
+    def process_data(self, writer, file_path, temp_images, sheet_name, obj, index=False):
+        """Process a data item (DataFrame or Figure) and write it to the Excel writer."""
+        if isinstance(obj, pd.DataFrame):
+            obj.to_excel(writer, sheet_name=sheet_name, index=index)
+        elif isinstance(obj, go.Figure):
+            img_path = file_path.parent / f'{sheet_name}.png'
+            obj.write_image(img_path)
+            temp_images[sheet_name] = img_path
+
+    def write_xlsx(self, data, file_path, index=False):
+        """Write DataFrames to an Excel file.
+
+        - Each DataFrame is saved as a table in its own sheet.
+        - Newly written sheets are moved to the front.
+        """
+        file_path = Path(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        if file_path.exists():
+            writer = pd.ExcelWriter(
+                file_path, mode='a', engine='openpyxl', if_sheet_exists='replace'
+            )
+        else:
+            writer = pd.ExcelWriter(file_path, mode='w', engine='openpyxl')
+
+        with writer:
+            for sheet_name, df in data.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=index)
+
+        wb = load_workbook(file_path)
+        for sheet_name in reversed(data.keys()):
+            ws = wb[sheet_name]
+            wb._sheets.remove(ws)
+            wb._sheets.insert(0, ws)
+
+        wb.save(file_path)
 
     def write_pickle(self, obj, file_path):
         """Write a Python object to a pickle file."""
@@ -68,7 +106,7 @@ class S3ResultsWriter(ResultsWriter):
     def __init__(self, s3_client):
         self.s3_client = s3_client
 
-    def write_dataframe(self, data, file_path, append=False):
+    def write_dataframe(self, data, file_path, append=False, index=False):
         """Write a DataFrame to S3 as a CSV file."""
         bucket, key = parse_s3_path(file_path)
         if append:
@@ -81,7 +119,7 @@ class S3ResultsWriter(ResultsWriter):
             except Exception:
                 pass  # If the file does not exist, we will create it
 
-        csv_buffer = data.to_csv(index=False).encode()
+        csv_buffer = data.to_csv(index=index).encode()
         self.s3_client.put_object(Body=csv_buffer, Bucket=bucket, Key=key)
 
     def write_pickle(self, obj, file_path):

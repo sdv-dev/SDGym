@@ -25,6 +25,7 @@ from sdgym.benchmark import (
     benchmark_single_table_aws,
 )
 from sdgym.result_writer import LocalResultsWriter
+from sdgym.s3 import S3_REGION
 from sdgym.synthesizers import GaussianCopulaSynthesizer
 
 
@@ -371,21 +372,23 @@ def test__validate_output_destination(tmp_path):
 
 
 @patch('sdgym.benchmark._validate_aws_inputs')
-def test__validate_output_destination_with_aws_keys(mock_validate):
+def test__validate_output_destination_with_aws_access_key_ids(mock_validate):
     """Test the `_validate_output_destination` function with AWS keys."""
     # Setup
     output_destination = 's3://my-bucket/path/to/file'
-    aws_keys = {
+    aws_access_key_ids = {
         'aws_access_key_id': 'mock_access_key',
         'aws_secret_access_key': 'mock_secret_key',
     }
 
     # Run
-    _validate_output_destination(output_destination, aws_keys)
+    _validate_output_destination(output_destination, aws_access_key_ids)
 
     # Assert
     mock_validate.assert_called_once_with(
-        output_destination, aws_keys['aws_access_key_id'], aws_keys['aws_secret_access_key']
+        output_destination,
+        aws_access_key_ids['aws_access_key_id'],
+        aws_access_key_ids['aws_secret_access_key'],
     )
 
 
@@ -542,9 +545,12 @@ def test_setup_output_destination_aws(mock_get_run_id_increment):
 
 @patch('sdgym.benchmark.boto3.client')
 @patch('sdgym.benchmark._check_write_permissions')
-def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_client):
+@patch('sdgym.benchmark.Config')
+def test_validate_aws_inputs_valid(mock_config, mock_check_write_permissions, mock_boto3_client):
     """Test `_validate_aws_inputs` with valid inputs and credentials."""
     # Setup
+    config_mock = Mock()
+    mock_config.return_value = config_mock
     valid_url = 's3://my-bucket/some/path'
     s3_client_mock = Mock()
     mock_boto3_client.return_value = s3_client_mock
@@ -557,7 +563,11 @@ def test_validate_aws_inputs_valid(mock_check_write_permissions, mock_boto3_clie
 
     # Assert
     mock_boto3_client.assert_called_once_with(
-        's3', aws_access_key_id='AKIA...', aws_secret_access_key='SECRET'
+        's3',
+        aws_access_key_id='AKIA...',
+        aws_secret_access_key='SECRET',
+        region_name=S3_REGION,
+        config=config_mock,
     )
     s3_client_mock.head_bucket.assert_called_once_with(Bucket='my-bucket')
     mock_check_write_permissions.assert_called_once_with(s3_client_mock, 'my-bucket')

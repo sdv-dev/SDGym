@@ -65,8 +65,8 @@ class SDGymResultsExplorer:
         if dataset_name in DEFAULT_DATASETS:
             dataset_path = get_dataset_paths(
                 datasets=[dataset_name],
-                aws_key=self.aws_access_key_id,
-                aws_secret=self.aws_secret_access_key,
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key,
             )[0]
         else:
             raise ValueError(
@@ -77,8 +77,8 @@ class SDGymResultsExplorer:
         data, _ = load_dataset(
             'single_table',
             dataset_path,
-            aws_key=self.aws_access_key_id,
-            aws_secret=self.aws_secret_access_key,
+            aws_access_key_id=self.aws_access_key_id,
+            aws_secret_access_key=self.aws_secret_access_key,
         )
         return data
 
@@ -95,3 +95,7 @@ class SDGymResultsExplorer:
                 - A DataFrame with the results of the benchmark for the specified folder.
         """
         return self._handler.summarize(folder_name)
+
+    def all_runs_complete(self, folder_name):
+        """Check if all runs in the specified folder are complete."""
+        return self._handler.all_runs_complete(folder_name)
