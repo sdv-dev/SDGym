@@ -15,6 +15,7 @@ SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
 RUN_ID_PREFIX = 'run_'
 RESULTS_FILE_PREFIX = 'results_'
+NUM_DIGITS_DATE = 10
 
 
 class ResultsHandler(ABC):
@@ -103,7 +104,7 @@ class ResultsHandler(ABC):
                 results['Synthesizer'] == SYNTHESIZER_BASELINE, 'Dataset'
             ].nunique()
             folder_to_info[folder] = {
-                'date': run_id_info.get('starting_date')[:10],  # Extract only the YYYY-MM-DD
+                'date': run_id_info.get('starting_date')[:NUM_DIGITS_DATE],  # Extract only the YYYY-MM-DD
                 'sdgym_version': run_id_info.get('sdgym_version'),
                 '# datasets': num_datasets,
             }
@@ -133,7 +134,7 @@ class ResultsHandler(ABC):
         if folder_name not in all_folders:
             raise ValueError(f'Folder "{folder_name}" does not exist in the results directory.')
 
-        date = pd.to_datetime(folder_name[-10:], format='%m_%d_%Y')
+        date = pd.to_datetime(folder_name[NUM_DIGITS_DATE:], format='%m_%d_%Y')
         folder_to_results = {}
         for folder in all_folders:
             folder_date = pd.to_datetime(folder[len(RESULTS_FOLDER_PREFIX) :], format='%m_%d_%Y')
@@ -241,11 +242,33 @@ class S3ResultsHandler(ResultsHandler):
 
     def get_file_path(self, path_parts, end_filename):
         """Validate access to a specific file in S3."""
+        idx_to_structure = {0: 'Folder', 1: 'Dataset', 2: 'Synthesizer'}
         file_path = '/'.join(path_parts + [end_filename])
+        previous_s3_key = self.prefix
+        for idx in range(len(path_parts)):
+            current_path = '/'.join(path_parts[: idx + 1]) + '/'
+            s3_key = f'{self.prefix}{current_path}'
+            response = self.s3_client.list_objects_v2(
+                Bucket=self.bucket_name, Prefix=s3_key, MaxKeys=1
+            )
+            if 'Contents' not in response:
+                level_name = idx_to_structure[idx]
+                if level_name == 'Dataset':
+                    path_parts[idx] = path_parts[idx][: -NUM_DIGITS_DATE - 1]  # Remove date and '_'
+                raise ValueError(
+                    f'{level_name} "{path_parts[idx]}" does not exist in S3 path: {previous_s3_key}'
+                )
+
+            previous_s3_key = s3_key
+
+        key = f'{self.prefix}{file_path}'
         try:
-            self.s3_client.head_object(Bucket=self.bucket_name, Key=f'{self.prefix}{file_path}')
+            self.s3_client.head_object(Bucket=self.bucket_name, Key=key)
         except ClientError as e:
-            raise ValueError(f'S3 object does not exist: {file_path}') from e
+            raise ValueError(
+                f'File "{end_filename}" does not exist in S3 path: {self.prefix}{file_path}'
+            ) from e
+
         return file_path
 
     def load_synthesizer(self, file_path):

@@ -244,7 +244,7 @@ class TestLocalResultsHandler:
             / folder_name
             / f'{dataset_name}_07_07_2025'
             / synthesizer_name
-            / f'{synthesizer_name}_synthesizer.pkl'
+            / f'{synthesizer_name}.pkl'
         )
         synthesizer.save(synthesizer_path)
         result_handler = LocalResultsHandler(str(tmp_path))
@@ -397,19 +397,26 @@ class TestS3ResultsHandler:
         )
 
     def test_get_file_path_s3(self):
-        """Test `get_file_path` for S3 path when files exist."""
+        """Test `get_file_path` for S3 path when folders and file exist."""
         # Setup
         mock_s3_client = Mock()
         handler = S3ResultsHandler('s3://my-bucket/prefix', mock_s3_client)
         path_parts = ['results_folder_07_07_2025', 'my_dataset']
         end_filename = 'synthesizer.pkl'
         file_path = 'results_folder_07_07_2025/my_dataset/synthesizer.pkl'
+        mock_s3_client.list_objects_v2.return_value = {'Contents': [{}]}
 
         # Run
         result = handler.get_file_path(path_parts, end_filename)
 
         # Assert
         assert result == file_path
+        mock_s3_client.list_objects_v2.assert_any_call(
+            Bucket='my-bucket', Prefix='prefix/results_folder_07_07_2025/', MaxKeys=1
+        )
+        mock_s3_client.list_objects_v2.assert_any_call(
+            Bucket='my-bucket', Prefix='prefix/results_folder_07_07_2025/my_dataset/', MaxKeys=1
+        )
         mock_s3_client.head_object.assert_called_once_with(
             Bucket='my-bucket', Key='prefix/results_folder_07_07_2025/my_dataset/synthesizer.pkl'
         )
