@@ -4,9 +4,9 @@ import pandas as pd
 import pytest
 
 from sdgym.run_benchmark.utils import (
-    DEBUG_SLACK_CHANNEL,
     GDRIVE_LINK,
     OUTPUT_DESTINATION_AWS,
+    SLACK_CHANNEL,
     _get_slack_client,
     get_df_to_plot,
     get_result_folder_name,
@@ -105,7 +105,7 @@ def test_post_benchmark_launch_message(
     mock_get_result_folder_name.assert_called_once_with(date_str)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with('my-bucket', f'my-prefix/{folder_name}/')
-    mock_post_slack_message.assert_called_once_with(DEBUG_SLACK_CHANNEL, expected_body)
+    mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
 
 
 @patch('sdgym.run_benchmark.utils.post_slack_message')
@@ -133,7 +133,7 @@ def test_post_benchmark_uploaded_message(
     post_benchmark_uploaded_message(folder_name)
 
     # Assert
-    mock_post_slack_message.assert_called_once_with(DEBUG_SLACK_CHANNEL, expected_body)
+    mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix/SDGym Monthly Run.xlsx'
@@ -167,7 +167,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     post_benchmark_uploaded_message(folder_name, commit_url)
 
     # Assert
-    mock_post_slack_message.assert_called_once_with(DEBUG_SLACK_CHANNEL, expected_body)
+    mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix/SDGym Monthly Run.xlsx'

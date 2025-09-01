@@ -104,7 +104,7 @@ class ResultsHandler(ABC):
                 results['Synthesizer'] == SYNTHESIZER_BASELINE, 'Dataset'
             ].nunique()
             folder_to_info[folder] = {
-                'date': run_id_info.get('starting_date')[:NUM_DIGITS_DATE],  # Extract only the YYYY-MM-DD
+                'date': run_id_info.get('starting_date')[:NUM_DIGITS_DATE],
                 'sdgym_version': run_id_info.get('sdgym_version'),
                 '# datasets': num_datasets,
             }
@@ -134,7 +134,7 @@ class ResultsHandler(ABC):
         if folder_name not in all_folders:
             raise ValueError(f'Folder "{folder_name}" does not exist in the results directory.')
 
-        date = pd.to_datetime(folder_name[NUM_DIGITS_DATE:], format='%m_%d_%Y')
+        date = pd.to_datetime(folder_name[-NUM_DIGITS_DATE:], format='%m_%d_%Y')
         folder_to_results = {}
         for folder in all_folders:
             folder_date = pd.to_datetime(folder[len(RESULTS_FOLDER_PREFIX) :], format='%m_%d_%Y')
@@ -246,18 +246,53 @@ class S3ResultsHandler(ResultsHandler):
         file_path = '/'.join(path_parts + [end_filename])
         previous_s3_key = self.prefix
         for idx in range(len(path_parts)):
+            level_name = idx_to_structure[idx]
             current_path = '/'.join(path_parts[: idx + 1]) + '/'
             s3_key = f'{self.prefix}{current_path}'
             response = self.s3_client.list_objects_v2(
                 Bucket=self.bucket_name, Prefix=s3_key, MaxKeys=1
             )
+
             if 'Contents' not in response:
-                level_name = idx_to_structure[idx]
-                if level_name == 'Dataset':
-                    path_parts[idx] = path_parts[idx][: -NUM_DIGITS_DATE - 1]  # Remove date and '_'
-                raise ValueError(
-                    f'{level_name} "{path_parts[idx]}" does not exist in S3 path: {previous_s3_key}'
+                # If missing, fetch available items under previous level
+                parent_response = self.s3_client.list_objects_v2(
+                    Bucket=self.bucket_name, Prefix=previous_s3_key
                 )
+                available_items = set()
+                if 'Contents' in parent_response:
+                    for obj in parent_response['Contents']:
+                        rel_path = obj['Key'][len(previous_s3_key) :]
+                        if '/' in rel_path:
+                            folder = rel_path.split('/')[0]
+                            if folder:
+                                folder = folder[: -NUM_DIGITS_DATE - 1] if idx == 1 else folder
+                                available_items.add(folder)
+
+                folder_name = path_parts[idx]
+                available_list = ',\n'.join(sorted(available_items)) or 'None'
+                if level_name == 'Dataset':
+                    folder_name = folder_name[: -NUM_DIGITS_DATE - 1]
+
+                if level_name == 'Folder':
+                    raise ValueError(
+                        f"The specified run '{folder_name}' does not exist in 'Benchmarks'. "
+                        f'The available runs are:\n{available_list}'
+                    )
+                elif level_name == 'Dataset':
+                    run_name = path_parts[0]
+                    raise ValueError(
+                        f"Dataset '{folder_name}' was not part of the run '{run_name}'. "
+                        f'The available datasets for this run are:\n{available_list}'
+                    )
+                else:
+                    run_name = path_parts[0]
+                    dataset_name = path_parts[1][: -NUM_DIGITS_DATE - 1]
+                    raise ValueError(
+                        f"Synthesizer '{folder_name}' was not part of the run '{run_name}' "
+                        f"for the Dataset '{dataset_name}'. "
+                        'The available synthesizers for this run and dataset are'
+                        f':\n{available_list}'
+                    )
 
             previous_s3_key = s3_key
 
