@@ -289,7 +289,7 @@ class S3ResultsHandler(ResultsHandler):
                     dataset_name = path_parts[1][: -NUM_DIGITS_DATE - 1]
                     raise ValueError(
                         f"Synthesizer '{folder_name}' was not part of the run '{run_name}' "
-                        f"for the Dataset '{dataset_name}'. "
+                        f"for the dataset '{dataset_name}'. "
                         'The available synthesizers for this run and dataset are'
                         f':\n{available_list}'
                     )
