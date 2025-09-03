@@ -35,11 +35,11 @@ class ResultsExplorer:
 
     def _get_file_path(self, results_folder_name, dataset_name, synthesizer_name, type):
         """Validate access to the synthesizer or synthetic data file."""
-        end_filename = f'{synthesizer_name}_'
+        end_filename = f'{synthesizer_name}'
         if type == 'synthetic_data':
-            end_filename += 'synthetic_data.csv'
+            end_filename += '_synthetic_data.csv'
         elif type == 'synthesizer':
-            end_filename += 'synthesizer.pkl'
+            end_filename += '.pkl'
 
         date = '_'.join(results_folder_name.split('_')[-3:])
         path_parts = [results_folder_name, f'{dataset_name}_{date}', synthesizer_name]

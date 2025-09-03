@@ -113,7 +113,7 @@ class TestResultsExplorer:
         type = 'synthesizer'
         expected_filepath = (
             f'{results_folder_name}/{dataset_name}_07_07_2025/{synthesizer_name}/'
-            f'{synthesizer_name}_synthesizer.pkl'
+            f'{synthesizer_name}.pkl'
         )
         explorer._handler.get_file_path.return_value = expected_filepath
 
@@ -125,7 +125,7 @@ class TestResultsExplorer:
         # Assert
         explorer._handler.get_file_path.assert_called_once_with(
             [results_folder_name, f'{dataset_name}_07_07_2025', synthesizer_name],
-            f'{synthesizer_name}_synthesizer.pkl',
+            f'{synthesizer_name}.pkl',
         )
         assert file_path == expected_filepath
 

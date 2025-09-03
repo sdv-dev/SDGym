@@ -163,7 +163,7 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
             synth_folder = f'{dataset_folder}/{synth_name}'
             s3_client.put_object(Bucket=bucket_name, Key=synth_folder + '/')
             paths[dataset][synth_name] = {
-                'synthesizer': f's3://{bucket_name}/{synth_folder}/{synth_name}_synthesizer.pkl',
+                'synthesizer': f's3://{bucket_name}/{synth_folder}/{synth_name}.pkl',
                 'synthetic_data': f's3://{bucket_name}/{synth_folder}/{synth_name}_synthetic_data.csv',
                 'benchmark_result': f's3://{bucket_name}/{synth_folder}/{synth_name}_benchmark_result.csv',
                 'results': f's3://{bucket_name}/{top_folder}/results_{today}_{increment}.csv',
@@ -212,7 +212,7 @@ def _setup_output_destination(output_destination, synthesizers, datasets, s3_cli
             synth_folder.mkdir(parents=True, exist_ok=True)
 
             paths[dataset][synth_name] = {
-                'synthesizer': str(synth_folder / f'{synth_name}_synthesizer.pkl'),
+                'synthesizer': str(synth_folder / f'{synth_name}.pkl'),
                 'synthetic_data': str(synth_folder / f'{synth_name}_synthetic_data.csv'),
                 'benchmark_result': str(synth_folder / f'{synth_name}_benchmark_result.csv'),
                 'run_id': str(top_folder / f'run_{today}_{increment}.yaml'),
@@ -1307,7 +1307,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-425-workflow-sdgym#egg=sdgym"
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@main"
         pip install s3fs
 
         echo "======== Write Script ==========="
