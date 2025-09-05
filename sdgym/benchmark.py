@@ -52,7 +52,7 @@ from sdgym.s3 import (
     write_csv,
     write_file,
 )
-from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer
+from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer, UniformSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
     calculate_score_time,
@@ -66,7 +66,7 @@ from sdgym.utils import (
 )
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer]
+DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer, UniformSynthesizer]
 DEFAULT_DATASETS = [
     'adult',
     'alarm',
@@ -1045,6 +1045,12 @@ def _update_run_id_file(run_file, result_writer=None):
         result_writer.write_yaml(update, run_file, append=True)
 
 
+def _ensure_uniform_included(synthesizers):
+    if UniformSynthesizer not in synthesizers and UniformSynthesizer.__name__ not in synthesizers:
+        LOGGER.info('Adding UniformSynthesizer to list of synthesizers.')
+        synthesizers.append(UniformSynthesizer)
+
+
 def benchmark_single_table(
     synthesizers=DEFAULT_SYNTHESIZERS,
     custom_synthesizers=None,
@@ -1146,6 +1152,9 @@ def benchmark_single_table(
         output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
     )
     _validate_output_destination(output_destination)
+    if not synthesizers:
+        synthesizers = []
+    _ensure_uniform_included(synthesizers)
     result_writer = LocalResultsWriter()
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
@@ -1448,6 +1457,9 @@ def benchmark_single_table_aws(
             'aws_secret_access_key': aws_secret_access_key,
         },
     )
+    if not synthesizers:
+        synthesizers = []
+    _ensure_uniform_included(synthesizers)
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
         sdv_datasets=sdv_datasets,
