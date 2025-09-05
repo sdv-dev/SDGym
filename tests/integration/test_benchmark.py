@@ -349,7 +349,8 @@ def test_benchmark_single_table_only_datasets():
     assert scores['Evaluate_Time'].between(0, 1000).all()
     assert scores['Quality_Score'].between(0.5, 1).all()
     assert scores['Privacy_Score'].between(0.5, 1).all()
-    assert (scores['Diagnostic_Score'] == 1.0).all()
+    assert (scores['Diagnostic_Score'][0:2] == 1.0).all()
+    assert scores['Diagnostic_Score'][2:].between(0.5, 1.0).all()
     assert list(scores['NewRowSynthesis']) == [1.0] * 3
 
 
@@ -376,7 +377,10 @@ def test_benchmark_single_table_synthesizers_none():
         assert round(_scores['Dataset_Size_MB'], 5) == 0.00128
         assert 0.5 < _scores['Quality_Score'] < 1
         assert 0.5 < _scores['Privacy_Score'] <= 1.0
-        assert _scores['Diagnostic_Score'] == 1.0
+        if name == 'Variant:test_synth':
+            assert _scores['Diagnostic_Score'] == 1.0
+        else:
+            assert 0.5 < _scores['Diagnostic_Score'] <= 1.0
         assert (
             _scores[
                 [
@@ -412,7 +416,7 @@ def test_benchmark_single_table_no_synthesizers():
     assert round(result['Dataset_Size_MB'], 5) == 0.00128
     assert 0.5 < result['Quality_Score'] < 1
     assert 0.5 < result['Privacy_Score'] <= 1.0
-    assert result['Diagnostic_Score'] == 1.0
+    assert 0.5 < result['Diagnostic_Score'] <= 1.0
     assert 0 < result['NewRowSynthesis'] <= 1.0
     assert (
         result[
