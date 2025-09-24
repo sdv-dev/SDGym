@@ -6,12 +6,14 @@ from importlib.metadata import version
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, call, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
 
 from sdgym import benchmark_single_table
 from sdgym.benchmark import (
+    _add_adjusted_scores,
     _check_write_permissions,
     _create_sdgym_script,
     _directory_exists,
@@ -56,7 +58,14 @@ def test_benchmark_single_table_deprecated_params(mock_handle_deprecated, tqdm_m
     """Test that the benchmarking function updates the progress bar on one line."""
     # Setup
     scores_mock = MagicMock()
-    scores_mock.__iter__.return_value = [pd.DataFrame([1, 2, 3])]
+    scores_mock.__iter__.return_value = [
+        pd.DataFrame({
+            'Synthesizer': ['UniformSynthesizer'],
+            'Dataset': ['student_placements'],
+            'Train_Time': [1.0],
+            'Sample_Time': [1.0],
+        })
+    ]
     tqdm_mock.return_value = scores_mock
 
     # Run
@@ -105,6 +114,8 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Quality_Score': {0: None},
         'Privacy_Score': {0: None},
         'error': {0: 'Synthesizer Timeout'},
+        'Adjusted_Total_Time': {0: None},
+        'Adjusted_Quality_Score': {0: None},
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
 
@@ -779,3 +790,82 @@ def test_benchmark_single_table_aws_synthesizers_none(
         aws_access_key_id='12345',
         aws_secret_access_key='67890',
     )
+
+
+def test__add_adjusted_scores_no_failures():
+    """Test _add_adjusted_scores with no errors present."""
+    # Setup
+    scores = pd.DataFrame({
+        'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Train_Time': [1.0, 0.5],
+        'Sample_Time': [2.0, 0.25],
+        'Quality_Score': [1.0, 0.5],
+    })
+    expected = pd.DataFrame({
+        'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Train_Time': [1.0, 0.5],
+        'Sample_Time': [2.0, 0.25],
+        'Quality_Score': [1.0, 0.5],
+        'Adjusted_Total_Time': [3.5, 1.25],
+        'Adjusted_Quality_Score': [1.0, 0.5],
+    })
+
+    # Run
+    _add_adjusted_scores(scores, 10.0)
+
+    # Assert
+    assert scores.equals(expected)
+
+
+def test__add_adjusted_scores_timeout():
+    """Test _add_adjusted_scores when a synthesizer times out."""
+    # Setup
+    scores = pd.DataFrame({
+        'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Train_Time': [np.nan, 0.5],
+        'Sample_Time': [np.nan, 0.25],
+        'Quality_Score': [np.nan, 0.5],
+        'error': ['Synthesizer Timeout', np.nan],
+    })
+    expected = pd.DataFrame({
+        'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Train_Time': [np.nan, 0.5],
+        'Sample_Time': [np.nan, 0.25],
+        'Quality_Score': [np.nan, 0.5],
+        'error': ['Synthesizer Timeout', np.nan],
+        'Adjusted_Total_Time': [10.75, 1.25],
+        'Adjusted_Quality_Score': [0.5, 0.5],
+    })
+
+    # Run
+    _add_adjusted_scores(scores, 10.0)
+
+    # Assert
+    assert scores.equals(expected)
+
+
+def test__add_adjusted_scores_errors():
+    """Test _add_adjusted_scores when synthesizers error out."""
+    # Setup
+    scores = pd.DataFrame({
+        'Synthesizer': ['ErrorOnTrain', 'ErrorOnSample', 'ErrorAfterSample', 'UniformSynthesizer'],
+        'Train_Time': [np.nan, 1.0, 1.0, 0.5],
+        'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
+        'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
+        'error': ['ValueError', 'RuntimeError', 'KeyError', np.nan],
+    })
+    expected = pd.DataFrame({
+        'Synthesizer': ['ErrorOnTrain', 'ErrorOnSample', 'ErrorAfterSample', 'UniformSynthesizer'],
+        'Train_Time': [np.nan, 1.0, 1.0, 0.5],
+        'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
+        'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
+        'error': ['ValueError', 'RuntimeError', 'KeyError', np.nan],
+        'Adjusted_Total_Time': [0.75, 1.75, 3.75, 1.25],
+        'Adjusted_Quality_Score': [0.5, 0.5, 0.5, 0.5],
+    })
+
+    # Run
+    _add_adjusted_scores(scores, 10.0)
+
+    # Assert
+    assert scores.equals(expected)
