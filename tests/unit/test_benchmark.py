@@ -875,7 +875,7 @@ def test__add_adjusted_scores_missing_fallback():
     """Test _add_adjusted_scores with the UniformSynthesizer row missing."""
     # Setup
     scores = pd.DataFrame({
-        'Synthesizer': ['GaussianCopulaSynthesizer',],
+        'Synthesizer': ['GaussianCopulaSynthesizer'],
         'Train_Time': [1.0],
         'Sample_Time': [2.0],
         'Quality_Score': [1.0],
