@@ -1059,6 +1059,7 @@ def _add_adjusted_scores(scores, timeout):
         uniform_row = scores[scores['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
     except IndexError:
         uniform_row = pd.Series({'Train_Time': None, 'Sample_Time': None, 'Quality_Score': None})
+
     uniform_fit_time = uniform_row['Train_Time']
     uniform_sample_time = uniform_row['Sample_Time']
     if 'Quality_Score' in scores.columns:
