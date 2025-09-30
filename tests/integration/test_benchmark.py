@@ -93,7 +93,7 @@ def test_benchmark_single_table_no_metrics():
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
     # Expect no metric columns.
-    assert len(output.columns) == 11
+    assert len(output.columns) == 13
 
 
 def test_benchmarking_no_report_output():
@@ -301,6 +301,8 @@ def test_benchmark_single_table_timeout():
 
     # Assert
     assert total_time < 50.0  # Buffer time for code not in timeout
+    fallback_train_time = scores.loc[1, 'Train_Time']
+    fallback_sample_time = scores.loc[1, 'Sample_Time']
     timeout_scores = pd.Series(
         {
             'Synthesizer': 'GaussianCopulaSynthesizer',
@@ -315,6 +317,8 @@ def test_benchmark_single_table_timeout():
             'Quality_Score': None,
             'Privacy_Score': None,
             'error': 'Synthesizer Timeout',
+            'Adjusted_Total_Time': 2 + fallback_train_time + fallback_sample_time,
+            'Adjusted_Quality_Score': None,
         },
         name=0,
     )
@@ -334,7 +338,7 @@ def test_benchmark_single_table_only_datasets():
     )
 
     # Assert
-    assert len(scores.columns) == 12
+    assert len(scores.columns) == 14
     assert list(scores['Synthesizer']) == [
         'GaussianCopulaSynthesizer',
         'CTGANSynthesizer',
@@ -347,7 +351,9 @@ def test_benchmark_single_table_only_datasets():
     assert scores['Synthesizer_Size_MB'].between(0, 1000).all()
     assert scores['Sample_Time'].between(0, 1000).all()
     assert scores['Evaluate_Time'].between(0, 1000).all()
+    assert scores['Adjusted_Total_Time'].between(0, 1000).all()
     assert scores['Quality_Score'].between(0.5, 1).all()
+    assert scores['Adjusted_Quality_Score'].between(0.5, 1).all()
     assert scores['Privacy_Score'].between(0.5, 1).all()
     assert (scores['Diagnostic_Score'][0:2] == 1.0).all()
     assert scores['Diagnostic_Score'][2:].between(0.5, 1.0).all()
@@ -369,13 +375,14 @@ def test_benchmark_single_table_synthesizers_none():
     )
 
     # Assert
-    assert scores.shape == (2, 11)
+    assert scores.shape == (2, 13)
     for name, iloc in (('UniformSynthesizer', 0), ('Variant:test_synth', 1)):
         _scores = scores.iloc[iloc]
         assert _scores['Synthesizer'] == name
         assert _scores['Dataset'] == 'fake_companies'
         assert round(_scores['Dataset_Size_MB'], 5) == 0.00128
         assert 0.5 < _scores['Quality_Score'] < 1
+        assert 0.5 < _scores['Adjusted_Quality_Score'] < 1
         assert 0.5 < _scores['Privacy_Score'] <= 1.0
         if name == 'Variant:test_synth':
             assert _scores['Diagnostic_Score'] == 1.0
@@ -389,6 +396,7 @@ def test_benchmark_single_table_synthesizers_none():
                     'Synthesizer_Size_MB',
                     'Sample_Time',
                     'Evaluate_Time',
+                    'Adjusted_Total_Time',
                 ]
             ]
             .between(0, 1000)
@@ -409,18 +417,26 @@ def test_benchmark_single_table_no_synthesizers():
     )
 
     # Assert
-    assert result.shape == (1, 12)
+    assert result.shape == (1, 14)
     result = result.iloc[0]
     assert result['Synthesizer'] == 'UniformSynthesizer'
     assert result['Dataset'] == 'fake_companies'
     assert round(result['Dataset_Size_MB'], 5) == 0.00128
     assert 0.5 < result['Quality_Score'] < 1
+    assert 0.5 < result['Adjusted_Quality_Score'] < 1
     assert 0.5 < result['Privacy_Score'] <= 1.0
     assert 0.5 < result['Diagnostic_Score'] <= 1.0
     assert 0 < result['NewRowSynthesis'] <= 1.0
     assert (
         result[
-            ['Train_Time', 'Peak_Memory_MB', 'Synthesizer_Size_MB', 'Sample_Time', 'Evaluate_Time']
+            [
+                'Train_Time',
+                'Peak_Memory_MB',
+                'Synthesizer_Size_MB',
+                'Sample_Time',
+                'Evaluate_Time',
+                'Adjusted_Total_Time',
+            ]
         ]
         .between(0, 1000)
         .all()
@@ -448,8 +464,10 @@ def test_benchmark_single_table_no_datasets():
         'Synthesizer_Size_MB': [],
         'Sample_Time': [],
         'Evaluate_Time': [],
+        'Adjusted_Total_Time': [],
         'Diagnostic_Score': [],
         'Quality_Score': [],
+        'Adjusted_Quality_Score': [],
         'Privacy_Score': [],
         'NewRowSynthesis': [],
     })
@@ -469,13 +487,21 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
     )
 
     # Assert
-    assert result.shape == (1, 9)
+    assert result.shape == (1, 10)
     result = result.iloc[0]
     assert result['Synthesizer'] == 'UniformSynthesizer'
     assert result['Dataset'] == 'fake_companies'
     assert round(result['Dataset_Size_MB'], 5) == 0.00128
     assert (
-        result[['Train_Time', 'Peak_Memory_MB', 'Synthesizer_Size_MB', 'Sample_Time']]
+        result[
+            [
+                'Train_Time',
+                'Peak_Memory_MB',
+                'Synthesizer_Size_MB',
+                'Sample_Time',
+                'Adjusted_Total_Time',
+            ]
+        ]
         .between(0, 1000)
         .all()
     )
@@ -672,7 +698,8 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
         f'{output_destination}/SDGym_results_{today_date}/results_{today_date}_1.csv'
     )
     pd.testing.assert_frame_equal(results, saved_result, check_dtype=False)
-    pd.testing.assert_frame_equal(results, score_saved_separately, check_dtype=False)
+    results_no_adjusted = results.drop(columns=['Adjusted_Total_Time', 'Adjusted_Quality_Score'])
+    pd.testing.assert_frame_equal(results_no_adjusted, score_saved_separately, check_dtype=False)
 
 
 def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
