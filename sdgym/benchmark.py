@@ -1051,7 +1051,7 @@ def _update_run_id_file(run_file, result_writer=None):
 def _ensure_uniform_included(synthesizers):
     if UniformSynthesizer not in synthesizers and UniformSynthesizer.__name__ not in synthesizers:
         LOGGER.info('Adding UniformSynthesizer to list of synthesizers.')
-        synthesizers.append(UniformSynthesizer)
+        synthesizers.append('UniformSynthesizer')
 
 
 def _add_adjusted_scores(scores, timeout):
@@ -1201,6 +1201,7 @@ def benchmark_single_table(
     _validate_output_destination(output_destination)
     if not synthesizers:
         synthesizers = []
+
     _ensure_uniform_included(synthesizers)
     result_writer = LocalResultsWriter()
     if run_on_ec2:
@@ -1506,6 +1507,7 @@ def benchmark_single_table_aws(
     )
     if not synthesizers:
         synthesizers = []
+
     _ensure_uniform_included(synthesizers)
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,

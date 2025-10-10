@@ -230,7 +230,7 @@ def test__ensure_uniform_included_adds_uniform(caplog):
         _ensure_uniform_included(synthesizers)
 
     # Assert
-    assert synthesizers == [GaussianCopulaSynthesizer, UniformSynthesizer]
+    assert synthesizers == [GaussianCopulaSynthesizer, 'UniformSynthesizer']
     assert any(expected_message in record.message for record in caplog.records)
 
 
@@ -701,7 +701,7 @@ def test_benchmark_single_table_aws(
     )
 
     # Assert
-    assert UniformSynthesizer in synthesizers
+    assert 'UniformSynthesizer' in synthesizers
     mock_validate_output_destination.assert_called_once_with(
         output_destination,
         aws_keys={
@@ -777,14 +777,14 @@ def test_benchmark_single_table_aws_synthesizers_none(
         compute_quality_score=True,
         compute_diagnostic_score=True,
         compute_privacy_score=True,
-        synthesizers=[UniformSynthesizer],
+        synthesizers=['UniformSynthesizer'],
         detailed_results_folder=None,
         custom_synthesizers=None,
         s3_client='s3_client_mock',
     )
     mock_run_on_aws.assert_called_once_with(
         output_destination=output_destination,
-        synthesizers=[UniformSynthesizer],
+        synthesizers=['UniformSynthesizer'],
         s3_client='s3_client_mock',
         job_args_list='job_args_list_mock',
         aws_access_key_id='12345',
