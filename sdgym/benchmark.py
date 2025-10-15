@@ -787,6 +787,7 @@ def _run_jobs(multi_processing_config, job_args_list, show_progress, result_writ
         raise SDGymError('No valid Dataset/Synthesizer combination given.')
 
     scores = pd.concat(scores, ignore_index=True)
+    _add_adjusted_scores(scores=scores, timeout=job_args_list[0][5])
     output_directions = job_args_list[0][-2]
     result_writer = job_args_list[0][-1]
     if output_directions and result_writer:
@@ -810,12 +811,14 @@ def _get_empty_dataframe(
         'Synthesizer_Size_MB': [],
         'Sample_Time': [],
         'Evaluate_Time': [],
+        'Adjusted_Total_Time': [],
     })
 
     if compute_diagnostic_score:
         scores['Diagnostic_Score'] = []
     if compute_quality_score:
         scores['Quality_Score'] = []
+        scores['Adjusted_Quality_Score'] = []
     if compute_privacy_score:
         scores['Privacy_Score'] = []
     if sdmetrics:
@@ -1048,7 +1051,51 @@ def _update_run_id_file(run_file, result_writer=None):
 def _ensure_uniform_included(synthesizers):
     if UniformSynthesizer not in synthesizers and UniformSynthesizer.__name__ not in synthesizers:
         LOGGER.info('Adding UniformSynthesizer to list of synthesizers.')
-        synthesizers.append(UniformSynthesizer)
+        synthesizers.append('UniformSynthesizer')
+
+
+def _add_adjusted_scores(scores, timeout):
+    try:
+        uniform_row = scores[scores['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
+    except IndexError:
+        uniform_row = pd.Series({'Train_Time': None, 'Sample_Time': None, 'Quality_Score': None})
+
+    uniform_fit_time = uniform_row['Train_Time']
+    uniform_sample_time = uniform_row['Sample_Time']
+    if 'Quality_Score' in scores.columns:
+        uniform_quality_score = uniform_row['Quality_Score']
+
+    def _get_adjusted_time(row):
+        if pd.isna(uniform_fit_time) or pd.isna(uniform_sample_time):
+            return
+        adjusted_total_time = uniform_fit_time
+        if 'error' in row.index and not pd.isna(row['error']):
+            if row['error'] == 'Synthesizer Timeout':
+                adjusted_total_time += timeout
+            else:
+                if not pd.isna(row['Train_Time']):
+                    adjusted_total_time += row['Train_Time']
+                if not pd.isna(row['Sample_Time']):
+                    adjusted_total_time += row['Sample_Time']
+            adjusted_total_time += uniform_sample_time
+        else:
+            adjusted_total_time += row['Train_Time']
+            adjusted_total_time += row['Sample_Time']
+        return adjusted_total_time
+
+    scores['Adjusted_Total_Time'] = scores.apply(_get_adjusted_time, axis=1)
+
+    if 'Quality_Score' in scores.columns:
+
+        def _get_adjusted_quality(row):
+            if pd.isna(uniform_quality_score):
+                return
+            adjusted_quality_score = row['Quality_Score']
+            if 'error' in row.index and not pd.isna(row['error']):
+                adjusted_quality_score = uniform_quality_score
+            return adjusted_quality_score
+
+        scores['Adjusted_Quality_Score'] = scores.apply(_get_adjusted_quality, axis=1)
 
 
 def benchmark_single_table(
@@ -1140,7 +1187,7 @@ def benchmark_single_table(
             }
         run_on_ec2 (bool):
             The flag is used to run the benchmark on an EC2 instance that will be created
-            by a scriptusing the authentication of the current user. The EC2 instance
+            by a script using the authentication of the current user. The EC2 instance
             uses the LATEST released version of sdgym. Local changes or changes NOT
             in the released version will NOT be used in the ec2 instance.
 
@@ -1154,6 +1201,7 @@ def benchmark_single_table(
     _validate_output_destination(output_destination)
     if not synthesizers:
         synthesizers = []
+
     _ensure_uniform_included(synthesizers)
     result_writer = LocalResultsWriter()
     if run_on_ec2:
@@ -1459,6 +1507,7 @@ def benchmark_single_table_aws(
     )
     if not synthesizers:
         synthesizers = []
+
     _ensure_uniform_included(synthesizers)
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
