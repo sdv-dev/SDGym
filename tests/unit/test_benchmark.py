@@ -894,3 +894,33 @@ def test__add_adjusted_scores_missing_fallback():
 
     # Assert
     assert scores.equals(expected)
+
+
+def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
+    """Test that no UserWarning is raised when running `UniformSynthesizer`."""
+    # Setup
+    expected_result = pd.DataFrame({
+        'Synthesizer': {0: 'UniformSynthesizer'},
+        'Dataset': {0: 'fake_hotel_guests'},
+        'Dataset_Size_MB': {0: 0.032632},
+    })
+
+    # Run
+    result = benchmark_single_table(
+        synthesizers=['UniformSynthesizer'],
+        custom_synthesizers=None,
+        sdv_datasets=['fake_hotel_guests'],
+        additional_datasets_folder=None,
+        limit_dataset_size=False,
+        timeout=None,
+        show_progress=False,
+        compute_diagnostic_score=True,
+        compute_quality_score=True,
+        compute_privacy_score=False,
+        sdmetrics=None,
+    )
+
+    # Assert
+    warnings_text = ' '.join(str(w.message) for w in recwarn)
+    assert 'is incompatible with transformer' not in warnings_text
+    pd.testing.assert_frame_equal(result[expected_result.columns], expected_result)
