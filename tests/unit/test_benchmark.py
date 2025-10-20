@@ -902,7 +902,6 @@ def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
     expected_result = pd.DataFrame({
         'Synthesizer': {0: 'UniformSynthesizer'},
         'Dataset': {0: 'fake_hotel_guests'},
-        'Dataset_Size_MB': {0: 0.032632},
     })
 
     # Run
