@@ -76,7 +76,7 @@ def test_benchmark_single_table_deprecated_params(mock_handle_deprecated, tqdm_m
     )
 
     # Assert
-    mock_handle_deprecated.assert_called_once_with(None, None, None, False)
+    mock_handle_deprecated.assert_called_once_with(None, None, None, False, None)
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
 
 
@@ -394,15 +394,33 @@ def test__handle_deprecated_parameters():
         " results, please use the 'output_destination' parameter. For running SDGym remotely"
         " on AWS please use the 'benchmark_single_table_aws' method."
     )
+    expected_error_1 = (
+        "The 'output_filepath' parameter is deprecated and cannot be used together with "
+        "'output_destination'. Please use only 'output_destination' to specify the output path."
+    )
+    expected_error_2 = (
+        "The 'detailed_results_folder' parameter is deprecated and cannot be used together with "
+        "'output_destination'. Please use only 'output_destination' to specify the output path."
+    )
 
     # Run and Assert
-    _handle_deprecated_parameters(None, None, None, False)
+    _handle_deprecated_parameters(None, None, None, False, None)
     with pytest.warns(FutureWarning, match=expected_message_1):
-        _handle_deprecated_parameters(output_filepath, detailed_results_folder, None, False)
+        _handle_deprecated_parameters(output_filepath, detailed_results_folder, None, False, None)
 
     with pytest.warns(FutureWarning, match=expected_message_2):
         _handle_deprecated_parameters(
-            output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
+            output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2, None
+        )
+
+    with pytest.raises(ValueError, match=expected_error_1):
+        _handle_deprecated_parameters(
+            output_filepath, None, multi_processing_config, run_on_ec2, 'output_destination'
+        )
+
+    with pytest.raises(ValueError, match=expected_error_2):
+        _handle_deprecated_parameters(
+            None, detailed_results_folder, multi_processing_config, run_on_ec2, 'output_destination'
         )
 
 
