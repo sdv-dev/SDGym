@@ -980,10 +980,10 @@ def _handle_deprecated_parameters(
         'run_on_ec2': run_on_ec2,
     }
     parameters = []
-    old_parameter_to_save = ('output_filepath', 'detailed_results_folder')
+    old_parameters_to_save = ('output_filepath', 'detailed_results_folder')
     for name, value in parameters_to_deprecate.items():
         if value is not None and value:
-            if name in old_parameter_to_save and output_destination is not None:
+            if name in old_parameters_to_save and output_destination is not None:
                 raise ValueError(
                     f"The '{name}' parameter is deprecated and cannot be used together with "
                     "'output_destination'. Please use only 'output_destination' to specify "

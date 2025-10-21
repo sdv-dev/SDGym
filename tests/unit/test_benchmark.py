@@ -382,33 +382,31 @@ def test__handle_deprecated_parameters():
     detailed_results_folder = 'mock/path'
     multi_processing_config = {'num_processes': 4}
     run_on_ec2 = True
-    expected_message_1 = (
-        "Parameters 'detailed_results_folder', 'output_filepath' are deprecated in the "
-        "'benchmark_single_table' function. For saving"
-        " results, please use the 'output_destination' parameter. For running SDGym remotely"
-        " on AWS please use the 'benchmark_single_table_aws' method."
+    base_warning = (
+        "are deprecated in the 'benchmark_single_table' function. For saving results, "
+        "please use the 'output_destination' parameter. For running SDGym remotely on AWS "
+        "please use the 'benchmark_single_table_aws' method."
     )
-    expected_message_2 = (
-        "Parameters 'detailed_results_folder', 'multi_processing_config', 'output_filepath',"
-        " 'run_on_ec2' are deprecated in the 'benchmark_single_table' function. For saving"
-        " results, please use the 'output_destination' parameter. For running SDGym remotely"
-        " on AWS please use the 'benchmark_single_table_aws' method."
+    base_error = (
+        "parameter is deprecated and cannot be used together with 'output_destination'. "
+        "Please use only 'output_destination' to specify the output path."
     )
-    expected_error_1 = (
-        "The 'output_filepath' parameter is deprecated and cannot be used together with "
-        "'output_destination'. Please use only 'output_destination' to specify the output path."
+
+    # Expected messages
+    expected_warning_1 = "Parameters 'detailed_results_folder', 'output_filepath' " + base_warning
+    expected_warning_2 = (
+        "Parameters 'detailed_results_folder', 'multi_processing_config', "
+        "'output_filepath', 'run_on_ec2' " + base_warning
     )
-    expected_error_2 = (
-        "The 'detailed_results_folder' parameter is deprecated and cannot be used together with "
-        "'output_destination'. Please use only 'output_destination' to specify the output path."
-    )
+    expected_error_1 = f"The 'output_filepath' {base_error}"
+    expected_error_2 = f"The 'detailed_results_folder' {base_error}"
 
     # Run and Assert
     _handle_deprecated_parameters(None, None, None, False, None)
-    with pytest.warns(FutureWarning, match=expected_message_1):
+    with pytest.warns(FutureWarning, match=expected_warning_1):
         _handle_deprecated_parameters(output_filepath, detailed_results_folder, None, False, None)
 
-    with pytest.warns(FutureWarning, match=expected_message_2):
+    with pytest.warns(FutureWarning, match=expected_warning_2):
         _handle_deprecated_parameters(
             output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2, None
         )
