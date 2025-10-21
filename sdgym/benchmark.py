@@ -984,9 +984,8 @@ def _handle_deprecated_parameters(
         parameters = "', '".join(sorted(parameters))
         message = (
             f"Parameters '{parameters}' are deprecated in the 'benchmark_single_table' "
-            'function and will be removed in October 2025. '
-            "For saving results, please use the 'output_destination' parameter. For running SDGym"
-            " remotely on AWS please use the 'benchmark_single_table_aws' method."
+            "function. For saving results, please use the 'output_destination' parameter."
+            " For running SDGym remotely on AWS please use the 'benchmark_single_table_aws' method."
         )
         warnings.warn(message, FutureWarning)
 

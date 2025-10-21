@@ -384,15 +384,15 @@ def test__handle_deprecated_parameters():
     run_on_ec2 = True
     expected_message_1 = (
         "Parameters 'detailed_results_folder', 'output_filepath' are deprecated in the "
-        "'benchmark_single_table' function and will be removed in October 2025. For saving"
+        "'benchmark_single_table' function. For saving"
         " results, please use the 'output_destination' parameter. For running SDGym remotely"
         " on AWS please use the 'benchmark_single_table_aws' method."
     )
     expected_message_2 = (
         "Parameters 'detailed_results_folder', 'multi_processing_config', 'output_filepath',"
-        " 'run_on_ec2' are deprecated in the 'benchmark_single_table' function and will be removed"
-        " in October 2025. For saving results, please use the 'output_destination' parameter. For "
-        "running SDGym remotely on AWS please use the 'benchmark_single_table_aws' method."
+        " 'run_on_ec2' are deprecated in the 'benchmark_single_table' function. For saving"
+        " results, please use the 'output_destination' parameter. For running SDGym remotely"
+        " on AWS please use the 'benchmark_single_table_aws' method."
     )
 
     # Run and Assert
