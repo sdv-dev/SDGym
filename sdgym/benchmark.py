@@ -166,7 +166,7 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
             final_synth_name = f'{synth_name}{suffix}'
             synth_folder = f'{dataset_folder}/{final_synth_name}'
             s3_client.put_object(Bucket=bucket_name, Key=synth_folder + '/')
-            paths[dataset][synth_name] = {
+            paths[dataset][final_synth_name] = {
                 'synthesizer': f's3://{bucket_name}/{synth_folder}/{final_synth_name}.pkl',
                 'synthetic_data': f's3://{bucket_name}/{synth_folder}/{final_synth_name}_synthetic_data.csv',
                 'benchmark_result': f's3://{bucket_name}/{synth_folder}/{final_synth_name}_benchmark_result.csv',
@@ -176,7 +176,7 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
 
     s3_client.put_object(
         Bucket=bucket_name,
-        Key=f'{top_folder}/run_{today}_{increment}.yaml',
+        Key=f'{top_folder}/metainfo{suffix}.yaml',
         Body='completed_date: null\n'.encode('utf-8'),
     )
     return paths
