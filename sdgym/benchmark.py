@@ -118,30 +118,32 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
-def _get_run_id_increment(top_folder, today, s3_client=None):
-    pattern = re.compile(rf'run_{re.escape(today)}_(\d+)\.yaml$')
+def _get_metainfo_increment(top_folder, today, s3_client=None):
+    pattern = re.compile(r'metainfo(?:\((\d+)\))?\.yaml$')
     increments = []
     if s3_client:
         bucket, prefix = parse_s3_path(top_folder)
         try:
             response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
             contents = response.get('Contents', [])
-            for object in contents:
-                file_name = Path(object['Key']).name
+            for obj in contents:
+                file_name = Path(obj['Key']).name
                 match = pattern.match(file_name)
                 if match:
-                    increments.append(int(match.group(1)))
+                    # Extract numeric suffix (e.g. metainfo(3).yaml → 3) or 0 if plain metainfo.yaml
+                    increments.append(int(match.group(1)) if match.group(1) else 0)
         except Exception:
-            return 1
+            return 0  # start with (0) if error
     else:
+        top_folder = Path(top_folder)
         if not top_folder.exists():
-            return 1
-        for file in top_folder.glob(f'run_{today}_*.yaml'):
+            return 0
+        for file in top_folder.glob('metainfo*.yaml'):
             match = pattern.match(file.name)
             if match:
-                increments.append(int(match.group(1)))
+                increments.append(int(match.group(1)) if match.group(1) else 0)
 
-    return max(increments) + 1 if increments else 1
+    return max(increments) + 1 if increments else 0
 
 
 def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client):
@@ -153,21 +155,23 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
     paths['bucket_name'] = bucket_name
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
-    increment = _get_run_id_increment(f's3://{bucket_name}/{top_folder}', today, s3_client)
+    increment = _get_metainfo_increment(f's3://{bucket_name}/{top_folder}', today, s3_client)
+    suffix = f'({increment})' if increment >= 1 else ''
     s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'
         s3_client.put_object(Bucket=bucket_name, Key=dataset_folder + '/')
         paths[dataset]['meta'] = f's3://{bucket_name}/{dataset_folder}/meta.yaml'
         for synth_name in synthesizers:
-            synth_folder = f'{dataset_folder}/{synth_name}'
+            final_synth_name = f'{synth_name}{suffix}'
+            synth_folder = f'{dataset_folder}/{final_synth_name}'
             s3_client.put_object(Bucket=bucket_name, Key=synth_folder + '/')
             paths[dataset][synth_name] = {
-                'synthesizer': f's3://{bucket_name}/{synth_folder}/{synth_name}.pkl',
-                'synthetic_data': f's3://{bucket_name}/{synth_folder}/{synth_name}_synthetic_data.csv',
-                'benchmark_result': f's3://{bucket_name}/{synth_folder}/{synth_name}_benchmark_result.csv',
-                'results': f's3://{bucket_name}/{top_folder}/results_{today}_{increment}.csv',
-                'run_id': f's3://{bucket_name}/{top_folder}/run_{today}_{increment}.yaml',
+                'synthesizer': f's3://{bucket_name}/{synth_folder}/{final_synth_name}.pkl',
+                'synthetic_data': f's3://{bucket_name}/{synth_folder}/{final_synth_name}_synthetic_data.csv',
+                'benchmark_result': f's3://{bucket_name}/{synth_folder}/{final_synth_name}_benchmark_result.csv',
+                'results': f's3://{bucket_name}/{top_folder}/results{suffix}.csv',
+                'metainfo': f's3://{bucket_name}/{top_folder}/metainfo{suffix}.yaml',
             }
 
     s3_client.put_object(
@@ -201,22 +205,23 @@ def _setup_output_destination(output_destination, synthesizers, datasets, s3_cli
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = output_path / f'SDGym_results_{today}'
     top_folder.mkdir(parents=True, exist_ok=True)
-    increment = _get_run_id_increment(top_folder, today)
+    increment = _get_metainfo_increment(top_folder, today)
+    suffix = f'({increment})' if increment >= 1 else ''
     paths = defaultdict(dict)
     for dataset in datasets:
         dataset_folder = top_folder / f'{dataset}_{today}'
         dataset_folder.mkdir(parents=True, exist_ok=True)
 
         for synth_name in synthesizers:
-            synth_folder = dataset_folder / synth_name
+            final_synth_name = f'{synth_name}{suffix}'
+            synth_folder = dataset_folder / final_synth_name
             synth_folder.mkdir(parents=True, exist_ok=True)
-
-            paths[dataset][synth_name] = {
-                'synthesizer': str(synth_folder / f'{synth_name}.pkl'),
-                'synthetic_data': str(synth_folder / f'{synth_name}_synthetic_data.csv'),
-                'benchmark_result': str(synth_folder / f'{synth_name}_benchmark_result.csv'),
-                'run_id': str(top_folder / f'run_{today}_{increment}.yaml'),
-                'results': str(top_folder / f'results_{today}_{increment}.csv'),
+            paths[dataset][final_synth_name] = {
+                'synthesizer': str(synth_folder / f'{final_synth_name}.pkl'),
+                'synthetic_data': str(synth_folder / f'{final_synth_name}_synthetic_data.csv'),
+                'benchmark_result': str(synth_folder / f'{final_synth_name}_benchmark_result.csv'),
+                'metainfo': str(top_folder / f'metainfo{suffix}.yaml'),
+                'results': str(top_folder / f'results{suffix}.csv'),
             }
 
     return paths
@@ -272,6 +277,15 @@ def _generate_job_args_list(
     job_tuples = []
     for dataset in datasets:
         for synthesizer in synthesizers:
+            if paths:
+                final_name = next(
+                    (name for name in paths[dataset.name] if name.startswith(synthesizer['name'])),
+                    synthesizer['name'],
+                )
+            else:
+                final_name = synthesizer['name']
+
+            synthesizer['name'] = final_name
             job_tuples.append((synthesizer, dataset))
 
     job_args_list = []
@@ -1024,16 +1038,23 @@ def _validate_output_destination(output_destination, aws_keys=None):
         )
 
 
-def _write_run_id_file(synthesizers, job_args_list, result_writer=None):
+def _write_metainfo_file(synthesizers, job_args_list, result_writer=None):
     jobs = [[job[-3], job[0]['name']] for job in job_args_list]
     if not job_args_list or not job_args_list[0][-1]:
         return
 
     output_directions = job_args_list[0][-1]
-    path = output_directions['run_id']
-    run_id = Path(path).stem
+    path = output_directions['metainfo']
+    stem = Path(path).stem
+    match = re.search(r'\((\d+)\)$', stem)
+    increment = int(match.group(1)) if match else 0
+    date_match = re.search(r'SDGym_results_(\d{2}_\d{2}_\d{4})', path)
+    if not date_match:
+        raise ValueError(f'Could not extract date from metainfo path: {path}')
+
+    date_str = date_match.group(1)
     metadata = {
-        'run_id': run_id,
+        'run_id': f'run_{date_str}_{increment}',
         'starting_date': datetime.today().strftime('%m_%d_%Y %H:%M:%S'),
         'completed_date': None,
         'sdgym_version': version('sdgym'),
@@ -1052,7 +1073,7 @@ def _write_run_id_file(synthesizers, job_args_list, result_writer=None):
         result_writer.write_yaml(metadata, path)
 
 
-def _update_run_id_file(run_file, result_writer=None):
+def _update_metainfo_file(run_file, result_writer=None):
     completed_date = datetime.today().strftime('%m_%d_%Y %H:%M:%S')
     update = {'completed_date': completed_date}
     if result_writer:
@@ -1067,7 +1088,7 @@ def _ensure_uniform_included(synthesizers):
 
 def _add_adjusted_scores(scores, timeout):
     try:
-        uniform_row = scores[scores['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
+        uniform_row = scores[scores['Synthesizer'].str.contains('UniformSynthesizer')].iloc[0]
     except IndexError:
         uniform_row = pd.Series({'Train_Time': None, 'Sample_Time': None, 'Quality_Score': None})
 
@@ -1246,7 +1267,7 @@ def benchmark_single_table(
         s3_client=None,
     )
 
-    _write_run_id_file(synthesizers, job_args_list, result_writer)
+    _write_metainfo_file(synthesizers, job_args_list, result_writer)
     if job_args_list:
         scores = _run_jobs(multi_processing_config, job_args_list, show_progress, result_writer)
 
@@ -1263,8 +1284,8 @@ def benchmark_single_table(
         write_csv(scores, output_filepath, None, None)
 
     if output_destination:
-        run_id_filename = job_args_list[0][-1]['run_id']
-        _update_run_id_file(run_id_filename, result_writer)
+        metainfo_filename = job_args_list[0][-1]['metainfo']
+        _update_metainfo_file(metainfo_filename, result_writer)
 
     return scores
 
@@ -1321,9 +1342,9 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     parsed_url = urlparse(output_destination)
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
-    filename = os.path.basename(job_args_list[0][-1]['run_id'])
-    run_id = os.path.splitext(filename)[0]
-    job_args_key = f'job_args_list_{run_id}.pkl'
+    filename = os.path.basename(job_args_list[0][-1]['metainfo'])
+    metainfo = os.path.splitext(filename)[0]
+    job_args_key = f'job_args_list_{metainfo}.pkl'
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = pickle.dumps(job_args_list)
@@ -1338,7 +1359,7 @@ def _get_s3_script_content(
     return f"""
 import boto3
 import pickle
-from sdgym.benchmark import _run_jobs, _write_run_id_file, _update_run_id_file
+from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
 
@@ -1351,10 +1372,10 @@ s3_client = boto3.client(
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
 job_args_list = pickle.loads(response['Body'].read())
 result_writer = S3ResultsWriter(s3_client=s3_client)
-_write_run_id_file({synthesizers}, job_args_list, result_writer)
+_write_metainfo_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
-run_id_filename = job_args_list[0][-1]['run_id']
-_update_run_id_file(run_id_filename, result_writer)
+metainfo_filename = job_args_list[0][-1]['metainfo']
+_update_metainfo_file(metainfo_filename, result_writer)
 s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
 
@@ -1379,7 +1400,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install sdgym[all]
+        pip install sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issu-448-rename-artifacts
         pip install s3fs
 
         echo "======== Write Script ==========="

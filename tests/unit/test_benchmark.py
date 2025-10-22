@@ -22,10 +22,10 @@ from sdgym.benchmark import (
     _handle_deprecated_parameters,
     _setup_output_destination,
     _setup_output_destination_aws,
-    _update_run_id_file,
+    _update_metainfo_file,
     _validate_aws_inputs,
     _validate_output_destination,
-    _write_run_id_file,
+    _write_metainfo_file,
     benchmark_single_table_aws,
 )
 from sdgym.result_writer import LocalResultsWriter
@@ -482,35 +482,34 @@ def test__setup_output_destination(tmp_path):
     # Assert
     expected = {
         dataset: {
-            **{
-                synth: {
-                    'synthesizer': str(base_path / f'{dataset}_{today}' / synth / f'{synth}.pkl'),
-                    'synthetic_data': str(
-                        base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.csv'
-                    ),
-                    'benchmark_result': str(
-                        base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
-                    ),
-                    'run_id': str(base_path / f'run_{today}_1.yaml'),
-                    'results': str(base_path / f'results_{today}_1.csv'),
-                }
-                for synth in synthesizers
-            },
+            synth: {
+                'synthesizer': str(base_path / f'{dataset}_{today}' / synth / f'{synth}.pkl'),
+                'synthetic_data': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.csv'
+                ),
+                'benchmark_result': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
+                ),
+                'metainfo': str(base_path / 'metainfo.yaml'),
+                'results': str(base_path / 'results.csv'),
+            }
+            for synth in synthesizers
         }
         for dataset in datasets
     }
+
     assert result_1 == {}
     assert json.loads(json.dumps(result_2)) == expected
 
 
 @patch('sdgym.benchmark.datetime')
-def test__write_run_id_file(mock_datetime, tmp_path):
-    """Test the `_write_run_id_file` method."""
+def test__write_metainfo_file(mock_datetime, tmp_path):
+    """Test the `_write_metainfo_file` method."""
     # Setup
-    output_destination = tmp_path / 'output_destination'
+    output_destination = tmp_path / 'SDGym_results_06_26_2025'
     output_destination.mkdir()
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
-    file_name = {'run_id': f'{output_destination}/run_06_26_2025_1.yaml'}
+    file_name = {'metainfo': f'{output_destination}/metainfo.yaml'}
     result_writer = LocalResultsWriter()
     jobs = [
         ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, file_name),
@@ -520,55 +519,55 @@ def test__write_run_id_file(mock_datetime, tmp_path):
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
 
     # Run
-    _write_run_id_file(synthesizers, jobs, result_writer)
+    _write_metainfo_file(synthesizers, jobs, result_writer)
 
     # Assert
-    assert Path(file_name['run_id']).exists()
-    with open(file_name['run_id'], 'r') as file:
-        run_id_data = yaml.safe_load(file)
-        assert run_id_data['run_id'] == 'run_06_26_2025_1'
-        assert run_id_data['starting_date'] == '06_26_2025'
-        assert run_id_data['jobs'] == expected_jobs
-        assert run_id_data['sdgym_version'] == version('sdgym')
-        assert run_id_data['sdv_version'] == version('sdv')
-        assert run_id_data['realtabformer_version'] == version('realtabformer')
-        assert run_id_data['completed_date'] is None
+    assert Path(file_name['metainfo']).exists()
+    with open(file_name['metainfo'], 'r') as file:
+        metainfo_data = yaml.safe_load(file)
+        assert metainfo_data['run_id'] == 'run_06_26_2025_0'
+        assert metainfo_data['starting_date'] == '06_26_2025'
+        assert metainfo_data['jobs'] == expected_jobs
+        assert metainfo_data['sdgym_version'] == version('sdgym')
+        assert metainfo_data['sdv_version'] == version('sdv')
+        assert metainfo_data['realtabformer_version'] == version('realtabformer')
+        assert metainfo_data['completed_date'] is None
 
 
 @patch('sdgym.benchmark.datetime')
-def test__update_run_id_file(mock_datetime, tmp_path):
-    """Test the `_update_run_id_file` method."""
+def test__update_metainfo_file(mock_datetime, tmp_path):
+    """Test the `_update_metainfo_file` method."""
     # Setup
-    output_destination = tmp_path / 'output_destination'
+    output_destination = tmp_path / 'SDGym_results_06_25_2025'
     output_destination.mkdir()
     metadata = {'run_id': 'run_06_25_2025_1', 'starting_date': '06_25_2025', 'completed_date': None}
-    run_id_file = output_destination / 'run_06_25_2025_1.yaml'
+    metainfo_file = output_destination / 'metainfo.yaml'
     run_id = 'run_06_25_2025_1'
     result_writer = LocalResultsWriter()
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
-    with open(run_id_file, 'w') as file:
+    with open(metainfo_file, 'w') as file:
         yaml.dump(metadata, file)
 
     # Run
-    _update_run_id_file(run_id_file, result_writer)
+    _update_metainfo_file(metainfo_file, result_writer)
 
     # Assert
-    with open(run_id_file, 'r') as file:
-        run_id_data = yaml.safe_load(file)
-        assert run_id_data['completed_date'] == '06_26_2025'
-        assert run_id_data['starting_date'] == '06_25_2025'
-        assert run_id_data['run_id'] == run_id
+    with open(metainfo_file, 'r') as file:
+        metainfo_data = yaml.safe_load(file)
+        assert metainfo_data['completed_date'] == '06_26_2025'
+        assert metainfo_data['starting_date'] == '06_25_2025'
+        assert metainfo_data['run_id'] == run_id
 
 
-@patch('sdgym.benchmark._get_run_id_increment')
-def test_setup_output_destination_aws(mock_get_run_id_increment):
+@patch('sdgym.benchmark._get_metainfo_increment')
+def test_setup_output_destination_aws(mock_get_metainfo_increment):
     """Test the `_setup_output_destination_aws` function."""
     # Setup
     output_destination = 's3://my-bucket/results'
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
     datasets = ['Dataset1', 'Dataset2']
     s3_client_mock = Mock()
-    mock_get_run_id_increment.return_value = 1
+    mock_get_metainfo_increment.return_value = 0
 
     # Run
     paths = _setup_output_destination_aws(
@@ -580,7 +579,7 @@ def test_setup_output_destination_aws(mock_get_run_id_increment):
     bucket_name = 'my-bucket'
     top_folder = f'results/SDGym_results_{today}'
     expected_calls = [call(Bucket=bucket_name, Key=top_folder + '/')]
-    mock_get_run_id_increment.assert_called_once_with(
+    mock_get_metainfo_increment.assert_called_once_with(
         f's3://{bucket_name}/{top_folder}', today, s3_client_mock
     )
     for dataset in datasets:
@@ -605,13 +604,13 @@ def test_setup_output_destination_aws(mock_get_run_id_increment):
             assert paths[dataset][synth]['benchmark_result'] == (
                 f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_benchmark_result.csv'
             )
-            assert 'run_id' in paths[dataset][synth]
-            assert paths[dataset][synth]['run_id'] == (
-                f's3://{bucket_name}/{top_folder}/run_{today}_1.yaml'
+            assert 'metainfo' in paths[dataset][synth]
+            assert paths[dataset][synth]['metainfo'] == (
+                f's3://{bucket_name}/{top_folder}/metainfo.yaml'
             )
             assert 'results' in paths[dataset][synth]
             assert paths[dataset][synth]['results'] == (
-                f's3://{bucket_name}/{top_folder}/results_{today}_1.csv'
+                f's3://{bucket_name}/{top_folder}/results.csv'
             )
 
 
