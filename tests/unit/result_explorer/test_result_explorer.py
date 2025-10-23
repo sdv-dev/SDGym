@@ -236,3 +236,41 @@ class TestResultsExplorer:
         # Assert
         result_explorer._handler.summarize.assert_called_once_with('SDGym_results_07_07_2025')
         pd.testing.assert_frame_equal(summary, results)
+
+    def test_load_results(self, tmp_path):
+        """Test the `load_results` method."""
+        # Setup
+        output_destination = str(tmp_path / 'benchmark_output')
+        (tmp_path / 'benchmark_output' / 'SDGym_results_07_07_2025').mkdir(parents=True)
+        result_explorer = ResultsExplorer(output_destination)
+        result_explorer._handler = Mock()
+        results = pd.DataFrame({
+            'Dataset': ['A', 'B'],
+            'Synthesizer': ['Synth1', 'Synth2'],
+            'Metric1': [0.9, 0.8],
+        })
+        result_explorer._handler.load_results = Mock(return_value=results)
+
+        # Run
+        loaded_results = result_explorer.load_results('SDGym_results_07_07_2025')
+
+        # Assert
+        result_explorer._handler.load_results.assert_called_once_with('SDGym_results_07_07_2025')
+        pd.testing.assert_frame_equal(loaded_results, results)
+
+    def test_load_metainfo(self, tmp_path):
+        """Test the `load_metainfo` method."""
+        # Setup
+        output_destination = str(tmp_path / 'benchmark_output')
+        (tmp_path / 'benchmark_output' / 'SDGym_results_07_07_2025').mkdir(parents=True)
+        result_explorer = ResultsExplorer(output_destination)
+        result_explorer._handler = Mock()
+        metainfo = {'synthesizer_versions': {'Synth1': '1.0.0', 'Synth2': '2.0.0'}}
+        result_explorer._handler.load_metainfo = Mock(return_value=metainfo)
+
+        # Run
+        loaded_metainfo = result_explorer.load_metainfo('SDGym_results_07_07_2025')
+
+        # Assert
+        result_explorer._handler.load_metainfo.assert_called_once_with('SDGym_results_07_07_2025')
+        assert loaded_metainfo == metainfo
