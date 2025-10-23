@@ -13,8 +13,8 @@ from botocore.exceptions import ClientError
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
-metainfo_PREFIX = 'run_'
-RESULTS_FILE_PREFIX = 'results_'
+metainfo_PREFIX = 'metainfo'
+RESULTS_FILE_PREFIX = 'results'
 NUM_DIGITS_DATE = 10
 
 
@@ -159,6 +159,48 @@ class ResultsHandler(ABC):
         summarized_table = self._get_summarize_table(folder_to_results, folder_infos)
 
         return summarized_table, folder_to_results[folder_name]
+
+    def load_results(self, results_folder_name):
+        """Load and aggregate all the results CSV files from the specified results folder.
+
+        Args:
+            results_folder_name (str):
+                The name of the results folder to load results from.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame containing the results of the specified folder.
+        """
+        result_filenames = self._get_results_files(
+            results_folder_name, prefix=RESULTS_FILE_PREFIX, suffix='.csv'
+        )
+
+        return pd.concat(
+            self._get_results(results_folder_name, result_filenames),
+            ignore_index=True,
+        )
+
+    def load_metainfo(self, results_folder_name):
+        """Load and aggregate all the metainfo YAML files from the specified results folder.
+
+        Args:
+            results_folder_name (str):
+                The name of the results folder to load metainfo from.
+
+        Returns:
+            dict:
+                A dictionary containing the metainfo of the specified folder.
+        """
+        yaml_files = self._get_results_files(
+            results_folder_name, prefix=metainfo_PREFIX, suffix='.yaml'
+        )
+        results = {}
+        for yaml_file in yaml_files:
+            metainfo = self._load_yaml_file(results_folder_name, yaml_file)
+            run_id = metainfo.pop('run_id', None)
+            results[run_id] = metainfo
+
+        return results
 
     def all_runs_complete(self, folder_name):
         """Check if all runs in the specified folder are complete."""
