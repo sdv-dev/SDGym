@@ -966,7 +966,11 @@ def _create_instance_on_ec2(script_content):
 
 
 def _handle_deprecated_parameters(
-    output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
+    output_filepath,
+    detailed_results_folder,
+    multi_processing_config,
+    run_on_ec2,
+    output_destination,
 ):
     """Handle deprecated parameters and issue warnings."""
     parameters_to_deprecate = {
@@ -976,17 +980,24 @@ def _handle_deprecated_parameters(
         'run_on_ec2': run_on_ec2,
     }
     parameters = []
+    old_parameters_to_save = ('output_filepath', 'detailed_results_folder')
     for name, value in parameters_to_deprecate.items():
         if value is not None and value:
+            if name in old_parameters_to_save and output_destination is not None:
+                raise ValueError(
+                    f"The '{name}' parameter is deprecated and cannot be used together with "
+                    "'output_destination'. Please use only 'output_destination' to specify "
+                    'the output path.'
+                )
+
             parameters.append(name)
 
     if parameters:
         parameters = "', '".join(sorted(parameters))
         message = (
             f"Parameters '{parameters}' are deprecated in the 'benchmark_single_table' "
-            'function and will be removed in October 2025. '
-            "For saving results, please use the 'output_destination' parameter. For running SDGym"
-            " remotely on AWS please use the 'benchmark_single_table_aws' method."
+            "function. For saving results, please use the 'output_destination' parameter."
+            " For running SDGym remotely on AWS please use the 'benchmark_single_table_aws' method."
         )
         warnings.warn(message, FutureWarning)
 
@@ -1196,7 +1207,11 @@ def benchmark_single_table(
             A table containing one row per synthesizer + dataset + metric.
     """
     _handle_deprecated_parameters(
-        output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2
+        output_filepath,
+        detailed_results_folder,
+        multi_processing_config,
+        run_on_ec2,
+        output_destination,
     )
     _validate_output_destination(output_destination)
     if not synthesizers:
