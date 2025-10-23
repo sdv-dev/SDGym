@@ -138,7 +138,7 @@ class TestResultsHandler:
         folder_name = 'SDGym_results_07_15_2025'
         handler = Mock()
         handler.list = Mock(return_value=[folder_name])
-        handler._get_results_files = Mock(return_value=['results_1.csv', 'results_2.csv'])
+        handler._get_results_files = Mock(return_value=['results.csv', 'results(1).csv'])
         result_1 = pd.DataFrame({
             'Dataset': ['A', 'B'],
             'Synthesizer': ['Synth1'] * 2,
@@ -173,11 +173,9 @@ class TestResultsHandler:
         pd.testing.assert_frame_equal(benchmark_result, aggregated_results)
         handler.list.assert_called_once()
         handler._get_results_files.assert_called_once_with(
-            folder_name, prefix='results_', suffix='.csv'
+            folder_name, prefix='results', suffix='.csv'
         )
-        handler._get_results.assert_called_once_with(
-            folder_name, ['results_1.csv', 'results_2.csv']
-        )
+        handler._get_results.assert_called_once_with(folder_name, ['results.csv', 'results(1).csv'])
         handler._process_results.assert_called_once_with(result_list)
         compute_wing_args = handler._compute_wins.call_args[0][0]
         pd.testing.assert_frame_equal(compute_wing_args, aggregated_results)
