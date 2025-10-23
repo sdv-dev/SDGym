@@ -1,6 +1,7 @@
 """UniformSynthesizer module."""
 
 import logging
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -32,7 +33,14 @@ class UniformSynthesizer(BaselineSynthesizer):
                     f'defaulting to inferred type.'
                 )
 
-        hyper_transformer.update_sdtypes(config)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'ignore',
+                message='.*is incompatible with transformer.*',
+                category=UserWarning,
+            )
+            hyper_transformer.update_sdtypes(config)
+
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
             column_name
