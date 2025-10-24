@@ -1283,7 +1283,7 @@ def benchmark_single_table(
     if output_filepath:
         write_csv(scores, output_filepath, None, None)
 
-    if output_destination:
+    if output_destination and job_args_list:
         metainfo_filename = job_args_list[0][-1]['metainfo']
         _update_metainfo_file(metainfo_filename, result_writer)
 
