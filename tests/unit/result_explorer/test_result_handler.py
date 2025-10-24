@@ -18,6 +18,18 @@ from sdgym.result_explorer.result_handler import (
 class TestResultsHandler:
     """Unit tests for the ResultsHandler class."""
 
+    def test__validate_folder_name(self):
+        """Test the `_validate_folder_name` method."""
+        # Setup
+        handler = Mock()
+        handler.list = Mock(return_value=['run1', 'run2'])
+        expected_error = re.escape("Folder 'run3' does not exist in the results directory.")
+
+        # Run and Assert
+        ResultsHandler._validate_folder_name(handler, 'run1')
+        with pytest.raises(ValueError, match=expected_error):
+            ResultsHandler._validate_folder_name(handler, 'run3')
+
     def test__compute_wins(self):
         """Test the `_compute_wins` method."""
         # Setup
@@ -138,7 +150,7 @@ class TestResultsHandler:
         folder_name = 'SDGym_results_07_15_2025'
         handler = Mock()
         handler.list = Mock(return_value=[folder_name])
-        handler._get_results_files = Mock(return_value=['results_1.csv', 'results_2.csv'])
+        handler._get_results_files = Mock(return_value=['results.csv', 'results(1).csv'])
         result_1 = pd.DataFrame({
             'Dataset': ['A', 'B'],
             'Synthesizer': ['Synth1'] * 2,
@@ -173,11 +185,9 @@ class TestResultsHandler:
         pd.testing.assert_frame_equal(benchmark_result, aggregated_results)
         handler.list.assert_called_once()
         handler._get_results_files.assert_called_once_with(
-            folder_name, prefix='results_', suffix='.csv'
+            folder_name, prefix='results', suffix='.csv'
         )
-        handler._get_results.assert_called_once_with(
-            folder_name, ['results_1.csv', 'results_2.csv']
-        )
+        handler._get_results.assert_called_once_with(folder_name, ['results.csv', 'results(1).csv'])
         handler._process_results.assert_called_once_with(result_list)
         compute_wing_args = handler._compute_wins.call_args[0][0]
         pd.testing.assert_frame_equal(compute_wing_args, aggregated_results)
@@ -185,6 +195,64 @@ class TestResultsHandler:
         for folder, agg_result in _get_column_name_infos_args.items():
             assert folder == folder_name
             pd.testing.assert_frame_equal(agg_result, aggregated_results)
+
+    def test_load_results(self):
+        """Test the `load_results` method."""
+        # Setup
+        folder_name = 'SDGym_results_07_15_2025'
+        handler = Mock()
+        handler._validate_folder_name = Mock()
+        handler._get_results_files = Mock(return_value=['results.csv', 'results(1).csv'])
+        result_1 = pd.DataFrame({
+            'Dataset': ['A', 'B'],
+            'Synthesizer': ['Synth1'] * 2,
+            'Quality_Score': [0.5, 0.6],
+        })
+        result_2 = pd.DataFrame({
+            'Dataset': ['A', 'B'],
+            'Synthesizer': ['Synth2'] * 2,
+            'Quality_Score': [0.7, 0.8],
+        })
+        result_list = [result_1, result_2]
+        handler._get_results = Mock(return_value=result_list)
+
+        # Run
+        results = ResultsHandler.load_results(handler, folder_name)
+
+        # Assert
+        handler._validate_folder_name.assert_called_once_with(folder_name)
+        expected_results = pd.concat(result_list, ignore_index=True)
+        pd.testing.assert_frame_equal(results, expected_results)
+        handler._get_results_files.assert_called_once_with(
+            folder_name, prefix='results', suffix='.csv'
+        )
+        handler._get_results.assert_called_once_with(folder_name, ['results.csv', 'results(1).csv'])
+
+    def test_load_metainfo(self):
+        """Test the `load_metainfo` method."""
+        # Setup
+        folder_name = 'SDGym_results_07_15_2025'
+        handler = Mock()
+        handler._validate_folder_name = Mock()
+        handler._get_results_files = Mock(return_value=['metainfo.yaml', 'metainfo(1).yaml'])
+        yaml_content_1 = {'run_id': 'run_1', 'sdgym_version': '0.9.0'}
+        yaml_content_2 = {'run_id': 'run_2', 'sdgym_version': '0.9.1'}
+        handler._load_yaml_file = Mock(side_effect=[yaml_content_1, yaml_content_2])
+
+        # Run
+        metainfo = ResultsHandler.load_metainfo(handler, folder_name)
+
+        # Assert
+        handler._validate_folder_name.assert_called_once_with(folder_name)
+        expected_metainfo = {
+            'run_1': {'sdgym_version': '0.9.0'},
+            'run_2': {'sdgym_version': '0.9.1'},
+        }
+        assert metainfo == expected_metainfo
+        handler._get_results_files.assert_called_once_with(
+            folder_name, prefix='metainfo', suffix='.yaml'
+        )
+        assert handler._load_yaml_file.call_count == 2
 
 
 class TestLocalResultsHandler:

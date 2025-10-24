@@ -21,6 +21,8 @@ def test_end_to_end_local(tmp_path):
     # Run
     result_explorer = ResultsExplorer(output_destination)
     runs = result_explorer.list()
+    results = result_explorer.load_results(runs[0])
+    metainfo = result_explorer.load_metainfo(runs[0])
     synthetic_data = result_explorer.load_synthetic_data(
         results_folder_name=runs[0],
         dataset_name='expedia_hotel_logs',
@@ -39,6 +41,16 @@ def test_end_to_end_local(tmp_path):
     new_synthetic_data = synthesizer.sample(num_rows=10)
 
     # Assert
+    expected_results = pd.read_csv(f'{output_destination}/SDGym_results_{today}/results.csv')
+    pd.testing.assert_frame_equal(results, expected_results)
+    assert metainfo[f'run_{today}_0']['jobs'] == [
+        ['expedia_hotel_logs', 'GaussianCopulaSynthesizer'],
+        ['expedia_hotel_logs', 'TVAESynthesizer'],
+        ['expedia_hotel_logs', 'UniformSynthesizer'],
+        ['fake_companies', 'GaussianCopulaSynthesizer'],
+        ['fake_companies', 'TVAESynthesizer'],
+        ['fake_companies', 'UniformSynthesizer'],
+    ]
     expected_run = f'SDGym_results_{today}'
     assert runs == [expected_run]
     assert isinstance(synthetic_data, pd.DataFrame)
@@ -66,7 +78,7 @@ def test_summarize():
     expected_results = (
         pd.read_csv(
             'tests/integration/result_explorer/_benchmark_results/'
-            'SDGym_results_10_11_2024/results_10_11_2024_1.csv',
+            'SDGym_results_10_11_2024/results.csv',
         )
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
