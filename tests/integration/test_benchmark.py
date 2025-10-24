@@ -653,13 +653,11 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
     assert directions == [f'SDGym_results_{today_date}']
     subdirections = os.listdir(os.path.join(output_destination, directions[0]))
     assert set(subdirections) == {
-        f'results_{today_date}_1.csv',
+        'results.csv',
         f'fake_companies_{today_date}',
-        f'run_{today_date}_1.yaml',
+        'metainfo.yaml',
     }
-    with open(
-        os.path.join(output_destination, directions[0], f'run_{today_date}_1.yaml'), 'r'
-    ) as f:
+    with open(os.path.join(output_destination, directions[0], 'metainfo.yaml'), 'r') as f:
         metadata = yaml.safe_load(f)
         assert metadata['completed_date'] is not None
         assert metadata['sdgym_version'] == sdgym.__version__
@@ -694,9 +692,7 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
         )
         score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
 
-    saved_result = pd.read_csv(
-        f'{output_destination}/SDGym_results_{today_date}/results_{today_date}_1.csv'
-    )
+    saved_result = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
     pd.testing.assert_frame_equal(results, saved_result, check_dtype=False)
     results_no_adjusted = results.drop(columns=['Adjusted_Total_Time', 'Adjusted_Quality_Score'])
     pd.testing.assert_frame_equal(results_no_adjusted, score_saved_separately, check_dtype=False)
@@ -732,15 +728,13 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
     assert directions == [f'SDGym_results_{today_date}']
     subdirections = os.listdir(os.path.join(output_destination, directions[0]))
     assert set(subdirections) == {
-        f'results_{today_date}_1.csv',
-        f'results_{today_date}_2.csv',
+        'results.csv',
+        'results(1).csv',
         f'fake_companies_{today_date}',
-        f'run_{today_date}_1.yaml',
-        f'run_{today_date}_2.yaml',
+        'metainfo.yaml',
+        'metainfo(1).yaml',
     }
-    with open(
-        os.path.join(output_destination, directions[0], f'run_{today_date}_1.yaml'), 'r'
-    ) as f:
+    with open(os.path.join(output_destination, directions[0], 'metainfo.yaml'), 'r') as f:
         metadata = yaml.safe_load(f)
         assert metadata['completed_date'] is not None
         assert metadata['sdgym_version'] == sdgym.__version__
@@ -749,9 +743,10 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
         os.path.join(output_destination, directions[0], f'fake_companies_{today_date}')
     )
     assert set(synthesizer_directions) == {
-        'TVAESynthesizer',
+        'TVAESynthesizer(1)',
         'GaussianCopulaSynthesizer',
         'UniformSynthesizer',
+        'UniformSynthesizer(1)',
     }
     for synthesizer in sorted(synthesizer_directions):
         synthesizer_files = os.listdir(
@@ -775,11 +770,7 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
         )
         score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
 
-    saved_result_1 = pd.read_csv(
-        f'{output_destination}/SDGym_results_{today_date}/results_{today_date}_1.csv'
-    )
-    saved_result_2 = pd.read_csv(
-        f'{output_destination}/SDGym_results_{today_date}/results_{today_date}_2.csv'
-    )
+    saved_result_1 = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
+    saved_result_2 = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results(1).csv')
     pd.testing.assert_frame_equal(result_1, saved_result_1, check_dtype=False)
     pd.testing.assert_frame_equal(result_2, saved_result_2, check_dtype=False)

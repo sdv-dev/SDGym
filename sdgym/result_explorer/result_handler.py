@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
-RUN_ID_PREFIX = 'run_'
+metainfo_PREFIX = 'run_'
 RESULTS_FILE_PREFIX = 'results_'
 NUM_DIGITS_DATE = 10
 
@@ -95,17 +95,17 @@ class ResultsHandler(ABC):
     def _get_column_name_infos(self, folder_to_results):
         folder_to_info = {}
         for folder, results in folder_to_results.items():
-            yaml_files = self._get_results_files(folder, prefix=RUN_ID_PREFIX, suffix='.yaml')
+            yaml_files = self._get_results_files(folder, prefix=metainfo_PREFIX, suffix='.yaml')
             if not yaml_files:
                 continue
 
-            run_id_info = self._load_yaml_file(folder, yaml_files[0])
+            metainfo_info = self._load_yaml_file(folder, yaml_files[0])
             num_datasets = results.loc[
                 results['Synthesizer'] == SYNTHESIZER_BASELINE, 'Dataset'
             ].nunique()
             folder_to_info[folder] = {
-                'date': run_id_info.get('starting_date')[:NUM_DIGITS_DATE],
-                'sdgym_version': run_id_info.get('sdgym_version'),
+                'date': metainfo_info.get('starting_date')[:NUM_DIGITS_DATE],
+                'sdgym_version': metainfo_info.get('sdgym_version'),
                 '# datasets': num_datasets,
             }
 
@@ -162,13 +162,13 @@ class ResultsHandler(ABC):
 
     def all_runs_complete(self, folder_name):
         """Check if all runs in the specified folder are complete."""
-        yaml_files = self._get_results_files(folder_name, prefix=RUN_ID_PREFIX, suffix='.yaml')
+        yaml_files = self._get_results_files(folder_name, prefix=metainfo_PREFIX, suffix='.yaml')
         if not yaml_files:
             return False
 
         for yaml_file in yaml_files:
-            run_id_info = self._load_yaml_file(folder_name, yaml_file)
-            if run_id_info.get('completed_date') is None:
+            metainfo_info = self._load_yaml_file(folder_name, yaml_file)
+            if metainfo_info.get('completed_date') is None:
                 return False
 
         return True
