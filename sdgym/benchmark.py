@@ -954,8 +954,10 @@ def _create_instance_on_ec2(script_content):
     echo "======== Write Script ==========="
     printf '%s\\n' "{escaped_script}" > ~/sdgym_script.py
     echo "======== Run Script ==========="
+    set +e
     python ~/sdgym_script.py
-
+    EXIT_CODE=$?
+    echo "======== Python exited with code $EXIT_CODE =========="
     echo "======== Complete ==========="
     INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
     aws ec2 terminate-instances --instance-ids $INSTANCE_ID
