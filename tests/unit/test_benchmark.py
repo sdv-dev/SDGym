@@ -18,6 +18,7 @@ from sdgym.benchmark import (
     _create_sdgym_script,
     _directory_exists,
     _ensure_uniform_included,
+    _fill_adjusted_scores_with_none,
     _format_output,
     _get_metainfo_increment,
     _handle_deprecated_parameters,
@@ -887,6 +888,40 @@ def test__add_adjusted_scores_no_failures():
     assert scores.equals(expected)
 
 
+def test__fill_adjusted_scores_with_none():
+    """Test the `_fill_adjusted_scores_with_none` method."""
+    # Setup
+    scores_1 = pd.DataFrame({
+        'Synthesizer': ['Synth1', 'Synth2'],
+        'Train_Time': [1.0, None],
+        'Sample_Time': [2.0, 3.0],
+        'Quality_Score': [0.8, None],
+    })
+    scores_2 = pd.DataFrame({
+        'Synthesizer': ['Synth1', 'Synth2'],
+        'Train_Time': [1.0, None],
+        'Sample_Time': [2.0, 3.0],
+    })
+    expected = pd.DataFrame({
+        'Synthesizer': ['Synth1', 'Synth2'],
+        'Train_Time': [1.0, None],
+        'Sample_Time': [2.0, 3.0],
+        'Quality_Score': [0.8, None],
+        'Adjusted_Total_Time': None,
+        'Adjusted_Quality_Score': None,
+    })
+
+    # Run
+    result_1 = _fill_adjusted_scores_with_none(scores_1)
+    result_2 = _fill_adjusted_scores_with_none(scores_2)
+
+    # Assert
+    pd.testing.assert_frame_equal(result_1, expected)
+    pd.testing.assert_frame_equal(
+        result_2, expected.drop(columns=['Quality_Score', 'Adjusted_Quality_Score'])
+    )
+
+
 def test__add_adjusted_scores_timeout():
     """Test _add_adjusted_scores when a synthesizer times out."""
     # Setup
@@ -945,18 +980,18 @@ def test__add_adjusted_scores_missing_fallback():
     """Test _add_adjusted_scores with the UniformSynthesizer row missing."""
     # Setup
     scores = pd.DataFrame({
-        'Synthesizer': ['GaussianCopulaSynthesizer'],
-        'Train_Time': [1.0],
-        'Sample_Time': [2.0],
-        'Quality_Score': [1.0],
+        'Synthesizer': ['GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
+        'Train_Time': [1.0, 3.0],
+        'Sample_Time': [2.0, 1.0],
+        'Quality_Score': [1.0, 0.8],
     })
     expected = pd.DataFrame({
-        'Synthesizer': ['GaussianCopulaSynthesizer'],
-        'Train_Time': [1.0],
-        'Sample_Time': [2.0],
-        'Quality_Score': [1.0],
-        'Adjusted_Total_Time': [None],
-        'Adjusted_Quality_Score': [None],
+        'Synthesizer': ['GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
+        'Train_Time': [1.0, 3.0],
+        'Sample_Time': [2.0, 1.0],
+        'Quality_Score': [1.0, 0.8],
+        'Adjusted_Total_Time': [None, None],
+        'Adjusted_Quality_Score': [None, None],
     })
 
     # Run

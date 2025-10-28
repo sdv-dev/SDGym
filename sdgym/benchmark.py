@@ -1091,7 +1091,7 @@ def _ensure_uniform_included(synthesizers):
         synthesizers.append('UniformSynthesizer')
 
 
-def _fill_adjusted_scores_with_nan(scores):
+def _fill_adjusted_scores_with_none(scores):
     """Fill adjusted total time and quality score with NaN values."""
     scores['Adjusted_Total_Time'] = None
     if 'Quality_Score' in scores.columns:
@@ -1105,7 +1105,7 @@ def _add_adjusted_scores(scores, timeout):
     timeout = timeout or 0
     uniform_mask = scores['Synthesizer'].str.contains('UniformSynthesizer', na=False)
     if not uniform_mask.any():
-        return _fill_adjusted_scores_with_nan(scores)
+        return _fill_adjusted_scores_with_none(scores)
 
     uniform_row = scores.loc[uniform_mask].iloc[0]
     base_fit_time = uniform_row.get('Train_Time')
@@ -1113,7 +1113,7 @@ def _add_adjusted_scores(scores, timeout):
     base_quality_score = uniform_row.get('Quality_Score', None)
 
     if pd.isna(base_fit_time) or pd.isna(base_sample_time):
-        return _fill_adjusted_scores_with_nan(scores)
+        return _fill_adjusted_scores_with_none(scores)
 
     fit_times = scores['Train_Time'].fillna(0)
     sample_times = scores['Sample_Time'].fillna(0)
@@ -1418,7 +1418,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@fix-aggregate-results-ec2"
+        pip install sdgym[all]
         pip install s3fs
 
         echo "======== Write Script ==========="
