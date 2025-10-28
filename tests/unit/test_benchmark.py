@@ -19,6 +19,7 @@ from sdgym.benchmark import (
     _directory_exists,
     _ensure_uniform_included,
     _format_output,
+    _get_metainfo_increment,
     _handle_deprecated_parameters,
     _setup_output_destination,
     _setup_output_destination_aws,
@@ -50,6 +51,60 @@ def test_output_file_exists(path_mock):
             sdv_datasets=['student_placements'],
             output_filepath=output_filepath,
         )
+
+
+@patch('sdgym.benchmark.boto3.client')
+@patch('sdgym.benchmark.LOGGER')
+def test__get_metainfo_increment_aws(mock_logger, mock_client):
+    """Test the `_get_metainfo_increment` method when looking for files on aws."""
+    # Setup
+    # Mock S3 response with existing metainfo files
+    mock_client.list_objects_v2.side_effect = [
+        ValueError('Simulated S3 error'),
+        {
+            'Contents': [
+                {'Key': 'SDGym_results_10_01_2023/metainfo.yaml'},
+                {'Key': 'SDGym_results_10_01_2023/metainfo(1).yaml'},
+                {'Key': 'SDGym_results_10_01_2023/metainfo(2).yaml'},
+            ]
+        },
+        {'Contents': []},
+    ]
+    top_folder = 's3://my-bucket/SDGym_results_10_01_2023'
+    s3_client = mock_client
+
+    # Run
+    result_1 = _get_metainfo_increment(top_folder, s3_client)
+    mock_logger.info.assert_called_once_with('No metainfo file found, starting from increment (0)')
+    result_2 = _get_metainfo_increment(top_folder, s3_client)
+    result_3 = _get_metainfo_increment(top_folder, s3_client)
+
+    # Assert
+    assert result_1 == 0
+    assert result_2 == 3
+    assert result_3 == 0
+
+
+@patch('sdgym.benchmark.LOGGER')
+def test__get_metainfo_increment_local(mock_logger, tmp_path):
+    """Test the `_get_metainfo_increment` method when looking for local files."""
+    # Setup
+    top_folder = tmp_path / 'SDGym_results_10_01_2023'
+
+    # Run
+    result_1 = _get_metainfo_increment(top_folder)
+    mock_logger.info.assert_called_once_with('No metainfo file found, starting from increment (0)')
+    top_folder.mkdir(parents=True, exist_ok=True)
+    result_2 = _get_metainfo_increment(top_folder)
+    (top_folder / 'metainfo.yaml').touch()
+    (top_folder / 'metainfo(1).yaml').touch()
+    (top_folder / 'metainfo(2).yaml').touch()
+    result_3 = _get_metainfo_increment(top_folder)
+
+    # Assert
+    assert result_1 == 0
+    assert result_2 == 0
+    assert result_3 == 3
 
 
 @patch('sdgym.benchmark.tqdm.tqdm')
@@ -580,7 +635,7 @@ def test_setup_output_destination_aws(mock_get_metainfo_increment):
     top_folder = f'results/SDGym_results_{today}'
     expected_calls = [call(Bucket=bucket_name, Key=top_folder + '/')]
     mock_get_metainfo_increment.assert_called_once_with(
-        f's3://{bucket_name}/{top_folder}', today, s3_client_mock
+        f's3://{bucket_name}/{top_folder}', s3_client_mock
     )
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'

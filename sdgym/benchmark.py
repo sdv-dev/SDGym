@@ -82,6 +82,9 @@ N_BYTES_IN_MB = 1000 * 1000
 EXTERNAL_SYNTHESIZER_TO_LIBRARY = {
     'RealTabFormerSynthesizer': 'realtabformer',
 }
+FILE_INCREMENT_PATTERN = re.compile(r'\((\d+)\)$')
+RESULTS_DATE_PATTERN = re.compile(r'SDGym_results_(\d{2}_\d{2}_\d{4})')
+METAINFO_FILE_PATTERN = re.compile(r'metainfo(?:\((\d+)\))?\.yaml$')
 SDV_SINGLE_TABLE_SYNTHESIZERS = [
     'GaussianCopulaSynthesizer',
     'CTGANSynthesizer',
@@ -118,9 +121,9 @@ def _create_detailed_results_directory(detailed_results_folder):
         os.makedirs(detailed_results_folder, exist_ok=True)
 
 
-def _get_metainfo_increment(top_folder, today, s3_client=None):
-    pattern = re.compile(r'metainfo(?:\((\d+)\))?\.yaml$')
+def _get_metainfo_increment(top_folder, s3_client=None):
     increments = []
+    first_file_message = 'No metainfo file found, starting from increment (0)'
     if s3_client:
         bucket, prefix = parse_s3_path(top_folder)
         try:
@@ -128,18 +131,20 @@ def _get_metainfo_increment(top_folder, today, s3_client=None):
             contents = response.get('Contents', [])
             for obj in contents:
                 file_name = Path(obj['Key']).name
-                match = pattern.match(file_name)
+                match = METAINFO_FILE_PATTERN.match(file_name)
                 if match:
                     # Extract numeric suffix (e.g. metainfo(3).yaml → 3) or 0 if plain metainfo.yaml
                     increments.append(int(match.group(1)) if match.group(1) else 0)
         except Exception:
+            LOGGER.info(first_file_message)
             return 0  # start with (0) if error
     else:
         top_folder = Path(top_folder)
         if not top_folder.exists():
+            LOGGER.info(first_file_message)
             return 0
         for file in top_folder.glob('metainfo*.yaml'):
-            match = pattern.match(file.name)
+            match = METAINFO_FILE_PATTERN.match(file.name)
             if match:
                 increments.append(int(match.group(1)) if match.group(1) else 0)
 
@@ -155,7 +160,7 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
     paths['bucket_name'] = bucket_name
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
-    increment = _get_metainfo_increment(f's3://{bucket_name}/{top_folder}', today, s3_client)
+    increment = _get_metainfo_increment(f's3://{bucket_name}/{top_folder}', s3_client)
     suffix = f'({increment})' if increment >= 1 else ''
     s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
     for dataset in datasets:
@@ -205,7 +210,7 @@ def _setup_output_destination(output_destination, synthesizers, datasets, s3_cli
     today = datetime.today().strftime('%m_%d_%Y')
     top_folder = output_path / f'SDGym_results_{today}'
     top_folder.mkdir(parents=True, exist_ok=True)
-    increment = _get_metainfo_increment(top_folder, today)
+    increment = _get_metainfo_increment(top_folder)
     suffix = f'({increment})' if increment >= 1 else ''
     paths = defaultdict(dict)
     for dataset in datasets:
@@ -1046,9 +1051,9 @@ def _write_metainfo_file(synthesizers, job_args_list, result_writer=None):
     output_directions = job_args_list[0][-1]
     path = output_directions['metainfo']
     stem = Path(path).stem
-    match = re.search(r'\((\d+)\)$', stem)
+    match = FILE_INCREMENT_PATTERN.search(stem)
     increment = int(match.group(1)) if match else 0
-    date_match = re.search(r'SDGym_results_(\d{2}_\d{2}_\d{4})', path)
+    date_match = RESULTS_DATE_PATTERN.search(path)
     if not date_match:
         raise ValueError(f'Could not extract date from metainfo path: {path}')
 
