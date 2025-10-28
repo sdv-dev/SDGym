@@ -600,7 +600,7 @@ def _score_with_timeout(
             process = multiprocessing.Process(target=_score, args=args)
             process.start()
             process.join(timeout)
-            process.terminate()
+            process.kill()
 
             output = dict(output)
             if output.get('timeout'):

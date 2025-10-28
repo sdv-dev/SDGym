@@ -156,7 +156,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
     # Assert
     mocked_process.start.assert_called_once_with()
     mocked_process.join.assert_called_once_with(1)
-    mocked_process.terminate.assert_called_once_with()
+    mocked_process.kill.assert_called_once_with()
     expected_scores = pd.DataFrame({
         'Synthesizer': {0: 'UniformSynthesizer'},
         'Dataset': {0: 'student_placements'},
