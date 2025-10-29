@@ -182,9 +182,11 @@ def test_get_df_to_plot():
             ['GaussianCopulaSynthesizer'] * 2 + ['CTGANSynthesizer'] * 2 + ['TVAESynthesizer'] * 2
         ),
         'Dataset': ['Dataset1', 'Dataset2'] * 3,
-        'Train_Time': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        'Sample_Time': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+        'Train_Time': [0.9, 2.0, 3.0, 4.0, 5.0, 6.0],
+        'Sample_Time': [0.1, 0.2, 0.3, 0.2, 0.5, 0.6],
         'Quality_Score': [0.8, 0.9, 0.7, 0.6, 0.5, 0.4],
+        'Adjusted_Quality_Score': [0.85, 0.9, 0.6, 0.55, 0.45, 0.55],
+        'Adjusted_Total_Time': [1.1, 2.2, 3.3, 4.4, 5.5, 6.6],
     })
 
     # Run
@@ -194,7 +196,7 @@ def test_get_df_to_plot():
     expected_result = pd.DataFrame({
         'Synthesizer': ['GaussianCopula', 'CTGAN', 'TVAE'],
         'Aggregated_Time': [3.3, 7.7, 12.1],
-        'Quality_Score': [0.85, 0.65, 0.45],
+        'Quality_Score': [0.875, 0.575, 0.5],
         'Log10 Aggregated_Time': [0.5185139398778875, 0.8864907251724818, 1.08278537031645],
         'Pareto': [True, False, False],
         'Color': ['#01E0C9', '#03AFF1', '#03AFF1'],

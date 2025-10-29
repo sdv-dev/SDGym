@@ -129,20 +129,23 @@ def get_df_to_plot(benchmark_result):
         DataFrame: The data to plot.
     """
     df_to_plot = benchmark_result.copy()
-    df_to_plot['total_time'] = df_to_plot['Train_Time'] + df_to_plot['Sample_Time']
-    df_to_plot['Aggregated_Time'] = df_to_plot.groupby('Synthesizer')['total_time'].transform('sum')
+    df_to_plot['Aggregated_Time'] = df_to_plot.groupby('Synthesizer')[
+        'Adjusted_Total_Time'
+    ].transform('sum')
     df_to_plot = (
-        df_to_plot.groupby('Synthesizer')[['Aggregated_Time', 'Quality_Score']].mean().reset_index()
+        df_to_plot.groupby('Synthesizer')[['Aggregated_Time', 'Adjusted_Quality_Score']]
+        .mean()
+        .reset_index()
     )
     df_to_plot['Log10 Aggregated_Time'] = df_to_plot['Aggregated_Time'].apply(
         lambda x: np.log10(x) if x > 0 else 0
     )
     df_to_plot = df_to_plot.sort_values(
-        ['Aggregated_Time', 'Quality_Score'], ascending=[True, False]
+        ['Aggregated_Time', 'Adjusted_Quality_Score'], ascending=[True, False]
     )
-    df_to_plot['Cumulative Quality Score'] = df_to_plot['Quality_Score'].cummax()
+    df_to_plot['Cumulative Quality Score'] = df_to_plot['Adjusted_Quality_Score'].cummax()
     pareto_points = df_to_plot.loc[
-        df_to_plot['Quality_Score'] == df_to_plot['Cumulative Quality Score']
+        df_to_plot['Adjusted_Quality_Score'] == df_to_plot['Cumulative Quality Score']
     ]
     df_to_plot['Pareto'] = df_to_plot.index.isin(pareto_points.index)
     df_to_plot['Color'] = df_to_plot['Pareto'].apply(lambda x: '#01E0C9' if x else '#03AFF1')
@@ -155,5 +158,6 @@ def get_df_to_plot(benchmark_result):
         synth: PLOTLY_MARKERS[i % len(PLOTLY_MARKERS)] for i, synth in enumerate(synthesizers)
     }
     df_to_plot['Marker'] = df_to_plot['Synthesizer'].map(marker_map)
+    df_to_plot = df_to_plot.rename(columns={'Adjusted_Quality_Score': 'Quality_Score'})
 
     return df_to_plot.drop(columns=['Cumulative Quality Score']).reset_index(drop=True)
