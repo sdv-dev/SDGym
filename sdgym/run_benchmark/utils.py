@@ -2,6 +2,7 @@
 
 import os
 from datetime import datetime
+from urllib.parse import quote_plus
 
 import numpy as np
 from slack_sdk import WebClient
@@ -105,7 +106,7 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
-    url_link = get_s3_console_link(bucket, f'{prefix}SDGym Monthly Run.xlsx')
+    url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}SDGym Monthly Run.xlsx'))
     body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
