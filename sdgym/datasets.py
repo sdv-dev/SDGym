@@ -16,7 +16,7 @@ from sdgym.s3 import get_s3_client
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 's3://sdv-demo-datasets'
+BUCKET = 's3://sdv-datasets-public' # 's3://sdv-demo-datasets'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
 MODALITIES = ['single_table', 'multi_table', 'sequential']
@@ -35,19 +35,30 @@ def _download_dataset(
     aws_access_key_id=None,
     aws_secret_access_key=None,
 ):
-    """Download a dataset and extract it into the given ``datasets_path``."""
-    datasets_path = datasets_path or DATASETS_PATH / dataset_name
+    """Download a dataset into the given ``datasets_path`` / ``modality``."""
+    datasets_path = datasets_path or DATASETS_PATH / modality / dataset_name
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
-    s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
-    obj = s3.get_object(Bucket=bucket_name, Key=f'{modality.upper()}/{dataset_name}.zip')
-    bytes_io = io.BytesIO(obj['Body'].read())
+    s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
+    prefix = f'{modality.lower()}/{dataset_name}/'
 
-    LOGGER.info('Extracting dataset into %s', datasets_path)
-    with ZipFile(bytes_io) as zf:
-        zf.extractall(datasets_path)
+    contents = []
+    paginator = s3_client.get_paginator('list_objects_v2')
+    for resp in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
+        contents.extend(resp.get('Contents', []))
+
+    if not contents:
+        raise ValueError(f"No objects found under '{prefix}' in bucket '{BUCKET}'.")
+
+    for obj in contents:
+        s3_path = obj['Key']
+        local_path = datasets_path / os.path.relpath(s3_path, prefix)
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        s3_client.download_file(bucket_name, s3_path, local_path)
+
+    return datasets_path
 
 
 def _get_dataset_path(
@@ -63,41 +74,55 @@ def _get_dataset_path(
         return dataset
 
     datasets_path = datasets_path or DATASETS_PATH
-    dataset_path = datasets_path / dataset
-    if dataset_path.exists():
+    dataset_path = datasets_path / modality / dataset
+    if dataset_path.exists() and any(dataset_path.iterdir()):
         return dataset_path
 
     bucket = bucket or BUCKET
     if not bucket.startswith(S3_PREFIX):
-        local_path = Path(bucket) / dataset if bucket else Path(dataset)
+        local_path = Path(bucket) / modality / dataset if bucket else Path(dataset)
         if local_path.exists():
             return local_path
 
-    _download_dataset(
-        modality,
-        dataset,
-        dataset_path,
-        bucket=bucket,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-    )
-    return dataset_path
+    return None
 
 
-def _get_dataset_subset(data, metadata_dict):
-    if 'tables' in metadata_dict.keys():
+def _get_dataset_subset(data, metadata_dict, modality):
+    if modality == 'multi_table':
         raise ValueError('limit_dataset_size is not supported for multi-table datasets.')
 
     max_rows, max_columns = (1000, 10)
-    columns = metadata_dict['columns']
-    if len(columns) > max_columns:
-        columns = dict(itertools.islice(columns.items(), max_columns))
-        metadata_dict['columns'] = columns
-        data = data[columns.keys()]
+    tables = metadata_dict.get('tables', {})
+    mandatory_columns = []
+    for table_name, table_info in tables.items():
+        columns = table_info.get('columns', {})
 
+        if modality == 'sequential':
+            seq_index = table_info.get('sequence_index')
+            seq_key = table_info.get('sequence_key')
+            mandatory_columns = [seq_index, seq_key]
+
+        optional_columns = [col for col in columns if col not in mandatory_columns]
+
+        # If we have too many columns, drop extras but never mandatory ones
+        if len(columns) > max_columns:
+            keep_count = max_columns - len(mandatory_columns)
+            keep_columns = mandatory_columns.union(set(optional_columns[:keep_count]))
+            table_info['columns'] = {
+                column_name: column_definition
+                for column_name, column_definition in columns.items()
+                if column_name in keep_columns
+            }
+
+    data = data[keep_columns]
     data = data.head(max_rows)
-
     return data, metadata_dict
+
+
+def _validate_modality(modality):
+    if modality not in MODALITIES:
+        modalities_list = ', '.join(MODALITIES)
+        raise ValueError(f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
 
 
 def load_dataset(
@@ -107,13 +132,13 @@ def load_dataset(
     bucket=None,
     aws_access_key_id=None,
     aws_secret_access_key=None,
-    limit_dataset_size=None,
+    limit_dataset_size=False
 ):
     """Get the data and metadata of a dataset.
 
     Args:
         modality (str):
-            It must be ``'single-table'``, ``'multi-table'`` or ``'time-series'``.
+            It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
         dataset (str):
             The path of the dataset as a string.
         dataset_path (PurePath):
@@ -135,23 +160,66 @@ def load_dataset(
         pd.DataFrame, dict:
             The data and medatata of a dataset.
     """
+    _validate_modality(modality)
     dataset_path = _get_dataset_path(
-        modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+        modality,
+        dataset,
+        datasets_path,
+        bucket,
+        aws_access_key_id,
+        aws_secret_access_key
     )
-    with open(dataset_path / f'{dataset_path.name}.csv') as data_csv:
-        data = pd.read_csv(data_csv)
 
-    metadata_filename = 'metadata.json'
-    if not os.path.exists(f'{dataset_path}/{metadata_filename}'):
-        metadata_filename = 'metadata_v1.json'
+    if dataset_path is None:
+        dataset_path = _download_dataset(
+            modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+        )
 
-    with open(dataset_path / metadata_filename) as metadata_file:
-        metadata_dict = json.load(metadata_file)
-
+    data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
     if limit_dataset_size:
-        data, metadata_dict = _get_dataset_subset(data, metadata_dict)
+        data, metadata_dict = _get_dataset_subset(data, metadata_dict, modality=modality)
 
     return data, metadata_dict
+
+
+def get_data_and_metadata_from_path(dataset_path, modality):
+    metadata_dict = None
+    data = None
+    for file_name in dataset_path.iterdir():
+        if 'metadata' in file_name.stem and file_name.suffix == '.json':
+            metadata_dict = _read_metadata_json(dataset_path / file_name)
+
+        elif 'data' in file_name.stem and file_name.suffix == '.zip':
+            data = _read_zipped_data(zip_file_path=(dataset_path / file_name), modality=modality)
+
+    return data, metadata_dict
+
+
+def _read_zipped_data(zip_file_path, modality):
+    data = {}
+    with ZipFile(zip_file_path, 'r') as zf:
+        for file_name in zf.namelist():
+            if file_name.endswith('.csv'):
+                key = Path(file_name).stem
+                data[key] = _read_csv_from_zip(zf, csv_file_name=file_name)
+
+    if modality != 'multi_table':
+        data = next(iter(data.values()))
+
+    return data
+
+
+def _read_csv_from_zip(zip_file, csv_file_name):
+    """Read a single CSV file from an open ZipFile and return a DataFrame."""
+    with zip_file.open(csv_file_name) as csv_file:
+        return pd.read_csv(csv_file)
+
+
+def _read_metadata_json(metadata_path):
+    with open(metadata_path) as metadata_file:
+        metadata_dict = json.load(metadata_file)
+
+    return metadata_dict
 
 
 def get_available_datasets(modality='single_table'):
@@ -175,10 +243,7 @@ def get_available_datasets(modality='single_table'):
 def _get_available_datasets(
     modality, bucket=None, aws_access_key_id=None, aws_secret_access_key=None
 ):
-    if modality not in MODALITIES:
-        modalities_list = ', '.join(MODALITIES)
-        raise ValueError(f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
-
+    _validate_modality(modality)
     s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
@@ -245,7 +310,6 @@ def get_dataset_paths(
                         dataset_name = os.path.splitext(dataset.name)[0]
                         dataset_path = datasets_path / dataset_name
                         ZipFile(dataset).extractall(dataset_path)
-
                         datasets.append(dataset_path)
                     elif dataset not in datasets:
                         datasets.append(dataset)
