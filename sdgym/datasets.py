@@ -61,7 +61,21 @@ def _download_dataset(
     return datasets_path
 
 
-def _get_dataset_path(
+def _path_contains_data_and_metadata(dataset_path):
+    metadata_found = False
+    data_zip_found = False
+    for file_name in dataset_path.iterdir():
+        if 'metadata' in file_name.stem and file_name.suffix == '.json':
+            metadata_found = True
+
+        if 'data' in file_name.stem and file_name.suffix == '.zip':
+            data_zip_found = True
+
+    return metadata_found and data_zip_found
+
+
+
+def _get_dataset_path_or_download(
     modality,
     dataset,
     datasets_path,
@@ -73,18 +87,22 @@ def _get_dataset_path(
     if dataset.exists():
         return dataset
 
-    datasets_path = datasets_path or DATASETS_PATH
-    dataset_path = datasets_path / modality / dataset
-    if dataset_path.exists() and any(dataset_path.iterdir()):
+    datasets_path = datasets_path or DATASETS_PATH / modality
+    dataset_path = datasets_path / dataset
+    if dataset_path.exists() and _path_contains_data_and_metadata(dataset_path):
         return dataset_path
 
     bucket = bucket or BUCKET
     if not bucket.startswith(S3_PREFIX):
         local_path = Path(bucket) / modality / dataset if bucket else Path(dataset)
-        if local_path.exists():
+        if local_path.exists() and _path_contains_data_and_metadata(local_path):
             return local_path
 
-    return None
+    print(dataset, dataset_path)
+    dataset_path = _download_dataset(
+        modality, dataset, dataset_path, bucket, aws_access_key_id, aws_secret_access_key
+    )
+    return dataset_path
 
 
 def _get_dataset_subset(data, metadata_dict, modality):
@@ -161,7 +179,7 @@ def load_dataset(
             The data and medatata of a dataset.
     """
     _validate_modality(modality)
-    dataset_path = _get_dataset_path(
+    dataset_path = _get_dataset_path_or_download(
         modality,
         dataset,
         datasets_path,
@@ -169,11 +187,6 @@ def load_dataset(
         aws_access_key_id,
         aws_secret_access_key
     )
-
-    if dataset_path is None:
-        dataset_path = _download_dataset(
-            modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
-        )
 
     data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
     if limit_dataset_size:
@@ -268,6 +281,7 @@ def _get_available_datasets(
 
 
 def get_dataset_paths(
+    modality,
     datasets=None,
     datasets_path=None,
     bucket=None,
@@ -282,7 +296,7 @@ def get_dataset_paths(
         dataset_path (str):
             The path of the datasets.
         bucket (str):
-            The AWS bucket where to get the dataset.
+            The AWS bucket where to get the dataset or folder.
         aws_access_key_id (str):
             The access key id that will be used to communicate with s3, if provided.
         aws_secret_access_key (str):
@@ -292,35 +306,37 @@ def get_dataset_paths(
         list:
             List of the full path of the datasets.
     """
+    _validate_modality(modality)
     bucket = bucket or BUCKET
     is_remote = bucket.startswith(S3_PREFIX)
 
     if datasets_path is None:
-        datasets_path = DATASETS_PATH
+        datasets_path = DATASETS_PATH / modality
+    else:
+        datasets_path = Path(datasets_path)
 
-    datasets_path = Path(datasets_path)
     if datasets is None:
         # local path
         if not is_remote and Path(bucket).exists():
             datasets = []
             folder_items = list(Path(bucket).iterdir())
             for dataset in folder_items:
-                if not dataset.name.startswith('.'):
-                    if dataset.name.endswith('zip'):
-                        dataset_name = os.path.splitext(dataset.name)[0]
-                        dataset_path = datasets_path / dataset_name
-                        ZipFile(dataset).extractall(dataset_path)
-                        datasets.append(dataset_path)
-                    elif dataset not in datasets:
-                        datasets.append(dataset)
+                if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
+                    datasets.append(dataset)
         else:
-            datasets = _get_available_datasets('single_table', bucket=bucket)[
-                'dataset_name'
-            ].tolist()
+            datasets = _get_available_datasets(modality, bucket=bucket)
+            datasets = datasets['dataset_name'].tolist()
 
-    return [
-        _get_dataset_path(
-            'single_table', dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+    dataset_paths = []
+    for dataset in datasets:
+        available_dataset = _get_dataset_path_or_download(
+            modality,
+            dataset,
+            datasets_path,
+            bucket,
+            aws_access_key_id,
+            aws_secret_access_key
         )
-        for dataset in datasets
-    ]
+        dataset_paths.append(available_dataset)
+
+    return dataset_paths

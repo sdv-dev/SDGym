@@ -179,3 +179,10 @@ def calculate_score_time(start):
 
     """
     return (get_utc_now() - start).total_seconds()
+
+def convert_metadata_to_sdmetrics(metadata_dict):
+    """convert a sdv metadata dictionary into sdmetrics expected metadata."""
+    table_name = next(iter(metadata_dict['tables']))
+    return metadata_dict['tables'][table_name]
+
+
