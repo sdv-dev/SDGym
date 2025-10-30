@@ -1406,7 +1406,6 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
     return textwrap.dedent(f"""\
         #!/bin/bash
         set -e
-        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
         # Always terminate the instance when the script exits (success or failure)
         trap '
@@ -1415,6 +1414,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
         aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
         ' EXIT
 
+        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
         echo "======== Update and Install Dependencies ============"
         sudo apt update -y
         sudo apt install -y python3-pip python3-venv awscli
@@ -1429,7 +1429,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install sdgym[all]
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-463-terminate-instance-timeout"
         pip install s3fs
 
         echo "======== Write Script ==========="
@@ -1438,10 +1438,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 EOF
 
         echo "======== Run Script ==========="
-        set +e  # Let Python fail gracefully; don't abort before trap runs
         python ~/sdgym_script.py
-        EXIT_CODE=$?
-        echo "======== Python exited with code $EXIT_CODE =========="
         echo "======== Complete ==========="
         INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
         aws ec2 terminate-instances --instance-ids $INSTANCE_ID
