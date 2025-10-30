@@ -11,7 +11,7 @@ from sdgym.datasets import (
     _download_dataset,
     _genereate_dataset_info,
     _get_bucket_name,
-    _get_dataset_path_or_download,
+    _get_dataset_path_and_download,
     _path_contains_data_and_metadata,
     _validate_modality,
     get_data_and_metadata_from_path,
@@ -181,9 +181,9 @@ def test__path_contains_data_and_metadata_no_relevant_files(monkeypatch):
 
 
 @patch('sdgym.datasets._download_dataset')
-@patch('sdgym.datasets._path_contains_data_and_metadata', return_value=False)
+@patch('sdgym.datasets._path_contains_data_and_metadata', return_value=True)
 @patch('sdgym.datasets.Path')
-def test__get_dataset_path_or_download_local_exists(path_mock, contains_mock, download_mock):
+def test__get_dataset_path_and_download_local_exists(path_mock, contains_mock, download_mock):
     """Test that this function returns the dataset path directly if it already exists."""
     # Setup
     modality = 'single_table'
@@ -195,18 +195,18 @@ def test__get_dataset_path_or_download_local_exists(path_mock, contains_mock, do
     path_mock.return_value = dataset_path_mock
 
     # Run
-    result = _get_dataset_path_or_download(modality, dataset, datasets_path)
+    result = _get_dataset_path_and_download(modality, dataset, datasets_path)
 
     # Assert
     assert result == dataset_path_mock
     download_mock.assert_not_called()
-    contains_mock.assert_not_called()
+    contains_mock.assert_called_once_with(dataset_path_mock)
 
 
 @patch('sdgym.datasets._download_dataset')
 @patch('sdgym.datasets._path_contains_data_and_metadata', return_value=False)
-def test__get_dataset_path_or_download_triggers_download(contains_mock, download_mock):
-    """Test that `_get_dataset_path_or_download` triggers dataset download if not found locally."""
+def test__get_dataset_path_and_download_triggers_download(contains_mock, download_mock):
+    """Test that `_get_dataset_path_and_download` triggers dataset download if not found locally."""
     # Setup
     modality = 'single_table'
     dataset = 'remote_dataset'
@@ -215,29 +215,13 @@ def test__get_dataset_path_or_download_triggers_download(contains_mock, download
     download_mock.return_value = Path('/tmp/datasets/single_table/remote_dataset')
 
     # Run
-    result = _get_dataset_path_or_download(modality, dataset, datasets_path, bucket=bucket)
+    result = _get_dataset_path_and_download(modality, dataset, datasets_path, bucket=bucket)
 
     # Assert
     download_mock.assert_called_once_with(
         modality, Path(dataset), datasets_path / Path(dataset), bucket, None, None
     )
     assert result == download_mock.return_value
-
-
-@patch('sdgym.datasets.Path')
-def test__get_dataset_path(mock_path):
-    """Test that the path to the dataset is returned if it already exists."""
-    # Setup
-    modality = 'single_table'
-    dataset = 'test_dataset'
-    datasets_path = 'local_path'
-    mock_path.return_value.__rtruediv__.side_effect = [False, False, True]
-
-    # Run
-    path = _get_dataset_path_or_download(modality, dataset, datasets_path)
-
-    # Assert
-    assert path == mock_path.return_value
 
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table', 'sequential'])
@@ -421,7 +405,7 @@ def test_get_available_datasets_results():
     assert len(expected_table.merge(tables_info.round(2))) == len(expected_table)
 
 
-@patch('sdgym.datasets._get_dataset_path_or_download')
+@patch('sdgym.datasets._get_dataset_path_and_download')
 @patch('sdgym.datasets._path_contains_data_and_metadata', return_value=True)
 @patch('sdgym.datasets.Path')
 def test_get_dataset_paths_local_bucket(path_mock, contains_mock, download_mock):
@@ -500,7 +484,7 @@ def test_load_dataset_limit_dataset_size():
 
 @patch('sdgym.datasets._get_dataset_subset')
 @patch('sdgym.datasets.get_data_and_metadata_from_path')
-@patch('sdgym.datasets._get_dataset_path_or_download')
+@patch('sdgym.datasets._get_dataset_path_and_download')
 @patch('sdgym.datasets._validate_modality')
 def test_load_dataset(validate_mock, path_or_download_mock, get_data_mock, subset_mock):
     """Test that `load_dataset` returns data and metadata without limiting size."""
@@ -528,7 +512,7 @@ def test_load_dataset(validate_mock, path_or_download_mock, get_data_mock, subse
 
 @patch('sdgym.datasets._get_dataset_subset')
 @patch('sdgym.datasets.get_data_and_metadata_from_path')
-@patch('sdgym.datasets._get_dataset_path_or_download')
+@patch('sdgym.datasets._get_dataset_path_and_download')
 @patch('sdgym.datasets._validate_modality')
 def test_load_dataset_with_limit(validate_mock, path_or_download_mock, get_data_mock, subset_mock):
     """Test `load_dataset` applies dataset size limit when flag is True."""

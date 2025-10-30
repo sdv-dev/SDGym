@@ -83,7 +83,7 @@ def _path_contains_data_and_metadata(dataset_path):
     return metadata_found and data_zip_found
 
 
-def _get_dataset_path_or_download(
+def _get_dataset_path_and_download(
     modality,
     dataset,
     datasets_path,
@@ -92,7 +92,7 @@ def _get_dataset_path_or_download(
     aws_secret_access_key=None,
 ):
     dataset = Path(dataset)
-    if dataset.exists():
+    if dataset.exists() and _path_contains_data_and_metadata(dataset):
         return dataset
 
     datasets_path = datasets_path or DATASETS_PATH / modality
@@ -139,9 +139,9 @@ def get_data_and_metadata_from_path(dataset_path, modality):
     data = None
     for file_name in dataset_path.iterdir():
         if 'metadata' in file_name.stem and file_name.suffix == '.json':
-            metadata_dict = _read_metadata_json(dataset_path / file_name)
+            metadata_dict = _read_metadata_json(file_name)
         elif 'data' in file_name.stem and file_name.suffix == '.zip':
-            data = _read_zipped_data(zip_file_path=(dataset_path / file_name), modality=modality)
+            data = _read_zipped_data(zip_file_path=(file_name), modality=modality)
 
         if data is not None and metadata_dict is not None:
             break
@@ -243,7 +243,7 @@ def load_dataset(
             The data and medatata for a dataset.
     """
     _validate_modality(modality)
-    dataset_path = _get_dataset_path_or_download(
+    dataset_path = _get_dataset_path_and_download(
         modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
     )
 
@@ -317,7 +317,7 @@ def get_dataset_paths(
 
     dataset_paths = []
     for dataset in datasets:
-        available_dataset = _get_dataset_path_or_download(
+        available_dataset = _get_dataset_path_and_download(
             modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
         )
         dataset_paths.append(available_dataset)

@@ -54,27 +54,29 @@ def _get_dataset_subset(data, metadata_dict, modality):
     max_rows, max_columns = (1000, 10)
     tables = metadata_dict.get('tables', {})
     mandatory_columns = []
-    for table_name, table_info in tables.items():
-        columns = table_info.get('columns', {})
-        if modality == 'sequential':
-            seq_index = table_info.get('sequence_index')
-            seq_key = table_info.get('sequence_key')
-            mandatory_columns = [col for col in (seq_index, seq_key) if col]
+    table_name, table_info = next(iter(tables.items()))
 
-        optional_columns = [col for col in columns if col not in mandatory_columns]
+    columns = table_info.get('columns', {})
+    keep_columns = list(columns)
+    if modality == 'sequential':
+        seq_index = table_info.get('sequence_index')
+        seq_key = table_info.get('sequence_key')
+        mandatory_columns = [col for col in (seq_index, seq_key) if col]
 
-        # If we have too many columns, drop extras but never mandatory ones
-        if len(columns) > max_columns:
-            keep_count = max_columns - len(mandatory_columns)
-            keep_columns = mandatory_columns + optional_columns[:keep_count]
-            table_info['columns'] = {
-                column_name: column_definition
-                for column_name, column_definition in columns.items()
-                if column_name in keep_columns
-            }
+    optional_columns = [col for col in columns if col not in mandatory_columns]
+
+    # If we have too many columns, drop extras but never mandatory ones
+    if len(columns) > max_columns:
+        keep_count = max_columns - len(mandatory_columns)
+        keep_columns = mandatory_columns + optional_columns[:keep_count]
+        table_info['columns'] = {
+            column_name: column_definition
+            for column_name, column_definition in columns.items()
+            if column_name in keep_columns
+        }
 
     data = data[list(keep_columns)]
-    data = data.head(max_rows)
+    data = data.sample(max_rows)
     return data, metadata_dict
 
 
