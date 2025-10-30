@@ -3,7 +3,7 @@
 import os
 
 from sdgym.benchmark import DEFAULT_DATASETS
-from sdgym.datasets import get_dataset_paths, load_dataset
+from sdgym.datasets import load_dataset
 from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 from sdgym.s3 import _get_s3_client, is_s3_path
 

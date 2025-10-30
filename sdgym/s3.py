@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import boto3
 import botocore
 import pandas as pd
+import yaml
 
 S3_PREFIX = 's3://'
 S3_REGION = 'us-east-1'
@@ -82,6 +83,17 @@ def get_s3_client(aws_access_key_id=None, aws_secret_access_key=None):
             config = botocore.config.Config(signature_version=botocore.UNSIGNED)
 
         return boto3.client('s3', config=config)
+
+
+def get_s3_unsigned_client():
+    """Get the boto client for interfacing with AWS s3.
+
+    Returns:
+        boto3.session.Session.client:
+            The s3 client that can be used to read / write to s3.
+    """
+    config = botocore.config.Config(signature_version=botocore.UNSIGNED)
+    return boto3.client('s3', config=config)
 
 
 def write_file(data_contents, path, aws_access_key_id, aws_secret_access_key):
@@ -217,3 +229,23 @@ def _get_s3_client(output_destination, aws_access_key_id=None, aws_secret_access
     s3_client.head_bucket(Bucket=bucket_name)
 
     return s3_client
+
+
+def _read_data_from_bucket_key(s3_client, bucket_name, object_key):
+    response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
+    return response['Body'].read()
+
+
+def _list_s3_bucket_contents(s3_client, bucket_name, prefix):
+    contents = []
+    paginator = s3_client.get_paginator('list_objects_v2')
+    for resp in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
+        contents.extend(resp.get('Contents', []))
+
+    return contents
+
+
+def _load_yaml_metainfo_from_s3(s3_client, bucket_name, yaml_key):
+    """Load and parse YAML metainfo from an S3 key."""
+    raw_data = _read_data_from_bucket_key(s3_client, bucket_name, yaml_key)
+    return yaml.safe_load(raw_data) or {}

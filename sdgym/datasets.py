@@ -1,25 +1,29 @@
 """SDGym module to handle datasets."""
 
-import io
-import itertools
-import json
 import logging
 import os
-from collections import defaultdict
 from pathlib import Path
-from zipfile import ZipFile
 
 import appdirs
 import numpy as np
 import pandas as pd
-import yaml
 
-from sdgym.s3 import get_s3_client
+from sdgym._dataset_utils import (
+    _get_dataset_subset,
+    _parse_numeric_value,
+    _read_metadata_json,
+    _read_zipped_data,
+)
+from sdgym.s3 import (
+    _list_s3_bucket_contents,
+    _load_yaml_metainfo_from_s3,
+    get_s3_client,
+)
 
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 's3://sdv-datasets-public' # 's3://sdv-demo-datasets'
+BUCKET = 's3://sdv-datasets-public'  # 's3://sdv-demo-datasets'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
 MODALITIES = ['single_table', 'multi_table', 'sequential']
@@ -28,15 +32,6 @@ S3_PREFIX = 's3://'
 
 def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX) :] if bucket.startswith(S3_PREFIX) else bucket
-
-
-def _list_s3_bucket_contents(s3_client, bucket_name, prefix):
-    contents = []
-    paginator = s3_client.get_paginator('list_objects_v2')
-    for resp in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
-        contents.extend(resp.get('Contents', []))
-
-    return contents
 
 
 def _download_dataset(
@@ -63,7 +58,7 @@ def _download_dataset(
             display_name = dataset_name.name
 
         raise ValueError(
-            f"Dataset '{display_name}' not found in bucket '{BUCKET}' for modality '{modality}'."
+            f"Dataset '{display_name}' not found in bucket '{bucket}' for modality '{modality}'."
         )
 
     for obj in contents:
@@ -86,7 +81,6 @@ def _path_contains_data_and_metadata(dataset_path):
             data_zip_found = True
 
     return metadata_found and data_zip_found
-
 
 
 def _get_dataset_path_or_download(
@@ -118,209 +112,87 @@ def _get_dataset_path_or_download(
     return dataset_path
 
 
-def _get_dataset_subset(data, metadata_dict, modality):
-    if modality == 'multi_table':
-        raise ValueError('limit_dataset_size is not supported for multi-table datasets.')
-
-    max_rows, max_columns = (1000, 10)
-    tables = metadata_dict.get('tables', {})
-    mandatory_columns = set()
-    for table_name, table_info in tables.items():
-        columns = table_info.get('columns', {})
-
-        if modality == 'sequential':
-            seq_index = table_info.get('sequence_index')
-            seq_key = table_info.get('sequence_key')
-            mandatory_columns = {seq_index, seq_key}
-
-        optional_columns = [col for col in columns if col not in mandatory_columns]
-
-        # If we have too many columns, drop extras but never mandatory ones
-        if len(columns) > max_columns:
-            keep_count = max_columns - len(mandatory_columns)
-            keep_columns = mandatory_columns.union(set(optional_columns[:keep_count]))
-            table_info['columns'] = {
-                column_name: column_definition
-                for column_name, column_definition in columns.items()
-                if column_name in keep_columns
-            }
-
-    data = data[list(keep_columns)]
-    data = data.head(max_rows)
-    return data, metadata_dict
-
-
 def _validate_modality(modality):
     if modality not in MODALITIES:
         modalities_list = ', '.join(MODALITIES)
         raise ValueError(f'Modality `{modality}` not recognized. Must be one of {modalities_list}')
 
 
-def load_dataset(
-    modality,
-    dataset,
-    datasets_path=None,
-    bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
-    limit_dataset_size=False
-):
-    """Get the data and metadata of a dataset.
+def get_data_and_metadata_from_path(dataset_path, modality):
+    """Load dataset data and metadata from a given local path.
 
     Args:
+        dataset_path (Path):
+            The local path to the dataset directory containing data and metadata files.
         modality (str):
-            It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
-        dataset (str):
-            The path of the dataset as a string.
-        dataset_path (PurePath):
-            The path of the dataset as an object. This will only be used if the given ``dataset``
-            doesn't exist.
-        bucket (str):
-            The AWS bucket where to get the dataset. This will only be used if both ``dataset``
-            and ``dataset_path`` don't exist.
-        aws_access_key_id (str):
-            The access key id that will be used to communicate with s3, if provided.
-        aws_secret_access_key (str):
-            The secret access key that will be used to communicate with s3, if provided.
-        limit_dataset_size (bool):
-            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
-            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
-            columns.
+            The dataset modality. Used by the data-reading function to correctly
+            interpret and load the dataset (e.g., ``'single_table'``, ``'multi_table'``).
 
     Returns:
-        pd.DataFrame, dict:
-            The data and medatata of a dataset.
+        tuple[pd.DataFrame | dict, dict | None]:
+            A tuple containing:
+                - The loaded dataset as a ``pandas.DataFrame`` or a dictionary with
+                  ``pandas.DataFrame`` if ``multi_table``.
+            - The dataset metadata as a dictionary.
     """
-    _validate_modality(modality)
-    dataset_path = _get_dataset_path_or_download(
-        modality,
-        dataset,
-        datasets_path,
-        bucket,
-        aws_access_key_id,
-        aws_secret_access_key
-    )
-
-    data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
-    if limit_dataset_size:
-        data, metadata_dict = _get_dataset_subset(data, metadata_dict, modality=modality)
-
-    return data, metadata_dict
-
-
-def get_data_and_metadata_from_path(dataset_path, modality):
     metadata_dict = None
     data = None
     for file_name in dataset_path.iterdir():
         if 'metadata' in file_name.stem and file_name.suffix == '.json':
             metadata_dict = _read_metadata_json(dataset_path / file_name)
-
         elif 'data' in file_name.stem and file_name.suffix == '.zip':
             data = _read_zipped_data(zip_file_path=(dataset_path / file_name), modality=modality)
+
+        if data is not None and metadata_dict is not None:
+            break
 
     return data, metadata_dict
 
 
-def _read_zipped_data(zip_file_path, modality):
-    data = {}
-    with ZipFile(zip_file_path, 'r') as zf:
-        for file_name in zf.namelist():
-            if file_name.endswith('.csv'):
-                key = Path(file_name).stem
-                data[key] = _read_csv_from_zip(zf, csv_file_name=file_name)
-
-    if modality != 'multi_table':
-        data = next(iter(data.values()))
-
-    return data
-
-
-def _read_csv_from_zip(zip_file, csv_file_name):
-    """Read a single CSV file from an open ZipFile and return a DataFrame."""
-    with zip_file.open(csv_file_name) as csv_file:
-        return pd.read_csv(csv_file)
-
-
-def _read_metadata_json(metadata_path):
-    with open(metadata_path) as metadata_file:
-        metadata_dict = json.load(metadata_file)
-
-    return metadata_dict
-
-
-def get_available_datasets(modality='single_table'):
-    """Get available single_table datasets.
+def _genereate_dataset_info(s3_client, bucket_name, contents):
+    """Generate summarized dataset information from S3 bucket.
 
     Args:
-        modality (str):
-            The modality of the datasets: ``'single_table'`` (Default).
+        s3_client (boto3.client):
+            An initialized boto3 S3 client used to access S3 objects.
+        bucket_name (str):
+            The name of the S3 bucket containing the datasets.
+        contents (list[dict]):
+            A list of S3 object metadata dictionaries (e.g., from
+            ``s3_client.list_objects_v2()['Contents']``). Each dictionary should
+            include a ``'Key'`` field representing the S3 object path.
 
-    Return:
-        pd.DataFrame:
-            Table of available datasets and their sizes.
+    Returns:
+        dict:
+            A dictionary containing dataset summary information with the
+            following keys:
+                - ``'dataset_name'`` (list[str]): Names of the datasets discovered.
+                - ``'size_MB'`` (list[float]): Corresponding dataset sizes in megabytes.
+                - ``'num_tables'`` (list[int]): Number of tables in each dataset.
     """
-    possible_modalities = ['single_table']
-    if modality not in possible_modalities:
-        raise ValueError(f"'modality' must be in {possible_modalities}.")
-
-    return _get_available_datasets(modality)
-
-
-def _read_data_from_bucket_key(s3_client, object_key):
-    bucket = _get_bucket_name(BUCKET)
-    response = s3_client.get_object(Bucket=bucket, Key=object_key)
-    return response['Body'].read()
-
-
-def _get_info_from_yaml_key(s3_client, yaml_key):
-    """Load and parse YAML metadata from an S3 key."""
-    raw_data = _read_data_from_bucket_key(s3_client, yaml_key)
-    return yaml.safe_load(raw_data) or {}
-
-
-def genereate_dataset_info(s3_client, contents):
-    tables_info = {
-        'dataset_name': [],
-        'size_MB': [],
-        'num_tables': []
-    }
+    tables_info = {'dataset_name': [], 'size_MB': [], 'num_tables': []}
     for obj in contents:
-        key = obj['Key']
+        key = obj.get('Key', '')
         if key.endswith('metainfo.yaml'):
             parts = key.split('/')
             if len(parts) >= 3:
                 dataset_name = parts[-2]
                 yaml_key = key
-                info = _get_info_from_yaml_key(s3_client, yaml_key)
+                info = _load_yaml_metainfo_from_s3(s3_client, bucket_name, yaml_key)
                 size_mb = _parse_numeric_value(
-                    info.get('dataset-size-mb'),
+                    info.get('dataset-size-mb', np.nan),
                     dataset_name,
                     field_name='dataset-size-mb',
+                    target_type=float,
                 )
                 num_tables = _parse_numeric_value(
-                    info.get('num-tables', np.nan),
-                    dataset_name,
-                    'num-tables',
-                    int
+                    info.get('num-tables', np.nan), dataset_name, 'num-tables', target_type=int
                 )
                 tables_info['dataset_name'].append(dataset_name)
                 tables_info['size_MB'].append(size_mb)
                 tables_info['num_tables'].append(num_tables)
 
     return tables_info
-
-
-
-def _parse_numeric_value(value, dataset_name, field_name, target_type=float):
-    """Generic parser for numeric values with logging and NaN fallback."""
-    try:
-        return target_type(value)
-    except (ValueError, TypeError):
-        LOGGER.info(
-            f"Could not cast {field_name} '{value}' to {target_type.__name__} for dataset "
-            f"'{dataset_name}' defaulting to NaN."
-        )
-        return np.nan
 
 
 def _get_available_datasets(
@@ -330,33 +202,71 @@ def _get_available_datasets(
     s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
-
-    response = s3_client.list_objects(Bucket=bucket_name, Prefix=modality)
-    datasets = []
-
     contents = _list_s3_bucket_contents(s3_client, bucket_name, f'{modality}/')
-    datasets_info = genereate_dataset_info(s3_client, contents)
+    datasets_info = _genereate_dataset_info(s3_client, bucket_name, contents)
     return pd.DataFrame(datasets_info)
 
 
+def load_dataset(
+    modality,
+    dataset,
+    datasets_path=None,
+    bucket=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    limit_dataset_size=False,
+):
+    """Get the data and metadata of a dataset.
+
+    Args:
+        modality (str):
+            It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
+        dataset (str):
+            The path of the dataset as a string or the name of the dataset.
+        dataset_path (PurePath):
+            The path of the dataset as an object. This will only be used if the given ``dataset``
+            doesn't exist.
+        bucket (str):
+            The AWS bucket where to get the dataset. This will only be used if both ``dataset``
+            and ``dataset_path`` don't exist.
+        aws_access_key_id (str or None):
+            The access key id that will be used to communicate with s3, if provided.
+        aws_secret_access_key (str or None):
+            The secret access key that will be used to communicate with s3, if provided.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns. Defauts to ``False``.
+
+    Returns:
+        pd.DataFrame | dict, dict:
+            The data and medatata for a dataset.
+    """
+    _validate_modality(modality)
+    dataset_path = _get_dataset_path_or_download(
+        modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+    )
+
+    data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
+    if limit_dataset_size:
+        data, metadata_dict = _get_dataset_subset(data, metadata_dict, modality=modality)
+
+    return data, metadata_dict
 
 
+def get_available_datasets(modality='single_table'):
+    """Get available single_table datasets.
 
-    for content in response['Contents']:
-        key = content['Key']
-        metadata = s3_client.head_object(Bucket=bucket_name, Key=key)['ResponseMetadata']['HTTPHeaders']
-        size = metadata.get('x-amz-meta-size-mb')
-        size = float(size) if size is not None else size
-        num_tables = metadata.get('x-amz-meta-num-tables')
-        num_tables = int(num_tables) if num_tables is not None else num_tables
-        if key.endswith('.zip'):
-            datasets.append({
-                'dataset_name': key[: -len('.zip')].lstrip(f'{modality.upper()}/'),
-                'size_MB': size,
-                'num_tables': num_tables,
-            })
+    Args:
+        modality (str):
+            It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
 
-    return pd.DataFrame(datasets)
+    Return:
+        pd.DataFrame:
+            Table of available datasets and their sizes.
+    """
+    _validate_modality(modality)
+    return _get_available_datasets(modality)
 
 
 def get_dataset_paths(
@@ -395,7 +305,6 @@ def get_dataset_paths(
         datasets_path = Path(datasets_path)
 
     if datasets is None:
-        # local path
         if not is_remote and Path(bucket).exists():
             datasets = []
             folder_items = list(Path(bucket).iterdir())
@@ -409,12 +318,7 @@ def get_dataset_paths(
     dataset_paths = []
     for dataset in datasets:
         available_dataset = _get_dataset_path_or_download(
-            modality,
-            dataset,
-            datasets_path,
-            bucket,
-            aws_access_key_id,
-            aws_secret_access_key
+            modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
         )
         dataset_paths.append(available_dataset)
 

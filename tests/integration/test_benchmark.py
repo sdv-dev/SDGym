@@ -554,9 +554,7 @@ def test_benchmark_single_table_limit_dataset_size():
 
     # Run
     results = benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer'],
-        sdv_datasets=['adult'],
-        limit_dataset_size=True
+        synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['adult'], limit_dataset_size=True
     )
 
     # Assert
