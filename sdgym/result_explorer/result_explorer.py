@@ -93,3 +93,29 @@ class ResultsExplorer:
     def all_runs_complete(self, folder_name):
         """Check if all runs in the specified folder are complete."""
         return self._handler.all_runs_complete(folder_name)
+
+    def load_results(self, results_folder_name):
+        """Load and aggregate all the results CSV files from the specified results folder.
+
+        Args:
+            results_folder_name (str):
+                The name of the results folder to load results from.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame containing the results of the specified folder.
+        """
+        return self._handler.load_results(results_folder_name)
+
+    def load_metainfo(self, results_folder_name):
+        """Load and aggregate all the metainfo YAML files from the specified results folder.
+
+        Args:
+            results_folder_name (str):
+                The name of the results folder to load metainfo from.
+
+        Returns:
+            dict:
+                A dictionary containing the metainfo of the specified folder.
+        """
+        return self._handler.load_metainfo(results_folder_name)
