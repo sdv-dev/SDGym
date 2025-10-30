@@ -23,7 +23,7 @@ from sdgym.s3 import (
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 's3://sdv-datasets-public'  # 's3://sdv-demo-datasets'
+BUCKET = 's3://sdv-datasets-public'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
 MODALITIES = ['single_table', 'multi_table', 'sequential']
