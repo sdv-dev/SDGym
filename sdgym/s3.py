@@ -85,17 +85,6 @@ def get_s3_client(aws_access_key_id=None, aws_secret_access_key=None):
         return boto3.client('s3', config=config)
 
 
-def get_s3_unsigned_client():
-    """Get the boto client for interfacing with AWS s3.
-
-    Returns:
-        boto3.session.Session.client:
-            The s3 client that can be used to read / write to s3.
-    """
-    config = botocore.config.Config(signature_version=botocore.UNSIGNED)
-    return boto3.client('s3', config=config)
-
-
 def write_file(data_contents, path, aws_access_key_id, aws_secret_access_key):
     """Write a file to the given path with the given contents.
 
