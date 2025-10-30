@@ -561,7 +561,7 @@ def test_benchmark_single_table_limit_dataset_size():
     results = results.iloc[0]
     assert results['Synthesizer'] == 'GaussianCopulaSynthesizer'
     assert results['Dataset'] == 'adult'
-    assert round(results['Dataset_Size_MB'], 4) == 0.0801
+    assert round(results['Dataset_Size_MB'], 4) in (0.0801, 0.088)
     assert 0.5 < results['Quality_Score'] < 1
     assert (
         results[

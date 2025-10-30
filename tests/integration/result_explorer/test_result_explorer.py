@@ -1,7 +1,7 @@
 import time
 
 import pandas as pd
-from sdv.single_table import GaussianCopulaSynthesizer
+from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
 from sdgym.benchmark import benchmark_single_table
@@ -13,7 +13,7 @@ def test_end_to_end_local(tmp_path):
     output_destination = str(tmp_path / 'benchmark_output')
     benchmark_single_table(
         output_destination=output_destination,
-        synthesizers=['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
         sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
     )
     today = time.strftime('%m_%d_%Y')
@@ -36,7 +36,7 @@ def test_end_to_end_local(tmp_path):
     synthesizer = result_explorer.load_synthesizer(
         results_folder_name=runs[0],
         dataset_name='fake_companies',
-        synthesizer_name='GaussianCopulaSynthesizer',
+        synthesizer_name='TVAESynthesizer',
     )
     new_synthetic_data = synthesizer.sample(num_rows=10)
 
@@ -54,7 +54,7 @@ def test_end_to_end_local(tmp_path):
     expected_run = f'SDGym_results_{today}'
     assert runs == [expected_run]
     assert isinstance(synthetic_data, pd.DataFrame)
-    assert isinstance(synthesizer, GaussianCopulaSynthesizer)
+    assert isinstance(synthesizer, TVAESynthesizer)
     assert set(new_synthetic_data.columns) == set(synthetic_data_fake_companies.columns)
     assert new_synthetic_data.shape[0] == 10
 
