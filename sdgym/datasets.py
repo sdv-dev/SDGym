@@ -5,11 +5,14 @@ import itertools
 import json
 import logging
 import os
+from collections import defaultdict
 from pathlib import Path
 from zipfile import ZipFile
 
 import appdirs
+import numpy as np
 import pandas as pd
+import yaml
 
 from sdgym.s3 import get_s3_client
 
@@ -25,6 +28,15 @@ S3_PREFIX = 's3://'
 
 def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX) :] if bucket.startswith(S3_PREFIX) else bucket
+
+
+def _list_s3_bucket_contents(s3_client, bucket_name, prefix):
+    contents = []
+    paginator = s3_client.get_paginator('list_objects_v2')
+    for resp in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
+        contents.extend(resp.get('Contents', []))
+
+    return contents
 
 
 def _download_dataset(
@@ -44,13 +56,15 @@ def _download_dataset(
     s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
     prefix = f'{modality.lower()}/{dataset_name}/'
 
-    contents = []
-    paginator = s3_client.get_paginator('list_objects_v2')
-    for resp in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
-        contents.extend(resp.get('Contents', []))
-
+    contents = _list_s3_bucket_contents(s3_client, bucket_name, prefix)
     if not contents:
-        raise ValueError(f"No objects found under '{prefix}' in bucket '{BUCKET}'.")
+        display_name = dataset_name
+        if isinstance(dataset_name, Path):
+            display_name = dataset_name.name
+
+        raise ValueError(
+            f"Dataset '{display_name}' not found in bucket '{BUCKET}' for modality '{modality}'."
+        )
 
     for obj in contents:
         s3_path = obj['Key']
@@ -98,7 +112,6 @@ def _get_dataset_path_or_download(
         if local_path.exists() and _path_contains_data_and_metadata(local_path):
             return local_path
 
-    print(dataset, dataset_path)
     dataset_path = _download_dataset(
         modality, dataset, dataset_path, bucket, aws_access_key_id, aws_secret_access_key
     )
@@ -111,14 +124,14 @@ def _get_dataset_subset(data, metadata_dict, modality):
 
     max_rows, max_columns = (1000, 10)
     tables = metadata_dict.get('tables', {})
-    mandatory_columns = []
+    mandatory_columns = set()
     for table_name, table_info in tables.items():
         columns = table_info.get('columns', {})
 
         if modality == 'sequential':
             seq_index = table_info.get('sequence_index')
             seq_key = table_info.get('sequence_key')
-            mandatory_columns = [seq_index, seq_key]
+            mandatory_columns = {seq_index, seq_key}
 
         optional_columns = [col for col in columns if col not in mandatory_columns]
 
@@ -132,7 +145,7 @@ def _get_dataset_subset(data, metadata_dict, modality):
                 if column_name in keep_columns
             }
 
-    data = data[keep_columns]
+    data = data[list(keep_columns)]
     data = data.head(max_rows)
     return data, metadata_dict
 
@@ -253,19 +266,85 @@ def get_available_datasets(modality='single_table'):
     return _get_available_datasets(modality)
 
 
+def _read_data_from_bucket_key(s3_client, object_key):
+    bucket = _get_bucket_name(BUCKET)
+    response = s3_client.get_object(Bucket=bucket, Key=object_key)
+    return response['Body'].read()
+
+
+def _get_info_from_yaml_key(s3_client, yaml_key):
+    """Load and parse YAML metadata from an S3 key."""
+    raw_data = _read_data_from_bucket_key(s3_client, yaml_key)
+    return yaml.safe_load(raw_data) or {}
+
+
+def genereate_dataset_info(s3_client, contents):
+    tables_info = {
+        'dataset_name': [],
+        'size_MB': [],
+        'num_tables': []
+    }
+    for obj in contents:
+        key = obj['Key']
+        if key.endswith('metainfo.yaml'):
+            parts = key.split('/')
+            if len(parts) >= 3:
+                dataset_name = parts[-2]
+                yaml_key = key
+                info = _get_info_from_yaml_key(s3_client, yaml_key)
+                size_mb = _parse_numeric_value(
+                    info.get('dataset-size-mb'),
+                    dataset_name,
+                    field_name='dataset-size-mb',
+                )
+                num_tables = _parse_numeric_value(
+                    info.get('num-tables', np.nan),
+                    dataset_name,
+                    'num-tables',
+                    int
+                )
+                tables_info['dataset_name'].append(dataset_name)
+                tables_info['size_MB'].append(size_mb)
+                tables_info['num_tables'].append(num_tables)
+
+    return tables_info
+
+
+
+def _parse_numeric_value(value, dataset_name, field_name, target_type=float):
+    """Generic parser for numeric values with logging and NaN fallback."""
+    try:
+        return target_type(value)
+    except (ValueError, TypeError):
+        LOGGER.info(
+            f"Could not cast {field_name} '{value}' to {target_type.__name__} for dataset "
+            f"'{dataset_name}' defaulting to NaN."
+        )
+        return np.nan
+
+
 def _get_available_datasets(
     modality, bucket=None, aws_access_key_id=None, aws_secret_access_key=None
 ):
     _validate_modality(modality)
-    s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
+    s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
 
-    response = s3.list_objects(Bucket=bucket_name, Prefix=modality.upper())
+    response = s3_client.list_objects(Bucket=bucket_name, Prefix=modality)
     datasets = []
+
+    contents = _list_s3_bucket_contents(s3_client, bucket_name, f'{modality}/')
+    datasets_info = genereate_dataset_info(s3_client, contents)
+    return pd.DataFrame(datasets_info)
+
+
+
+
+
     for content in response['Contents']:
         key = content['Key']
-        metadata = s3.head_object(Bucket=bucket_name, Key=key)['ResponseMetadata']['HTTPHeaders']
+        metadata = s3_client.head_object(Bucket=bucket_name, Key=key)['ResponseMetadata']['HTTPHeaders']
         size = metadata.get('x-amz-meta-size-mb')
         size = float(size) if size is not None else size
         num_tables = metadata.get('x-amz-meta-num-tables')
