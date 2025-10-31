@@ -3,7 +3,7 @@
 import os
 
 from sdgym.benchmark import DEFAULT_DATASETS
-from sdgym.datasets import get_dataset_paths, load_dataset
+from sdgym.datasets import load_dataset
 from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 from sdgym.s3 import _get_s3_client, is_s3_path
 
@@ -33,12 +33,12 @@ class ResultsExplorer:
         """List all runs available in the results directory."""
         return self._handler.list()
 
-    def _get_file_path(self, results_folder_name, dataset_name, synthesizer_name, type):
+    def _get_file_path(self, results_folder_name, dataset_name, synthesizer_name, file_type):
         """Validate access to the synthesizer or synthetic data file."""
         end_filename = f'{synthesizer_name}'
-        if type == 'synthetic_data':
+        if file_type == 'synthetic_data':
             end_filename += '_synthetic_data.csv'
-        elif type == 'synthesizer':
+        elif file_type == 'synthesizer':
             end_filename += '.pkl'
 
         date = '_'.join(results_folder_name.split('_')[-3:])
@@ -62,21 +62,15 @@ class ResultsExplorer:
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset."""
-        if dataset_name in DEFAULT_DATASETS:
-            dataset_path = get_dataset_paths(
-                datasets=[dataset_name],
-                aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
-            )[0]
-        else:
+        if dataset_name not in DEFAULT_DATASETS:
             raise ValueError(
                 f"Dataset '{dataset_name}' is not a SDGym dataset. "
                 'Please provide a valid dataset name.'
             )
 
         data, _ = load_dataset(
-            'single_table',
-            dataset_path,
+            modality='single_table',
+            dataset=dataset_name,
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,
         )

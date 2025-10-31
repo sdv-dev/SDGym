@@ -176,12 +176,10 @@ class TestResultsExplorer:
         pd.testing.assert_frame_equal(synthetic_data, data)
 
     @patch('sdgym.result_explorer.result_explorer.load_dataset')
-    @patch('sdgym.result_explorer.result_explorer.get_dataset_paths')
-    def test_load_real_data(self, mock_get_dataset_paths, mock_load_dataset, tmp_path):
+    def test_load_real_data(self, mock_load_dataset, tmp_path):
         """Test `load_real_data` method."""
         # Setup
         dataset_name = 'adult'
-        mock_get_dataset_paths.return_value = ['path/to/adult/dataset']
         expected_data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
         mock_load_dataset.return_value = (expected_data, None)
         result_explorer = ResultsExplorer(tmp_path)
@@ -190,12 +188,9 @@ class TestResultsExplorer:
         real_data = result_explorer.load_real_data(dataset_name)
 
         # Assert
-        mock_get_dataset_paths.assert_called_once_with(
-            datasets=[dataset_name], aws_access_key_id=None, aws_secret_access_key=None
-        )
         mock_load_dataset.assert_called_once_with(
-            'single_table',
-            'path/to/adult/dataset',
+            modality='single_table',
+            dataset='adult',
             aws_access_key_id=None,
             aws_secret_access_key=None,
         )

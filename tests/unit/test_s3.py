@@ -11,6 +11,9 @@ from botocore.exceptions import NoCredentialsError
 from sdgym.s3 import (
     S3_REGION,
     _get_s3_client,
+    _list_s3_bucket_contents,
+    _load_yaml_metainfo_from_s3,
+    _read_data_from_bucket_key,
     _upload_dataframe_to_s3,
     _upload_pickle_to_s3,
     is_s3_path,
@@ -328,3 +331,93 @@ def test__get_s3_client_errors():
 
     with pytest.raises(NoCredentialsError, match='Unable to locate credentials'):
         _get_s3_client('s3://bucket_name/')
+
+
+def test__read_data_from_bucket_key_reads_body():
+    """Test that the function reads data from S3 object body."""
+    # Setup
+    s3_client = Mock()
+    bucket = 'test-bucket'
+    key = 'path/to/object.yaml'
+    s3_client.get_object.return_value = {'Body': Mock(read=lambda: b'data-bytes')}
+
+    # Run
+    result = _read_data_from_bucket_key(s3_client, bucket, key)
+
+    # Assert
+    s3_client.get_object.assert_called_once_with(Bucket=bucket, Key=key)
+    assert result == b'data-bytes'
+
+
+def test__list_s3_bucket_contents_multiple_pages():
+    """Test that paginator combines multiple pages of S3 contents."""
+    # Setup
+    s3_client = Mock()
+    paginator = Mock()
+    s3_client.get_paginator.return_value = paginator
+
+    paginator.paginate.return_value = [
+        {'Contents': [{'Key': 'file1'}, {'Key': 'file2'}]},
+        {'Contents': [{'Key': 'file3'}]},
+    ]
+
+    # Run
+    result = _list_s3_bucket_contents(s3_client, 'bucket', 'prefix/')
+
+    # Assert
+    s3_client.get_paginator.assert_called_once_with('list_objects_v2')
+    paginator.paginate.assert_called_once_with(Bucket='bucket', Prefix='prefix/')
+    assert result == [{'Key': 'file1'}, {'Key': 'file2'}, {'Key': 'file3'}]
+
+
+def test__list_s3_bucket_contents_empty():
+    """Test when paginator returns pages without Contents."""
+    # Setup
+    s3_client = Mock()
+    paginator = Mock()
+    s3_client.get_paginator.return_value = paginator
+    paginator.paginate.return_value = [{'NoContents': True}, {}]
+
+    # Run
+    result = _list_s3_bucket_contents(s3_client, 'bucket', 'prefix/')
+
+    # Assert
+    assert result == []
+
+
+@patch('sdgym.s3._read_data_from_bucket_key')
+@patch('sdgym.s3.yaml.safe_load')
+def test_load_yaml_metainfo_from_s3_parses_yaml(yaml_mock, read_mock):
+    """Test that YAML data is read and parsed correctly."""
+    # Setup
+    s3_client = Mock()
+    bucket = 'bucket'
+    key = 'meta.yaml'
+
+    read_mock.return_value = b'dataset-size-mb: 10\nnum-tables: 2'
+    yaml_mock.return_value = {'dataset-size-mb': 10, 'num-tables': 2}
+
+    # Run
+    result = _load_yaml_metainfo_from_s3(s3_client, bucket, key)
+
+    # Assert
+    read_mock.assert_called_once_with(s3_client, bucket, key)
+    yaml_mock.assert_called_once_with(b'dataset-size-mb: 10\nnum-tables: 2')
+    assert result == {'dataset-size-mb': 10, 'num-tables': 2}
+
+
+@patch('sdgym.s3._read_data_from_bucket_key')
+@patch('sdgym.s3.yaml.safe_load', return_value=None)
+def test_load_yaml_metainfo_from_s3_empty_yaml(yaml_mock, read_mock):
+    """Test that None or empty YAML returns an empty dict."""
+    # Setup
+    s3_client = Mock()
+    read_mock.return_value = b''
+
+    # Run
+    result = _load_yaml_metainfo_from_s3(s3_client, 'bucket', 'empty.yaml')
+
+    # Assert
+    read_mock.assert_called_once()
+    yaml_mock.assert_called_once()
+    assert result == {}

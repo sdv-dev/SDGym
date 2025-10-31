@@ -56,6 +56,7 @@ from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer, Unif
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
     calculate_score_time,
+    convert_metadata_to_sdmetrics,
     format_exception,
     get_duplicates,
     get_num_gpus,
@@ -72,11 +73,11 @@ DEFAULT_DATASETS = [
     'alarm',
     'census',
     'child',
+    'covtype',
     'expedia_hotel_logs',
     'insurance',
     'intrusion',
     'news',
-    'covtype',
 ]
 N_BYTES_IN_MB = 1000 * 1000
 EXTERNAL_SYNTHESIZER_TO_LIBRARY = {
@@ -259,6 +260,7 @@ def _generate_job_args_list(
         []
         if sdv_datasets is None
         else get_dataset_paths(
+            modality='single_table',
             datasets=sdv_datasets,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key_key,
@@ -268,6 +270,7 @@ def _generate_job_args_list(
         []
         if additional_datasets_folder is None
         else get_dataset_paths(
+            modality='single_table',
             bucket=additional_datasets_folder,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key_key,
@@ -366,6 +369,7 @@ def _compute_scores(
     dataset_name,
 ):
     metrics = metrics or []
+    sdmetrics_metadata = convert_metadata_to_sdmetrics(metadata)
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, modality='single-table')
         scores = []
@@ -384,7 +388,7 @@ def _compute_scores(
             start = get_utc_now()
             try:
                 LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
-                metric_args = (real_data, synthetic_data, metadata)
+                metric_args = (real_data, synthetic_data, sdmetrics_metadata)
                 score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
                 normalized_score = metric.normalize(score)
             except Exception:
@@ -409,7 +413,7 @@ def _compute_scores(
         else:
             diagnostic_report = MultiTableDiagnosticReport()
 
-        diagnostic_report.generate(real_data, synthetic_data, metadata, verbose=False)
+        diagnostic_report.generate(real_data, synthetic_data, sdmetrics_metadata, verbose=False)
         output['diagnostic_score_time'] = calculate_score_time(start)
         output['diagnostic_score'] = diagnostic_report.get_score()
 
@@ -420,7 +424,7 @@ def _compute_scores(
         else:
             quality_report = MultiTableQualityReport()
 
-        quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
+        quality_report.generate(real_data, synthetic_data, sdmetrics_metadata, verbose=False)
         output['quality_score_time'] = calculate_score_time(start)
         output['quality_score'] = quality_report.get_score()
 
@@ -436,7 +440,7 @@ def _compute_scores(
         score = DCRBaselineProtection.compute_breakdown(
             real_data=real_data,
             synthetic_data=synthetic_data,
-            metadata=metadata,
+            metadata=sdmetrics_metadata,
             num_rows_subsample=num_rows_subsample,
             num_iterations=num_iterations,
         )
@@ -1418,7 +1422,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install sdgym[all]
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-468-update-sdgym-to-use-the-new-s3-bucket-and-bucket-structure"
         pip install s3fs
 
         echo "======== Write Script ==========="

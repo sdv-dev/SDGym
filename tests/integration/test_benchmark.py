@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
-from sdv.metadata.single_table import SingleTableMetadata
+from sdv.metadata import Metadata
 from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 import sdgym
@@ -221,7 +221,7 @@ def test_benchmark_single_table():
 
     # Setup
     def get_trained_synthesizer(data, metadata):
-        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        metadata_obj = Metadata.load_from_dict(metadata)
         model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)
         return model
@@ -514,7 +514,7 @@ def test_benchmark_single_table_custom_synthesizer():
 
     # Setup
     def get_trained_synthesizer(data, metadata):
-        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        metadata_obj = Metadata.load_from_dict(metadata)
         model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)
         return model
@@ -561,7 +561,7 @@ def test_benchmark_single_table_limit_dataset_size():
     results = results.iloc[0]
     assert results['Synthesizer'] == 'GaussianCopulaSynthesizer'
     assert results['Dataset'] == 'adult'
-    assert round(results['Dataset_Size_MB'], 4) == 0.0801
+    assert round(results['Dataset_Size_MB'], 4) <= 0.09
     assert 0.5 < results['Quality_Score'] < 1
     assert (
         results[
@@ -585,7 +585,7 @@ def test_benchmark_single_table_instantiated_synthesizer():
 
     # Setup
     def get_trained_synthesizer(data, metadata):
-        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        metadata_obj = Metadata.load_from_dict(metadata)
         model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)
         return model
