@@ -1,4 +1,7 @@
+"""Dataset Explorer to summarize datasets stored in S3 buckets."""
+
 from collections import defaultdict
+from pathlib import Path
 
 import pandas as pd
 from sdv.metadata import Metadata
@@ -7,6 +10,20 @@ from sdgym.datasets import BUCKET, _validate_modality, load_dataset, _get_availa
 
 
 class DatasetExplorer:
+    """``DatasetExplorer`` class.
+
+    This class provides utilities to analyze datasets hosted on S3 by loading
+    their metadata and data, computing schema and data summaries, and optionally
+    saving the results as a CSV file.
+
+    Args:
+        s3_url (str, optional):
+            The base S3 bucket URL containing the datasets. Defaults to `s3://sdv-datasets-public`.
+        aws_access_key_id (str, optional):
+            AWS access key ID for authentication. Defaults to ``None``.
+        aws_secret_access_key (str, optional):
+            AWS secret access key for authentication. Defaults to ``Non``.
+    """
 
     def __init__(self, s3_url=BUCKET, aws_access_key_id=None, aws_secret_access_key=None):
         self.s3_url = s3_url
@@ -15,6 +32,16 @@ class DatasetExplorer:
 
     @staticmethod
     def _get_max_schema_branch(relationships):
+        """Compute the maximum number of child tables branching from any parent table.
+
+        Args:
+            relationships (list[dict]):
+                A list of relationship dictionaries describing parent-child table relationships.
+
+        Returns:
+            int:
+                The maximum number of children linked to a single parent table.
+        """
         branch_counts = defaultdict(set)
         for rel in relationships:
             parent = rel["parent_table_name"]
@@ -25,6 +52,16 @@ class DatasetExplorer:
 
     @staticmethod
     def _get_max_depth(metadata):
+        """Calculate the maximum depth of a metadata.
+
+        Args:
+            metadata (sdv.metadata.Metadata):
+                The SDV Metadata object representing the dataset.
+
+        Returns:
+            int:
+                The maximum schema depth (i.e., the longest parent-child relationship chain).
+        """
         child_map = metadata._get_child_map()
         if not child_map:
             return 1
@@ -41,6 +78,16 @@ class DatasetExplorer:
 
     @staticmethod
     def _summarize_metadata_columns(metadata):
+        """Summarize column-level details from a dataset’s metadata.
+
+        Args:
+            metadata (sdv.metadata.Metadata):
+                The SDV Metadata object containing table and column information.
+
+        Returns:
+            dict:
+                A dictionary summarizing total and per-type column counts across all tables.
+        """
         results = {
             'Total_Num_Columns': 0,
             'Total_Num_Columns_Categorical': 0,
@@ -76,7 +123,17 @@ class DatasetExplorer:
 
     @staticmethod
     def summarize_metadata(metadata):
-        """Return a dict summarizing metadata information."""
+        """Summarize schema-level information from dataset metadata.
+
+        Args:
+            metadata (dict or Metadata):
+                The dataset metadata as a dictionary or SDV Metadata object.
+
+        Returns:
+            dict:
+                A dictionary containing aggregated schema statistics such as number of
+                relationships, schema depth, branching factor, and column-type counts.
+        """
         if isinstance(metadata, dict):
             metadata = Metadata.load_from_dict(metadata)
 
@@ -92,7 +149,16 @@ class DatasetExplorer:
 
     @staticmethod
     def summarize_data(data):
-        """Return a dict summarizing data information."""
+        """Summarize record-level information from dataset tables.
+
+        Args:
+            data (dict[str, pd.DataFrame] or pd.DataFrame):
+                The dataset data, either as a dictionary of table DataFrames or a single DataFrame.
+
+        Returns:
+            dict:
+                A dictionary summarizing total number of rows and maximum table size.
+        """
         data_dict = data if isinstance(data, dict) else {'dataset': data}
         data_summary = {
             'Total_Num_Rows': 0,
@@ -108,43 +174,94 @@ class DatasetExplorer:
 
         return data_summary
 
-    @staticmethod
-    def _load_and_summarize_datasets(datasets):
+    def _load_and_summarize_datasets(self, modality):
+        """Load all datasets for the given modality and compute summary statistics.
+
+        Args:
+            modality (str):
+                The dataset modality to load (e.g., 'single-table' or 'multi-table').
+
+        Returns:
+            list[dict]:
+                A list of dictionaries, each containing metadata and data summaries
+                for an individual dataset.
+        """
         results = []
-        for _, dataset_row in datasets.iterrows():
-            dataset_name = dataset_row['dataset_name']
-            dataset_size_mb = dataset_row['size_MB']
-            dataset_num_table = dataset_row['num_tables']
-            data, metadata_dict = load_dataset(
-                modality,
-                dataset=dataset_name
-            )
-
-            metadata_stats = DatasetExplorer.summarize_metadata(metadata_dict)
-            data_stats = DatasetExplorer.summarize_data(data)
-            max_schema_depth = metadata_stats.pop('Max_Schema_Depth')
-            max_schema_branch = metadata_stats.pop('Max_Schema_Branch')
-            results.append({
-                'Dataset': dataset_name,
-                'Datasize_Size_MB': dataset_size_mb,
-                'Num_Tables': dataset_num_table,
-                **metadata_stats,
-                **data_stats,
-                'Max_Schema_Depth': max_schema_depth,
-                'Max_Schema_Branch': max_schema_branch
-            })
-
-        return results
-
-    def summarize(self, modality, output_path=None):
-        _validate_output_path(output_path)
         datasets = _get_available_datasets(
             modality=modality,
             bucket=self.s3_url,
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,
         )
-        results = _load_and_summarize_datasets(datasets)
+        for _, dataset_row in datasets.iterrows():
+            dataset_name = dataset_row['dataset_name']
+            dataset_size_mb = dataset_row['size_MB']
+            dataset_num_table = dataset_row['num_tables']
+            data, metadata_dict = load_dataset(
+                modality,
+                dataset=dataset_name,
+                bucket=self.s3_url,
+                aws_access_key_id=self.aws_access_key_id,
+                aws_secret_access_key=self.aws_secret_access_key
+            )
+
+            metadata_stats = DatasetExplorer.summarize_metadata(metadata_dict)
+            data_stats = DatasetExplorer.summarize_data(data)
+            max_schema_depth = metadata_stats.pop('Max_Schema_Depth')
+            max_schema_branch = metadata_stats.pop('Max_Schema_Branch')
+            num_relationships = metadata_stats.pop('Num_Relationships')
+            results.append({
+                'Dataset': dataset_name,
+                'Datasize_Size_MB': dataset_size_mb,
+                'Num_Tables': dataset_num_table,
+                **metadata_stats,
+                **data_stats,
+                'Num_Relationships': num_relationships,
+                'Max_Schema_Depth': max_schema_depth,
+                'Max_Schema_Branch': max_schema_branch
+            })
+
+        return results
+
+    def _validate_output_path(self, output_path):
+        """Validate that the provided output path has a .csv file extension.
+
+        Args:
+            output_path (str or None):
+                The file path to validate.
+
+        Raises:
+            ValueError:
+                If the provided path is not None and does not end with '.csv'.
+        """
+        if output_path and not Path(output_path).suffix == '.csv':
+            raise ValueError(
+                f"The 'output_path' has to be a .csv file, provided: '{output_path}'."
+            )
+
+    def summarize_datasets(self, modality, output_path=None):
+        """Load, summarize, and optionally export dataset statistics for a given modality.
+
+        Args:
+            modality (str):
+                It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
+            output_path (str, optional):
+                The path to save the summary as a CSV file. If `None`, results are returned only.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame containing aggregated dataset summaries including schema and
+                data-level statistics.
+
+        Raises:
+            ValueError:
+                If `output_path` is provided and does not have a '.csv' extension.
+            ValueError:
+                If the modality provided is not `single_table`, `multi_table` or `sequential`.
+        """
+        self._validate_output_path(output_path)
+        _validate_modality(modality)
+        results = self._load_and_summarize_datasets(modality)
         dataset_summary = pd.DataFrame(results)
         if output_path:
             dataset_summary.to_csv(output_path, index=False)
