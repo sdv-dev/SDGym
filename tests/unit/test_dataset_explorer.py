@@ -51,8 +51,8 @@ class TestDatasetExplorer:
         assert explorer.aws_access_key_id == 'key123'
         assert explorer.aws_secret_access_key == 'secret456'
 
-    def test__get_max_schema_branch(self):
-        """Test the ``_get_max_schema_branch`` method."""
+    def test__get_max_schema_branch_factor(self):
+        """Test the ``_get_max_schema_branch_factor`` method."""
         # Setup
         relationships = [
             {'parent_table_name': 'A', 'child_table_name': 'B'},
@@ -61,13 +61,13 @@ class TestDatasetExplorer:
         ]
 
         # Run
-        result = DatasetExplorer._get_max_schema_branch(relationships)
+        result = DatasetExplorer._get_max_schema_branch_factor(relationships)
 
         # Assert
         assert result == 2
 
-    def test__get_max_schema_branch_repeated_parent(self):
-        """Test the ``_get_max_schema_branch`` method with repeated children."""
+    def test__get_max_schema_branch_factor_repeated_parent(self):
+        """Test the ``_get_max_schema_branch_factor`` method with repeated children."""
         # Setup
         relationships = [
             {'parent_table_name': 'A', 'child_table_name': 'B'},
@@ -78,7 +78,7 @@ class TestDatasetExplorer:
         ]
 
         # Run
-        result = DatasetExplorer._get_max_schema_branch(relationships)
+        result = DatasetExplorer._get_max_schema_branch_factor(relationships)
 
         # Assert
         assert result == 4

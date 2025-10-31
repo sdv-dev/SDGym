@@ -31,7 +31,7 @@ class DatasetExplorer:
         self.aws_secret_access_key = aws_secret_access_key
 
     @staticmethod
-    def _get_max_schema_branch(relationships):
+    def _get_max_schema_branch_factor(relationships):
         """Compute the maximum number of child tables branching from any parent table.
 
         Args:
@@ -63,7 +63,7 @@ class DatasetExplorer:
         """
         child_map = metadata._get_child_map()
         parent_map = metadata._get_parent_map()
-        if not child_map:
+        if not any(child_map.values()):
             return 1
 
         def dfs(table):
@@ -78,6 +78,7 @@ class DatasetExplorer:
             return 1
 
         return max(dfs(root) for root in root_tables)
+
 
     @staticmethod
     def _summarize_metadata_columns(metadata):
@@ -146,10 +147,13 @@ class DatasetExplorer:
 
         metadata_summary = DatasetExplorer._summarize_metadata_columns(metadata)
         total_relationships = len(metadata.relationships)
+        max_schema_branch_factor = DatasetExplorer._get_max_schema_branch_factor(
+            metadata.relationships
+        )
         metadata_summary.update({
             'Num_Relationships': total_relationships,
             'Max_Schema_Depth': DatasetExplorer._get_max_depth(metadata),
-            'Max_Schema_Branch': DatasetExplorer._get_max_schema_branch(metadata.relationships),
+            'Max_Schema_Branch': max_schema_branch_factor,
         })
         return metadata_summary
 
