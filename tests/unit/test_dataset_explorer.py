@@ -117,24 +117,28 @@ class TestDatasetExplorer:
         metadata.tables = {'table1': MagicMock(), 'table2': MagicMock()}
         metadata.tables['table1'].columns = {
             'id': {'sdtype': 'id'},
+            'another_id': {'sdtype': 'id'},
             'category': {'sdtype': 'categorical'},
             'value': {'sdtype': 'numerical'},
         }
         metadata.tables['table2'].columns = {
             'date': {'sdtype': 'datetime'},
             'pii_col': {'sdtype': 'pii'},
+            'address': {'sdtype': 'pii'},
         }
         metadata.tables['table1'].primary_key = 'id'
-        metadata.tables['table2'].primary_key = 'date'
+        metadata.tables['table2'].primary_key = 'pii_col'
 
         # Run
         result = DatasetExplorer._summarize_metadata_columns(metadata)
 
         # Assert
-        assert result['Total_Num_Columns'] == 5
+        assert result['Total_Num_Columns'] == 7
         assert result['Total_Num_Columns_Categorical'] == 1
         assert result['Total_Num_Columns_Numerical'] == 1
         assert result['Total_Num_Columns_Datetime'] == 1
+        assert result['Total_Num_Columns_Datetime'] == 1
+        assert result['Total_Num_Columns_ID_NonKey'] == 1
 
     @patch('sdgym.dataset_explorer.Metadata.load_from_dict')
     def test_get_metadata_summary_with_dict(self, mock_load_from_dict):
