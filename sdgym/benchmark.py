@@ -589,7 +589,7 @@ def _score_with_timeout(
         thread.join(timeout)
         if thread.is_alive():
             LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
-            return {'timeout': True, 'error': 'Timeout'}
+            return {'timeout': True, 'error': 'Synthesizer Timeout'}
 
         return output
 
@@ -1095,48 +1095,61 @@ def _ensure_uniform_included(synthesizers):
         synthesizers.append('UniformSynthesizer')
 
 
+def _fill_adjusted_scores_with_none(scores):
+    """Fill adjusted total time and quality score with NaN values."""
+    scores['Adjusted_Total_Time'] = None
+    if 'Quality_Score' in scores.columns:
+        scores['Adjusted_Quality_Score'] = None
+
+    return scores
+
+
 def _add_adjusted_scores(scores, timeout):
-    try:
-        uniform_row = scores[scores['Synthesizer'].str.contains('UniformSynthesizer')].iloc[0]
-    except IndexError:
-        uniform_row = pd.Series({'Train_Time': None, 'Sample_Time': None, 'Quality_Score': None})
+    """Add adjusted total time and quality score based on UniformSynthesizer baseline."""
+    timeout = timeout or 0
+    uniform_mask = scores['Synthesizer'].str.contains('UniformSynthesizer', na=False)
+    if not uniform_mask.any():
+        return _fill_adjusted_scores_with_none(scores)
 
-    uniform_fit_time = uniform_row['Train_Time']
-    uniform_sample_time = uniform_row['Sample_Time']
-    if 'Quality_Score' in scores.columns:
-        uniform_quality_score = uniform_row['Quality_Score']
+    uniform_row = scores.loc[uniform_mask].iloc[0]
+    base_fit_time = uniform_row.get('Train_Time')
+    base_sample_time = uniform_row.get('Sample_Time')
+    base_quality_score = uniform_row.get('Quality_Score', None)
 
-    def _get_adjusted_time(row):
-        if pd.isna(uniform_fit_time) or pd.isna(uniform_sample_time):
-            return
-        adjusted_total_time = uniform_fit_time
-        if 'error' in row.index and not pd.isna(row['error']):
-            if row['error'] == 'Synthesizer Timeout':
-                adjusted_total_time += timeout
-            else:
-                if not pd.isna(row['Train_Time']):
-                    adjusted_total_time += row['Train_Time']
-                if not pd.isna(row['Sample_Time']):
-                    adjusted_total_time += row['Sample_Time']
-            adjusted_total_time += uniform_sample_time
-        else:
-            adjusted_total_time += row['Train_Time']
-            adjusted_total_time += row['Sample_Time']
-        return adjusted_total_time
+    if pd.isna(base_fit_time) or pd.isna(base_sample_time):
+        return _fill_adjusted_scores_with_none(scores)
 
-    scores['Adjusted_Total_Time'] = scores.apply(_get_adjusted_time, axis=1)
+    fit_times = scores['Train_Time'].fillna(0)
+    sample_times = scores['Sample_Time'].fillna(0)
+    errors = scores.get('error', pd.Series([None] * len(scores)))
 
-    if 'Quality_Score' in scores.columns:
+    timeout_mask = errors == 'Synthesizer Timeout'
+    other_error_mask = errors.notna() & ~timeout_mask
+    no_error_mask = errors.isna()
+    adjusted_times = np.select(
+        [timeout_mask, other_error_mask, no_error_mask],
+        [
+            base_fit_time + timeout + base_sample_time,
+            base_fit_time + fit_times + sample_times + base_sample_time,
+            base_fit_time + fit_times + sample_times,
+        ],
+        default=np.nan,
+    )
+    scores['Adjusted_Total_Time'] = adjusted_times
 
-        def _get_adjusted_quality(row):
-            if pd.isna(uniform_quality_score):
-                return
-            adjusted_quality_score = row['Quality_Score']
-            if 'error' in row.index and not pd.isna(row['error']):
-                adjusted_quality_score = uniform_quality_score
-            return adjusted_quality_score
+    if 'Quality_Score' not in scores.columns:
+        return scores
 
-        scores['Adjusted_Quality_Score'] = scores.apply(_get_adjusted_quality, axis=1)
+    if pd.isna(base_quality_score):
+        scores['Adjusted_Quality_Score'] = None
+        return scores
+
+    has_error = errors.notna()
+    scores['Adjusted_Quality_Score'] = np.where(
+        has_error, base_quality_score, scores['Quality_Score']
+    )
+
+    return scores
 
 
 def benchmark_single_table(
