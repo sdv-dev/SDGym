@@ -164,6 +164,7 @@ class TestDatasetExplorer:
         mock_metadata = MagicMock()
         mock_metadata.relationships = []
         mock_metadata.tables = {}
+        mock_metadata._get_child_map.return_value = {}
         mock_load_from_dict.return_value = mock_metadata
 
         # Run

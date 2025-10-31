@@ -74,11 +74,7 @@ class DatasetExplorer:
 
         parent_map = metadata._get_parent_map()
         root_tables = [table for table in child_map.keys() if table not in parent_map]
-        if not root_tables:
-            return 1
-
         return max(dfs(root) for root in root_tables)
-
 
     @staticmethod
     def _summarize_metadata_columns(metadata):
