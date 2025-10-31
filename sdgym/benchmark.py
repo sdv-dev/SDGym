@@ -1406,8 +1406,15 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
     return textwrap.dedent(f"""\
         #!/bin/bash
         set -e
-        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
+        # Always terminate the instance when the script exits (success or failure)
+        trap '
+        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
+        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
+        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
+        ' EXIT
+
+        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
         echo "======== Update and Install Dependencies ============"
         sudo apt update -y
         sudo apt install -y python3-pip python3-venv awscli
@@ -1432,7 +1439,6 @@ EOF
 
         echo "======== Run Script ==========="
         python ~/sdgym_script.py
-
         echo "======== Complete ==========="
         INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
         aws ec2 terminate-instances --instance-ids $INSTANCE_ID
