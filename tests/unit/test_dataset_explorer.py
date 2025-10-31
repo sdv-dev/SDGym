@@ -66,6 +66,23 @@ class TestDatasetExplorer:
         # Assert
         assert result == 2
 
+    def test__get_max_schema_branch_repeated_parent(self):
+        """Test the ``_get_max_schema_branch`` method with repeated children."""
+        # Setup
+        relationships = [
+            {'parent_table_name': 'A', 'child_table_name': 'B'},
+            {'parent_table_name': 'A', 'child_table_name': 'C'},
+            {'parent_table_name': 'A', 'child_table_name': 'C'},
+            {'parent_table_name': 'A', 'child_table_name': 'C'},
+            {'parent_table_name': 'B', 'child_table_name': 'D'},
+        ]
+
+        # Run
+        result = DatasetExplorer._get_max_schema_branch(relationships)
+
+        # Assert
+        assert result == 4
+
     def test__get_max_depth(self):
         """Test the ``_get_max_depth`` method with simple parent-child structure."""
         # Setup

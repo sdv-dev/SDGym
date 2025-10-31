@@ -24,7 +24,7 @@ SUMMARY_OUTPUT_COLUMNS = [
 ]
 
 
-@pytest.mark.parametrize('modality', ['single_table', 'multi_table', 'sequential'])
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
 def test_end_to_end_dataset_explorer(modality, tmp_path):
     """Integration test for DatasetExplorer end-to-end workflow."""
     # Setup

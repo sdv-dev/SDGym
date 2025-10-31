@@ -42,13 +42,12 @@ class DatasetExplorer:
             int:
                 The maximum number of children linked to a single parent table.
         """
-        branch_counts = defaultdict(set)
+        branch_counts = defaultdict(int)
         for rel in relationships:
             parent = rel['parent_table_name']
-            child = rel['child_table_name']
-            branch_counts[parent].add(child)
+            branch_counts[parent] += 1
 
-        return max((len(children) for children in branch_counts.values()), default=0)
+        return max((value for value in branch_counts.values()), default=0)
 
     @staticmethod
     def _get_max_depth(metadata):
@@ -101,8 +100,13 @@ class DatasetExplorer:
             'Total_Num_Columns_ID_NonKey': 0,
             'Max_Num_Columns_Per_Table': 0,
         }
+
         for table_name, table in metadata.tables.items():
             num_cols = len(table.columns)
+            keys = [table.primary_key, table.sequence_key, table.sequence_index]
+            if isinstance(table.alternate_keys, list):
+                keys += table.alternate_keys
+
             results['Total_Num_Columns'] += num_cols
             results['Max_Num_Columns_Per_Table'] = max(
                 results['Max_Num_Columns_Per_Table'], num_cols
