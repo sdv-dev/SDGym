@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pandas as pd
 from sdv.metadata import Metadata
@@ -29,6 +30,7 @@ class DatasetExplorer:
         self.s3_url = s3_url
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
+        self._bucket_name = urlparse(self.s3_url).netloc
 
     @staticmethod
     def _get_max_schema_branch_factor(relationships):
@@ -192,9 +194,10 @@ class DatasetExplorer:
                 for an individual dataset.
         """
         results = []
+
         datasets = _get_available_datasets(
             modality=modality,
-            bucket=self.s3_url,
+            bucket=self._bucket_name,
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,
         )
@@ -205,7 +208,7 @@ class DatasetExplorer:
             data, metadata_dict = load_dataset(
                 modality,
                 dataset=dataset_name,
-                bucket=self.s3_url,
+                bucket=self._bucket_name,
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
             )

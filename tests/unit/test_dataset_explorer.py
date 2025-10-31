@@ -224,14 +224,14 @@ class TestDatasetExplorer:
         # Assert
         mock_get_datasets.assert_called_once_with(
             modality='single_table',
-            bucket=BUCKET,
+            bucket='sdv-datasets-public',
             aws_access_key_id=None,
             aws_secret_access_key=None,
         )
         mock_load_dataset.assert_called_once_with(
             'single_table',
             dataset='test',
-            bucket=BUCKET,
+            bucket='sdv-datasets-public',
             aws_access_key_id=None,
             aws_secret_access_key=None,
         )
