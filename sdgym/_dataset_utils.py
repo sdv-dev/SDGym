@@ -97,7 +97,7 @@ def _read_zipped_data(zip_file_path, modality):
 def _read_csv_from_zip(zip_file, csv_file_name):
     """Read a single CSV file from an open ZipFile and return a DataFrame."""
     with zip_file.open(csv_file_name) as csv_file:
-        return pd.read_csv(csv_file)
+        return pd.read_csv(csv_file, low_memory=False)
 
 
 def _read_metadata_json(metadata_path):
