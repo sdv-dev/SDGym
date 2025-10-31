@@ -316,7 +316,7 @@ def get_dataset_paths(
                 modality,
                 bucket=bucket,
                 aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key
+                aws_secret_access_key=aws_secret_access_key,
             )
             datasets = datasets['dataset_name'].tolist()
 
