@@ -312,7 +312,12 @@ def get_dataset_paths(
                 if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
                     datasets.append(dataset)
         else:
-            datasets = _get_available_datasets(modality, bucket=bucket)
+            datasets = _get_available_datasets(
+                modality,
+                bucket=bucket,
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key
+            )
             datasets = datasets['dataset_name'].tolist()
 
     dataset_paths = []
