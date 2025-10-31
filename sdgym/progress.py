@@ -56,9 +56,7 @@ def progress(*futures):
                 eta = datetime.utcnow() + remaining_time
 
                 elapsed = timedelta(seconds=self.elapsed)
-                msg = (  # noqa: SFS201
-                    '[{0:<{1}}] | {2}/{3} ({4}%) Completed | {5} | {6} | {7}'
-                ).format(
+                msg = ('[{0:<{1}}] | {2}/{3} ({4}%) Completed | {5} | {6} | {7}').format(
                     progress_bar, self.width, done, total, percent, elapsed, remaining_time, eta
                 )
                 self.logger.info(msg)

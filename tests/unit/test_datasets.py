@@ -1,164 +1,340 @@
-import io
 from pathlib import Path
 from unittest.mock import Mock, call, patch
-from zipfile import ZipFile
 
-import botocore
+import numpy as np
 import pandas as pd
+import pytest
 
 from sdgym import get_available_datasets
 from sdgym.datasets import (
+    DATASETS_PATH,
     _download_dataset,
+    _genereate_dataset_info,
     _get_bucket_name,
-    _get_dataset_path,
+    _get_dataset_path_and_download,
+    _path_contains_data_and_metadata,
+    _validate_modality,
+    get_data_and_metadata_from_path,
     get_dataset_paths,
     load_dataset,
 )
 
 
-class AnyConfigWith:
-    """AnyConfigWith matches any s3 config with the specified signature version."""
-
-    def __init__(self, signature_version):
-        self.signature_version = signature_version
-
-    def __eq__(self, other):
-        return self.signature_version == other.signature_version
-
-
-@patch('sdgym.s3.boto3')
-def test__download_dataset_public_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets._download_dataset`` method.
-
-    It calls `_download_dataset` with a dataset in a public bucket,
-    and does not pass in any aws credentials.
-
-    Setup:
-    The boto3 library for s3 access is patched, and mocks are created for the
-    s3 bucket and dataset zipfile. The tmpdir fixture is used for the expected
-    file creation.
-
-    Input:
-    - dataset name
-    - datasets path
-    - bucket
-
-    Output:
-    - n/a
-
-    Side effects:
-    - s3 client creation
-    - s3 method call to the bucket
-    - file creation for dataset in datasets path
-    """
-    # setup
-    modality = 'single_table'
-    dataset = 'my_dataset'
-    bucket = 's3://my_bucket'
-    bytesio = io.BytesIO()
-
-    with ZipFile(bytesio, mode='w') as zf:
-        zf.writestr(dataset, 'test_content')
-
-    s3_mock = Mock()
-    body_mock = Mock()
-    body_mock.read.return_value = bytesio.getvalue()
-    obj = {'Body': body_mock}
-    s3_mock.get_object.return_value = obj
-    boto3_mock.client.return_value = s3_mock
-    boto3_mock.Session().get_credentials.return_value = None
-
-    # run
-    _download_dataset(modality, dataset, datasets_path=str(tmpdir), bucket=bucket)
-
-    # asserts
-    boto3_mock.client.assert_called_once_with('s3', config=AnyConfigWith(botocore.UNSIGNED))
-    s3_mock.get_object.assert_called_once_with(
-        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip'
-    )
-    with open(f'{tmpdir}/{dataset}') as dataset_file:
-        assert dataset_file.read() == 'test_content'
-
-
-@patch('sdgym.s3.boto3')
-def test__download_dataset_private_bucket(boto3_mock, tmpdir):
-    """Test the ``sdv.datasets._download_dataset`` method.
-
-    It calls `_download_dataset` with a dataset in a private bucket and uses aws credentials.
-
-    Setup:
-    The boto3 library for s3 access is patched, and mocks are created for the
-    s3 bucket and dataset zipfile. The tmpdir fixture is used for the expected
-    file creation.
-
-    Input:
-    - dataset name
-    - datasets path
-    - bucket
-    - aws key
-    - aws secret
-
-    Output:
-    - n/a
-
-    Side effects:
-    - s3 client creation with aws credentials
-    - s3 method call to the bucket
-    - file creation for dataset in datasets path
-    """
-    # setup
-    modality = 'single_table'
-    dataset = 'my_dataset'
-    bucket = 's3://my_bucket'
-    aws_key = 'my_key'
-    aws_secret = 'my_secret'
-    bytesio = io.BytesIO()
-
-    with ZipFile(bytesio, mode='w') as zf:
-        zf.writestr(dataset, 'test_content')
-
-    s3_mock = Mock()
-    body_mock = Mock()
-    body_mock.read.return_value = bytesio.getvalue()
-    obj = {'Body': body_mock}
-    s3_mock.get_object.return_value = obj
-    boto3_mock.client.return_value = s3_mock
-
-    # run
-    _download_dataset(
-        modality,
-        dataset,
-        datasets_path=str(tmpdir),
-        bucket=bucket,
-        aws_key=aws_key,
-        aws_secret=aws_secret,
-    )
-
-    # asserts
-    boto3_mock.client.assert_called_once_with(
-        's3', aws_access_key_id=aws_key, aws_secret_access_key=aws_secret
-    )
-    s3_mock.get_object.assert_called_once_with(
-        Bucket='my_bucket', Key=f'{modality.upper()}/{dataset}.zip'
-    )
-    with open(f'{tmpdir}/{dataset}') as dataset_file:
-        assert dataset_file.read() == 'test_content'
-
-
-@patch('sdgym.datasets.Path')
-def test__get_dataset_path(mock_path):
-    """Test that the path to the dataset is returned if it already exists."""
+@patch('sdgym.datasets.get_s3_client')
+@patch('sdgym.datasets._get_bucket_name')
+@patch('sdgym.datasets._list_s3_bucket_contents')
+@patch('sdgym.datasets.os.makedirs')
+def test__download_dataset(makedirs_mock, list_mock, bucket_name_mock, s3_client_mock):
+    """Test that the dataset is downloaded successfully when found in S3."""
     # Setup
     modality = 'single_table'
-    dataset = 'test_dataset'
-    datasets_path = 'local_path'
-    mock_path.return_value.__rtruediv__.side_effect = [False, False, True]
+    dataset_name = 'test_dataset'
+    datasets_path = Path('/tmp/datasets')
+    bucket = 's3://fake-bucket'
+
+    # Mocks
+    s3_mock = Mock()
+    s3_client_mock.return_value = s3_mock
+    bucket_name_mock.return_value = 'fake-bucket'
+    list_mock.return_value = [
+        {'Key': f'{modality}/{dataset_name}/file1.csv'},
+        {'Key': f'{modality}/{dataset_name}/file2.json'},
+    ]
 
     # Run
-    path = _get_dataset_path(modality, dataset, datasets_path)
+    result = _download_dataset(modality, dataset_name, datasets_path, bucket)
 
     # Assert
-    assert path == mock_path.return_value
+    assert result == datasets_path
+    s3_client_mock.assert_called_once_with(None, None)
+    bucket_name_mock.assert_called_once_with(bucket)
+    list_mock.assert_called_once_with(s3_mock, 'fake-bucket', f'{modality}/{dataset_name}/')
+
+    expected_calls = [
+        call('fake-bucket', f'{modality}/{dataset_name}/file1.csv', datasets_path / 'file1.csv'),
+        call('fake-bucket', f'{modality}/{dataset_name}/file2.json', datasets_path / 'file2.json'),
+    ]
+    s3_mock.download_file.assert_has_calls(expected_calls)
+    makedirs_mock.assert_called()
+
+
+@patch('sdgym.datasets.get_s3_client')
+@patch('sdgym.datasets._get_bucket_name')
+@patch('sdgym.datasets._list_s3_bucket_contents', return_value=[])
+def test__download_dataset_not_found(list_mock, bucket_name_mock, s3_client_mock):
+    """Test that ValueError is raised if the dataset is not found in S3."""
+    # Setup
+    modality = 'single_table'
+    dataset_name = 'missing_dataset'
+    bucket = 's3://fake-bucket'
+    datasets_path = Path('/tmp/datasets')
+
+    bucket_name_mock.return_value = 'fake-bucket'
+    s3_client_mock.return_value = Mock()
+
+    # Run and Assert
+    expected_message = (
+        "Dataset 'missing_dataset' not found in bucket 's3://fake-bucket' for "
+        "modality 'single_table'."
+    )
+    with pytest.raises(ValueError, match=expected_message):
+        _download_dataset(modality, dataset_name, datasets_path, bucket)
+
+    # Assert
+    s3_client_mock.assert_called_once()
+    bucket_name_mock.assert_called_once_with(bucket)
+    list_mock.assert_called_once_with(
+        s3_client_mock.return_value, 'fake-bucket', 'single_table/missing_dataset/'
+    )
+
+
+@patch('sdgym.datasets.get_s3_client')
+@patch('sdgym.datasets._get_bucket_name')
+@patch('sdgym.datasets._list_s3_bucket_contents')
+def test__download_dataset_with_credentials(list_mock, bucket_name_mock, s3_client_mock):
+    """Test that AWS credentials and custom bucket are used correctly."""
+    # Setup
+    modality = 'single_table'
+    dataset_name = 'secure_dataset'
+    datasets_path = Path('/tmp/datasets')
+    bucket = 's3://secure-bucket'
+    aws_access_key_id = 'AKIAFAKE'
+    aws_secret_access_key = 'SECRETFAKE'
+
+    s3_mock = Mock()
+    s3_client_mock.return_value = s3_mock
+    bucket_name_mock.return_value = 'secure-bucket'
+    list_mock.return_value = [{'Key': f'{modality}/{dataset_name}/file.csv'}]
+
+    # Run
+    _download_dataset(
+        modality, dataset_name, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+    )
+
+    # Assert
+    s3_client_mock.assert_called_once_with(aws_access_key_id, aws_secret_access_key)
+    bucket_name_mock.assert_called_once_with(bucket)
+    list_mock.assert_called_once_with(s3_mock, 'secure-bucket', f'{modality}/{dataset_name}/')
+    s3_mock.download_file.assert_called_once()
+
+
+def test__path_contains_data_and_metadata_true(monkeypatch):
+    """Test that this method returns ``True`` when both metadata.json and data.zip are found."""
+    # Setup
+    dataset_path = Mock()
+    dataset_path.iterdir.return_value = [
+        Path('metadata.json'),
+        Path('data.zip'),
+        Path('notes.txt'),
+    ]
+
+    # Run
+    result = _path_contains_data_and_metadata(dataset_path)
+
+    # Assert
+    assert result is True
+
+
+def test__path_contains_data_and_metadata_missing_data(monkeypatch):
+    """Test that this method returns ``False`` when only metadata file is present."""
+    # Setup
+    dataset_path = Mock()
+    dataset_path.iterdir.return_value = [Path('metadata.json')]
+
+    # Run
+    result = _path_contains_data_and_metadata(dataset_path)
+
+    # Assert
+    assert result is False
+
+
+def test__path_contains_data_and_metadata_missing_metadata(monkeypatch):
+    """Test returns ``False`` when only data.zip is present."""
+    # Setup
+    dataset_path = Mock()
+    dataset_path.iterdir.return_value = [Path('data.zip')]
+
+    # Run
+    result = _path_contains_data_and_metadata(dataset_path)
+
+    # Assert
+    assert result is False
+
+
+def test__path_contains_data_and_metadata_no_relevant_files(monkeypatch):
+    """Test returns ``False`` when neither ``metadata.json`` nor ``data.zip`` are found."""
+    # Setup
+    dataset_path = Mock()
+    dataset_path.iterdir.return_value = [
+        Path('metainfo.yaml'),
+        Path('meta.json'),
+        Path('sdv_meta.json'),
+        Path('metadata.txt'),
+        Path('data.csv'),
+    ]
+
+    # Run
+    result = _path_contains_data_and_metadata(dataset_path)
+
+    # Assert
+    assert result is False
+
+
+@patch('sdgym.datasets._download_dataset')
+@patch('sdgym.datasets._path_contains_data_and_metadata', return_value=True)
+@patch('sdgym.datasets.Path')
+def test__get_dataset_path_and_download_local_exists(path_mock, contains_mock, download_mock):
+    """Test that this function returns the dataset path directly if it already exists."""
+    # Setup
+    modality = 'single_table'
+    dataset = 'local_dataset'
+    datasets_path = Path('/tmp/datasets')
+
+    dataset_path_mock = Mock()
+    dataset_path_mock.exists.return_value = True
+    path_mock.return_value = dataset_path_mock
+
+    # Run
+    result = _get_dataset_path_and_download(modality, dataset, datasets_path)
+
+    # Assert
+    assert result == dataset_path_mock
+    download_mock.assert_not_called()
+    contains_mock.assert_called_once_with(dataset_path_mock)
+
+
+@patch('sdgym.datasets._download_dataset')
+@patch('sdgym.datasets._path_contains_data_and_metadata', return_value=False)
+def test__get_dataset_path_and_download_triggers_download(contains_mock, download_mock):
+    """Test that `_get_dataset_path_and_download` triggers dataset download if not found locally."""
+    # Setup
+    modality = 'single_table'
+    dataset = 'remote_dataset'
+    datasets_path = Path('/tmp/datasets')
+    bucket = 's3://remote-bucket'
+    download_mock.return_value = Path('/tmp/datasets/single_table/remote_dataset')
+
+    # Run
+    result = _get_dataset_path_and_download(modality, dataset, datasets_path, bucket=bucket)
+
+    # Assert
+    download_mock.assert_called_once_with(
+        modality, Path(dataset), datasets_path / Path(dataset), bucket, None, None
+    )
+    assert result == download_mock.return_value
+
+
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table', 'sequential'])
+def test__validate_modality_valid(modality):
+    """Test that valid modalities do not raise an exception."""
+    # Run and Assert
+    _validate_modality(modality)
+
+
+@pytest.mark.parametrize('invalid_modality', ['single-table', 'multi-table', 'timeseries'])
+def test__validate_modality_invalid(invalid_modality):
+    """Test that invalid modalities trigger a ``ValueError``."""
+    # Run and Assert
+    modalities_list = ', '.join(['single_table', 'multi_table', 'sequential'])
+    expected_message = (
+        f'Modality `{invalid_modality}` not recognized. Must be one of {modalities_list}'
+    )
+    with pytest.raises(ValueError, match=expected_message):
+        _validate_modality(invalid_modality)
+
+
+@patch('pathlib.Path.iterdir')
+@patch('sdgym.datasets._read_metadata_json')
+@patch('sdgym.datasets._read_zipped_data')
+def test_get_data_and_metadata_both_found(read_data_mock, read_meta_mock, iterdir_mock, tmp_path):
+    """Test returns both data and metadata when both files exist."""
+    dataset_path = tmp_path
+    metadata_file = dataset_path / 'metadata.json'
+    data_file = dataset_path / 'data.zip'
+
+    iterdir_mock.return_value = [metadata_file, data_file]
+    read_meta_mock.return_value = {'info': 'meta'}
+    read_data_mock.return_value = 'dataframe'
+
+    # Run
+    data, metadata = get_data_and_metadata_from_path(dataset_path, 'single_table')
+
+    # Assert
+    read_meta_mock.assert_called_once_with(metadata_file)
+    read_data_mock.assert_called_once_with(zip_file_path=data_file, modality='single_table')
+    assert data == 'dataframe'
+    assert metadata == {'info': 'meta'}
+
+
+@patch('sdgym.datasets._read_metadata_json')
+@patch('sdgym.datasets._read_zipped_data')
+def test_get_data_and_metadata_no_files(read_data_mock, read_meta_mock):
+    """Test that this function returns None when neither data.zip nor metadata.json is found."""
+    # Setup
+    dataset_path = Mock()
+    dataset_path.iterdir.return_value = [Path('readme.txt'), Path('notes.yaml')]
+
+    # Run
+    data, metadata = get_data_and_metadata_from_path(dataset_path, 'single_table')
+
+    # Assert
+    read_data_mock.assert_not_called()
+    read_meta_mock.assert_not_called()
+    assert data is None
+    assert metadata is None
+
+
+@patch('sdgym.datasets._parse_numeric_value')
+@patch('sdgym.datasets._load_yaml_metainfo_from_s3')
+def test__generate_dataset_info(load_yaml_mock, parse_value_mock):
+    """Test `_genereate_dataset_info` when metainfo.yaml entry produces correct output."""
+    # Setup
+    s3_client = Mock()
+    bucket_name = 'test-bucket'
+    contents = [{'Key': 'single_table/test_dataset/metainfo.yaml'}]
+
+    load_yaml_mock.return_value = {'dataset-size-mb': 25.5, 'num-tables': 3}
+    parse_value_mock.side_effect = [25.5, 3]
+
+    # Run
+    result = _genereate_dataset_info(s3_client, bucket_name, contents)
+
+    # Assert
+    load_yaml_mock.assert_called_once_with(
+        s3_client, bucket_name, 'single_table/test_dataset/metainfo.yaml'
+    )
+    parse_value_mock.assert_has_calls([
+        call(25.5, 'test_dataset', field_name='dataset-size-mb', target_type=float),
+        call(3, 'test_dataset', 'num-tables', target_type=int),
+    ])
+    assert result == {
+        'dataset_name': ['test_dataset'],
+        'size_MB': [25.5],
+        'num_tables': [3],
+    }
+
+
+@patch('sdgym.datasets._parse_numeric_value')
+@patch('sdgym.datasets._load_yaml_metainfo_from_s3')
+def test__generate_dataset_info_missing_fields(load_yaml_mock, parse_value_mock):
+    """Test when YAML is missing fields, np.nan is passed to parser."""
+    # Setup
+    s3_client = Mock()
+    bucket_name = 'bucket'
+    contents = [{'Key': 'single_table/datasetX/metainfo.yaml'}]
+
+    load_yaml_mock.return_value = {}  # missing dataset-size-mb and num-tables
+    parse_value_mock.side_effect = [np.nan, np.nan]
+
+    # Run
+    result = _genereate_dataset_info(s3_client, bucket_name, contents)
+
+    # Assert
+    parse_value_mock.assert_has_calls([
+        call(np.nan, 'datasetX', field_name='dataset-size-mb', target_type=float),
+        call(np.nan, 'datasetX', 'num-tables', target_type=int),
+    ])
+    assert result['dataset_name'] == ['datasetX']
 
 
 def test_get_bucket_name():
@@ -229,43 +405,37 @@ def test_get_available_datasets_results():
     assert len(expected_table.merge(tables_info.round(2))) == len(expected_table)
 
 
-@patch('sdgym.datasets._get_dataset_path')
-@patch('sdgym.datasets.ZipFile')
+@patch('sdgym.datasets._get_dataset_path_and_download')
+@patch('sdgym.datasets._path_contains_data_and_metadata', return_value=True)
 @patch('sdgym.datasets.Path')
-def test_get_dataset_paths(path_mock, zipfile_mock, helper_mock):
-    """Test that the dataset paths are generated correctly."""
+def test_get_dataset_paths_local_bucket(path_mock, contains_mock, download_mock):
+    """Test datasets are discovered locally when bucket path exists."""
+
     # Setup
-    local_path = 'test_local_path'
+    def path_side_effect(arg=None):
+        """Return the mocked bucket path if matching bucket name, else datasets folder."""
+        if arg == bucket:
+            return bucket_path_mock
+        return Path('datasets_folder')
+
+    path_mock.side_effect = path_side_effect
+
+    modality = 'single_table'
+    bucket = 'local_bucket'
+
     bucket_path_mock = Mock()
     bucket_path_mock.exists.return_value = True
-    path_mock.side_effect = [Path('datasets_folder'), bucket_path_mock, bucket_path_mock]
-    bucket_path_mock.iterdir.return_value = [
-        Path('test_local_path/dataset_1.zip'),
-        Path('test_local_path/dataset_2'),
-    ]
+    dataset1 = Path('dataset_1')
+    dataset2 = Path('dataset_2')
+    bucket_path_mock.iterdir.return_value = [dataset1, dataset2]
 
     # Run
-    get_dataset_paths(None, None, local_path, None, None)
+    get_dataset_paths(modality, None, None, bucket)
 
     # Assert
-    zipfile_mock.return_value.extractall.assert_called_once_with(Path('datasets_folder/dataset_1'))
-    helper_mock.assert_has_calls([
-        call(
-            'single_table',
-            Path('datasets_folder/dataset_1'),
-            Path('datasets_folder'),
-            'test_local_path',
-            None,
-            None,
-        ),
-        call(
-            'single_table',
-            Path('test_local_path/dataset_2'),
-            Path('datasets_folder'),
-            'test_local_path',
-            None,
-            None,
-        ),
+    download_mock.assert_has_calls([
+        call(modality, dataset1, DATASETS_PATH / 'single_table', bucket, None, None),
+        call(modality, dataset2, DATASETS_PATH / 'single_table', bucket, None, None),
     ])
 
 
@@ -291,17 +461,80 @@ def test_load_dataset_limit_dataset_size():
     ]
     assert data.shape == (1000, 10)
     assert metadata_dict == {
-        'columns': {
-            'age': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
-            'workclass': {'sdtype': 'categorical'},
-            'fnlwgt': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
-            'education': {'sdtype': 'categorical'},
-            'education-num': {'sdtype': 'numerical', 'computer_representation': 'Int64'},
-            'marital-status': {'sdtype': 'categorical'},
-            'occupation': {'sdtype': 'categorical'},
-            'relationship': {'sdtype': 'categorical'},
-            'race': {'sdtype': 'categorical'},
-            'sex': {'sdtype': 'categorical'},
+        'METADATA_SPEC_VERSION': 'V1',
+        'relationships': [],
+        'tables': {
+            'adult': {
+                'columns': {
+                    'age': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
+                    'education': {'sdtype': 'categorical'},
+                    'education-num': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
+                    'fnlwgt': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
+                    'marital-status': {'sdtype': 'categorical'},
+                    'occupation': {'sdtype': 'categorical'},
+                    'race': {'sdtype': 'categorical'},
+                    'relationship': {'sdtype': 'categorical'},
+                    'sex': {'sdtype': 'categorical'},
+                    'workclass': {'sdtype': 'categorical'},
+                }
+            }
         },
-        'METADATA_SPEC_VERSION': 'SINGLE_TABLE_V1',
     }
+
+
+@patch('sdgym.datasets._get_dataset_subset')
+@patch('sdgym.datasets.get_data_and_metadata_from_path')
+@patch('sdgym.datasets._get_dataset_path_and_download')
+@patch('sdgym.datasets._validate_modality')
+def test_load_dataset(validate_mock, path_or_download_mock, get_data_mock, subset_mock):
+    """Test that `load_dataset` returns data and metadata without limiting size."""
+    # Setup
+    modality = 'single_table'
+    dataset = 'test_dataset'
+    fake_path = Mock()
+    fake_data = 'dataframe'
+    fake_metadata = {'meta': 1}
+
+    path_or_download_mock.return_value = fake_path
+    get_data_mock.return_value = (fake_data, fake_metadata)
+
+    # Run
+    data, metadata = load_dataset(modality, dataset)
+
+    # Assert
+    validate_mock.assert_called_once_with(modality)
+    path_or_download_mock.assert_called_once_with(modality, dataset, None, None, None, None)
+    get_data_mock.assert_called_once_with(fake_path, modality)
+    subset_mock.assert_not_called()
+    assert data == fake_data
+    assert metadata == fake_metadata
+
+
+@patch('sdgym.datasets._get_dataset_subset')
+@patch('sdgym.datasets.get_data_and_metadata_from_path')
+@patch('sdgym.datasets._get_dataset_path_and_download')
+@patch('sdgym.datasets._validate_modality')
+def test_load_dataset_with_limit(validate_mock, path_or_download_mock, get_data_mock, subset_mock):
+    """Test `load_dataset` applies dataset size limit when flag is True."""
+    # Setup
+    modality = 'sequential'
+    dataset = 'tiny_dataset'
+    fake_path = Mock()
+    fake_data = 'original_data'
+    fake_metadata = {'meta': 2}
+    limited_data = 'limited_data'
+    limited_metadata = {'meta': 'small'}
+
+    path_or_download_mock.return_value = fake_path
+    get_data_mock.return_value = (fake_data, fake_metadata)
+    subset_mock.return_value = (limited_data, limited_metadata)
+
+    # Run
+    data, metadata = load_dataset(modality, dataset, limit_dataset_size=True)
+
+    # Assert
+    validate_mock.assert_called_once_with(modality)
+    get_data_mock.assert_called_once_with(fake_path, modality)
+    subset_mock.assert_called_once_with(fake_data, fake_metadata, modality=modality)
+    assert data == limited_data
+    assert metadata == limited_metadata

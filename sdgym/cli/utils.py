@@ -11,7 +11,7 @@ from sdgym.datasets import DATASETS_PATH, load_dataset
 from sdgym.s3 import get_s3_client, is_s3_path, parse_s3_path
 
 
-def read_file(path, aws_key, aws_secret):
+def read_file(path, aws_access_key_id, aws_secret_access_key):
     """Read file from path.
 
     The path can either be a local path or an s3 directory.
@@ -19,9 +19,9 @@ def read_file(path, aws_key, aws_secret):
     Args:
         path (str):
             The path to the file.
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with s3, if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate with s3, if provided.
 
     Returns:
@@ -29,7 +29,7 @@ def read_file(path, aws_key, aws_secret):
             The content of the file in bytes.
     """
     if is_s3_path(path):
-        s3 = get_s3_client(aws_key, aws_secret)
+        s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
         bucket_name, key = parse_s3_path(path)
         obj = s3.get_object(Bucket=bucket_name, Key=key)
         contents = obj['Body'].read()
@@ -40,7 +40,7 @@ def read_file(path, aws_key, aws_secret):
     return contents
 
 
-def read_csv(path, aws_key, aws_secret):
+def read_csv(path, aws_access_key_id, aws_secret_access_key):
     """Read csv file from path.
 
     The path can either be a local path or an s3 directory.
@@ -48,20 +48,20 @@ def read_csv(path, aws_key, aws_secret):
     Args:
         path (str):
             The path to the csv file.
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with s3, if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate with s3, if provided.
 
     Returns:
         pandas.DataFrame:
             A DataFrame containing the contents of the csv file.
     """
-    contents = read_file(path, aws_key, aws_secret)
+    contents = read_file(path, aws_access_key_id, aws_secret_access_key)
     return pd.read_csv(io.BytesIO(contents))
 
 
-def read_csv_from_path(path, aws_key, aws_secret):
+def read_csv_from_path(path, aws_access_key_id, aws_secret_access_key):
     """Read all csv content within a path.
 
     All csv content within a path will be read and returned in a
@@ -70,9 +70,9 @@ def read_csv_from_path(path, aws_key, aws_secret):
     Args:
         path (str):
             The path to read from, which can be either local or an s3 path.
-        aws_key (str):
+        aws_access_key_id (str):
             The access key id that will be used to communicate with s3, if provided.
-        aws_secret (str):
+        aws_secret_access_key (str):
             The secret access key that will be used to communicate with s3, if provided.
 
     Returns:
@@ -81,13 +81,17 @@ def read_csv_from_path(path, aws_key, aws_secret):
     """
     csv_contents = []
     if is_s3_path(path):
-        s3 = get_s3_client(aws_key, aws_secret)
+        s3 = get_s3_client(aws_access_key_id, aws_secret_access_key)
         bucket_name, key_prefix = parse_s3_path(path)
         resp = s3.list_objects(Bucket=bucket_name, Prefix=key_prefix)
         csv_files = [f for f in resp['Contents'] if f['Key'].endswith('.csv')]
         for csv_file in csv_files:
             csv_file_key = csv_file['Key']
-            csv_contents.append(read_csv(f's3://{bucket_name}/{csv_file_key}', aws_key, aws_secret))
+            csv_contents.append(
+                read_csv(
+                    f's3://{bucket_name}/{csv_file_key}', aws_access_key_id, aws_secret_access_key
+                )
+            )
 
     else:
         run_path = pathlib.Path(path)

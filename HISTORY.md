@@ -1,5 +1,57 @@
 # History
 
+## v0.11.0 - 2025-10-31
+
+### New Features
+
+* Add a `DatasetExplorer` class that provides a summary of all datasets in a bucket (for a given modality) - Issue [#469](https://github.com/sdv-dev/SDGym/issues/469) by @pvk-developer
+* Update SDGym to use the new S3 bucket and bucket structure - Issue [#468](https://github.com/sdv-dev/SDGym/issues/468) by @pvk-developer
+* Update Pareto plot data generation to use the Adjusted Time and Quality score - Issue [#462](https://github.com/sdv-dev/SDGym/issues/462) by @R-Palazzo
+* The `ResultsExplorer` should allow programmatic access to all the saved artifacts from benchmarking - Issue [#450](https://github.com/sdv-dev/SDGym/issues/450) by @R-Palazzo
+* When performing multiple SDGym runs on the same day, save the artifacts with consistent naming - Issue [#448](https://github.com/sdv-dev/SDGym/issues/448) by @R-Palazzo
+* To simulate graceful degradation, fallback to using the results from the UniformSynthesizer - Issue [#439](https://github.com/sdv-dev/SDGym/issues/439) by @rwedge
+* Pip install sdgym released version on ec2 machines - Issue [#437](https://github.com/sdv-dev/SDGym/issues/437) by @pvk-developer
+* Add a Fallback to UniformSynthesizer when an error occur and improve the time tracker of the synthetic data generation - Issue [#436](https://github.com/sdv-dev/SDGym/issues/436) by @R-Palazzo
+* Make the synthesizer names consistent throughout SDGym - Issue [#430](https://github.com/sdv-dev/SDGym/issues/430) by @R-Palazzo
+* Simplify the import API for SDGym's results explorer - Issue [#429](https://github.com/sdv-dev/SDGym/issues/429) by @R-Palazzo
+* Add workflow to run SDGym monthly and publish results - Issue [#425](https://github.com/sdv-dev/SDGym/issues/425) by @R-Palazzo
+* Add benchmark_single_table_aws function - Issue [#414](https://github.com/sdv-dev/SDGym/issues/414) by @R-Palazzo
+* Add summarize function to SDGymResultsExplorer class - Issue [#412](https://github.com/sdv-dev/SDGym/issues/412) by @R-Palazzo
+* Add SDGymResultsExplorer class - Issue [#411](https://github.com/sdv-dev/SDGym/issues/411) by @R-Palazzo
+* Add ability to save synthesizers and data when running benchmark_single_table - Issue [#410](https://github.com/sdv-dev/SDGym/issues/410) by @R-Palazzo
+* Update REalTabFormer default parameters so that it runs on benchmarking - Issue [#400](https://github.com/sdv-dev/SDGym/issues/400) by @fealho
+* Add DCRBaseline Metric to single table report - Issue [#397](https://github.com/sdv-dev/SDGym/issues/397) by @gsheni
+
+### Bugs Fixed
+
+* Update link to s3 results in the Slack Alert message - Issue [#464](https://github.com/sdv-dev/SDGym/issues/464) by @R-Palazzo
+* EC2 instance not terminating after timeout - Issue [#463](https://github.com/sdv-dev/SDGym/issues/463) by @R-Palazzo
+* Adjusted time and quality score not aggregating correctly on EC2 - Issue [#461](https://github.com/sdv-dev/SDGym/issues/461) by @R-Palazzo
+* Update warning message for deprecated parameters - Issue [#455](https://github.com/sdv-dev/SDGym/issues/455) by @R-Palazzo
+* The `UniformSynthesizer` produces multiple `UserWarning` messages when run on a demo dataset - Issue [#449](https://github.com/sdv-dev/SDGym/issues/449) by @R-Palazzo
+* Always include UniformSynthesizer doesn't work on AWS - Issue [#446](https://github.com/sdv-dev/SDGym/issues/446) by @R-Palazzo
+* Fix minimum test version due to RealTabFormer and Torch releases - Issue [#434](https://github.com/sdv-dev/SDGym/issues/434) by @R-Palazzo
+* Add modality parameter to get_available_datasets function - Issue [#403](https://github.com/sdv-dev/SDGym/issues/403) by @gsheni
+* Update the EC2 instance used when run_on_ec2 is enabled - Issue [#396](https://github.com/sdv-dev/SDGym/issues/396) by @R-Palazzo
+* All bump-version commands are failing - Issue [#391](https://github.com/sdv-dev/SDGym/issues/391) by @amontanez24
+
+### Internal
+
+* To simulate graceful degradation, always run the UniformSynthesizer on all the requested datasets - Issue [#438](https://github.com/sdv-dev/SDGym/issues/438) by @rwedge
+
+### Maintenance
+
+* Remove support for Python 3.8 - Issue [#457](https://github.com/sdv-dev/SDGym/issues/457) by @fealho
+* Check pyproject for release candidate dependencies - Issue [#406](https://github.com/sdv-dev/SDGym/issues/406) by @rwedge
+* Update the library installation script for EC2 machines to install optional dependencies like RealTabFormer - Issue [#388](https://github.com/sdv-dev/SDGym/issues/388) by @R-Palazzo
+* Speed up test_benchmark_single_table_realtabformer_no_metrics integration test - Issue [#379](https://github.com/sdv-dev/SDGym/issues/379) by @fealho
+* Update python set up step in workflows to use latest python version - Issue [#361](https://github.com/sdv-dev/SDGym/issues/361) by @frances-h
+* Support Python 3.13 - Issue [#355](https://github.com/sdv-dev/SDGym/issues/355) by @rwedge
+
+### Miscellaneous
+
+* Add workflow to release SDGym on PyPI - Issue [#418](https://github.com/sdv-dev/SDGym/issues/418) by @gsheni
+
 ## v0.10.0 - 2025-02-06
 
 ### New Features

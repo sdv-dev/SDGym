@@ -1,67 +1,198 @@
-Run started:2025-02-06 22:48:29.453631
+Run started:2025-10-31 21:31:35.616789
 
 Test results:
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
    Severity: Low   Confidence: High
    CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
-   Location: ./sdgym/benchmark.py:7:0
-6	import os
-7	import pickle
-8	import tracemalloc
+   Location: ./sdgym/benchmark.py:8:0
+7	import os
+8	import pickle
+9	import re
 
 --------------------------------------------------
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:151:8
-150	    if isinstance(synthesizer, type):
-151	        assert issubclass(synthesizer, BaselineSynthesizer), (
-152	            '`synthesizer` must be a synthesizer class'
-153	        )
-154	        synthesizer = synthesizer()
+   Location: ./sdgym/benchmark.py:327:8
+326	    if isinstance(synthesizer, type):
+327	        assert issubclass(synthesizer, BaselineSynthesizer), (
+328	            '`synthesizer` must be a synthesizer class'
+329	        )
+330	        synthesizer = synthesizer()
 
 --------------------------------------------------
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:156:8
-155	    else:
-156	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
-157	            '`synthesizer` must be an instance of a synthesizer class.'
-158	        )
-159	
+   Location: ./sdgym/benchmark.py:332:8
+331	    else:
+332	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
+333	            '`synthesizer` must be an instance of a synthesizer class.'
+334	        )
+335	
 
 --------------------------------------------------
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:674:23
-673	    # User data script to install the library
-674	    user_data_script = f"""#!/bin/bash
-675	    sudo apt update -y
-676	    sudo apt install python3-pip -y
-677	    echo "======== Install Dependencies ============"
-678	    sudo pip3 install sdgym
-679	    sudo pip3 install anyio
-680	    pip3 list
-681	    sudo apt install awscli -y
-682	    aws configure set aws_access_key_id {credentials.access_key}
-683	    aws configure set aws_secret_access_key {credentials.secret_key}
-684	    aws configure set region {session.region_name}
-685	    echo "======== Write Script ==========="
-686	    sudo touch ~/sdgym_script.py
-687	    echo "{script_content}" > ~/sdgym_script.py
-688	    echo "======== Run Script ==========="
-689	    sudo python3 ~/sdgym_script.py
-690	    echo "======== Complete ==========="
-691	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-692	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-693	    """
-694	
+   Location: ./sdgym/benchmark.py:940:27
+939	    # User data script to install the library
+940	    user_data_script = f"""#!/bin/bash
+941	    sudo apt update -y
+942	    sudo apt install -y python3-pip python3-venv awscli
+943	    echo "======== Create Virtual Environment ============"
+944	    python3 -m venv ~/env
+945	    source ~/env/bin/activate
+946	    echo "======== Install Dependencies in venv ============"
+947	    pip install --upgrade pip
+948	    pip install sdgym[all]
+949	    pip install anyio
+950	    echo "======== Configure AWS CLI ============"
+951	    aws configure set aws_access_key_id {credentials.access_key}
+952	    aws configure set aws_secret_access_key {credentials.secret_key}
+953	    aws configure set region {session.region_name}
+954	    echo "======== Write Script ==========="
+955	    printf '%s\\n' "{escaped_script}" > ~/sdgym_script.py
+956	    echo "======== Run Script ==========="
+957	    python ~/sdgym_script.py
+958	
+959	    echo "======== Complete ==========="
+960	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+961	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+962	    """
+963	
+
+--------------------------------------------------
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Low
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
+   Location: ./sdgym/benchmark.py:1406:31
+1405	def _get_user_data_script(access_key, secret_key, region_name, script_content):
+1406	    return textwrap.dedent(f"""\
+1407	        #!/bin/bash
+1408	        set -e
+1409	
+1410	        # Always terminate the instance when the script exits (success or failure)
+1411	        trap '
+1412	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
+1413	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
+1414	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
+1415	        ' EXIT
+1416	
+1417	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+1418	        echo "======== Update and Install Dependencies ============"
+1419	        sudo apt update -y
+1420	        sudo apt install -y python3-pip python3-venv awscli
+1421	        echo "======== Configure AWS CLI ============"
+1422	        aws configure set aws_access_key_id '{access_key}'
+1423	        aws configure set aws_secret_access_key '{secret_key}'
+1424	        aws configure set default.region '{region_name}'
+1425	
+1426	        echo "======== Create Virtual Environment ============"
+1427	        python3 -m venv ~/env
+1428	        source ~/env/bin/activate
+1429	
+1430	        echo "======== Install Dependencies in venv ============"
+1431	        pip install --upgrade pip
+1432	        pip install sdgym[all]
+1433	        pip install s3fs
+1434	
+1435	        echo "======== Write Script ==========="
+1436	        cat << 'EOF' > ~/sdgym_script.py
+1437	{script_content}
+1438	EOF
+1439	
+1440	        echo "======== Run Script ==========="
+1441	        python ~/sdgym_script.py
+1442	        echo "======== Complete ==========="
+1443	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+1444	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+1445	    """).strip()
+1446	
+
+--------------------------------------------------
+>> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
+   Severity: Low   Confidence: High
+   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
+   Location: ./sdgym/result_explorer/result_handler.py:6:0
+5	import os
+6	import pickle
+7	from abc import ABC, abstractmethod
+
+--------------------------------------------------
+>> Issue: [B301:blacklist] Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.
+   Severity: Medium   Confidence: High
+   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_calls.html#b301-pickle
+   Location: ./sdgym/result_explorer/result_handler.py:253:19
+252	        with open(os.path.join(self.base_path, file_path), 'rb') as f:
+253	            return pickle.load(f)
+254	
+
+--------------------------------------------------
+>> Issue: [B301:blacklist] Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.
+   Severity: Medium   Confidence: High
+   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_calls.html#b301-pickle
+   Location: ./sdgym/result_explorer/result_handler.py:364:15
+363	        )
+364	        return pickle.loads(response['Body'].read())
+365	
+
+--------------------------------------------------
+>> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
+   Severity: Low   Confidence: High
+   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
+   Location: ./sdgym/result_writer.py:4:0
+3	import io
+4	import pickle
+5	from abc import ABC, abstractmethod
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b110_try_except_pass.html
+   Location: ./sdgym/result_writer.py:119:12
+118	
+119	            except Exception:
+120	                pass  # If the file does not exist, we will create it
+121	
+
+--------------------------------------------------
+>> Issue: [B106:hardcoded_password_funcarg] Possible hardcoded password: 'https://oauth2.googleapis.com/token'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b106_hardcoded_password_funcarg.html
+   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:93:12
+92	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
+93	    creds = OAuth2Credentials(
+94	        access_token=creds_dict['access_token'],
+95	        client_id=creds_dict.get('client_id'),
+96	        client_secret=creds_dict.get('client_secret'),
+97	        refresh_token=creds_dict.get('refresh_token'),
+98	        token_expiry=None,
+99	        token_uri='https://oauth2.googleapis.com/token',
+100	        user_agent=None,
+101	    )
+102	    gauth = GoogleAuth()
+
+--------------------------------------------------
+>> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
+   Severity: Low   Confidence: High
+   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
+   Location: ./sdgym/s3.py:5:0
+4	import logging
+5	import pickle
+6	from urllib.parse import urlparse
 
 --------------------------------------------------
 >> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
@@ -78,47 +209,47 @@ Test results:
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:133:17
-132	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-133	        output = subprocess.run(command, stdout=subprocess.PIPE)
-134	        return len(output.stdout.decode().split())
+   Location: ./sdgym/utils.py:134:17
+133	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+134	        output = subprocess.run(command, stdout=subprocess.PIPE)
+135	        return len(output.stdout.decode().split())
 
 --------------------------------------------------
 >> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:149:17
-148	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-149	        output = subprocess.run(command, stdout=subprocess.PIPE)
-150	        loads = np.array(output.stdout.decode().split()).astype(float)
+   Location: ./sdgym/utils.py:150:17
+149	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+150	        output = subprocess.run(command, stdout=subprocess.PIPE)
+151	        loads = np.array(output.stdout.decode().split()).astype(float)
 
 --------------------------------------------------
 >> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'sdgym['
    Severity: Low   Confidence: Medium
    CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b105_hardcoded_password_string.html
-   Location: ./tasks.py:103:18
-102	    extra_dependencies = []
-103	    start_token = 'sdgym['
-104	    for dep in test_dependencies:
+   Location: ./tasks.py:102:18
+101	    extra_dependencies = []
+102	    start_token = 'sdgym['
+103	    for dep in test_dependencies:
 
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 2855
+	Total lines of code: 4969
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
 Run metrics:
 	Total issues (by severity):
 		Undefined: 0
-		Low: 7
-		Medium: 1
+		Low: 12
+		Medium: 4
 		High: 0
 	Total issues (by confidence):
 		Undefined: 0
-		Low: 1
-		Medium: 1
-		High: 6
+		Low: 2
+		Medium: 2
+		High: 12
 Files skipped (0):

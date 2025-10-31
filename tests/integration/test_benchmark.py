@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import os
 import re
 import sys
 import time
@@ -10,7 +11,8 @@ import warnings
 import numpy as np
 import pandas as pd
 import pytest
-from sdv.metadata.single_table import SingleTableMetadata
+import yaml
+from sdv.metadata import Metadata
 from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 import sdgym
@@ -27,6 +29,7 @@ def test_benchmark_single_table_basic_synthsizers():
     output = sdgym.benchmark_single_table(
         synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
         sdv_datasets=['student_placements'],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -55,9 +58,15 @@ def test_benchmark_single_table_basic_synthsizers():
 def test_benchmark_single_table_realtabformer_no_metrics():
     """Test it without metrics."""
     # Run
+    custom_synthesizer = create_sdv_synthesizer_variant(
+        display_name='RealTabFormerSynthesizer',
+        synthesizer_class='RealTabFormerSynthesizer',
+        synthesizer_parameters={'epochs': 2},
+    )
     output = sdgym.benchmark_single_table(
-        synthesizers=['RealTabFormerSynthesizer'],
-        sdv_datasets=['student_placements'],
+        synthesizers=[],
+        custom_synthesizers=[custom_synthesizer],
+        sdv_datasets=['fake_companies'],
         sdmetrics=[],
     )
 
@@ -84,7 +93,7 @@ def test_benchmark_single_table_no_metrics():
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
     # Expect no metric columns.
-    assert len(output.columns) == 10
+    assert len(output.columns) == 13
 
 
 def test_benchmarking_no_report_output():
@@ -168,6 +177,22 @@ def test_benchmark_single_table_compute_diagnostic_score():
     assert 'Diagnostic_Score' not in output
 
 
+def test_benchmark_single_table_compute_privacy_score():
+    """Test ``compute_privacy_score=False`` works."""
+    # Run
+    output = sdgym.benchmark_single_table(
+        synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
+        sdv_datasets=['student_placements'],
+        compute_privacy_score=False,
+    )
+
+    # Assert
+    assert not output.empty
+    assert 'Train_Time' in output
+    assert 'Sample_Time' in output
+    assert 'Privacy_Score' not in output
+
+
 def test_benchmark_single_table_duplicate_synthesizers():
     """Test it raises an error when passed a duplicate synthesizer."""
     # Setup
@@ -196,7 +221,7 @@ def test_benchmark_single_table():
 
     # Setup
     def get_trained_synthesizer(data, metadata):
-        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        metadata_obj = Metadata.load_from_dict(metadata)
         model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)
         return model
@@ -227,6 +252,7 @@ def test_benchmark_single_table():
         ],
         custom_synthesizers=[test_synthesizer, ctgan_variant],
         sdv_datasets=['fake_companies'],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
     )
 
     # Assert
@@ -275,20 +301,28 @@ def test_benchmark_single_table_timeout():
 
     # Assert
     assert total_time < 50.0  # Buffer time for code not in timeout
-    expected_scores = pd.DataFrame({
-        'Synthesizer': {0: 'GaussianCopulaSynthesizer'},
-        'Dataset': {0: 'insurance'},
-        'Dataset_Size_MB': {0: 3.340128},
-        'Train_Time': {0: None},
-        'Peak_Memory_MB': {0: None},
-        'Synthesizer_Size_MB': {0: None},
-        'Sample_Time': {0: None},
-        'Evaluate_Time': {0: None},
-        'Diagnostic_Score': {0: None},
-        'Quality_Score': {0: None},
-        'error': {0: 'Synthesizer Timeout'},
-    })
-    pd.testing.assert_frame_equal(scores, expected_scores)
+    fallback_train_time = scores.loc[1, 'Train_Time']
+    fallback_sample_time = scores.loc[1, 'Sample_Time']
+    timeout_scores = pd.Series(
+        {
+            'Synthesizer': 'GaussianCopulaSynthesizer',
+            'Dataset': 'insurance',
+            'Dataset_Size_MB': 3.340128,
+            'Train_Time': None,
+            'Peak_Memory_MB': None,
+            'Synthesizer_Size_MB': None,
+            'Sample_Time': None,
+            'Evaluate_Time': None,
+            'Diagnostic_Score': None,
+            'Quality_Score': None,
+            'Privacy_Score': None,
+            'error': 'Synthesizer Timeout',
+            'Adjusted_Total_Time': 2 + fallback_train_time + fallback_sample_time,
+            'Adjusted_Quality_Score': None,
+        },
+        name=0,
+    )
+    pd.testing.assert_series_equal(scores.T[0], timeout_scores)
 
 
 def test_benchmark_single_table_only_datasets():
@@ -298,21 +332,32 @@ def test_benchmark_single_table_only_datasets():
     argument could take days to run.
     """
     # Run
-    scores = benchmark_single_table(sdv_datasets=['fake_companies'])
+    scores = benchmark_single_table(
+        sdv_datasets=['fake_companies'],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
-    assert len(scores.columns) == 11
-    assert list(scores['Synthesizer']) == ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
-    assert list(scores['Dataset']) == ['fake_companies'] * 2
-    assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [0.00128] * 2
+    assert len(scores.columns) == 14
+    assert list(scores['Synthesizer']) == [
+        'GaussianCopulaSynthesizer',
+        'CTGANSynthesizer',
+        'UniformSynthesizer',
+    ]
+    assert list(scores['Dataset']) == ['fake_companies'] * 3
+    assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [0.00128] * 3
     assert scores['Train_Time'].between(0, 1000).all()
     assert scores['Peak_Memory_MB'].between(0, 1000).all()
     assert scores['Synthesizer_Size_MB'].between(0, 1000).all()
     assert scores['Sample_Time'].between(0, 1000).all()
     assert scores['Evaluate_Time'].between(0, 1000).all()
+    assert scores['Adjusted_Total_Time'].between(0, 1000).all()
     assert scores['Quality_Score'].between(0.5, 1).all()
-    assert (scores['Diagnostic_Score'] == 1.0).all()
-    assert list(scores['NewRowSynthesis']) == [1.0] * 2
+    assert scores['Adjusted_Quality_Score'].between(0.5, 1).all()
+    assert scores['Privacy_Score'].between(0.5, 1).all()
+    assert (scores['Diagnostic_Score'][0:2] == 1.0).all()
+    assert scores['Diagnostic_Score'][2:].between(0.5, 1.0).all()
+    assert list(scores['NewRowSynthesis']) == [1.0] * 3
 
 
 def test_benchmark_single_table_synthesizers_none():
@@ -330,45 +375,72 @@ def test_benchmark_single_table_synthesizers_none():
     )
 
     # Assert
-    assert scores.shape == (1, 11)
-    scores = scores.iloc[0]
-    assert scores['Synthesizer'] == 'Variant:test_synth'
-    assert scores['Dataset'] == 'fake_companies'
-    assert round(scores['Dataset_Size_MB'], 5) == 0.00128
-    assert 0.5 < scores['Quality_Score'] < 1
-    assert scores['Diagnostic_Score'] == 1.0
-    assert (
-        scores[
-            ['Train_Time', 'Peak_Memory_MB', 'Synthesizer_Size_MB', 'Sample_Time', 'Evaluate_Time']
-        ]
-        .between(0, 1000)
-        .all()
-    )
+    assert scores.shape == (2, 13)
+    for name, iloc in (('UniformSynthesizer', 0), ('Variant:test_synth', 1)):
+        _scores = scores.iloc[iloc]
+        assert _scores['Synthesizer'] == name
+        assert _scores['Dataset'] == 'fake_companies'
+        assert round(_scores['Dataset_Size_MB'], 5) == 0.00128
+        assert 0.5 < _scores['Quality_Score'] < 1
+        assert 0.5 < _scores['Adjusted_Quality_Score'] < 1
+        assert 0.5 < _scores['Privacy_Score'] <= 1.0
+        if name == 'Variant:test_synth':
+            assert _scores['Diagnostic_Score'] == 1.0
+        else:
+            assert 0.5 < _scores['Diagnostic_Score'] <= 1.0
+        assert (
+            _scores[
+                [
+                    'Train_Time',
+                    'Peak_Memory_MB',
+                    'Synthesizer_Size_MB',
+                    'Sample_Time',
+                    'Evaluate_Time',
+                    'Adjusted_Total_Time',
+                ]
+            ]
+            .between(0, 1000)
+            .all()
+        )
 
 
 def test_benchmark_single_table_no_synthesizers():
     """Test it works when no synthesizers are passed.
 
-    It should return an empty dataframe.
+    It should still run UniformSynthesizer.
     """
     # Run
-    result = benchmark_single_table(synthesizers=None)
+    result = benchmark_single_table(
+        synthesizers=None,
+        sdv_datasets=['fake_companies'],
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
-    expected = pd.DataFrame({
-        'Synthesizer': [],
-        'Dataset': [],
-        'Dataset_Size_MB': [],
-        'Train_Time': [],
-        'Peak_Memory_MB': [],
-        'Synthesizer_Size_MB': [],
-        'Sample_Time': [],
-        'Evaluate_Time': [],
-        'Diagnostic_Score': [],
-        'Quality_Score': [],
-        'NewRowSynthesis': [],
-    })
-    pd.testing.assert_frame_equal(result, expected)
+    assert result.shape == (1, 14)
+    result = result.iloc[0]
+    assert result['Synthesizer'] == 'UniformSynthesizer'
+    assert result['Dataset'] == 'fake_companies'
+    assert round(result['Dataset_Size_MB'], 5) == 0.00128
+    assert 0.5 < result['Quality_Score'] < 1
+    assert 0.5 < result['Adjusted_Quality_Score'] < 1
+    assert 0.5 < result['Privacy_Score'] <= 1.0
+    assert 0.5 < result['Diagnostic_Score'] <= 1.0
+    assert 0 < result['NewRowSynthesis'] <= 1.0
+    assert (
+        result[
+            [
+                'Train_Time',
+                'Peak_Memory_MB',
+                'Synthesizer_Size_MB',
+                'Sample_Time',
+                'Evaluate_Time',
+                'Adjusted_Total_Time',
+            ]
+        ]
+        .between(0, 1000)
+        .all()
+    )
 
 
 def test_benchmark_single_table_no_datasets():
@@ -377,7 +449,10 @@ def test_benchmark_single_table_no_datasets():
     It should return an empty dataframe.
     """
     # Run
-    result = benchmark_single_table(sdv_datasets=None)
+    result = benchmark_single_table(
+        sdv_datasets=None,
+        sdmetrics=[('NewRowSynthesis', {'synthetic_sample_size': 1000})],
+    )
 
     # Assert
     expected = pd.DataFrame({
@@ -389,8 +464,11 @@ def test_benchmark_single_table_no_datasets():
         'Synthesizer_Size_MB': [],
         'Sample_Time': [],
         'Evaluate_Time': [],
+        'Adjusted_Total_Time': [],
         'Diagnostic_Score': [],
         'Quality_Score': [],
+        'Adjusted_Quality_Score': [],
+        'Privacy_Score': [],
         'NewRowSynthesis': [],
     })
     pd.testing.assert_frame_equal(result, expected)
@@ -405,22 +483,30 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
         sdmetrics=[('a', {'params'}), ('b', {'more_params'})],
         compute_quality_score=False,
         compute_diagnostic_score=False,
+        compute_privacy_score=False,
     )
 
     # Assert
-    expected = pd.DataFrame({
-        'Synthesizer': [],
-        'Dataset': [],
-        'Dataset_Size_MB': [],
-        'Train_Time': [],
-        'Peak_Memory_MB': [],
-        'Synthesizer_Size_MB': [],
-        'Sample_Time': [],
-        'Evaluate_Time': [],
-        'a': [],
-        'b': [],
-    })
-    pd.testing.assert_frame_equal(result, expected)
+    assert result.shape == (1, 10)
+    result = result.iloc[0]
+    assert result['Synthesizer'] == 'UniformSynthesizer'
+    assert result['Dataset'] == 'fake_companies'
+    assert round(result['Dataset_Size_MB'], 5) == 0.00128
+    assert (
+        result[
+            [
+                'Train_Time',
+                'Peak_Memory_MB',
+                'Synthesizer_Size_MB',
+                'Sample_Time',
+                'Adjusted_Total_Time',
+            ]
+        ]
+        .between(0, 1000)
+        .all()
+    )
+    assert result['Evaluate_Time'] is None
+    assert result['error'] == 'ValueError: Unknown single-table metric: a'
 
 
 def test_benchmark_single_table_custom_synthesizer():
@@ -428,7 +514,7 @@ def test_benchmark_single_table_custom_synthesizer():
 
     # Setup
     def get_trained_synthesizer(data, metadata):
-        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        metadata_obj = Metadata.load_from_dict(metadata)
         model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)
         return model
@@ -448,7 +534,7 @@ def test_benchmark_single_table_custom_synthesizer():
     )
 
     # Assert
-    results = results.iloc[0]
+    results = results.iloc[1]
     assert results['Synthesizer'] == 'Custom:TestSynthesizer'
     assert results['Dataset'] == 'fake_companies'
     assert round(results['Dataset_Size_MB'], 5) == 0.00128
@@ -475,7 +561,7 @@ def test_benchmark_single_table_limit_dataset_size():
     results = results.iloc[0]
     assert results['Synthesizer'] == 'GaussianCopulaSynthesizer'
     assert results['Dataset'] == 'adult'
-    assert round(results['Dataset_Size_MB'], 4) == 0.0801
+    assert round(results['Dataset_Size_MB'], 4) <= 0.09
     assert 0.5 < results['Quality_Score'] < 1
     assert (
         results[
@@ -499,7 +585,7 @@ def test_benchmark_single_table_instantiated_synthesizer():
 
     # Setup
     def get_trained_synthesizer(data, metadata):
-        metadata_obj = SingleTableMetadata.load_from_dict(metadata)
+        metadata_obj = Metadata.load_from_dict(metadata)
         model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)
         return model
@@ -522,7 +608,7 @@ def test_benchmark_single_table_instantiated_synthesizer():
     )
 
     # Assert
-    results = results.iloc[0]
+    results = results.iloc[1]
     assert results['Synthesizer'] == 'Custom:TestSynthesizer'
     assert results['Dataset'] == 'fake_companies'
     assert round(results['Dataset_Size_MB'], 5) == 0.00128
@@ -546,3 +632,145 @@ def test_benchmark_single_table_no_warnings():
         )
         future_warnings = [warning for warning in w if issubclass(warning.category, FutureWarning)]
         assert len(future_warnings) == 0
+
+
+def test_benchmark_single_table_with_output_destination(tmp_path):
+    """Test it works with the ``output_destination`` argument."""
+    # Setup
+    output_destination = str(tmp_path / 'benchmark_output')
+    today_date = pd.Timestamp.now().strftime('%m_%d_%Y')
+
+    # Run
+    results = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
+        sdv_datasets=['fake_companies'],
+        output_destination=output_destination,
+    )
+
+    # Assert
+    directions = os.listdir(output_destination)
+    score_saved_separately = pd.DataFrame()
+    assert directions == [f'SDGym_results_{today_date}']
+    subdirections = os.listdir(os.path.join(output_destination, directions[0]))
+    assert set(subdirections) == {
+        'results.csv',
+        f'fake_companies_{today_date}',
+        'metainfo.yaml',
+    }
+    with open(os.path.join(output_destination, directions[0], 'metainfo.yaml'), 'r') as f:
+        metadata = yaml.safe_load(f)
+        assert metadata['completed_date'] is not None
+        assert metadata['sdgym_version'] == sdgym.__version__
+
+    synthesizer_directions = os.listdir(
+        os.path.join(output_destination, directions[0], f'fake_companies_{today_date}')
+    )
+    assert set(synthesizer_directions) == {
+        'TVAESynthesizer',
+        'GaussianCopulaSynthesizer',
+        'UniformSynthesizer',
+    }
+    for synthesizer in sorted(synthesizer_directions):
+        synthesizer_files = os.listdir(
+            os.path.join(
+                output_destination, directions[0], f'fake_companies_{today_date}', synthesizer
+            )
+        )
+        assert set(synthesizer_files) == {
+            f'{synthesizer}.pkl',
+            f'{synthesizer}_synthetic_data.csv',
+            f'{synthesizer}_benchmark_result.csv',
+        }
+        score = pd.read_csv(
+            os.path.join(
+                output_destination,
+                directions[0],
+                f'fake_companies_{today_date}',
+                synthesizer,
+                f'{synthesizer}_benchmark_result.csv',
+            )
+        )
+        score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
+
+    saved_result = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
+    pd.testing.assert_frame_equal(results, saved_result, check_dtype=False)
+    results_no_adjusted = results.drop(columns=['Adjusted_Total_Time', 'Adjusted_Quality_Score'])
+    pd.testing.assert_frame_equal(results_no_adjusted, score_saved_separately, check_dtype=False)
+
+
+def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
+    """Test saving in ``output_destination`` with multiple runs.
+
+    Here two benchmark runs are performed with different synthesizers
+    on the same dataset, and the results are saved in the same output directory.
+    The directory contains a `results.csv` file with the combined results
+    and a subdirectory for each synthesizer with its own results.
+    """
+    # Setup
+    output_destination = str(tmp_path / 'benchmark_output')
+    today_date = pd.Timestamp.now().strftime('%m_%d_%Y')
+
+    # Run
+    result_1 = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer'],
+        sdv_datasets=['fake_companies'],
+        output_destination=output_destination,
+    )
+    result_2 = benchmark_single_table(
+        synthesizers=['TVAESynthesizer'],
+        sdv_datasets=['fake_companies'],
+        output_destination=output_destination,
+    )
+
+    # Assert
+    score_saved_separately = pd.DataFrame()
+    directions = os.listdir(output_destination)
+    assert directions == [f'SDGym_results_{today_date}']
+    subdirections = os.listdir(os.path.join(output_destination, directions[0]))
+    assert set(subdirections) == {
+        'results.csv',
+        'results(1).csv',
+        f'fake_companies_{today_date}',
+        'metainfo.yaml',
+        'metainfo(1).yaml',
+    }
+    with open(os.path.join(output_destination, directions[0], 'metainfo.yaml'), 'r') as f:
+        metadata = yaml.safe_load(f)
+        assert metadata['completed_date'] is not None
+        assert metadata['sdgym_version'] == sdgym.__version__
+
+    synthesizer_directions = os.listdir(
+        os.path.join(output_destination, directions[0], f'fake_companies_{today_date}')
+    )
+    assert set(synthesizer_directions) == {
+        'TVAESynthesizer(1)',
+        'GaussianCopulaSynthesizer',
+        'UniformSynthesizer',
+        'UniformSynthesizer(1)',
+    }
+    for synthesizer in sorted(synthesizer_directions):
+        synthesizer_files = os.listdir(
+            os.path.join(
+                output_destination, directions[0], f'fake_companies_{today_date}', synthesizer
+            )
+        )
+        assert set(synthesizer_files) == {
+            f'{synthesizer}.pkl',
+            f'{synthesizer}_synthetic_data.csv',
+            f'{synthesizer}_benchmark_result.csv',
+        }
+        score = pd.read_csv(
+            os.path.join(
+                output_destination,
+                directions[0],
+                f'fake_companies_{today_date}',
+                synthesizer,
+                f'{synthesizer}_benchmark_result.csv',
+            )
+        )
+        score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
+
+    saved_result_1 = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
+    saved_result_2 = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results(1).csv')
+    pd.testing.assert_frame_equal(result_1, saved_result_1, check_dtype=False)
+    pd.testing.assert_frame_equal(result_2, saved_result_2, check_dtype=False)

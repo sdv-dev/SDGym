@@ -37,10 +37,10 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
         with prevent_tqdm_output():
             model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
             model = REaLTabFormer(model_type='tabular', **model_kwargs)
-            model.fit(data, device='cpu')
+            model.fit(data)
 
         return model
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
-        return synthesizer.sample(n_sample, device='cpu')
+        return synthesizer.sample(n_sample)

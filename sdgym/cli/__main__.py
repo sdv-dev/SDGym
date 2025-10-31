@@ -80,7 +80,7 @@ def _run(args):
     scores = sdgym.benchmark_single_table(
         synthesizers=args.synthesizers,
         sdv_datasets=args.datasets,
-        sdmetrics=args.metrics,
+        sdmetrics=args.sdmetrics,
         timeout=args.timeout,
         show_progress=args.progress,
         output_filepath=args.output_path,
@@ -98,12 +98,16 @@ def _download_datasets(args):
     datasets = args.datasets
     if not datasets:
         datasets = sdgym.datasets.get_available_datasets(
-            args.bucket, args.aws_key, args.aws_secret
+            args.bucket, args.aws_access_key_id, args.aws_secret_access_key
         )['name']
 
     for dataset in tqdm.tqdm(datasets):
         sdgym.datasets.load_dataset(
-            dataset, args.datasets_path, args.bucket, args.aws_key, args.aws_secret
+            dataset,
+            args.datasets_path,
+            args.bucket,
+            args.aws_access_key_id,
+            args.aws_secret_access_key,
         )
 
 
@@ -114,7 +118,9 @@ def _list_downloaded(args):
 
 
 def _list_available(args):
-    datasets = sdgym.datasets.get_available_datasets(args.bucket, args.aws_key, args.aws_secret)
+    datasets = sdgym.datasets.get_available_datasets(
+        args.bucket, args.aws_access_key_id, args.aws_secret_access_key
+    )
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
 
 
@@ -125,7 +131,7 @@ def _list_synthesizers(args):
 
 def _collect(args):
     sdgym.cli.collect.collect_results(
-        args.input_path, args.output_file, args.aws_key, args.aws_secret
+        args.input_path, args.output_file, args.aws_access_key_id, args.aws_secret_access_key
     )
 
 
@@ -133,8 +139,8 @@ def _summary(args):
     sdgym.cli.summary.make_summary_spreadsheet(
         args.input_path,
         output_path=args.output_file,
-        aws_key=args.aws_key,
-        aws_secret=args.aws_secret,
+        aws_access_key_id=args.aws_access_key_id,
+        aws_secret_access_key=args.aws_secret_access_key,
     )
 
 
@@ -178,7 +184,12 @@ def _get_parser():
         required=False,
         help='Path to the CSV file where the report will be dumped',
     )
-    run.add_argument('-m', '--metrics', nargs='+', help='Metrics to apply. Accepts multiple names.')
+    run.add_argument(
+        '-m',
+        '--sdmetrics',
+        nargs='+',
+        help='Metrics to apply. Accepts multiple names.',
+    )
     run.add_argument('-b', '--bucket', help='Bucket from which to download the datasets.')
     run.add_argument('-dp--datasets-path', help='Path where datasets can be found.')
     run.add_argument(
