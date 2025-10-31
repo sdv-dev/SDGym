@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 from sdv.metadata import Metadata
 
-from sdgym.datasets import BUCKET, _validate_modality, load_dataset, _get_available_datasets
+from sdgym.datasets import BUCKET, _get_available_datasets, _validate_modality, load_dataset
 
 
 class DatasetExplorer:
@@ -44,8 +44,8 @@ class DatasetExplorer:
         """
         branch_counts = defaultdict(set)
         for rel in relationships:
-            parent = rel["parent_table_name"]
-            child = rel["child_table_name"]
+            parent = rel['parent_table_name']
+            child = rel['child_table_name']
             branch_counts[parent].add(child)
 
         return max((len(children) for children in branch_counts.values()), default=0)
@@ -63,6 +63,7 @@ class DatasetExplorer:
                 The maximum schema depth (i.e., the longest parent-child relationship chain).
         """
         child_map = metadata._get_child_map()
+        parent_map = metadata._get_parent_map()
         if not child_map:
             return 1
 
@@ -74,6 +75,9 @@ class DatasetExplorer:
 
         parent_map = metadata._get_parent_map()
         root_tables = [table for table in child_map.keys() if table not in parent_map]
+        if not root_tables:
+            return 1
+
         return max(dfs(root) for root in root_tables)
 
     @staticmethod
@@ -101,8 +105,7 @@ class DatasetExplorer:
             num_cols = len(table.columns)
             results['Total_Num_Columns'] += num_cols
             results['Max_Num_Columns_Per_Table'] = max(
-                results['Max_Num_Columns_Per_Table'],
-                num_cols
+                results['Max_Num_Columns_Per_Table'], num_cols
             )
             for column_name, column in table.columns.items():
                 sdtype = column['sdtype']
@@ -122,7 +125,7 @@ class DatasetExplorer:
         return results
 
     @staticmethod
-    def summarize_metadata(metadata):
+    def get_metadata_summary(metadata):
         """Summarize schema-level information from dataset metadata.
 
         Args:
@@ -139,16 +142,15 @@ class DatasetExplorer:
 
         metadata_summary = DatasetExplorer._summarize_metadata_columns(metadata)
         total_relationships = len(metadata.relationships)
-        total_number_of_tables = len(metadata.tables)
         metadata_summary.update({
             'Num_Relationships': total_relationships,
             'Max_Schema_Depth': DatasetExplorer._get_max_depth(metadata),
-            'Max_Schema_Branch': DatasetExplorer._get_max_schema_branch(metadata.relationships)
+            'Max_Schema_Branch': DatasetExplorer._get_max_schema_branch(metadata.relationships),
         })
         return metadata_summary
 
     @staticmethod
-    def summarize_data(data):
+    def get_data_summary(data):
         """Summarize record-level information from dataset tables.
 
         Args:
@@ -168,8 +170,7 @@ class DatasetExplorer:
             table_num_rows = len(table)
             data_summary['Total_Num_Rows'] += table_num_rows
             data_summary['Max_Num_Rows_Per_Table'] = max(
-                data_summary['Max_Num_Rows_Per_Table'],
-                table_num_rows
+                data_summary['Max_Num_Rows_Per_Table'], table_num_rows
             )
 
         return data_summary
@@ -202,11 +203,11 @@ class DatasetExplorer:
                 dataset=dataset_name,
                 bucket=self.s3_url,
                 aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key
+                aws_secret_access_key=self.aws_secret_access_key,
             )
 
-            metadata_stats = DatasetExplorer.summarize_metadata(metadata_dict)
-            data_stats = DatasetExplorer.summarize_data(data)
+            metadata_stats = DatasetExplorer.get_metadata_summary(metadata_dict)
+            data_stats = DatasetExplorer.get_data_summary(data)
             max_schema_depth = metadata_stats.pop('Max_Schema_Depth')
             max_schema_branch = metadata_stats.pop('Max_Schema_Branch')
             num_relationships = metadata_stats.pop('Num_Relationships')
@@ -218,34 +219,34 @@ class DatasetExplorer:
                 **data_stats,
                 'Num_Relationships': num_relationships,
                 'Max_Schema_Depth': max_schema_depth,
-                'Max_Schema_Branch': max_schema_branch
+                'Max_Schema_Branch': max_schema_branch,
             })
 
         return results
 
-    def _validate_output_path(self, output_path):
+    def _validate_output_filepath(self, output_filepath):
         """Validate that the provided output path has a .csv file extension.
 
         Args:
-            output_path (str or None):
+            output_filepath (str or None):
                 The file path to validate.
 
         Raises:
             ValueError:
                 If the provided path is not None and does not end with '.csv'.
         """
-        if output_path and not Path(output_path).suffix == '.csv':
+        if output_filepath and not Path(output_filepath).suffix == '.csv':
             raise ValueError(
-                f"The 'output_path' has to be a .csv file, provided: '{output_path}'."
+                f"The 'output_filepath' has to be a .csv file, provided: '{output_filepath}'."
             )
 
-    def summarize_datasets(self, modality, output_path=None):
+    def summarize_datasets(self, modality, output_filepath=None):
         """Load, summarize, and optionally export dataset statistics for a given modality.
 
         Args:
             modality (str):
                 It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
-            output_path (str, optional):
+            output_filepath (str, optional):
                 The path to save the summary as a CSV file. If `None`, results are returned only.
 
         Returns:
@@ -255,15 +256,15 @@ class DatasetExplorer:
 
         Raises:
             ValueError:
-                If `output_path` is provided and does not have a '.csv' extension.
+                If `output_filepath` is provided and does not have a '.csv' extension.
             ValueError:
                 If the modality provided is not `single_table`, `multi_table` or `sequential`.
         """
-        self._validate_output_path(output_path)
+        self._validate_output_filepath(output_filepath)
         _validate_modality(modality)
         results = self._load_and_summarize_datasets(modality)
         dataset_summary = pd.DataFrame(results)
-        if output_path:
-            dataset_summary.to_csv(output_path, index=False)
+        if output_filepath:
+            dataset_summary.to_csv(output_filepath, index=False)
 
         return dataset_summary
