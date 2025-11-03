@@ -212,7 +212,7 @@ endif
 
 .PHONY: check-deps
 check-deps: # Dependency targets
-	$(eval allow_list='appdirs=|compress-pickle=|humanfriendly=|numpy=|pandas=|\
+	$(eval allow_list='appdirs=|compress-pickle=|humanfriendly=|numpy=|openpyxl=|pandas=|\
 	psutil=|scikit-learn=|scipy=|tabulate=|torch=|tqdm=|XlsxWriter=|rdt=|sdmetrics=|sdv=')
 	pip freeze | grep -v "SDMetrics.git" | grep -E $(allow_list) | sort > $(OUTPUT_FILEPATH)
 
