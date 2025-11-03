@@ -238,3 +238,22 @@ release-minor: check-release bumpversion-minor release
 
 .PHONY: release-major
 release-major: check-release bumpversion-major release
+
+.PHONY: upgradepip
+upgradepip:
+	python -m pip install --upgrade pip
+
+.PHONY: upgradebuild
+upgradebuild:
+	python -m pip install --upgrade build
+
+.PHONY: upgradesetuptools
+upgradesetuptools:
+	python -m pip install --upgrade setuptools
+
+.PHONY: package
+package: upgradepip upgradebuild upgradesetuptools
+	python -m build ; \
+	$(eval VERSION=$(shell python -c 'import setuptools; setuptools.setup()' --version))
+	tar -zxvf "dist/sdgym-${VERSION}.tar.gz"
+	mv "sdgym-${VERSION}" unpacked_sdist
