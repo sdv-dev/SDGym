@@ -1,5 +1,11 @@
 # History
 
+## v0.11.1 - 2025-11-03
+
+### Bugs Fixed
+
+* Missing dependency openpyxl - Issue [#479](https://github.com/sdv-dev/SDGym/issues/479) by @rwedge
+
 ## v0.11.0 - 2025-10-31
 
 ### New Features
