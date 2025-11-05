@@ -47,7 +47,6 @@ class SDVSingleTableBaseline(BaselineSynthesizer, abc.ABC):
 
 def _iter_sdv_single_table_classes():
     """Yield (name, cls) for every SDV single-table synthesizer we can find."""
-    # if SDV isn't available, just stop here
     if BaseSingleTableSynthesizer is None:
         return
 
@@ -56,12 +55,10 @@ def _iter_sdv_single_table_classes():
     except ImportError:
         return
 
-    # 1) look in the root module (where your enterprise/bundle exports live)
     for name, obj in inspect.getmembers(st_root, inspect.isclass):
         if issubclass(obj, BaseSingleTableSynthesizer) and obj is not BaseSingleTableSynthesizer:
             yield name, obj
 
-    # 2) also walk submodules
     for module_info in pkgutil.walk_packages(st_root.__path__, prefix=st_root.__name__ + '.'):
         try:
             module = importlib.import_module(module_info.name)
@@ -76,7 +73,7 @@ def _iter_sdv_single_table_classes():
                 yield name, obj
 
 
-# dynamically create one baseline per SDV synth
+# dynamically create one baseline per SDV synthesizer
 for _name, _cls in _iter_sdv_single_table_classes():
     if _name in globals():
         continue
@@ -85,6 +82,7 @@ for _name, _cls in _iter_sdv_single_table_classes():
         _name,
         (SDVSingleTableBaseline,),
         {
+            '__module__': __name__,
             '__doc__': f'SDGym baseline wrapping sdv.single_table.{_name}',
             '_SDV_CLASS': _cls,
         },
