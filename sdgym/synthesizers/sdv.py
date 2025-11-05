@@ -14,21 +14,29 @@ from sdgym.utils import select_device
 LOGGER = logging.getLogger(__name__)
 
 
+LOGGER = logging.getLogger(__name__)
+
+# --- single place where we deal with SDV being present or not ---
+try:
+    from sdv.single_table.base import BaseSingleTableSynthesizer
+except ImportError:  # SDV not installed or old version
+    BaseSingleTableSynthesizer = None
+# ---------------------------------------------------------------
+
+
 class SDVSingleTableBaseline(BaselineSynthesizer, abc.ABC):
     """Generic SDGym baseline that wraps an SDV single-table synthesizer."""
 
-    # this will be set on the dynamically created subclasses
     _SDV_CLASS = None
-    _MODEL_KWARGS = None  # keep for compatibility with your old code
+    _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
         if self._SDV_CLASS is None:
             raise ValueError(f'{self.__class__.__name__} has no _SDV_CLASS set')
 
         LOGGER.info('Fitting %s', self.__class__.__name__)
-
-        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._SDV_CLASS(metadata=metadata, **model_kwargs)
+        kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
+        model = self._SDV_CLASS(metadata=metadata, **kwargs)
         model.fit(data)
         return model
 
@@ -38,35 +46,38 @@ class SDVSingleTableBaseline(BaselineSynthesizer, abc.ABC):
 
 
 def _iter_sdv_single_table_classes():
-    """Yield (name, cls) for every SDV single-table synthesizer in the environment."""
-    try:
-        from sdv.single_table.base import BaseSingleTableSynthesizer
-    except ImportError:
-        return  # SDV not installed
+    """Yield (name, cls) for every SDV single-table synthesizer we can find."""
+    # if SDV isn't available, just stop here
+    if BaseSingleTableSynthesizer is None:
+        return
 
     try:
         st_root = importlib.import_module('sdv.single_table')
     except ImportError:
         return
 
+    # 1) look in the root module (where your enterprise/bundle exports live)
+    for name, obj in inspect.getmembers(st_root, inspect.isclass):
+        if issubclass(obj, BaseSingleTableSynthesizer) and obj is not BaseSingleTableSynthesizer:
+            yield name, obj
+
+    # 2) also walk submodules
     for module_info in pkgutil.walk_packages(st_root.__path__, prefix=st_root.__name__ + '.'):
         try:
             module = importlib.import_module(module_info.name)
         except Exception:
-            # don't break discovery because one module has an import-time issue
             continue
 
-        for attr_name, obj in inspect.getmembers(module, inspect.isclass):
+        for name, obj in inspect.getmembers(module, inspect.isclass):
             if (
                 issubclass(obj, BaseSingleTableSynthesizer)
                 and obj is not BaseSingleTableSynthesizer
             ):
-                yield attr_name, obj
+                yield name, obj
 
 
-# Dynamically create one SDGym baseline per SDV single-table synthesizer
+# dynamically create one baseline per SDV synth
 for _name, _cls in _iter_sdv_single_table_classes():
-    # avoid clobbering something we already defined manually
     if _name in globals():
         continue
 
