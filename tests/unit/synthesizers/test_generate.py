@@ -8,10 +8,10 @@ from sdv.multi_table import HMASynthesizer
 from sdv.single_table import GaussianCopulaSynthesizer
 
 from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesizer
-from sdgym.synthesizers._sdv_dynamic import SDVMultiTableBaseline, SDVSingleTableBaseline
 from sdgym.synthesizers.generate import (
     create_multi_table_synthesizer,
 )
+from sdgym.synthesizers.sdv import SDVMultiTableBaseline, SDVSingleTableBaseline
 
 
 def test_create_single_table_synthesizer():
@@ -40,7 +40,7 @@ def test_create_sdv_variant_synthesizer():
     """Test that a sdv variant synthesizer is created.
 
     Expect that if the synthesizer class is a single-table synthesizer, the
-    new synthesizer inherits from the SDVTabularSynthesizer base class.
+    new synthesizer inherits from the SDVSingleTableBaseline base class.
     """
     # Setup
     synthesizer_class = 'GaussianCopulaSynthesizer'
@@ -58,11 +58,7 @@ def test_create_sdv_variant_synthesizer():
 
 @patch('sdgym.synthesizers.generate._list_available_synthesizers')
 def test_create_sdv_variant_synthesizer_error(mock_list):
-    """Test that a sdv variant synthesizer is created.
-
-    Expect that if the synthesizer class is a single-table synthesizer, the
-    new synthesizer inherits from the SDVTabularSynthesizer base class.
-    """
+    """Test an error is raised when the synthesizer is not from SDV."""
     # Setup
     synthesizer_class = 'test'
     synthesizer_parameters = {}
@@ -81,11 +77,11 @@ def test_create_sdv_variant_synthesizer_error(mock_list):
         create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
 
-def test_create_sdv_variant_synthesizer_relational():
+def test_create_sdv_variant_synthesizer_multi_table():
     """Test that a sdv variant synthesizer is created.
 
-    Expect that if the synthesizer class is a relational synthesizer, the
-    new synthesizer inherits from the SDVRelationalSynthesizer base class.
+    Expect that if the synthesizer class is a multi-table synthesizer, the
+    new synthesizer inherits from the SDVMultiTableBaseline base class.
     """
     # Setup
     synthesizer_class = 'HMASynthesizer'

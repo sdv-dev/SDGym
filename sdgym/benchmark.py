@@ -907,8 +907,7 @@ def _create_sdgym_script(params, output_filepath):
 from io import StringIO
 import sdgym
 from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer,
-    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
-    SDVTabularSynthesizer, TVAESynthesizer)
+    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, TVAESynthesizer)
 from sdgym.synthesizers import RealTabFormerSynthesizer
 
 results = sdgym.benchmark_single_table(

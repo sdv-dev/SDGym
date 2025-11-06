@@ -1,12 +1,12 @@
 """Helpers to create SDV synthesizer variants."""
 
-from sdgym.synthesizers._sdv_dynamic import (
-    SDVMultiTableBaseline,
-    SDVSingleTableBaseline,
-)
 from sdgym.synthesizers._sdv_lookup import find_sdv_synthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
+from sdgym.synthesizers.sdv import (
+    SDVMultiTableBaseline,
+    SDVSingleTableBaseline,
+)
 
 SYNTHESIZER_MAPPING = {
     'RealTabFormerSynthesizer': RealTabFormerSynthesizer,

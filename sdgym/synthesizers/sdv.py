@@ -1,62 +1,95 @@
-"""SDV synthesizers module."""
+"""SDV synthesizers wrappers for SDGym."""
 
 import abc
 import logging
 
+from sdgym.synthesizers._sdv_lookup import (
+    find_sdv_synthesizer,
+)
 from sdgym.synthesizers.base import BaselineSynthesizer
 
 LOGGER = logging.getLogger(__name__)
 
 
-class SDVTabularSynthesizer(BaselineSynthesizer, abc.ABC):
-    """Base class for single-table models."""
+class SDVSingleTableBaseline(BaselineSynthesizer, abc.ABC):
+    """Base class for SDV single-table synthesizers."""
 
-    _MODEL = None
+    _SDV_CLASS = None
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
-        LOGGER.info('Fitting %s', self.__class__.__name__)
-        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(metadata=metadata, **model_kwargs)
+        if self._SDV_CLASS is None:
+            raise ValueError(f'{self.__class__.__name__} has no _SDV_CLASS set')
+        kwargs = dict(self._MODEL_KWARGS or {})
+        model = self._SDV_CLASS(metadata=metadata, **kwargs)
         model.fit(data)
         return model
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
-        LOGGER.info('Sampling %s', self.__class__.__name__)
         return synthesizer.sample(n_samples)
 
 
-class SDVRelationalSynthesizer(BaselineSynthesizer, abc.ABC):
-    """Base class for multi-table models."""
+class SDVMultiTableBaseline(BaselineSynthesizer, abc.ABC):
+    """Base class for SDV multi-table synthesizers."""
 
-    _MODEL = None
+    _SDV_CLASS = None
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
-        LOGGER.info('Fitting %s', self.__class__.__name__)
-        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(metadata=metadata, **model_kwargs)
+        if self._SDV_CLASS is None:
+            raise ValueError(f'{self.__class__.__name__} has no _SDV_CLASS set')
+        kwargs = dict(self._MODEL_KWARGS or {})
+        model = self._SDV_CLASS(metadata=metadata, **kwargs)
         model.fit(data)
         return model
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
-        LOGGER.info('Sampling %s', self.__class__.__name__)
-        return synthesizer.sample()
+        return synthesizer.sample(n_samples)
 
 
-class SDVTimeseriesSynthesizer(BaselineSynthesizer, abc.ABC):
-    """Base class for time-series models."""
+def _create_wrappers():
+    names_to_try = []
+    for module_name in ('sdv.single_table', 'sdv.multi_table'):
+        try:
+            m = __import__(module_name, fromlist=['*'])
+        except Exception:
+            continue
 
-    _MODEL = None
-    _MODEL_KWARGS = None
+        for attr in dir(m):
+            if attr[0].isupper():
+                names_to_try.append(attr)
 
-    def _get_trained_synthesizer(self, data, metadata):
-        LOGGER.info('Fitting %s', self.__class__.__name__)
-        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        model = self._MODEL(metadata=metadata, **model_kwargs)
-        model.fit(data)
-        return model
+    for name in set(names_to_try):
+        try:
+            sdv_cls, kind = find_sdv_synthesizer(name)
+        except KeyError:
+            continue
 
-    def _sample_from_synthesizer(self, synthesizer, n_samples):
-        LOGGER.info('Sampling %s', self.__class__.__name__)
-        return synthesizer.sample()
+        if name in globals():
+            continue
+
+        if kind == 'single_table':
+            cls = type(
+                name,
+                (SDVSingleTableBaseline,),
+                {
+                    '__module__': __name__,
+                    '__doc__': f'SDGym wrapper for {sdv_cls}',
+                    '_SDV_CLASS': sdv_cls,
+                },
+            )
+        else:
+            cls = type(
+                name,
+                (SDVMultiTableBaseline,),
+                {
+                    '__module__': __name__,
+                    '__doc__': f'SDGym wrapper for {sdv_cls}',
+                    '_SDV_CLASS': sdv_cls,
+                },
+            )
+
+        globals()[name] = cls
+
+
+_create_wrappers()

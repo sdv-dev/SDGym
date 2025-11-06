@@ -10,15 +10,10 @@ from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.column import ColumnSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
 from sdgym.synthesizers.uniform import UniformSynthesizer
-from sdgym.synthesizers import _sdv_dynamic as sdv_dynamic  # noqa: F401
-from sdgym.synthesizers._sdv_dynamic import (
+from sdgym.synthesizers import sdv as sdgym_sdv
+from sdgym.synthesizers.sdv import (
     SDVSingleTableBaseline,
     SDVMultiTableBaseline,
-)
-from sdgym.synthesizers.sdv import (
-    SDVTabularSynthesizer,
-    SDVRelationalSynthesizer,
-    SDVTimeseriesSynthesizer,
 )
 
 __all__ = [
@@ -32,14 +27,11 @@ __all__ = [
     'SYNTHESIZER_MAPPING',
     'SDVSingleTableBaseline',
     'SDVMultiTableBaseline',
-    'SDVTabularSynthesizer',
-    'SDVRelationalSynthesizer',
-    'SDVTimeseriesSynthesizer',
 ]
 
 
-for name in dir(sdv_dynamic):
-    obj = getattr(sdv_dynamic, name)
+for name in dir(sdgym_sdv):
+    obj = getattr(sdgym_sdv, name)
     if isinstance(obj, type) and (
         issubclass(obj, SDVSingleTableBaseline) or issubclass(obj, SDVMultiTableBaseline)
     ):
