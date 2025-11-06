@@ -1,88 +1,57 @@
-"""Synthesizers module."""
+"""Helpers to create SDV synthesizer variants."""
 
-from sdv.multi_table.hma import HMASynthesizer
-from sdv.sequential import PARSynthesizer
-from sdv.single_table import (
-    CopulaGANSynthesizer,
-    CTGANSynthesizer,
-    GaussianCopulaSynthesizer,
-    TVAESynthesizer,
+from sdgym.synthesizers._sdv_dynamic import (
+    SDVMultiTableBaseline,
+    SDVSingleTableBaseline,
 )
-
+from sdgym.synthesizers._sdv_lookup import find_sdv_synthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiSingleTableBaselineSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
-from sdgym.synthesizers.sdv import SDVRelationalSynthesizer, SDVTabularSynthesizer
 
 SYNTHESIZER_MAPPING = {
-    'GaussianCopulaSynthesizer': GaussianCopulaSynthesizer,
-    'CTGANSynthesizer': CTGANSynthesizer,
-    'CopulaGANSynthesizer': CopulaGANSynthesizer,
-    'TVAESynthesizer': TVAESynthesizer,
-    'PARSynthesizer': PARSynthesizer,
-    'HMASynthesizer': HMASynthesizer,
     'RealTabFormerSynthesizer': RealTabFormerSynthesizer,
 }
 
 
+def _list_available_synthesizers():
+    import sdgym.synthesizers as synth_pkg
+
+    out = []
+    for name in dir(synth_pkg):
+        obj = getattr(synth_pkg, name)
+        if isinstance(obj, type) and issubclass(obj, BaselineSynthesizer):
+            if obj is BaselineSynthesizer:
+                continue
+            out.append(name)
+
+    return sorted(out)
+
+
 def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
-    """Create a new synthesizer that is a variant of an SDV tabular synthesizer.
-
-    Args:
-        display_name (string):
-            A string with the name of this synthesizer, used for display purposes only
-            when the results are generated.
-        synthesizer_class (string):
-            The name of the SDV synthesizer class. The available options are:
-
-                * 'GaussianCopulaSynthesizer'
-                * 'CTGANSynthesizer',
-                * 'CopulaGANSynthesizer'
-                * 'TVAESynthesizer'
-                * 'PARSynthesizer'
-                * 'HMASynthesizer'
-
-        synthesizer_parameters (dict):
-            A dictionary of the parameter names and values that will be used for the synthesizer.
-
-    Returns:
-        class:
-            The synthesizer class.
-    """
-    if synthesizer_class not in SYNTHESIZER_MAPPING.keys():
+    """Create a new SDV synthesizer variant."""
+    try:
+        sdv_cls, kind = find_sdv_synthesizer(synthesizer_class)
+    except KeyError:
+        available_synthesizers = "', '".join(_list_available_synthesizers())
         raise ValueError(
-            f'Synthesizer class {synthesizer_class} is not recognized. '
-            f'The supported options are {", ".join(SYNTHESIZER_MAPPING.keys())}'
+            f'Synthesizer class {synthesizer_class!r} is not recognized. '
+            f"Available SDV synthesizers: '{available_synthesizers}'"
         )
 
-    baseclass = SDVTabularSynthesizer
-    if synthesizer_class == 'HMASynthesizer':
-        baseclass = SDVRelationalSynthesizer
-    if synthesizer_class == 'RealTabFormerSynthesizer':
-        baseclass = RealTabFormerSynthesizer
+    if kind == 'single_table':
+        baseclass = SDVSingleTableBaseline
+    else:
+        baseclass = SDVMultiTableBaseline
 
     class NewSynthesizer(baseclass):
-        """New Synthesizer class.
-
-        Args:
-            synthesizer_class (string):
-                The name of the SDV synthesizer class. The available options are:
-
-                    * 'GaussianCopulaSynthesizer'
-                    * 'CTGANSynthesizer'
-                    * 'CopulaGANSynthesizer'
-                    * 'TVAESynthesizer'
-                    * 'PARSynthesizer'
-
-            synthesizer_parameters (dict):
-                A dictionary of the parameter names and values that will be used for
-                the synthesizer.
-        """
-
-        _MODEL = SYNTHESIZER_MAPPING.get(synthesizer_class)
+        _SDV_CLASS = sdv_cls
+        _BASE_SYNTHESIZER_CLASS = sdv_cls
         _MODEL_KWARGS = synthesizer_parameters
 
-    NewSynthesizer.__name__ = f'Variant:{display_name}'
-
+    cls_name = f'Variant:{display_name}'
+    NewSynthesizer.__name__ = cls_name
+    NewSynthesizer.__module__ = __name__
+    globals()[cls_name] = NewSynthesizer
     return NewSynthesizer
 
 
@@ -92,61 +61,28 @@ def create_single_table_synthesizer(
     """Create a new single-table synthesizer.
 
     Args:
-        display_name(string):
-            A string with the name of this synthesizer, used for display purposes only when
-            the results are generated
+        display_name (str):
+            Name of this synthesizer, used for display purposes in results.
         get_trained_synthesizer_fn (callable):
-            A function to generate and train a synthesizer, given the real data and metadata.
-        sample_from_synthesizer (callable):
-            A function to sample from the given synthesizer.
+            Function that, given (data, metadata), returns a trained synthesizer.
+        sample_from_synthesizer_fn (callable):
+            Function that, given (synthesizer, n), returns sampled data.
 
     Returns:
-        class:
-            The synthesizer class.
+        type: the synthesizer class.
     """
 
     class NewSynthesizer(BaselineSynthesizer):
-        """New Synthesizer class.
-
-        Args:
-            get_trained_synthesizer_fn (callable):
-                Function to replace the ``get_trained_synthesizer`` method.
-            sample_from_synthesizer_fn (callable):
-                Function to replace the ``sample_from_synthesizer`` method.
-        """
-
         def get_trained_synthesizer(self, data, metadata):
-            """Create and train a synthesizer, given the real data and metadata.
-
-            Args:
-                data (pandas.DataFrame):
-                    The real data.
-                metadata (dict):
-                    The single table metadata dictionary.
-
-            Returns:
-                obj:
-                    The trained synthesizer.
-            """
             return self.synthesizer_fn['get_trained_synthesizer_fn'](data, metadata)
 
         def sample_from_synthesizer(self, synthesizer, num_samples):
-            """Sample the desired number of samples from the given synthesizer.
-
-            Args:
-                synthesizer (obj):
-                    The trained synthesizer.
-                num_samples (int):
-                    The number of samples to generate.
-
-            Returns:
-                pandas.DataFrame:
-                    The synthetic data.
-            """
             return self.synthesizer_fn['sample_from_synthesizer_fn'](synthesizer, num_samples)
 
+    class_name = f'Custom:{display_name}'
+
     CustomSynthesizer = type(
-        f'Custom:{display_name}',
+        class_name,
         (NewSynthesizer,),
         {
             'synthesizer_fn': {
@@ -155,9 +91,12 @@ def create_single_table_synthesizer(
             },
         },
     )
-    CustomSynthesizer.__name__ = f'Custom:{display_name}'
-    CustomSynthesizer.__module__ = 'sdgym.synthesizers.generate'
-    globals()[f'Custom:{display_name}'] = CustomSynthesizer
+
+    # make it importable/picklable
+    CustomSynthesizer.__name__ = class_name
+    CustomSynthesizer.__module__ = __name__
+    globals()[class_name] = CustomSynthesizer
+
     return CustomSynthesizer
 
 

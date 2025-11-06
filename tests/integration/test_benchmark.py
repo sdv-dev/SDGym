@@ -221,6 +221,9 @@ def test_benchmark_single_table():
 
     # Setup
     def get_trained_synthesizer(data, metadata):
+        from sdv.metadata import Metadata
+        from sdv.single_table.copulas import GaussianCopulaSynthesizer
+
         metadata_obj = Metadata.load_from_dict(metadata)
         model = GaussianCopulaSynthesizer(metadata_obj)
         model.fit(data)

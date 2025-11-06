@@ -1,13 +1,15 @@
 """Tests for the generate module."""
 
-from unittest.mock import Mock
+import re
+from unittest.mock import Mock, patch
 
 import pytest
+from sdv.multi_table import HMASynthesizer
+from sdv.single_table import GaussianCopulaSynthesizer
 
 from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesizer
-from sdgym.synthesizers import SDVRelationalSynthesizer, SDVTabularSynthesizer
+from sdgym.synthesizers._sdv_dynamic import SDVMultiTableBaseline, SDVSingleTableBaseline
 from sdgym.synthesizers.generate import (
-    SYNTHESIZER_MAPPING,
     create_multi_table_synthesizer,
     create_sequential_synthesizer,
 )
@@ -61,12 +63,13 @@ def test_create_sdv_variant_synthesizer():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out._MODEL == SYNTHESIZER_MAPPING.get(synthesizer_class)
-    assert out._MODEL_KWARGS == synthesizer_parameters
-    assert issubclass(out, SDVTabularSynthesizer)
+    assert out._SDV_CLASS == GaussianCopulaSynthesizer
+    assert issubclass(out, SDVSingleTableBaseline)
+    assert out._MODEL_KWARGS == {}
 
 
-def test_create_sdv_variant_synthesizer_error():
+@patch('sdgym.synthesizers.generate._list_available_synthesizers')
+def test_create_sdv_variant_synthesizer_error(mock_list):
     """Test that a sdv variant synthesizer is created.
 
     Expect that if the synthesizer class is a single-table synthesizer, the
@@ -75,14 +78,18 @@ def test_create_sdv_variant_synthesizer_error():
     # Setup
     synthesizer_class = 'test'
     synthesizer_parameters = {}
+    mock_list.return_value = [
+        'GaussianCopulaSynthesizer',
+        'CTGANSynthesizer',
+        'UniformSynthesizer',
+    ]
+    expected_error = re.escape(
+        "Synthesizer class 'test' is not recognized. Available SDV synthesizers: "
+        "'GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'UniformSynthesizer'"
+    )
 
     # Run
-    with pytest.raises(
-        ValueError,
-        match=r'Synthesizer class test is not recognized. The supported options are '
-        'GaussianCopulaSynthesizer, CTGANSynthesizer, '
-        'CopulaGANSynthesizer, TVAESynthesizer, PARSynthesizer, HMASynthesizer',
-    ):
+    with pytest.raises(ValueError, match=expected_error):
         create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
 
@@ -101,6 +108,7 @@ def test_create_sdv_variant_synthesizer_relational():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out._MODEL == SYNTHESIZER_MAPPING.get(synthesizer_class)
+    assert out._SDV_CLASS == HMASynthesizer
+    assert out._BASE_SYNTHESIZER_CLASS == HMASynthesizer
     assert out._MODEL_KWARGS == synthesizer_parameters
-    assert issubclass(out, SDVRelationalSynthesizer)
+    assert issubclass(out, SDVMultiTableBaseline)
