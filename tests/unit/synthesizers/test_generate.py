@@ -11,7 +11,6 @@ from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesize
 from sdgym.synthesizers._sdv_dynamic import SDVMultiTableBaseline, SDVSingleTableBaseline
 from sdgym.synthesizers.generate import (
     create_multi_table_synthesizer,
-    create_sequential_synthesizer,
 )
 
 
@@ -30,17 +29,6 @@ def test_create_multi_table_synthesizer():
     """Test that a multi table synthesizer is created."""
     # Run
     out = create_multi_table_synthesizer('test_synth', Mock(), Mock())
-
-    # Assert
-    assert out.__name__ == 'Custom:test_synth'
-    assert hasattr(out, 'get_trained_synthesizer')
-    assert hasattr(out, 'sample_from_synthesizer')
-
-
-def test_create_sequential_synthesizer():
-    """Test that a sequential synthesizer is created."""
-    # Run
-    out = create_sequential_synthesizer('test_synth', Mock(), Mock())
 
     # Assert
     assert out.__name__ == 'Custom:test_synth'
