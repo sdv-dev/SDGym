@@ -4,7 +4,6 @@ import contextlib
 import io
 import os
 import re
-import sys
 import time
 import warnings
 
