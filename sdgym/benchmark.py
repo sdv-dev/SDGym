@@ -1459,7 +1459,7 @@ def _get_gcp_script(access_key, secret_key, region_name, script_content):
         exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
         echo "======== Update and Install Dependencies ============"
         sudo apt update -y
-        sudo apt install -y python3-pip python3-venv awscli
+        sudo apt install -y python3-pip python3-venv awscli git
         echo "======== Configure AWS CLI ============"
         aws configure set aws_access_key_id '{access_key}'
         aws configure set aws_secret_access_key '{secret_key}'
@@ -1504,8 +1504,6 @@ def _run_on_gcp(
         job_args_key,
         synthesizers        
     )
-    gcp_project = "your-project-id"
-    gcp_zone = "us-central1-a"
     instance_name = "sdgym-run"
 
     # Optional: use a service account key file
@@ -1525,6 +1523,10 @@ def _run_on_gcp(
     config = {
         "name": instance_name,
         "machineType": machine_type,
+        "serviceAccounts": [{
+            "email": f"compute-launcher@{gcp_project}.iam.gserviceaccount.com",
+            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+        }],
         "disks": [{
             "boot": True,
             "autoDelete": True,
