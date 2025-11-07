@@ -1653,8 +1653,45 @@ EOF
         aws ec2 terminate-instances --instance-ids $INSTANCE_ID
     """).strip()
 
+def _get_gcp_script(access_key, secret_key, region_name, script_content):
+    return textwrap.dedent(f"""\
+        #!/bin/bash
+        set -e
 
-def _run_on_aws(
+        # Always terminate the instance when the script exits (success or failure)
+        trap '
+        gcloud compute instances delete "$HOSTNAME" --zone=us-central1-a --quiet
+        ' EXIT
+
+        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+        echo "======== Update and Install Dependencies ============"
+        sudo apt update -y
+        sudo apt install -y python3-pip python3-venv awscli git
+        echo "======== Configure AWS CLI ============"
+        aws configure set aws_access_key_id '{access_key}'
+        aws configure set aws_secret_access_key '{secret_key}'
+        aws configure set default.region '{region_name}'
+
+        echo "======== Create Virtual Environment ============"
+        python3 -m venv ~/env
+        source ~/env/bin/activate
+
+        echo "======== Install Dependencies in venv ============"
+        pip install --upgrade pip
+        pip install git+https://github.com/sdv-dev/sdgym.git@gcp-benchmark
+
+        echo "======== Write Script ==========="
+        cat << 'EOF' > ~/sdgym_script.py
+{script_content}
+EOF
+
+        echo "======== Run Script ==========="
+        python ~/sdgym_script.py
+        echo "======== Complete ==========="
+        gcloud compute instances delete "$HOSTNAME" --zone=us-central1-a --quiet
+    """).strip()
+
+def _run_on_gcp(
     output_destination,
     synthesizers,
     s3_client,
@@ -1665,6 +1702,67 @@ def _run_on_aws(
     gcp_zone,
     gcp_credentials_filepath
 ): 
+    bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
+    synthesizer_names = [{'name': synthesizer['name']} for synthesizer in synthesizers]
+    script_content = _get_s3_script_content(
+        aws_access_key_id,
+        aws_secret_access_key,
+        S3_REGION,
+        bucket_name,
+        job_args_key,
+        synthesizer_names,       
+    )
+    gcp_project = "your-project-id"
+    gcp_zone = "us-central1-a"
+    instance_name = "sdgym-run"
+
+    # Optional: use a service account key file
+    credentials = service_account.Credentials.from_service_account_file(
+        gcp_credentials_filepath
+    )
+    compute = discovery.build('compute', 'v1', credentials=credentials)
+    machine_type = f"zones/{gcp_zone}/machineTypes/e2-micro"
+    source_disk_image = "projects/debian-cloud/global/images/family/debian-12"
+    startup_script = _get_gcp_script(
+        access_key=aws_access_key_id,
+        secret_key=aws_secret_access_key,
+        region_name=S3_REGION,
+        script_content=script_content
+    )
+
+    config = {
+        "name": instance_name,
+        "machineType": machine_type,
+        "disks": [{
+            "boot": True,
+            "autoDelete": True,
+            "initializeParams": {"sourceImage": source_disk_image}
+        }],
+        "networkInterfaces": [{
+            "network": "global/networks/default",
+            "accessConfigs": [{"type": "ONE_TO_ONE_NAT", "name": "External NAT"}]
+        }],
+        "metadata": {
+            "items": [{
+                "key": "startup-script",
+                "value": startup_script
+            }]
+        }
+    }
+
+    print(f"Creating instance {instance_name}...")
+    operation = compute.instances().insert(
+        project=gcp_project, zone=gcp_zone, body=config).execute()
+
+
+def _run_on_aws(
+    output_destination,
+    synthesizers,
+    s3_client,
+    job_args_list,
+    aws_access_key_id,
+    aws_secret_access_key,
+):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
     synthesizer_names = [{'name': synthesizer['name']} for synthesizer in synthesizers]
     script_content = _get_s3_script_content(
