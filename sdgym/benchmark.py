@@ -17,6 +17,8 @@ from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
 from urllib.parse import urlparse
+from googleapiclient import discovery
+from google.oauth2 import service_account
 
 import boto3
 import cloudpickle
@@ -1444,6 +1446,106 @@ EOF
         aws ec2 terminate-instances --instance-ids $INSTANCE_ID
     """).strip()
 
+def _get_gcp_script(access_key, secret_key, region_name, script_content):
+    return textwrap.dedent(f"""\
+        #!/bin/bash
+        set -e
+
+        # Always terminate the instance when the script exits (success or failure)
+        trap '
+        gcloud compute instances delete "$HOSTNAME" --zone=us-central1-a --quiet
+        ' EXIT
+
+        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+        echo "======== Update and Install Dependencies ============"
+        sudo apt update -y
+        sudo apt install -y python3-pip python3-venv awscli
+        echo "======== Configure AWS CLI ============"
+        aws configure set aws_access_key_id '{access_key}'
+        aws configure set aws_secret_access_key '{secret_key}'
+        aws configure set default.region '{region_name}'
+
+        echo "======== Create Virtual Environment ============"
+        python3 -m venv ~/env
+        source ~/env/bin/activate
+
+        echo "======== Install Dependencies in venv ============"
+        pip install --upgrade pip
+        pip install git+https://github.com/sdv-dev/sdgym.git@gcp-benchmark
+
+        echo "======== Write Script ==========="
+        cat << 'EOF' > ~/sdgym_script.py
+{script_content}
+EOF
+
+        echo "======== Run Script ==========="
+        python ~/sdgym_script.py
+        echo "======== Complete ==========="
+        gcloud compute instances delete "$HOSTNAME" --zone=us-central1-a --quiet
+    """).strip()
+
+def _run_on_gcp(
+    output_destination,
+    synthesizers,
+    s3_client,
+    job_args_list,
+    aws_access_key_id,
+    aws_secret_access_key,
+    gcp_project,
+    gcp_zone,
+    gcp_credentials_filepath
+): 
+    bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
+    script_content = _get_s3_script_content(
+        aws_access_key_id,
+        aws_secret_access_key,
+        S3_REGION,
+        bucket_name,
+        job_args_key,
+        synthesizers        
+    )
+    gcp_project = "your-project-id"
+    gcp_zone = "us-central1-a"
+    instance_name = "sdgym-run"
+
+    # Optional: use a service account key file
+    credentials = service_account.Credentials.from_service_account_file(
+        gcp_credentials_filepath
+    )
+    compute = discovery.build('compute', 'v1', credentials=credentials)
+    machine_type = f"zones/{gcp_zone}/machineTypes/e2-micro"
+    source_disk_image = "projects/debian-cloud/global/images/family/debian-12"
+    startup_script = _get_gcp_script(
+        access_key=aws_access_key_id,
+        secret_key=aws_secret_access_key,
+        region_name=S3_REGION,
+        script_content=script_content
+    )
+
+    config = {
+        "name": instance_name,
+        "machineType": machine_type,
+        "disks": [{
+            "boot": True,
+            "autoDelete": True,
+            "initializeParams": {"sourceImage": source_disk_image}
+        }],
+        "networkInterfaces": [{
+            "network": "global/networks/default",
+            "accessConfigs": [{"type": "ONE_TO_ONE_NAT", "name": "External NAT"}]
+        }],
+        "metadata": {
+            "items": [{
+                "key": "startup-script",
+                "value": startup_script
+            }]
+        }
+    }
+
+    print(f"Creating instance {instance_name}...")
+    operation = compute.instances().insert(
+        project=gcp_project, zone=gcp_zone, body=config).execute()
+
 
 def _run_on_aws(
     output_destination,
@@ -1603,4 +1705,114 @@ def benchmark_single_table_aws(
         job_args_list=job_args_list,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+    )
+
+def benchmark_single_table_gcp(
+    output_destination,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    synthesizers=DEFAULT_SYNTHESIZERS,
+    sdv_datasets=DEFAULT_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    compute_privacy_score=True,
+    sdmetrics=None,
+    timeout=None,
+    gcp_project=None,
+    gcp_zone=None,
+    gcp_credentials_filepath=None
+):
+    """Run the SDGym benchmark on single-table datasets.
+
+    Args:
+        output_destination (str):
+            An S3 bucket or filepath. The results output folder will be written here.
+            Should be structured as:
+            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
+        aws_access_key_id (str): The AWS access key id. Optional
+        aws_secret_access_key (str): The AWS secret access key. Optional
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to
+            ``[GaussianCopulaSynthesizer, CTGANSynthesizer]``. The available options
+            are:
+                - ``GaussianCopulaSynthesizer``
+                - ``CTGANSynthesizer``
+                - ``CopulaGANSynthesizer``
+                - ``TVAESynthesizer``
+                - ``RealTabFormerSynthesizer``
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to an S3 bucket. Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        compute_privacy_score (bool):
+            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
+        sdmetrics (list[str]):
+            A list of the different SDMetrics to use.
+            If you'd like to input specific parameters into the metric, provide a tuple with
+            the metric name followed by a dictionary of the parameters.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
+    """
+    s3_client = _validate_output_destination(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    if not synthesizers:
+        synthesizers = []
+
+    _ensure_uniform_included(synthesizers)
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=sdmetrics,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=compute_privacy_score,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        custom_synthesizers=None,
+        s3_client=s3_client,
+    )
+    if not job_args_list:
+        return _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=compute_privacy_score,
+            sdmetrics=sdmetrics,
+        )
+
+    _run_on_gcp(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        job_args_list=job_args_list,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        gcp_project=gcp_project,
+        gcp_zone=gcp_zone,
+        gcp_credentials_filepath=gcp_credentials_filepath
     )
