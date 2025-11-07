@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from urllib.parse import urlparse
+from googleapiclient import discovery
+from google.oauth2 import service_account
 
 import boto3
 import cloudpickle
@@ -1659,7 +1661,10 @@ def _run_on_aws(
     job_args_list,
     aws_access_key_id,
     aws_secret_access_key,
-):
+    gcp_project,
+    gcp_zone,
+    gcp_credentials_filepath
+): 
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
     synthesizer_names = [{'name': synthesizer['name']} for synthesizer in synthesizers]
     script_content = _get_s3_script_content(
@@ -2033,4 +2038,446 @@ def benchmark_multi_table_aws(
         job_args_list=job_args_list,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+    )
+
+def benchmark_single_table_gcp(
+    output_destination,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    synthesizers=DEFAULT_SINGLE_TABLE_SYNTHESIZERS,
+    sdv_datasets=DEFAULT_SINGLE_TABLE_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    compute_privacy_score=True,
+    sdmetrics=None,
+    timeout=None,
+    gcp_project=None,
+    gcp_zone=None,
+    gcp_credentials_filepath=None
+):
+    """Run the SDGym benchmark on single-table datasets.
+
+    Args:
+        output_destination (str):
+            An S3 bucket or filepath. The results output folder will be written here.
+            Should be structured as:
+            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
+        aws_access_key_id (str): The AWS access key id. Optional
+        aws_secret_access_key (str): The AWS secret access key. Optional
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to
+            ``[GaussianCopulaSynthesizer, CTGANSynthesizer]``. The available options
+            are:
+                - ``GaussianCopulaSynthesizer``
+                - ``CTGANSynthesizer``
+                - ``CopulaGANSynthesizer``
+                - ``TVAESynthesizer``
+                - ``RealTabFormerSynthesizer``
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to an S3 bucket. Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        compute_privacy_score (bool):
+            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
+        sdmetrics (list[str]):
+            A list of the different SDMetrics to use.
+            If you'd like to input specific parameters into the metric, provide a tuple with
+            the metric name followed by a dictionary of the parameters.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
+    """
+    s3_client = _validate_output_destination(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    if not synthesizers:
+        synthesizers = []
+
+    _ensure_uniform_included(synthesizers, 'single_table')
+    synthesizers = _import_and_validate_synthesizers(
+        synthesizers=synthesizers,
+        custom_synthesizers=None,
+        modality='single_table',
+    )
+
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=sdmetrics,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=compute_privacy_score,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        s3_client=s3_client,
+        modality='single_table',
+    )
+    if not job_args_list:
+        return _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=compute_privacy_score,
+            sdmetrics=sdmetrics,
+        )
+
+    _run_on_gcp(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        job_args_list=job_args_list,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        gcp_project=gcp_project,
+        gcp_zone=gcp_zone,
+        gcp_credentials_filepath=gcp_credentials_filepath
+    )
+
+
+def benchmark_multi_table(
+    synthesizers=DEFAULT_MULTI_TABLE_SYNTHESIZERS,
+    custom_synthesizers=None,
+    sdv_datasets=DEFAULT_MULTI_TABLE_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    timeout=None,
+    output_destination=None,
+    show_progress=False,
+):
+    """Run the SDGym benchmark on multi-table datasets.
+
+    Args:
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to ``HMASynthesizer`` and
+            ``MultiTableUniformSynthesizer``.
+        custom_synthesizers (list[class] or ``None``):
+            A list of custom synthesizer classes to use. These can be completely custom or
+            they can be synthesizer variants (the output from ``create_single_table_synthesizer``
+            or ``create_synthesizer_variant``). Defaults to ``None``.
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[NBA, financial, Student_loan, Biodegradability, fake_hotels, restbase,
+            airbnb-simplified]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to a folder (local or an S3 bucket). Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+        output_destination (str or ``None``):
+            The path to the output directory where results will be saved. If ``None``, no
+            output is saved. The results are saved with the following structure:
+            output_destination/
+                run_<id>.yaml
+                SDGym_results_<date>/
+                    results.csv
+                    <dataset_name>_<date>/
+                    metainfo.yaml
+                    <synthesizer_name>/
+                        synthesizer.pkl
+                        synthetic_data.csv
+        show_progress (bool):
+            Whether to use tqdm to keep track of the progress. Defaults to ``False``.
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset.
+    """
+    _validate_output_destination(output_destination)
+    if not synthesizers:
+        synthesizers = []
+
+    _ensure_uniform_included(synthesizers, 'multi_table')
+    result_writer = LocalResultsWriter()
+
+    synthesizers = _import_and_validate_synthesizers(
+        synthesizers,
+        custom_synthesizers,
+        'multi_table',
+    )
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=None,
+        synthesizers=synthesizers,
+        s3_client=None,
+        modality='multi_table',
+    )
+
+    _write_metainfo_file(
+        synthesizers=synthesizers,
+        job_args_list=job_args_list,
+        modality='multi_table',
+        result_writer=result_writer,
+    )
+    if job_args_list:
+        scores = _run_jobs(
+            multi_processing_config=None,
+            job_args_list=job_args_list,
+            show_progress=show_progress,
+            result_writer=result_writer,
+        )
+
+    # If no synthesizers/datasets are passed, return an empty dataframe
+    else:
+        scores = _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=None,
+            sdmetrics=None,
+        )
+
+    if output_destination and job_args_list:
+        metainfo_filename = job_args_list[0][-1]['metainfo']
+        _update_metainfo_file(metainfo_filename, result_writer)
+
+    return scores
+
+
+def benchmark_multi_table_aws(
+    output_destination,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    synthesizers=DEFAULT_MULTI_TABLE_SYNTHESIZERS,
+    sdv_datasets=DEFAULT_MULTI_TABLE_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    timeout=None,
+):
+    """Run the SDGym benchmark on multi-table datasets.
+
+    Args:
+        output_destination (str):
+            An S3 bucket or filepath. The results output folder will be written here.
+            Should be structured as:
+            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
+        aws_access_key_id (str): The AWS access key id. Optional
+        aws_secret_access_key (str): The AWS secret access key. Optional
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to
+            ``[HMASynthesizer, MultiTableUniformSynthesizer]``. The available options
+            are:
+                - ``HMASynthesizer``
+                - ``MultiTableUniformSynthesizer``
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to an S3 bucket. Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset.
+    """
+    s3_client = _validate_output_destination(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    if not synthesizers:
+        synthesizers = []
+
+    _ensure_uniform_included(synthesizers, modality='multi_table')
+    synthesizers = _import_and_validate_synthesizers(
+        synthesizers=synthesizers,
+        custom_synthesizers=None,
+        modality='multi_table',
+    )
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=None,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=None,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        s3_client=s3_client,
+        modality='multi_table',
+    )
+    if not job_args_list:
+        return _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=None,
+            sdmetrics=None,
+        )
+
+    _run_on_aws(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        job_args_list=job_args_list,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
+
+def benchmark_single_table_gcp(
+    output_destination,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    synthesizers=DEFAULT_SYNTHESIZERS,
+    sdv_datasets=DEFAULT_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    compute_privacy_score=True,
+    sdmetrics=None,
+    timeout=None,
+    gcp_project=None,
+    gcp_zone=None,
+    gcp_credentials_filepath=None
+):
+    """Run the SDGym benchmark on single-table datasets.
+
+    Args:
+        output_destination (str):
+            An S3 bucket or filepath. The results output folder will be written here.
+            Should be structured as:
+            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
+        aws_access_key_id (str): The AWS access key id. Optional
+        aws_secret_access_key (str): The AWS secret access key. Optional
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to
+            ``[GaussianCopulaSynthesizer, CTGANSynthesizer]``. The available options
+            are:
+                - ``GaussianCopulaSynthesizer``
+                - ``CTGANSynthesizer``
+                - ``CopulaGANSynthesizer``
+                - ``TVAESynthesizer``
+                - ``RealTabFormerSynthesizer``
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to an S3 bucket. Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        compute_privacy_score (bool):
+            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
+        sdmetrics (list[str]):
+            A list of the different SDMetrics to use.
+            If you'd like to input specific parameters into the metric, provide a tuple with
+            the metric name followed by a dictionary of the parameters.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
+    """
+    s3_client = _validate_output_destination(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    if not synthesizers:
+        synthesizers = []
+
+    _ensure_uniform_included(synthesizers)
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=sdmetrics,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=compute_privacy_score,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        custom_synthesizers=None,
+        s3_client=s3_client,
+    )
+    if not job_args_list:
+        return _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+            compute_privacy_score=compute_privacy_score,
+            sdmetrics=sdmetrics,
+        )
+
+    _run_on_gcp(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        job_args_list=job_args_list,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        gcp_project=gcp_project,
+        gcp_zone=gcp_zone,
+        gcp_credentials_filepath=gcp_credentials_filepath
     )

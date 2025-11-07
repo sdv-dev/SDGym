@@ -26,6 +26,8 @@ dependencies = [
     'botocore>=1.31,<2',
     'cloudpickle>=2.1.0',
     'compress-pickle>=1.2.0',
+    'google-api-python-client',
+    'google-auth',
     'humanfriendly>=10.0',
     "numpy>=1.22.2;python_version<'3.10'",
     "numpy>=1.24.0;python_version>='3.10' and python_version<'3.12'",
