@@ -44,10 +44,11 @@ class SDVMultiTableBaseline(BaselineSynthesizer, abc.ABC):
         return model
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
-        return synthesizer.sample(n_samples)
+        return synthesizer.sample()
 
 
 def _create_wrappers():
+    """Method to create SDV synthesizer wrappers dynamically."""
     names_to_try = []
     for module_name in ('sdv.single_table', 'sdv.multi_table'):
         try:

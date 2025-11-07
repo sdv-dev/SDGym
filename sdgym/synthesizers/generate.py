@@ -22,13 +22,23 @@ def _list_available_synthesizers():
         if isinstance(obj, type) and issubclass(obj, BaselineSynthesizer):
             if obj is BaselineSynthesizer:
                 continue
+
             out.append(name)
 
     return sorted(out)
 
 
 def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
-    """Create a new SDV synthesizer variant."""
+    """Create a new SDV synthesizer variant.
+
+    Args:
+        display_name (str):
+            Name of this synthesizer, used for display purposes in results.
+        synthesizer_class (str):
+            Name of the SDV synthesizer class to wrap.
+        synthesizer_parameters (dict):
+            Parameters to pass to the SDV synthesizer class upon instantiation.
+    """
     try:
         sdv_cls, kind = find_sdv_synthesizer(synthesizer_class)
     except KeyError:
@@ -92,7 +102,6 @@ def create_single_table_synthesizer(
         },
     )
 
-    # make it importable/picklable
     CustomSynthesizer.__name__ = class_name
     CustomSynthesizer.__module__ = __name__
     globals()[class_name] = CustomSynthesizer
@@ -158,5 +167,4 @@ def create_multi_table_synthesizer(
             return sample_from_synthesizer_fn(synthesizer)
 
     NewSynthesizer.__name__ = f'Custom:{display_name}'
-
     return NewSynthesizer
