@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from googleapiclient import discovery
 from google.oauth2 import service_account
+from google.cloud import compute_v1
 
 import boto3
 import cloudpickle
@@ -1510,8 +1511,8 @@ def _run_on_gcp(
     credentials = service_account.Credentials.from_service_account_file(
         gcp_credentials_filepath
     )
-    compute = discovery.build('compute', 'v1', credentials=credentials)
-    machine_type = f"zones/{gcp_zone}/machineTypes/e2-micro"
+    # compute = discovery.build('compute', 'v1', credentials=credentials)
+    machine_type = f"zones/{gcp_zone}/machineTypes/e2-standard-8"
     source_disk_image = "projects/debian-cloud/global/images/family/debian-12"
     startup_script = _get_gcp_script(
         access_key=aws_access_key_id,
@@ -1520,33 +1521,60 @@ def _run_on_gcp(
         script_content=script_content
     )
 
-    config = {
-        "name": instance_name,
-        "machineType": machine_type,
-        "serviceAccounts": [{
-            "email": f"compute-launcher@{gcp_project}.iam.gserviceaccount.com",
-            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-        }],
-        "disks": [{
-            "boot": True,
-            "autoDelete": True,
-            "initializeParams": {"sourceImage": source_disk_image}
-        }],
-        "networkInterfaces": [{
-            "network": "global/networks/default",
-            "accessConfigs": [{"type": "ONE_TO_ONE_NAT", "name": "External NAT"}]
-        }],
-        "metadata": {
-            "items": [{
-                "key": "startup-script",
-                "value": startup_script
-            }]
-        }
-    }
+    # config = {
+    #     "name": instance_name,
+    #     "machineType": machine_type,
+    #     "serviceAccounts": [{
+    #         "email": f"compute-launcher@{gcp_project}.iam.gserviceaccount.com",
+    #         "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+    #     }],
+    #     "disks": [{
+    #         "boot": True,
+    #         "autoDelete": True,
+    #         "initializeParams": {
+    #             "sourceImage": source_disk_image,
+    #             "diskSizeGb": 50
+    #         }
+    #     }],
+    #     "networkInterfaces": [{
+    #         "network": "global/networks/default",
+    #         "accessConfigs": [{"type": "ONE_TO_ONE_NAT", "name": "External NAT"}]
+    #     }],
+    #     "metadata": {
+    #         "items": [{
+    #             "key": "startup-script",
+    #             "value": startup_script
+    #         }]
+    #     }
+    # }
 
-    print(f"Creating instance {instance_name}...")
-    operation = compute.instances().insert(
-        project=gcp_project, zone=gcp_zone, body=config).execute()
+    # print(f"Creating instance {instance_name}...")
+    # operation = compute.instances().insert(
+    #     project=gcp_project, zone=gcp_zone, body=config).execute()
+    instance_client = compute_v1.InstancesClient(credentials=credentials)
+    instance = compute_v1.Instance()
+    instance.name = instance_name
+    instance.machine_type = machine_type
+    instance.disks = [
+        compute_v1.AttachedDisk(
+            auto_delete=True,
+            boot=True,
+            type_=compute_v1.AttachedDisk.Type.PERSISTENT,
+            initialize_params=compute_v1.AttachedDiskInitializeParams(
+                source_image=source_disk_image,
+                disk_size_gb=20,
+            ),
+        )
+    ]
+    instance.network_interfaces = [compute_v1.NetworkInterface(name="global/networks/default")]
+    instance.metadata = compute_v1.Metadata(items=[
+        compute_v1.Items(key="startup-script", value=startup_script)
+    ])
+
+    # Launch instance
+    operation = instance_client.insert(
+        project=gcp_project, zone=gcp_zone, instance_resource=instance
+    )
 
 
 def _run_on_aws(
