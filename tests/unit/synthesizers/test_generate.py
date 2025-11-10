@@ -49,6 +49,7 @@ def test_create_single_table_synthesizer():
     assert hasattr(out, 'get_trained_synthesizer')
     assert hasattr(out, 'sample_from_synthesizer')
 
+
 def test_create_sdv_variant_synthesizer():
     """Test that a sdv variant synthesizer is created.
 
@@ -69,13 +70,15 @@ def test_create_sdv_variant_synthesizer():
     assert out._MODEL_KWARGS == {}
 
 
+@patch('sdgym.synthesizers.generate.find_sdv_synthesizer')
 @patch('sdgym.synthesizers.generate._list_available_synthesizers')
-def test_create_sdv_variant_synthesizer_error(mock_list):
+def test_create_sdv_variant_synthesizer_error(mock_list_available, mock_find_sdv_synthesizer):
     """Test an error is raised when the synthesizer is not from SDV."""
     # Setup
     synthesizer_class = 'test'
     synthesizer_parameters = {}
-    mock_list.return_value = [
+    mock_find_sdv_synthesizer.side_effect = KeyError
+    mock_list_available.return_value = [
         'GaussianCopulaSynthesizer',
         'CTGANSynthesizer',
         'UniformSynthesizer',
@@ -88,6 +91,10 @@ def test_create_sdv_variant_synthesizer_error(mock_list):
     # Run
     with pytest.raises(ValueError, match=expected_error):
         create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
+
+    # Assert
+    mock_find_sdv_synthesizer.assert_called_once_with(synthesizer_class)
+    mock_list_available.assert_called_once()
 
 
 def test_create_sdv_variant_synthesizer_multi_table():
@@ -106,6 +113,5 @@ def test_create_sdv_variant_synthesizer_multi_table():
     # Assert
     assert out.__name__ == 'Variant:test_synth'
     assert out._SDV_CLASS == HMASynthesizer
-    assert out._BASE_SYNTHESIZER_CLASS == HMASynthesizer
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert issubclass(out, SDVMultiTableBaseline)

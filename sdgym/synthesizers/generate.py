@@ -34,7 +34,11 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
         synthesizer_class (str):
             Name of the SDV synthesizer class to wrap.
         synthesizer_parameters (dict):
-            Parameters to pass to the SDV synthesizer class upon instantiation.
+            A dictionary of the parameter names and values that will be used for the synthesizer.
+
+    Returns:
+        class:
+            The synthesizer class.
     """
     try:
         sdv_cls, synthesizer_type = find_sdv_synthesizer(synthesizer_class)
@@ -52,7 +56,6 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
 
     class NewSynthesizer(baseclass):
         _SDV_CLASS = sdv_cls
-        _BASE_SYNTHESIZER_CLASS = sdv_cls
         _MODEL_KWARGS = synthesizer_parameters
 
     cls_name = f'Variant:{display_name}'
@@ -68,15 +71,17 @@ def create_single_table_synthesizer(
     """Create a new single-table synthesizer.
 
     Args:
-        display_name (str):
-            Name of this synthesizer, used for display purposes in results.
+        display_name(string):
+            A string with the name of this synthesizer, used for display purposes only when
+            the results are generated
         get_trained_synthesizer_fn (callable):
-            Function that, given (data, metadata), returns a trained synthesizer.
+            A function to generate and train a synthesizer, given the real data and metadata.
         sample_from_synthesizer_fn (callable):
-            Function that, given (synthesizer, n), returns sampled data.
+            A function to sample from the given synthesizer.
 
     Returns:
-        type: the synthesizer class.
+        class:
+            The synthesizer class.
     """
 
     class NewSynthesizer(BaselineSynthesizer):

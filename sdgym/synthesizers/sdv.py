@@ -11,6 +11,16 @@ from sdgym.synthesizers.base import BaselineSynthesizer
 LOGGER = logging.getLogger(__name__)
 
 
+def _get_trained_synthesizer(sdv_class, model_kwargs, data, metadata):
+    if sdv_class is None:
+        raise ValueError('The synthesizer has no `_SDV_CLASS` set')
+
+    kwargs = dict(model_kwargs or {})
+    model = sdv_class(metadata=metadata, **kwargs)
+    model.fit(data)
+    return model
+
+
 class SDVSingleTableBaseline(BaselineSynthesizer, abc.ABC):
     """Base class for SDV single-table synthesizers."""
 
@@ -18,12 +28,7 @@ class SDVSingleTableBaseline(BaselineSynthesizer, abc.ABC):
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
-        if self._SDV_CLASS is None:
-            raise ValueError(f'{self.__class__.__name__} has no _SDV_CLASS set')
-        kwargs = dict(self._MODEL_KWARGS or {})
-        model = self._SDV_CLASS(metadata=metadata, **kwargs)
-        model.fit(data)
-        return model
+        return _get_trained_synthesizer(self._SDV_CLASS, self._MODEL_KWARGS, data, metadata)
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
         return synthesizer.sample(n_samples)
@@ -36,12 +41,7 @@ class SDVMultiTableBaseline(BaselineSynthesizer, abc.ABC):
     _MODEL_KWARGS = None
 
     def _get_trained_synthesizer(self, data, metadata):
-        if self._SDV_CLASS is None:
-            raise ValueError(f'{self.__class__.__name__} has no _SDV_CLASS set')
-        kwargs = dict(self._MODEL_KWARGS or {})
-        model = self._SDV_CLASS(metadata=metadata, **kwargs)
-        model.fit(data)
-        return model
+        return _get_trained_synthesizer(self._SDV_CLASS, self._MODEL_KWARGS, data, metadata)
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
         return synthesizer.sample()
@@ -52,24 +52,24 @@ def _create_wrappers():
     names_to_try = []
     for module_name in ('sdv.single_table', 'sdv.multi_table'):
         try:
-            m = __import__(module_name, fromlist=['*'])
+            module = __import__(module_name, fromlist=['*'])
         except Exception:
             continue
 
-        for attr in dir(m):
+        for attr in dir(module):
             if attr[0].isupper():
                 names_to_try.append(attr)
 
     for name in set(names_to_try):
         try:
-            sdv_cls, kind = find_sdv_synthesizer(name)
+            sdv_cls, synthesizer_type = find_sdv_synthesizer(name)
         except KeyError:
             continue
 
         if name in globals():
             continue
 
-        if kind == 'single_table':
+        if synthesizer_type == 'single_table':
             cls = type(
                 name,
                 (SDVSingleTableBaseline,),

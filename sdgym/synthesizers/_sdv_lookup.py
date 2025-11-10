@@ -34,4 +34,4 @@ def find_sdv_synthesizer(name):
         if sdv_cls is not None:
             return sdv_cls, synthesizer_type
 
-    raise KeyError(f'SDV synthesizer {name} not found')
+    raise KeyError(f"SDV synthesizer '{name}' not found")
