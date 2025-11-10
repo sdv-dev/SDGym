@@ -8,10 +8,35 @@ from sdv.multi_table import HMASynthesizer
 from sdv.single_table import GaussianCopulaSynthesizer
 
 from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesizer
-from sdgym.synthesizers.generate import (
-    create_multi_table_synthesizer,
-)
+from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.generate import _list_available_synthesizers
 from sdgym.synthesizers.sdv import SDVMultiTableBaseline, SDVSingleTableBaseline
+
+
+@patch('sdgym.synthesizers')
+def test__list_available_synthesizers(mock_synth_pkg):
+    """Test the ``_list_available_synthesizers`` method."""
+
+    # Setup
+    class GaussianCopulaSynthesizer(BaselineSynthesizer):
+        pass
+
+    class HMASynthesizer(BaselineSynthesizer):
+        pass
+
+    class InvalidSynthesizer:
+        pass
+
+    mock_synth_pkg.GaussianCopulaSynthesizer = GaussianCopulaSynthesizer
+    mock_synth_pkg.HMASynthesizer = HMASynthesizer
+    mock_synth_pkg.InvalidSynthesizer = InvalidSynthesizer
+    mock_synth_pkg.BaselineSynthesizer = BaselineSynthesizer
+
+    # Run
+    result = _list_available_synthesizers()
+
+    # Assert
+    assert result == ['GaussianCopulaSynthesizer', 'HMASynthesizer']
 
 
 def test_create_single_table_synthesizer():
@@ -23,18 +48,6 @@ def test_create_single_table_synthesizer():
     assert out.__name__ == 'Custom:test_synth'
     assert hasattr(out, 'get_trained_synthesizer')
     assert hasattr(out, 'sample_from_synthesizer')
-
-
-def test_create_multi_table_synthesizer():
-    """Test that a multi table synthesizer is created."""
-    # Run
-    out = create_multi_table_synthesizer('test_synth', Mock(), Mock())
-
-    # Assert
-    assert out.__name__ == 'Custom:test_synth'
-    assert hasattr(out, 'get_trained_synthesizer')
-    assert hasattr(out, 'sample_from_synthesizer')
-
 
 def test_create_sdv_variant_synthesizer():
     """Test that a sdv variant synthesizer is created.
