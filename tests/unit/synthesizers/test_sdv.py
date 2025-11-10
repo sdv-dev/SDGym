@@ -116,11 +116,11 @@ class TestSDVMultiTableBaseline:
         synthesizer.sample.return_value = data
 
         # Run
-        sampled_data = base_synthesizer._sample_from_synthesizer(synthesizer, n_samples=5)
+        sampled_data = base_synthesizer._sample_from_synthesizer(synthesizer, scale=1)
 
         # Assert
         assert sampled_data == data
-        synthesizer.sample.assert_called_once_with()
+        synthesizer.sample.assert_called_once_with(1)
 
 
 @patch('builtins.__import__')

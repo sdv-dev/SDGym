@@ -55,6 +55,15 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
         baseclass = SDVMultiTableBaseline
 
     class NewSynthesizer(baseclass):
+        """New Synthesizer class.
+
+        Attributes:
+            _SDV_CLASS:
+                The SDV synthesizer class to wrap.
+            _MODEL_KWARGS:
+                The parameters to use when instantiating the SDV synthesizer.
+        """
+
         _SDV_CLASS = sdv_cls
         _MODEL_KWARGS = synthesizer_parameters
 
@@ -85,6 +94,15 @@ def create_single_table_synthesizer(
     """
 
     class NewSynthesizer(BaselineSynthesizer):
+        """New Synthesizer class.
+
+        Args:
+            get_trained_synthesizer_fn (callable):
+                Function to replace the ``get_trained_synthesizer`` method.
+            sample_from_synthesizer_fn (callable):
+                Function to replace the ``sample_from_synthesizer`` method.
+        """
+
         def get_trained_synthesizer(self, data, metadata):
             return self.synthesizer_fn['get_trained_synthesizer_fn'](data, metadata)
 
@@ -92,7 +110,6 @@ def create_single_table_synthesizer(
             return self.synthesizer_fn['sample_from_synthesizer_fn'](synthesizer, num_samples)
 
     class_name = f'Custom:{display_name}'
-
     CustomSynthesizer = type(
         class_name,
         (NewSynthesizer,),

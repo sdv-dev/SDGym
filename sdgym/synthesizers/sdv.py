@@ -43,8 +43,8 @@ class SDVMultiTableBaseline(BaselineSynthesizer, abc.ABC):
     def _get_trained_synthesizer(self, data, metadata):
         return _get_trained_synthesizer(self._SDV_CLASS, self._MODEL_KWARGS, data, metadata)
 
-    def _sample_from_synthesizer(self, synthesizer, n_samples):
-        return synthesizer.sample()
+    def _sample_from_synthesizer(self, synthesizer, scale):
+        return synthesizer.sample(scale)
 
 
 def _create_wrappers():
