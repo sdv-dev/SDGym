@@ -40,7 +40,7 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
             Parameters to pass to the SDV synthesizer class upon instantiation.
     """
     try:
-        sdv_cls, kind = find_sdv_synthesizer(synthesizer_class)
+        sdv_cls, synthesizer_type = find_sdv_synthesizer(synthesizer_class)
     except KeyError:
         available_synthesizers = "', '".join(_list_available_synthesizers())
         raise ValueError(
@@ -48,7 +48,7 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
             f"Available SDV synthesizers: '{available_synthesizers}'"
         )
 
-    if kind == 'single_table':
+    if synthesizer_type == 'single_table':
         baseclass = SDVSingleTableBaseline
     else:
         baseclass = SDVMultiTableBaseline
