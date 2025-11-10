@@ -4,6 +4,7 @@ from sdgym.synthesizers.generate import (
     SYNTHESIZER_MAPPING,
     create_sdv_synthesizer_variant,
     create_single_table_synthesizer,
+    create_multi_table_synthesizer,
 )
 from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.column import ColumnSynthesizer
@@ -21,6 +22,7 @@ __all__ = [
     'UniformSynthesizer',
     'RealTabFormerSynthesizer',
     'create_single_table_synthesizer',
+    'create_multi_table_synthesizer',
     'create_sdv_synthesizer_variant',
     'SYNTHESIZER_MAPPING',
     'SDVSingleTableBaseline',

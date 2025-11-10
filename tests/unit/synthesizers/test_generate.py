@@ -7,9 +7,13 @@ import pytest
 from sdv.multi_table import HMASynthesizer
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym import create_sdv_synthesizer_variant, create_single_table_synthesizer
+from sdgym import (
+    create_multi_table_synthesizer,
+    create_sdv_synthesizer_variant,
+    create_single_table_synthesizer,
+)
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.generate import _list_available_synthesizers
+from sdgym.synthesizers.generate import _create_synthesizer_class, _list_available_synthesizers
 from sdgym.synthesizers.sdv import SDVMultiTableBaseline, SDVSingleTableBaseline
 
 
@@ -43,6 +47,17 @@ def test_create_single_table_synthesizer():
     """Test that a single table synthesizer is created."""
     # Run
     out = create_single_table_synthesizer('test_synth', Mock(), Mock())
+
+    # Assert
+    assert out.__name__ == 'Custom:test_synth'
+    assert hasattr(out, 'get_trained_synthesizer')
+    assert hasattr(out, 'sample_from_synthesizer')
+
+
+def test_create_multi_table_synthesizer():
+    """Test that a multi table synthesizer is created."""
+    # Run
+    out = create_multi_table_synthesizer('test_synth', Mock(), Mock())
 
     # Assert
     assert out.__name__ == 'Custom:test_synth'
@@ -115,3 +130,65 @@ def test_create_sdv_variant_synthesizer_multi_table():
     assert out._SDV_CLASS == HMASynthesizer
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert issubclass(out, SDVMultiTableBaseline)
+
+
+def test__create_synthesizer_class():
+    """Test the ``_create_synthesizer_class`` method."""
+    # Setup
+    get_trained_synthesizer_fn = Mock()
+    sample_fn = Mock()
+
+    # Run
+    out = _create_synthesizer_class(
+        'test_synth',
+        get_trained_synthesizer_fn,
+        sample_fn,
+        sample_arg_name='num_samples',
+    )
+
+    # Assert
+    assert out.__name__ == 'Custom:test_synth'
+    assert hasattr(out, 'get_trained_synthesizer')
+    assert hasattr(out, 'sample_from_synthesizer')
+
+
+@patch('sdgym.synthesizers.generate._create_synthesizer_class')
+def test_create_single_table_synthesizer_mock(mock_create_class):
+    """Test the ``create_single_table_synthesizer`` method."""
+    # Setup
+    mock_create_class.return_value = 'synthesizer_class'
+    get_trained_synthesizer_fn = Mock()
+    sample_fn = Mock()
+
+    # Run
+    out = create_single_table_synthesizer('test_synth', get_trained_synthesizer_fn, sample_fn)
+
+    # Assert
+    mock_create_class.assert_called_once_with(
+        'test_synth',
+        get_trained_synthesizer_fn,
+        sample_fn,
+        sample_arg_name='num_samples',
+    )
+    assert out == 'synthesizer_class'
+
+
+@patch('sdgym.synthesizers.generate._create_synthesizer_class')
+def test_create_multi_table_synthesizer_mock(mock_create_class):
+    """Test the ``create_multi_table_synthesizer`` method."""
+    # Setup
+    mock_create_class.return_value = 'synthesizer_class'
+    get_trained_synthesizer_fn = Mock()
+    sample_fn = Mock()
+
+    # Run
+    out = create_multi_table_synthesizer('test_synth', get_trained_synthesizer_fn, sample_fn)
+
+    # Assert
+    mock_create_class.assert_called_once_with(
+        'test_synth',
+        get_trained_synthesizer_fn,
+        sample_fn,
+        sample_arg_name='scale',
+    )
+    assert out == 'synthesizer_class'
