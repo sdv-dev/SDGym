@@ -29,6 +29,16 @@ def create_sdv_synthesizer_variant(
         class:
             The synthesizer class.
     """
+    base_class = SYNTHESIZER_MAPPING.get(synthesizer_class)
+    if base_class:
+
+        class NewSynthesizer(base_class):
+            _MODEL = SYNTHESIZER_MAPPING.get(synthesizer_class)
+            _MODEL_KWARGS = synthesizer_parameters
+
+        NewSynthesizer.__name__ = f'Variant:{display_name}'
+        return NewSynthesizer
+
     _validate_modality(modality)
     synthesizer = BaselineSDVSynthesizer(synthesizer_class, modality, synthesizer_parameters)
     synthesizer.__name__ = f'Variant:{display_name}'

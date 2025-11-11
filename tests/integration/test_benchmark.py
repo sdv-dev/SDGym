@@ -4,6 +4,7 @@ import contextlib
 import io
 import os
 import re
+import sys
 import time
 import warnings
 
@@ -53,7 +54,7 @@ def test_benchmark_single_table_basic_synthsizers():
     ] == quality_scores.index.tolist()
 
 
-@pytest.mark.skip('`create_sdv_synthesizer_variant` should only work with SDV synthesizers.')
+@pytest.mark.skipif(sys.platform.startswith('darwin'), reason='Test not supported on github MacOS')
 def test_benchmark_single_table_realtabformer_no_metrics():
     """Test it without metrics."""
     # Run
