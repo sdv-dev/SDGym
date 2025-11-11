@@ -14,8 +14,7 @@ import psutil
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.sdv import BaselineSDVSynthesizer, _validate_modality
-from sdgym.synthesizers.utils import NON_SDV_SYNTHESIZERS
+from sdgym.synthesizers.sdv import BaselineSDVSynthesizer, _get_sdv_synthesizers
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,15 +33,12 @@ def format_exception():
     return exception, error
 
 
-def get_synthesizers(synthesizers, modality='single_table'):
+def get_synthesizers(synthesizers):
     """Get the dict of synthesizer name and object for each synthesizer.
 
     Args:
         synthesizers (list):
             An iterable of synthesizer classes and strings.
-        modality (str):
-            The modality of the synthesizers to get, either 'single_table' or 'multi_table.
-            Defaults to 'single_table'.
 
     Returns:
         dict[str, function]:
@@ -52,7 +48,8 @@ def get_synthesizers(synthesizers, modality='single_table'):
         TypeError:
             If neither a list is not passed.
     """
-    _validate_modality(modality)
+    st_sdv_synthesizers = _get_sdv_synthesizers('single_table')
+    mt_sdv_synthesizers = _get_sdv_synthesizers('multi_table')
     synthesizers = [] if synthesizers is None else synthesizers
     if not isinstance(synthesizers, list):
         raise TypeError('`synthesizers` must be a list.')
@@ -63,7 +60,8 @@ def get_synthesizers(synthesizers, modality='single_table'):
         if isinstance(synthesizer, str):
             LOGGER.info('Trying to import synthesizer by name.')
             synthesizer_name = synthesizer
-            if synthesizer not in NON_SDV_SYNTHESIZERS:
+            if synthesizer in st_sdv_synthesizers + mt_sdv_synthesizers:
+                modality = 'single_table' if synthesizer in st_sdv_synthesizers else 'multi_table'
                 instance = BaselineSDVSynthesizer(synthesizer, modality)
             else:
                 instance = baselines.get(synthesizer)

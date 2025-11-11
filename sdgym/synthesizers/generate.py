@@ -2,16 +2,18 @@
 
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
-from sdgym.synthesizers.sdv import BaselineSDVSynthesizer, _validate_modality
+from sdgym.synthesizers.sdv import (
+    BaselineSDVSynthesizer,
+    _get_all_sdv_synthesizers,
+    _get_sdv_synthesizers,
+)
 
 SYNTHESIZER_MAPPING = {
     'RealTabFormerSynthesizer': RealTabFormerSynthesizer,
 }
 
 
-def create_sdv_synthesizer_variant(
-    display_name, synthesizer_class, synthesizer_parameters, modality='single_table'
-):
+def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
     """Create a new SDV synthesizer variant.
 
     Args:
@@ -39,7 +41,15 @@ def create_sdv_synthesizer_variant(
         NewSynthesizer.__name__ = f'Variant:{display_name}'
         return NewSynthesizer
 
-    _validate_modality(modality)
+    all_sdv_synthesizers = _get_all_sdv_synthesizers()
+    if synthesizer_class not in all_sdv_synthesizers:
+        raise ValueError(f"Synthesizer '{synthesizer_class}' is not a SDV synthesizer.")
+
+    modality = (
+        'single_table'
+        if synthesizer_class in _get_sdv_synthesizers('single_table')
+        else 'multi_table'
+    )
     synthesizer = BaselineSDVSynthesizer(synthesizer_class, modality, synthesizer_parameters)
     synthesizer.__name__ = f'Variant:{display_name}'
 

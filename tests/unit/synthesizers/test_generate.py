@@ -36,8 +36,7 @@ def test_create_multi_table_synthesizer():
     assert hasattr(out, 'sample_from_synthesizer')
 
 
-@patch('sdgym.synthesizers.generate._validate_modality')
-def test_create_sdv_variant_synthesizer(mock_validate_modality):
+def test_create_sdv_variant_synthesizer():
     """Test that a sdv variant synthesizer is created.
 
     Expect that if the synthesizer class is a single-table synthesizer, the
@@ -51,7 +50,6 @@ def test_create_sdv_variant_synthesizer(mock_validate_modality):
     out = create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
     # Assert
-    mock_validate_modality.assert_called_once_with('single_table')
     assert out.__name__ == 'Variant:test_synth'
     assert out.sdv_name == 'GaussianCopulaSynthesizer'
     assert isinstance(out, BaselineSDVSynthesizer)
@@ -63,7 +61,7 @@ def test_create_sdv_variant_synthesizer_error():
     # Setup
     synthesizer_class = 'test'
     synthesizer_parameters = {}
-    expected_error = re.escape("Synthesizer 'test' is not a SDV 'single_table' synthesizers.")
+    expected_error = re.escape("Synthesizer 'test' is not a SDV synthesizer.")
 
     # Run and Assert
     with pytest.raises(ValueError, match=expected_error):
@@ -77,9 +75,7 @@ def test_create_sdv_variant_synthesizer_multi_table():
     synthesizer_parameters = {}
 
     # Run
-    out = create_sdv_synthesizer_variant(
-        'test_synth', synthesizer_class, synthesizer_parameters, modality='multi_table'
-    )
+    out = create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'

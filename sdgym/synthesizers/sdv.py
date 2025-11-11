@@ -57,6 +57,15 @@ def _get_sdv_synthesizers(modality):
     return sorted(available_synthesizer)
 
 
+def _get_all_sdv_synthesizers():
+    """Get all available SDV synthesizers."""
+    synthesizers = set()
+    for modality in MODALITY_TO_MODULE.keys():
+        synthesizers.update(_get_sdv_synthesizers(modality))
+
+    return sorted(synthesizers)
+
+
 class BaselineSDVSynthesizer(BaselineSynthesizer, abc.ABC):
     """Base class for SDV synthesizers."""
 

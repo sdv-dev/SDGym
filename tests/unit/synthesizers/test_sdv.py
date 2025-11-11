@@ -9,6 +9,7 @@ from sdv.single_table import GaussianCopulaSynthesizer
 
 from sdgym.synthesizers.sdv import (
     BaselineSDVSynthesizer,
+    _get_all_sdv_synthesizers,
     _get_sdv_synthesizers,
     _validate_inputs,
     _validate_modality,
@@ -97,6 +98,24 @@ def test__get_sdv_synthesizers():
     # Assert
     assert single_table_synthesizers == expected_single_table_synthesizers
     assert multi_table_synthesizers == expected_multi_table_synthesizers
+
+
+def test__get_all_sdv_synthesizers():
+    """Test the `_get_all_sdv_synthesizers` method."""
+    # Setup
+    expected_synthesizers = [
+        'CTGANSynthesizer',
+        'CopulaGANSynthesizer',
+        'GaussianCopulaSynthesizer',
+        'HMASynthesizer',
+        'TVAESynthesizer',
+    ]
+
+    # Run
+    all_synthesizers = _get_all_sdv_synthesizers()
+
+    # Assert
+    assert all_synthesizers == expected_synthesizers
 
 
 class TestBaselineSDVSynthesizer:
