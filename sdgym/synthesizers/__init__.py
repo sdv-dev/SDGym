@@ -10,11 +10,12 @@ from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.column import ColumnSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
 from sdgym.synthesizers.uniform import UniformSynthesizer
-from sdgym.synthesizers import sdv as sdgym_sdv
-from sdgym.synthesizers.sdv import (
-    SDVSingleTableBaseline,
-    SDVMultiTableBaseline,
+from sdgym.synthesizers.sdv import BaselineSDVSynthesizer
+from sdgym.synthesizers.utils import (
+    get_available_single_table_synthesizers,
+    get_available_multi_table_synthesizers,
 )
+
 
 __all__ = [
     'DataIdentity',
@@ -25,20 +26,7 @@ __all__ = [
     'create_multi_table_synthesizer',
     'create_sdv_synthesizer_variant',
     'SYNTHESIZER_MAPPING',
-    'SDVSingleTableBaseline',
-    'SDVMultiTableBaseline',
+    'BaselineSDVSynthesizer',
+    'get_available_single_table_synthesizers',
+    'get_available_multi_table_synthesizers',
 ]
-
-
-for name in dir(sdgym_sdv):
-    obj = getattr(sdgym_sdv, name)
-    if isinstance(obj, type) and (
-        issubclass(obj, SDVSingleTableBaseline) or issubclass(obj, SDVMultiTableBaseline)
-    ):
-        if obj in (SDVSingleTableBaseline, SDVMultiTableBaseline):
-            continue
-
-        globals()[name] = obj
-        __all__.append(name)
-
-__all__ = tuple(__all__)

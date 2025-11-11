@@ -14,6 +14,8 @@ import psutil
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.sdv import BaselineSDVSynthesizer, _validate_modality
+from sdgym.synthesizers.utils import NON_SDV_SYNTHESIZERS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,12 +34,15 @@ def format_exception():
     return exception, error
 
 
-def get_synthesizers(synthesizers):
+def get_synthesizers(synthesizers, modality='single_table'):
     """Get the dict of synthesizer name and object for each synthesizer.
 
     Args:
         synthesizers (list):
             An iterable of synthesizer classes and strings.
+        modality (str):
+            The modality of the synthesizers to get, either 'single_table' or 'multi_table.
+            Defaults to 'single_table'.
 
     Returns:
         dict[str, function]:
@@ -47,19 +52,29 @@ def get_synthesizers(synthesizers):
         TypeError:
             If neither a list is not passed.
     """
+    _validate_modality(modality)
     synthesizers = [] if synthesizers is None else synthesizers
     if not isinstance(synthesizers, list):
         raise TypeError('`synthesizers` must be a list.')
 
     synthesizers_dicts = []
+    baselines = BaselineSynthesizer.get_subclasses(include_parents=True)
     for synthesizer in synthesizers:
         if isinstance(synthesizer, str):
-            baselines = BaselineSynthesizer.get_subclasses(include_parents=True)
-            if synthesizer in baselines:
-                LOGGER.info('Trying to import synthesizer by name.')
-                synthesizer = baselines[synthesizer]
+            LOGGER.info('Trying to import synthesizer by name.')
+            synthesizer_name = synthesizer
+            if synthesizer not in NON_SDV_SYNTHESIZERS:
+                instance = BaselineSDVSynthesizer(synthesizer, modality)
             else:
-                raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
+                instance = baselines.get(synthesizer)
+                if instance is None:
+                    raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
+
+            synthesizers_dicts.append({
+                'name': synthesizer_name,
+                'synthesizer': instance,
+            })
+            continue
 
         if isinstance(synthesizer, type) or hasattr(synthesizer, '__name__'):
             synthesizer_name = getattr(synthesizer, '__name__', 'undefined')

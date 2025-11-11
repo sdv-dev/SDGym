@@ -1,20 +1,140 @@
-import types
+import inspect
+import re
 from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
 from sdv.metadata import Metadata
-from sdv.multi_table import HMASynthesizer
 from sdv.single_table import GaussianCopulaSynthesizer
 
-import sdgym.synthesizers.sdv as sdv_mod
-from sdgym.synthesizers.sdv import SDVMultiTableBaseline, SDVSingleTableBaseline
+from sdgym.synthesizers.sdv import (
+    BaselineSDVSynthesizer,
+    _get_sdv_synthesizers,
+    _validate_inputs,
+    _validate_modality,
+    _validate_parameters,
+)
 
 
-class TestSDVSingleTableBaseline:
-    """Test the `SDVSingleTableBaseline` class."""
+def test__validate_modality():
+    """Test the `_validate_modality` method."""
+    # Setup
+    valid_modalities = ['single_table', 'multi_table']
+    expected_error = re.escape("`modality` must be one of 'single_table' or 'multi_table'.")
 
-    def test__get_trained_synthesizer(self):
+    # Run and Assert
+    for modality in valid_modalities:
+        _validate_modality(modality)
+
+    with pytest.raises(ValueError, match=expected_error):
+        _validate_modality('invalid_modality')
+
+
+def test__validate_parameters():
+    """Test the `_validate_parameters` method."""
+    # Setup
+    valid_parameters = {'enforce_min_max_values': True, 'default_distribution': 'normal'}
+    invalid_parameters = {'invalid_param': 123}
+    gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
+        1:
+    ]
+    expected_error = re.escape(
+        "Parameter 'invalid_param' is not valid for the selected synthesizer."
+    )
+
+    # Run and Assert
+    _validate_parameters(valid_parameters, gc_parameters)
+    with pytest.raises(ValueError, match=expected_error):
+        _validate_parameters(invalid_parameters, gc_parameters)
+
+
+@patch('sdgym.synthesizers.sdv._validate_modality')
+@patch('sdgym.synthesizers.sdv._validate_parameters')
+def test__validate_inputs(mock_validate_parameters, mock_validate_modality):
+    """Test the `_validate_inputs` method."""
+    # Setup
+    sdv_name = 'GaussianCopulaSynthesizer'
+    modality = 'single_table'
+    parameters = {'enforce_min_max_values': True}
+    gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
+        1:
+    ]
+    expected_error_1 = re.escape('`sdv_name` must be a string.')
+    expected_error_2 = re.escape('`parameters` must be a dictionary or None.')
+    expected_error_3 = re.escape(
+        "Synthesizer 'InvalidSynthesizer' is not a SDV 'single_table' synthesizers."
+    )
+
+    # Run and Assert
+    _validate_inputs(sdv_name, modality, parameters)
+    mock_validate_modality.assert_called_once_with(modality)
+    mock_validate_parameters.assert_called_once_with(parameters, gc_parameters)
+    with pytest.raises(ValueError, match=expected_error_1):
+        _validate_inputs(123, modality, parameters)
+
+    with pytest.raises(ValueError, match=expected_error_2):
+        _validate_inputs(sdv_name, modality, 'invalid_parameters')
+
+    with pytest.raises(ValueError, match=expected_error_3):
+        _validate_inputs('InvalidSynthesizer', modality, parameters)
+
+
+def test__get_sdv_synthesizers():
+    """Test the `_get_sdv_synthesizers` method."""
+    # Setup
+    expected_single_table_synthesizers = [
+        'CTGANSynthesizer',
+        'CopulaGANSynthesizer',
+        'GaussianCopulaSynthesizer',
+        'TVAESynthesizer',
+    ]
+    expected_multi_table_synthesizers = ['HMASynthesizer']
+
+    # Run
+    single_table_synthesizers = _get_sdv_synthesizers('single_table')
+    multi_table_synthesizers = _get_sdv_synthesizers('multi_table')
+
+    # Assert
+    assert single_table_synthesizers == expected_single_table_synthesizers
+    assert multi_table_synthesizers == expected_multi_table_synthesizers
+
+
+class TestBaselineSDVSynthesizer:
+    """Test the `BaselineSDVSynthesizer` class."""
+
+    @patch('sdgym.synthesizers.sdv._validate_inputs')
+    def test__init__(self, mock_validate_inputs):
+        """Test the `__init__` method."""
+        # Setup
+        sdv_name = 'GaussianCopulaSynthesizer'
+        modality = 'single_table'
+        parameters = {'enforce_min_max_values': True}
+
+        # Run
+        synthesizer = BaselineSDVSynthesizer(sdv_name, modality, parameters)
+
+        # Assert
+        mock_validate_inputs.assert_called_once_with(sdv_name, modality, parameters)
+        assert synthesizer.sdv_name == sdv_name
+        assert synthesizer.modality == modality
+        assert synthesizer.parameters == parameters
+
+    def test___repr__(self):
+        """Test the `__repr__` method."""
+        # Setup
+        synthesizer = BaselineSDVSynthesizer('GaussianCopulaSynthesizer', 'single_table')
+
+        # Run
+        repr_str = repr(synthesizer)
+
+        # Assert
+        expected_str = (
+            "<BaselineSDVSynthesizer sdv_name='GaussianCopulaSynthesizer' modality='single_table'>"
+        )
+        assert repr_str == expected_str
+
+    @patch('sdgym.synthesizers.sdv.LOGGER')
+    def test__get_trained_synthesizer(self, mock_logger):
         """Test the `_get_trained_synthesizer` method."""
         # Setup
         data = pd.DataFrame({
@@ -31,29 +151,27 @@ class TestSDVSingleTableBaseline:
                 },
             },
         })
-        invalid_synthesizer = SDVSingleTableBaseline()
-        valid_synthesizer = SDVSingleTableBaseline()
-        valid_synthesizer._SDV_CLASS = GaussianCopulaSynthesizer
-        valid_synthesizer._MODEL_KWARGS = {'enforce_min_max_values': False}
-        expected_error = 'The synthesizer has no `_SDV_CLASS` set'
+        synthesizer = BaselineSDVSynthesizer(
+            'GaussianCopulaSynthesizer', 'single_table', {'enforce_min_max_values': False}
+        )
 
         # Run
-        valid_model = valid_synthesizer._get_trained_synthesizer(data, metadata)
-        with pytest.raises(ValueError, match=expected_error):
-            invalid_synthesizer._get_trained_synthesizer(data, metadata)
+        valid_model = synthesizer._get_trained_synthesizer(data, metadata)
 
         # Assert
+        mock_logger.info.assert_called_with('Fitting %s', 'GaussianCopulaSynthesizer')
         assert isinstance(valid_model, GaussianCopulaSynthesizer)
         assert valid_model.enforce_min_max_values is False
 
-    def test__sample_from_synthesizer(self):
+    @patch('sdgym.synthesizers.sdv.LOGGER')
+    def test__sample_from_synthesizer(self, mock_logger):
         """Test the `_sample_from_synthesizer` method."""
         # Setup
         data = pd.DataFrame({
             'column1': [1, 2, 3, 4, 5],
             'column2': ['A', 'B', 'C', 'D', 'E'],
         })
-        base_synthesizer = SDVSingleTableBaseline()
+        base_synthesizer = BaselineSDVSynthesizer('GaussianCopulaSynthesizer', 'single_table')
         synthesizer = Mock()
         synthesizer.sample.return_value = data
         n_samples = 3
@@ -62,111 +180,6 @@ class TestSDVSingleTableBaseline:
         sampled_data = base_synthesizer._sample_from_synthesizer(synthesizer, n_samples)
 
         # Assert
+        mock_logger.info.assert_called_with('Sampling %s', 'GaussianCopulaSynthesizer')
         pd.testing.assert_frame_equal(sampled_data, data)
-        synthesizer.sample.assert_called_once_with(n_samples)
-
-
-class TestSDVMultiTableBaseline:
-    @patch('sdgym.synthesizers.sdv._get_trained_synthesizer')
-    def test__get_trained_synthesizer(self, mock_get_trained):
-        """Test the `_get_trained_synthesizer` method."""
-        # Setup
-        data = {
-            'table_1': pd.DataFrame({
-                'column1': [1, 2, 3, 4, 5],
-                'column2': ['A', 'B', 'C', 'D', 'E'],
-            })
-        }
-        metadata = Metadata().load_from_dict({
-            'tables': {
-                'table_1': {
-                    'columns': {
-                        'column1': {'sdtype': 'numerical'},
-                        'column2': {'sdtype': 'categorical'},
-                    },
-                },
-            },
-        })
-        multi_table_synthesizer = SDVMultiTableBaseline()
-        multi_table_synthesizer._SDV_CLASS = HMASynthesizer
-        multi_table_synthesizer._MODEL_KWARGS = {'locales': ['es_ES']}
-
-        # Run
-        multi_table_synthesizer._get_trained_synthesizer(data, metadata)
-
-        # Assert
-        mock_get_trained.assert_called_once_with(
-            HMASynthesizer,
-            {'locales': ['es_ES']},
-            data,
-            metadata,
-        )
-
-    def test__sample_from_synthesizer(self):
-        """Test the `_sample_from_synthesizer` method."""
-        # Setup
-        data = {
-            'table_1': pd.DataFrame({
-                'column1': [1, 2, 3, 4, 5],
-                'column2': ['A', 'B', 'C', 'D', 'E'],
-            })
-        }
-        base_synthesizer = SDVMultiTableBaseline()
-        synthesizer = Mock()
-        synthesizer.sample.return_value = data
-
-        # Run
-        sampled_data = base_synthesizer._sample_from_synthesizer(synthesizer, scale=1)
-
-        # Assert
-        assert sampled_data == data
-        synthesizer.sample.assert_called_once_with(1)
-
-
-@patch('builtins.__import__')
-def test__create_wrappers(mock_import):
-    """Test the `_create_wrappers` method."""
-    # Setup
-    fake_single = types.SimpleNamespace(
-        GaussianCopulaSynthesizer=object,
-        CTGANSynthesizer=object,
-        not_upper='ignore_me',
-    )
-    fake_multi = types.SimpleNamespace(
-        HMASynthesizer=object,
-        HSASynthesizer=object,
-        lower='also_ignore',
-    )
-
-    def import_side_effect(name, fromlist=None):
-        if name == 'sdv.single_table':
-            return fake_single
-        if name == 'sdv.multi_table':
-            return fake_multi
-        raise ImportError
-
-    mock_import.side_effect = import_side_effect
-    expected = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'HMASynthesizer']
-    before_keys = set(sdv_mod.__dict__.keys())
-
-    try:
-        # Run
-        sdv_mod._create_wrappers()
-
-        # Assert
-        mock_import.assert_any_call('sdv.single_table', fromlist=['*'])
-        mock_import.assert_any_call('sdv.multi_table', fromlist=['*'])
-        for synth_name in expected:
-            assert synth_name in sdv_mod.__dict__
-            synth_class = sdv_mod.__dict__[synth_name]
-            if synth_name in ('GaussianCopulaSynthesizer', 'CTGANSynthesizer'):
-                assert issubclass(synth_class, sdv_mod.SDVSingleTableBaseline)
-            else:
-                assert issubclass(synth_class, sdv_mod.SDVMultiTableBaseline)
-
-    finally:
-        # Clean up: remove whatever this test added
-        after_keys = set(sdv_mod.__dict__.keys())
-        new_keys = after_keys - before_keys
-        for key in new_keys:
-            del sdv_mod.__dict__[key]
+        synthesizer.sample.assert_called_once_with(num_rows=n_samples)

@@ -52,7 +52,7 @@ from sdgym.s3 import (
     write_csv,
     write_file,
 )
-from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer, UniformSynthesizer
+from sdgym.synthesizers import UniformSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
     calculate_score_time,
@@ -67,7 +67,7 @@ from sdgym.utils import (
 )
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer, UniformSynthesizer]
+DEFAULT_SYNTHESIZERS = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'UniformSynthesizer']
 DEFAULT_DATASETS = [
     'adult',
     'alarm',

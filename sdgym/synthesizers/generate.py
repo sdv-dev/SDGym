@@ -1,31 +1,17 @@
 """Helpers to create SDV synthesizer variants."""
 
-from sdgym.synthesizers._sdv_lookup import find_sdv_synthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
-from sdgym.synthesizers.sdv import SDVMultiTableBaseline, SDVSingleTableBaseline
+from sdgym.synthesizers.sdv import BaselineSDVSynthesizer, _validate_modality
 
 SYNTHESIZER_MAPPING = {
     'RealTabFormerSynthesizer': RealTabFormerSynthesizer,
 }
 
 
-def _list_available_synthesizers():
-    import sdgym.synthesizers as synth_pkg
-
-    out = []
-    for name in dir(synth_pkg):
-        obj = getattr(synth_pkg, name)
-        if isinstance(obj, type) and issubclass(obj, BaselineSynthesizer):
-            if obj in [BaselineSynthesizer, SDVSingleTableBaseline, SDVMultiTableBaseline]:
-                continue
-
-            out.append(name)
-
-    return sorted(out)
-
-
-def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
+def create_sdv_synthesizer_variant(
+    display_name, synthesizer_class, synthesizer_parameters, modality='single_table'
+):
     """Create a new SDV synthesizer variant.
 
     Args:
@@ -35,43 +21,19 @@ def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_
             Name of the SDV synthesizer class to wrap.
         synthesizer_parameters (dict):
             A dictionary of the parameter names and values that will be used for the synthesizer.
+        modality (str):
+            The modality of the synthesizer, either 'single_table' or 'multi_table'.
+            Defaults to 'single_table'.
 
     Returns:
         class:
             The synthesizer class.
     """
-    try:
-        sdv_cls, synthesizer_type = find_sdv_synthesizer(synthesizer_class)
-    except KeyError:
-        available_synthesizers = "', '".join(_list_available_synthesizers())
-        raise ValueError(
-            f'Synthesizer class {synthesizer_class!r} is not recognized. '
-            f"Available SDV synthesizers: '{available_synthesizers}'"
-        )
+    _validate_modality(modality)
+    synthesizer = BaselineSDVSynthesizer(synthesizer_class, modality, synthesizer_parameters)
+    synthesizer.__name__ = f'Variant:{display_name}'
 
-    if synthesizer_type == 'single_table':
-        baseclass = SDVSingleTableBaseline
-    else:
-        baseclass = SDVMultiTableBaseline
-
-    class NewSynthesizer(baseclass):
-        """New Synthesizer class.
-
-        Attributes:
-            _SDV_CLASS:
-                The SDV synthesizer class to wrap.
-            _MODEL_KWARGS:
-                The parameters to use when instantiating the SDV synthesizer.
-        """
-
-        _SDV_CLASS = sdv_cls
-        _MODEL_KWARGS = synthesizer_parameters
-
-    cls_name = f'Variant:{display_name}'
-    NewSynthesizer.__name__ = cls_name
-    NewSynthesizer.__module__ = __name__
-    globals()[cls_name] = NewSynthesizer
-    return NewSynthesizer
+    return synthesizer
 
 
 def _create_synthesizer_class(display_name, get_trained_fn, sample_fn, sample_arg_name):
