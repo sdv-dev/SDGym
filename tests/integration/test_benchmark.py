@@ -18,8 +18,8 @@ from sdv.single_table.copulas import GaussianCopulaSynthesizer
 import sdgym
 from sdgym import (
     benchmark_single_table,
-    create_sdv_synthesizer_variant,
     create_single_table_synthesizer,
+    create_synthesizer_variant,
 )
 
 
@@ -58,7 +58,7 @@ def test_benchmark_single_table_basic_synthsizers():
 def test_benchmark_single_table_realtabformer_no_metrics():
     """Test it without metrics."""
     # Run
-    custom_synthesizer = create_sdv_synthesizer_variant(
+    custom_synthesizer = create_synthesizer_variant(
         display_name='RealTabFormerSynthesizer',
         synthesizer_class='RealTabFormerSynthesizer',
         synthesizer_parameters={'epochs': 2},
@@ -216,7 +216,7 @@ def test_benchmark_single_table():
     """Test all synthesizers, as well as some generated ones, against a dataset.
 
     The custom synthesizers should be generated from both ``create_single_table_synthesizer``
-    and ``create_sdv_synthesizer_variant``, to test they work.
+    and ``create_synthesizer_variant``, to test they work.
     """
 
     # Setup
@@ -238,7 +238,7 @@ def test_benchmark_single_table():
         sample_from_synthesizer_fn=sample_from_synthesizer,
     )
 
-    ctgan_variant = create_sdv_synthesizer_variant(
+    ctgan_variant = create_synthesizer_variant(
         'CTGANVariant', 'CTGANSynthesizer', synthesizer_parameters={'epochs': 100}
     )
 
@@ -366,7 +366,7 @@ def test_benchmark_single_table_only_datasets():
 def test_benchmark_single_table_synthesizers_none():
     """Test it works when ``synthesizers`` is None."""
     # Setup
-    synthesizer_variant = create_sdv_synthesizer_variant(
+    synthesizer_variant = create_synthesizer_variant(
         'test_synth', 'GaussianCopulaSynthesizer', synthesizer_parameters={}
     )
 

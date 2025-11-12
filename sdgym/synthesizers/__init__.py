@@ -2,7 +2,7 @@
 
 from sdgym.synthesizers.generate import (
     SYNTHESIZER_MAPPING,
-    create_sdv_synthesizer_variant,
+    create_synthesizer_variant,
     create_single_table_synthesizer,
     create_multi_table_synthesizer,
 )
@@ -24,7 +24,7 @@ __all__ = [
     'RealTabFormerSynthesizer',
     'create_single_table_synthesizer',
     'create_multi_table_synthesizer',
-    'create_sdv_synthesizer_variant',
+    'create_synthesizer_variant',
     'SYNTHESIZER_MAPPING',
     'BaselineSDVSynthesizer',
     'get_available_single_table_synthesizers',

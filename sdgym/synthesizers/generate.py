@@ -13,8 +13,8 @@ SYNTHESIZER_MAPPING = {
 }
 
 
-def create_sdv_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
-    """Create a new SDV synthesizer variant.
+def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
+    """Create a new synthesizer variant.
 
     Args:
         display_name (str):

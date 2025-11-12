@@ -7,8 +7,8 @@ import pytest
 
 from sdgym import (
     create_multi_table_synthesizer,
-    create_sdv_synthesizer_variant,
     create_single_table_synthesizer,
+    create_synthesizer_variant,
 )
 from sdgym.synthesizers.generate import _create_synthesizer_class
 from sdgym.synthesizers.sdv import BaselineSDVSynthesizer
@@ -47,7 +47,7 @@ def test_create_sdv_variant_synthesizer():
     synthesizer_parameters = {}
 
     # Run
-    out = create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
+    out = create_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
@@ -65,7 +65,7 @@ def test_create_sdv_variant_synthesizer_error():
 
     # Run and Assert
     with pytest.raises(ValueError, match=expected_error):
-        create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
+        create_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
 
 def test_create_sdv_variant_synthesizer_multi_table():
@@ -75,7 +75,7 @@ def test_create_sdv_variant_synthesizer_multi_table():
     synthesizer_parameters = {}
 
     # Run
-    out = create_sdv_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
+    out = create_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'

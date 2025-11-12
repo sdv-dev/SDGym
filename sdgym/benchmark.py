@@ -1186,7 +1186,7 @@ def benchmark_single_table(
         custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
-            or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
+            or ``create_synthesizer_variant``). Defaults to ``None``.
         sdv_datasets (list[str] or ``None``):
             Names of the SDV demo datasets to use for the benchmark. Defaults to
             ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
