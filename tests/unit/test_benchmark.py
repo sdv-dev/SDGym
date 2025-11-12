@@ -360,7 +360,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     result = _create_sdgym_script(test_params, 's3://Bucket/Filepath')
 
     # Assert
-    assert 'synthesizers=[GaussianCopulaSynthesizer, CTGANSynthesizer]' in result
+    assert 'synthesizers=["GaussianCopulaSynthesizer", "CTGANSynthesizer"]' in result
     assert 'detailed_results_folder=None' in result
     assert "additional_datasets_folder='Details/'" in result
     assert 'multi_processing_config=None' in result

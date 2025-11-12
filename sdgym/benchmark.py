@@ -861,6 +861,7 @@ def _directory_exists(bucket_name, s3_file_path):
 
 
 def _check_write_permissions(s3_client, bucket_name):
+    s3_client = s3_client or boto3.client('s3')
     try:
         s3_client.put_object(Bucket=bucket_name, Key='__test__', Body=b'')
         write_permission = True
@@ -881,7 +882,7 @@ def _create_sdgym_script(params, output_filepath):
     bucket_name, key_prefix = parse_s3_path(output_filepath)
     if not _directory_exists(bucket_name, key_prefix):
         raise ValueError(f'Directories in {key_prefix} do not exist')
-    if not _check_write_permissions(bucket_name):
+    if not _check_write_permissions(None, bucket_name):
         raise ValueError('No write permissions allowed for the bucket.')
 
     # Add quotes to parameter strings
@@ -893,22 +894,22 @@ def _create_sdgym_script(params, output_filepath):
         params['output_filepath'] = "'" + params['output_filepath'] + "'"
 
     # Generate the output script to run on the e2 instance
-    synthesizer_string = 'synthesizers=['
-    for synthesizer in params['synthesizers']:
+    synthesizers = params.get('synthesizers', [])
+    names = []
+    for synthesizer in synthesizers:
         if isinstance(synthesizer, str):
-            synthesizer_string += synthesizer + ', '
+            names.append(synthesizer)
+        elif hasattr(synthesizer, '__name__'):
+            names.append(synthesizer.__name__)
         else:
-            synthesizer_string += synthesizer.__name__ + ', '
-    if params['synthesizers']:
-        synthesizer_string = synthesizer_string[:-2]
-    synthesizer_string += ']'
+            names.append(synthesizer.__class__.__name__)
+
+    all_names = '", "'.join(names)
+    synthesizer_string = f'synthesizers=["{all_names}"]'
     # The indentation of the string is important for the python script
     script_content = f"""import boto3
 from io import StringIO
 import sdgym
-from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer,
-    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, TVAESynthesizer)
-from sdgym.synthesizers import RealTabFormerSynthesizer
 
 results = sdgym.benchmark_single_table(
     {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},
