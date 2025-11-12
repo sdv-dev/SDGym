@@ -1,16 +1,12 @@
 """Helpers to create SDGym synthesizer variants."""
 
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
 from sdgym.synthesizers.sdv import (
     BaselineSDVSynthesizer,
     _get_all_sdv_synthesizers,
     _get_sdv_synthesizers,
 )
-
-SYNTHESIZER_MAPPING = {
-    'RealTabFormerSynthesizer': RealTabFormerSynthesizer,
-}
+from sdgym.synthesizers.utils import _get_sdgym_synthesizers
 
 
 def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
@@ -31,11 +27,10 @@ def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_para
         class:
             The synthesizer class.
     """
-    base_class = SYNTHESIZER_MAPPING.get(synthesizer_class)
-    if base_class:
+    if synthesizer_class in _get_sdgym_synthesizers():
+        base_class = BaselineSynthesizer.get_subclasses().get(synthesizer_class)
 
         class NewSynthesizer(base_class):
-            _MODEL = SYNTHESIZER_MAPPING.get(synthesizer_class)
             _MODEL_KWARGS = synthesizer_parameters
 
         NewSynthesizer.__name__ = f'Variant:{display_name}'
