@@ -1,13 +1,19 @@
 """Utility functions for synthesizers in SDGym."""
 
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.sdv import _get_sdv_synthesizers
 
-NON_SDV_SYNTHESIZERS = [
-    'UniformSynthesizer',
-    'ColumnSynthesizer',
-    'DataIdentity',
-    'RealTabFormerSynthesizer',
-]
+
+def _get_sdgym_synthesizers():
+    """Get SDGym synthesizers.
+
+    Returns:
+        list:
+            A list of available SDGym synthesizer names.
+    """
+    synthesizers = BaselineSynthesizer.get_subclasses()
+    synthesizers.pop('BaselineSDVSynthesizer', None)
+    return sorted(synthesizers.keys())
 
 
 def get_available_single_table_synthesizers():
@@ -18,7 +24,8 @@ def get_available_single_table_synthesizers():
             A sorted list of available single-table synthesizer names.
     """
     sdv_synthesizers = _get_sdv_synthesizers('single_table')
-    return sorted(sdv_synthesizers + NON_SDV_SYNTHESIZERS)
+    sdgym_synthesizers = _get_sdgym_synthesizers()
+    return sorted(sdv_synthesizers + sdgym_synthesizers)
 
 
 def get_available_multi_table_synthesizers():

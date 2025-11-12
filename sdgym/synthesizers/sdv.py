@@ -77,7 +77,7 @@ class BaselineSDVSynthesizer(BaselineSynthesizer, abc.ABC):
 
     def __repr__(self):
         """Define the string representation of the synthesizer."""
-        return f'<{self.__class__.__name__} sdv_name={self.sdv_name!r} modality={self.modality!r}>'
+        return f'{self.__class__.__name__}(sdv_name={self.sdv_name!r}, modality={self.modality!r})'
 
     def _get_trained_synthesizer(self, data, metadata):
         LOGGER.info('Fitting %s', self.sdv_name)

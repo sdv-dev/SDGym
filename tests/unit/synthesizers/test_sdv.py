@@ -21,12 +21,18 @@ def test__validate_modality():
     """Test the `_validate_modality` method."""
     # Setup
     valid_modalities = ['single_table', 'multi_table']
-    expected_error = re.escape("`modality` must be one of 'single_table' or 'multi_table'.")
 
     # Run and Assert
     for modality in valid_modalities:
         _validate_modality(modality)
 
+
+def test__validate_modality_invalid():
+    """Test the `_validate_modality` method with invalid modality."""
+    # Setup
+    expected_error = re.escape("`modality` must be one of 'single_table' or 'multi_table'.")
+
+    # Run and Assert
     with pytest.raises(ValueError, match=expected_error):
         _validate_modality('invalid_modality')
 
@@ -35,6 +41,17 @@ def test__validate_parameters():
     """Test the `_validate_parameters` method."""
     # Setup
     valid_parameters = {'enforce_min_max_values': True, 'default_distribution': 'normal'}
+    gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
+        1:
+    ]
+
+    # Run
+    _validate_parameters(valid_parameters, gc_parameters)
+
+
+def test__validate_parameters_invalid():
+    """Test the `_validate_parameters` method with invalid parameter."""
+    # Setup
     invalid_parameters = {'invalid_param': 123}
     gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
         1:
@@ -44,7 +61,6 @@ def test__validate_parameters():
     )
 
     # Run and Assert
-    _validate_parameters(valid_parameters, gc_parameters)
     with pytest.raises(ValueError, match=expected_error):
         _validate_parameters(invalid_parameters, gc_parameters)
 
@@ -60,6 +76,21 @@ def test__validate_inputs(mock_validate_parameters, mock_validate_modality):
     gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
         1:
     ]
+
+    # Run
+    _validate_inputs(sdv_name, modality, parameters)
+
+    # Assert
+    mock_validate_modality.assert_called_once_with(modality)
+    mock_validate_parameters.assert_called_once_with(parameters, gc_parameters)
+
+
+def test__validate_inputs_invalid_parameters():
+    """Test the `_validate_inputs` method with invalid parameters."""
+    # Setup
+    sdv_name = 'GaussianCopulaSynthesizer'
+    modality = 'single_table'
+    parameters = {'invalid_param': 123}
     expected_error_1 = re.escape('`sdv_name` must be a string.')
     expected_error_2 = re.escape('`parameters` must be a dictionary or None.')
     expected_error_3 = re.escape(
@@ -67,9 +98,6 @@ def test__validate_inputs(mock_validate_parameters, mock_validate_modality):
     )
 
     # Run and Assert
-    _validate_inputs(sdv_name, modality, parameters)
-    mock_validate_modality.assert_called_once_with(modality)
-    mock_validate_parameters.assert_called_once_with(parameters, gc_parameters)
     with pytest.raises(ValueError, match=expected_error_1):
         _validate_inputs(123, modality, parameters)
 
@@ -148,7 +176,7 @@ class TestBaselineSDVSynthesizer:
 
         # Assert
         expected_str = (
-            "<BaselineSDVSynthesizer sdv_name='GaussianCopulaSynthesizer' modality='single_table'>"
+            "BaselineSDVSynthesizer(sdv_name='GaussianCopulaSynthesizer', modality='single_table')"
         )
         assert repr_str == expected_str
 

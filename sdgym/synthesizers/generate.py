@@ -1,4 +1,4 @@
-"""Helpers to create SDV synthesizer variants."""
+"""Helpers to create SDGym synthesizer variants."""
 
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
