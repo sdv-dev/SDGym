@@ -14,9 +14,6 @@ def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_para
             Name of the SDV synthesizer class to wrap.
         synthesizer_parameters (dict):
             A dictionary of the parameter names and values that will be used for the synthesizer.
-        modality (str):
-            The modality of the synthesizer, either 'single_table' or 'multi_table'.
-            Defaults to 'single_table'.
 
     Returns:
         class:

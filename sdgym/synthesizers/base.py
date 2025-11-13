@@ -36,7 +36,7 @@ class BaselineSynthesizer(abc.ABC):
     @classmethod
     def _get_supported_synthesizers(cls):
         """Get the natively supported synthesizer class names."""
-        subclasses = cls.get_subclasses(include_parents=False)
+        subclasses = cls.get_subclasses(include_parents=True)
         synthesizers = set()
         for name, subclass in subclasses.items():
             if subclass._NATIVELY_SUPPORTED:
