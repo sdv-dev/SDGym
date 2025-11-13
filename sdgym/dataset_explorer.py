@@ -275,3 +275,36 @@ class DatasetExplorer:
             dataset_summary.to_csv(output_filepath, index=False)
 
         return dataset_summary
+
+    def list_datasets(self, modality, output_filepath=None):
+        """List available datasets for a modality using metainfo only.
+
+        This is a lightweight alternative to ``summarize_datasets`` that does not load
+        the actual data. It reads dataset information from the ``metainfo.yaml`` files
+        in the bucket and returns a table equivalent to the legacy
+        ``get_available_datasets`` output.
+
+        Args:
+            modality (str):
+                It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
+            output_filepath (str, optional):
+                Full path to a ``.csv`` file where the resulting table will be written.
+                If not provided, the table is only returned.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame with columns: ``['dataset_name', 'size_MB', 'num_tables']``.
+        """
+        self._validate_output_filepath(output_filepath)
+        _validate_modality(modality)
+
+        dataframe = _get_available_datasets(
+            modality=modality,
+            bucket=self._bucket_name,
+            aws_access_key_id=self.aws_access_key_id,
+            aws_secret_access_key=self.aws_secret_access_key,
+        )
+        if output_filepath:
+            dataframe.to_csv(output_filepath, index=False)
+
+        return dataframe
