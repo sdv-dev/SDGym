@@ -2,10 +2,8 @@ from pathlib import Path
 from unittest.mock import Mock, call, patch
 
 import numpy as np
-import pandas as pd
 import pytest
 
-from sdgym import get_available_datasets
 from sdgym.datasets import (
     DATASETS_PATH,
     _download_dataset,
@@ -359,50 +357,6 @@ def test_get_bucket_name_local_folder():
 
     # Assert
     assert bucket_name == 'bucket-name'
-
-
-@patch('sdgym.datasets._get_available_datasets')
-def test_get_available_datasets(helper_mock):
-    """Test that the modality is set to single-table."""
-    # Run
-    get_available_datasets()
-
-    # Assert
-    helper_mock.assert_called_once_with('single_table')
-
-
-def test_get_available_datasets_results():
-    # Run
-    tables_info = get_available_datasets()
-
-    # Assert
-    expected_table = pd.DataFrame({
-        'dataset_name': [
-            'adult',
-            'alarm',
-            'census',
-            'child',
-            'covtype',
-            'expedia_hotel_logs',
-            'insurance',
-            'intrusion',
-            'news',
-        ],
-        'size_MB': [
-            '3.907448',
-            '4.520128',
-            '98.165608',
-            '3.200128',
-            '255.645408',
-            '0.200128',
-            '3.340128',
-            '162.039016',
-            '18.712096',
-        ],
-        'num_tables': [1] * 9,
-    })
-    expected_table['size_MB'] = expected_table['size_MB'].astype(float).round(2)
-    assert len(expected_table.merge(tables_info.round(2))) == len(expected_table)
 
 
 @patch('sdgym.datasets._get_dataset_path_and_download')

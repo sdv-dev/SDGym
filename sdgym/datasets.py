@@ -254,21 +254,6 @@ def load_dataset(
     return data, metadata_dict
 
 
-def get_available_datasets(modality='single_table'):
-    """Get available single_table datasets.
-
-    Args:
-        modality (str):
-            It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
-
-    Return:
-        pd.DataFrame:
-            Table of available datasets and their sizes.
-    """
-    _validate_modality(modality)
-    return _get_available_datasets(modality)
-
-
 def get_dataset_paths(
     modality,
     datasets=None,
