@@ -87,7 +87,6 @@ def _create_sdv_class(sdv_name):
         (BaselineSynthesizer,),
         {
             '__module__': __name__,
-            '__qualname__': sdv_name,
             'SDV_NAME': sdv_name,
             'modality': modality,
             '_MODEL_KWARGS': {},

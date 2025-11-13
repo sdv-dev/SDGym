@@ -13,6 +13,7 @@ class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
     _MODEL_KWARGS = {}
+    _NATIVELY_SUPPORTED = True
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -31,6 +32,17 @@ class BaselineSynthesizer(abc.ABC):
                 subclasses[child.__name__] = child
 
         return subclasses
+
+    @classmethod
+    def _get_supported_synthesizers(cls):
+        """Get the natively supported synthesizer class names."""
+        subclasses = cls.get_subclasses(include_parents=False)
+        synthesizers = set()
+        for name, subclass in subclasses.items():
+            if subclass._NATIVELY_SUPPORTED:
+                synthesizers.add(name)
+
+        return sorted(synthesizers)
 
     @classmethod
     def get_baselines(cls):

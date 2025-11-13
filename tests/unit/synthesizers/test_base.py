@@ -1,5 +1,5 @@
 import warnings
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 from sdv.metadata import Metadata
@@ -8,6 +8,29 @@ from sdgym.synthesizers.base import BaselineSynthesizer
 
 
 class TestBaselineSynthesizer:
+    @patch('sdgym.synthesizers.utils.BaselineSynthesizer.get_subclasses')
+    def test__get_supported_synthesizers_mock(self, mock_get_subclasses):
+        """Test the `_get_supported_synthesizers` method with mocks."""
+        # Setup
+        mock_get_subclasses.return_value = {
+            'Variant:ColumnSynthesizer': Mock(_NATIVELY_SUPPORTED=False),
+            'Custom:MySynthesizer': Mock(_NATIVELY_SUPPORTED=False),
+            'ColumnSynthesizer': Mock(_NATIVELY_SUPPORTED=True),
+            'UniformSynthesizer': Mock(_NATIVELY_SUPPORTED=True),
+            'DataIdentity': Mock(_NATIVELY_SUPPORTED=True),
+        }
+        expected_synthesizers = [
+            'ColumnSynthesizer',
+            'DataIdentity',
+            'UniformSynthesizer',
+        ]
+
+        # Run
+        synthesizers = BaselineSynthesizer._get_supported_synthesizers()
+
+        # Assert
+        assert synthesizers == expected_synthesizers
+
     def test_get_trained_synthesizer(self):
         """Test it calls the correct methods and returns the correct values."""
         # Setup

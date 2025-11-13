@@ -11,7 +11,7 @@ def _get_sdgym_synthesizers():
         list:
             A list of available SDGym synthesizer names.
     """
-    synthesizers = BaselineSynthesizer.get_subclasses().keys()
+    synthesizers = BaselineSynthesizer._get_supported_synthesizers()
     sdv_synthesizer = _get_all_sdv_synthesizers()
     sdgym_synthesizer = [
         synthesizer for synthesizer in synthesizers if synthesizer not in sdv_synthesizer
@@ -48,10 +48,4 @@ def _get_supported_synthesizers():
         list:
             A list of available SDGym supported synthesizer names.
     """
-    synthesizers = BaselineSynthesizer.get_subclasses().keys()
-    synthesizers = [
-        synthesizer
-        for synthesizer in synthesizers
-        if not synthesizer.startswith('Variant:') and not synthesizer.startswith('Custom:')
-    ]
-    return sorted(synthesizers)
+    return BaselineSynthesizer._get_supported_synthesizers()

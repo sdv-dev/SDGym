@@ -23,6 +23,8 @@ def test_create_single_table_synthesizer():
     assert out.__name__ == 'Custom:test_synth'
     assert hasattr(out, 'get_trained_synthesizer')
     assert hasattr(out, 'sample_from_synthesizer')
+    assert out._NATIVELY_SUPPORTED is False
+    assert out._MODEL_KWARGS == {}
 
 
 def test_create_multi_table_synthesizer():
@@ -34,6 +36,8 @@ def test_create_multi_table_synthesizer():
     assert out.__name__ == 'Custom:test_synth'
     assert hasattr(out, 'get_trained_synthesizer')
     assert hasattr(out, 'sample_from_synthesizer')
+    assert out._NATIVELY_SUPPORTED is False
+    assert out._MODEL_KWARGS == {}
 
 
 def test_create_sdv_variant_synthesizer():
@@ -54,6 +58,7 @@ def test_create_sdv_variant_synthesizer():
     assert out.modality == 'single_table'
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert out.SDV_NAME == synthesizer_class
+    assert out._NATIVELY_SUPPORTED is False
     assert issubclass(out, BaselineSynthesizer)
 
 
@@ -83,6 +88,7 @@ def test_create_sdv_variant_synthesizer_multi_table():
     assert out.modality == 'multi_table'
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert out.SDV_NAME == synthesizer_class
+    assert out._NATIVELY_SUPPORTED is False
     assert issubclass(out, BaselineSynthesizer)
 
 

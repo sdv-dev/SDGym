@@ -57,17 +57,16 @@ def get_synthesizers(synthesizers):
     for synthesizer in synthesizers:
         if isinstance(synthesizer, str):
             LOGGER.info('Trying to import synthesizer by name.')
-            synthesizer_name = synthesizer
-            instance = baselines.get(synthesizer)
-            if instance is None:
-                if synthesizer_name in _get_all_sdv_synthesizers():
-                    instance = create_sdv_synthesizer_class(synthesizer_name)
+            synthesizer_class = baselines.get(synthesizer)
+            if synthesizer_class is None:
+                if synthesizer in _get_all_sdv_synthesizers():
+                    synthesizer_class = create_sdv_synthesizer_class(synthesizer)
                 else:
                     raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
             synthesizers_dicts.append({
-                'name': synthesizer_name,
-                'synthesizer': instance(),
+                'name': synthesizer,
+                'synthesizer': synthesizer_class(),
             })
             continue
 

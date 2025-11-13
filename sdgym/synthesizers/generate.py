@@ -26,11 +26,16 @@ def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_para
         raise ValueError(f"Synthesizer '{synthesizer_class}' is not a SDGym supported synthesizer.")
 
     base_class = BaselineSynthesizer.get_subclasses().get(synthesizer_class)
+    NewSynthesizer = type(
+        f'Variant:{display_name}',
+        (base_class,),
+        {
+            '__module__': __name__,
+            '_MODEL_KWARGS': synthesizer_parameters,
+            '_NATIVELY_SUPPORTED': False,
+        },
+    )
 
-    class NewSynthesizer(base_class):
-        _MODEL_KWARGS = synthesizer_parameters
-
-    NewSynthesizer.__name__ = f'Variant:{display_name}'
     return NewSynthesizer
 
 
@@ -74,6 +79,7 @@ def _create_synthesizer_class(display_name, get_trained_fn, sample_fn, sample_ar
         (BaselineSynthesizer,),
         {
             '__module__': __name__,
+            '_NATIVELY_SUPPORTED': False,
             'get_trained_synthesizer': get_trained_synthesizer,
             'sample_from_synthesizer': sample_from_synthesizer,
         },
