@@ -44,6 +44,9 @@ def _get_trained_synthesizer(self, data, metadata):
     sdv_class = getattr(import_module(f'sdv.{self.modality}'), self.SDV_NAME)
     synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
     synthesizer.fit(data)
+    if self.SDV_NAME == 'GaussianCopulaSynthesizer':
+        raise ValueError('Test Error Good')
+
     return synthesizer
 
 
