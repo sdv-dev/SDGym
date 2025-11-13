@@ -1,12 +1,7 @@
 """Helpers to create SDGym synthesizer variants."""
 
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.sdv import (
-    BaselineSDVSynthesizer,
-    _get_all_sdv_synthesizers,
-    _get_sdv_synthesizers,
-)
-from sdgym.synthesizers.utils import _get_sdgym_synthesizers
+from sdgym.synthesizers.utils import _get_supported_synthesizers
 
 
 def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_parameters):
@@ -27,28 +22,16 @@ def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_para
         class:
             The synthesizer class.
     """
-    if synthesizer_class in _get_sdgym_synthesizers():
-        base_class = BaselineSynthesizer.get_subclasses().get(synthesizer_class)
+    if synthesizer_class not in _get_supported_synthesizers():
+        raise ValueError(f"Synthesizer '{synthesizer_class}' is not a SDGym supported synthesizer.")
 
-        class NewSynthesizer(base_class):
-            _MODEL_KWARGS = synthesizer_parameters
+    base_class = BaselineSynthesizer.get_subclasses().get(synthesizer_class)
 
-        NewSynthesizer.__name__ = f'Variant:{display_name}'
-        return NewSynthesizer
+    class NewSynthesizer(base_class):
+        _MODEL_KWARGS = synthesizer_parameters
 
-    all_sdv_synthesizers = _get_all_sdv_synthesizers()
-    if synthesizer_class not in all_sdv_synthesizers:
-        raise ValueError(f"Synthesizer '{synthesizer_class}' is not a SDV synthesizer.")
-
-    modality = (
-        'single_table'
-        if synthesizer_class in _get_sdv_synthesizers('single_table')
-        else 'multi_table'
-    )
-    synthesizer = BaselineSDVSynthesizer(synthesizer_class, modality, synthesizer_parameters)
-    synthesizer.__name__ = f'Variant:{display_name}'
-
-    return synthesizer
+    NewSynthesizer.__name__ = f'Variant:{display_name}'
+    return NewSynthesizer
 
 
 def _create_synthesizer_class(display_name, get_trained_fn, sample_fn, sample_arg_name):

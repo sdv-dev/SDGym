@@ -10,8 +10,8 @@ from sdgym import (
     create_single_table_synthesizer,
     create_synthesizer_variant,
 )
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.generate import _create_synthesizer_class
-from sdgym.synthesizers.sdv import BaselineSDVSynthesizer
 
 
 def test_create_single_table_synthesizer():
@@ -44,16 +44,17 @@ def test_create_sdv_variant_synthesizer():
     """
     # Setup
     synthesizer_class = 'GaussianCopulaSynthesizer'
-    synthesizer_parameters = {}
+    synthesizer_parameters = {'enforce_min_max_values': True}
 
     # Run
     out = create_synthesizer_variant('test_synth', synthesizer_class, synthesizer_parameters)
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out.sdv_name == 'GaussianCopulaSynthesizer'
-    assert isinstance(out, BaselineSDVSynthesizer)
-    assert out.parameters == {}
+    assert out.modality == 'single_table'
+    assert out._MODEL_KWARGS == synthesizer_parameters
+    assert out.SDV_NAME == synthesizer_class
+    assert issubclass(out, BaselineSynthesizer)
 
 
 def test_create_sdv_variant_synthesizer_error():
@@ -61,7 +62,7 @@ def test_create_sdv_variant_synthesizer_error():
     # Setup
     synthesizer_class = 'test'
     synthesizer_parameters = {}
-    expected_error = re.escape("Synthesizer 'test' is not a SDV synthesizer.")
+    expected_error = re.escape("Synthesizer 'test' is not a SDGym supported synthesizer.")
 
     # Run and Assert
     with pytest.raises(ValueError, match=expected_error):
@@ -79,9 +80,10 @@ def test_create_sdv_variant_synthesizer_multi_table():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out.sdv_name == 'HMASynthesizer'
-    assert out.parameters == synthesizer_parameters
-    assert isinstance(out, BaselineSDVSynthesizer)
+    assert out.modality == 'multi_table'
+    assert out._MODEL_KWARGS == synthesizer_parameters
+    assert out.SDV_NAME == synthesizer_class
+    assert issubclass(out, BaselineSynthesizer)
 
 
 def test__create_synthesizer_class():

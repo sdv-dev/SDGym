@@ -14,7 +14,7 @@ import psutil
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.sdv import BaselineSDVSynthesizer, _get_sdv_synthesizers
+from sdgym.synthesizers.sdv import _get_all_sdv_synthesizers, create_sdv_synthesizer_class
 
 LOGGER = logging.getLogger(__name__)
 
@@ -48,8 +48,6 @@ def get_synthesizers(synthesizers):
         TypeError:
             If neither a list is not passed.
     """
-    st_sdv_synthesizers = _get_sdv_synthesizers('single_table')
-    mt_sdv_synthesizers = _get_sdv_synthesizers('multi_table')
     synthesizers = [] if synthesizers is None else synthesizers
     if not isinstance(synthesizers, list):
         raise TypeError('`synthesizers` must be a list.')
@@ -60,17 +58,16 @@ def get_synthesizers(synthesizers):
         if isinstance(synthesizer, str):
             LOGGER.info('Trying to import synthesizer by name.')
             synthesizer_name = synthesizer
-            if synthesizer in st_sdv_synthesizers + mt_sdv_synthesizers:
-                modality = 'single_table' if synthesizer in st_sdv_synthesizers else 'multi_table'
-                instance = BaselineSDVSynthesizer(synthesizer, modality)
-            else:
-                instance = baselines.get(synthesizer)
-                if instance is None:
+            instance = baselines.get(synthesizer)
+            if instance is None:
+                if synthesizer_name in _get_all_sdv_synthesizers():
+                    instance = create_sdv_synthesizer_class(synthesizer_name)
+                else:
                     raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
 
             synthesizers_dicts.append({
                 'name': synthesizer_name,
-                'synthesizer': instance,
+                'synthesizer': instance(),
             })
             continue
 

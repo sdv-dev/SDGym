@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
-    _MODEL_KWARGS = None
+    _MODEL_KWARGS = {}
 
     @classmethod
     def get_subclasses(cls, include_parents=False):

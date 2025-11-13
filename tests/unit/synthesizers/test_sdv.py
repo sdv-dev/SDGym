@@ -1,4 +1,3 @@
-import inspect
 import re
 from unittest.mock import Mock, patch
 
@@ -7,13 +6,17 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
+from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.sdv import (
-    BaselineSDVSynthesizer,
+    _create_sdv_class,
     _get_all_sdv_synthesizers,
+    _get_modality,
     _get_sdv_synthesizers,
-    _validate_inputs,
+    _get_trained_synthesizer,
+    _retrieve_sdv_class,
+    _sample_from_synthesizer,
     _validate_modality,
-    _validate_parameters,
+    create_sdv_synthesizer_class,
 )
 
 
@@ -35,77 +38,6 @@ def test__validate_modality_invalid():
     # Run and Assert
     with pytest.raises(ValueError, match=expected_error):
         _validate_modality('invalid_modality')
-
-
-def test__validate_parameters():
-    """Test the `_validate_parameters` method."""
-    # Setup
-    valid_parameters = {'enforce_min_max_values': True, 'default_distribution': 'normal'}
-    gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
-        1:
-    ]
-
-    # Run
-    _validate_parameters(valid_parameters, gc_parameters)
-
-
-def test__validate_parameters_invalid():
-    """Test the `_validate_parameters` method with invalid parameter."""
-    # Setup
-    invalid_parameters = {'invalid_param': 123}
-    gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
-        1:
-    ]
-    expected_error = re.escape(
-        "Parameter 'invalid_param' is not valid for the selected synthesizer."
-    )
-
-    # Run and Assert
-    with pytest.raises(ValueError, match=expected_error):
-        _validate_parameters(invalid_parameters, gc_parameters)
-
-
-@patch('sdgym.synthesizers.sdv._validate_modality')
-@patch('sdgym.synthesizers.sdv._validate_parameters')
-def test__validate_inputs(mock_validate_parameters, mock_validate_modality):
-    """Test the `_validate_inputs` method."""
-    # Setup
-    sdv_name = 'GaussianCopulaSynthesizer'
-    modality = 'single_table'
-    parameters = {'enforce_min_max_values': True}
-    gc_parameters = list(inspect.signature(GaussianCopulaSynthesizer.__init__).parameters.values())[
-        1:
-    ]
-
-    # Run
-    _validate_inputs(sdv_name, modality, parameters)
-
-    # Assert
-    mock_validate_modality.assert_called_once_with(modality)
-    mock_validate_parameters.assert_called_once_with(parameters, gc_parameters)
-
-
-def test__validate_inputs_invalid_parameters():
-    """Test the `_validate_inputs` method with invalid parameters."""
-    # Setup
-    sdv_name = 'GaussianCopulaSynthesizer'
-    modality = 'single_table'
-    parameters = {'invalid_param': 123}
-    expected_error_1 = re.escape('`sdv_name` must be a string.')
-    expected_error_2 = re.escape('`parameters` must be a dictionary or None.')
-    expected_error_3 = re.escape(
-        "Synthesizer 'InvalidSynthesizer' is not a SDV 'single_table' synthesizers."
-    )
-
-    # Run and Assert
-    with pytest.raises(ValueError, match=expected_error_1):
-        _validate_inputs(123, modality, parameters)
-
-    with pytest.raises(ValueError, match=expected_error_2):
-        _validate_inputs(sdv_name, modality, 'invalid_parameters')
-
-    with pytest.raises(ValueError, match=expected_error_3):
-        _validate_inputs('InvalidSynthesizer', modality, parameters)
 
 
 def test__get_sdv_synthesizers():
@@ -146,87 +78,171 @@ def test__get_all_sdv_synthesizers():
     assert all_synthesizers == expected_synthesizers
 
 
-class TestBaselineSDVSynthesizer:
-    """Test the `BaselineSDVSynthesizer` class."""
-
-    @patch('sdgym.synthesizers.sdv._validate_inputs')
-    def test__init__(self, mock_validate_inputs):
-        """Test the `__init__` method."""
-        # Setup
-        sdv_name = 'GaussianCopulaSynthesizer'
-        modality = 'single_table'
-        parameters = {'enforce_min_max_values': True}
-
-        # Run
-        synthesizer = BaselineSDVSynthesizer(sdv_name, modality, parameters)
-
-        # Assert
-        mock_validate_inputs.assert_called_once_with(sdv_name, modality, parameters)
-        assert synthesizer.sdv_name == sdv_name
-        assert synthesizer.modality == modality
-        assert synthesizer.parameters == parameters
-
-    def test___repr__(self):
-        """Test the `__repr__` method."""
-        # Setup
-        synthesizer = BaselineSDVSynthesizer('GaussianCopulaSynthesizer', 'single_table')
-
-        # Run
-        repr_str = repr(synthesizer)
-
-        # Assert
-        expected_str = (
-            "BaselineSDVSynthesizer(sdv_name='GaussianCopulaSynthesizer', modality='single_table')"
-        )
-        assert repr_str == expected_str
-
-    @patch('sdgym.synthesizers.sdv.LOGGER')
-    def test__get_trained_synthesizer(self, mock_logger):
-        """Test the `_get_trained_synthesizer` method."""
-        # Setup
-        data = pd.DataFrame({
-            'column1': [1, 2, 3, 4, 5],
-            'column2': ['A', 'B', 'C', 'D', 'E'],
-        })
-        metadata = Metadata().load_from_dict({
-            'tables': {
-                'table_1': {
-                    'columns': {
-                        'column1': {'sdtype': 'numerical'},
-                        'column2': {'sdtype': 'categorical'},
-                    },
+@patch('sdgym.synthesizers.sdv.LOGGER')
+def test__get_trained_synthesizer(mock_logger):
+    """Test the `_get_trained_synthesizer` method."""
+    # Setup
+    data = pd.DataFrame({
+        'column1': [1, 2, 3, 4, 5],
+        'column2': ['A', 'B', 'C', 'D', 'E'],
+    })
+    metadata = Metadata().load_from_dict({
+        'tables': {
+            'table_1': {
+                'columns': {
+                    'column1': {'sdtype': 'numerical'},
+                    'column2': {'sdtype': 'categorical'},
                 },
             },
-        })
-        synthesizer = BaselineSDVSynthesizer(
-            'GaussianCopulaSynthesizer', 'single_table', {'enforce_min_max_values': False}
-        )
+        },
+    })
+    synthesizer = Mock()
+    synthesizer.__class__.__name__ = 'GaussianCopulaClass'
+    synthesizer._MODEL_KWARGS = {'enforce_min_max_values': False}
+    synthesizer.modality = 'single_table'
+    synthesizer.SDV_NAME = 'GaussianCopulaSynthesizer'
 
-        # Run
-        valid_model = synthesizer._get_trained_synthesizer(data, metadata)
+    # Run
+    valid_model = _get_trained_synthesizer(synthesizer, data, metadata)
 
-        # Assert
-        mock_logger.info.assert_called_with('Fitting %s', 'GaussianCopulaSynthesizer')
-        assert isinstance(valid_model, GaussianCopulaSynthesizer)
-        assert valid_model.enforce_min_max_values is False
+    # Assert
+    mock_logger.info.assert_called_with('Fitting %s', 'GaussianCopulaClass')
+    assert isinstance(valid_model, GaussianCopulaSynthesizer)
+    assert valid_model.enforce_min_max_values is False
 
-    @patch('sdgym.synthesizers.sdv.LOGGER')
-    def test__sample_from_synthesizer(self, mock_logger):
-        """Test the `_sample_from_synthesizer` method."""
-        # Setup
-        data = pd.DataFrame({
-            'column1': [1, 2, 3, 4, 5],
-            'column2': ['A', 'B', 'C', 'D', 'E'],
-        })
-        base_synthesizer = BaselineSDVSynthesizer('GaussianCopulaSynthesizer', 'single_table')
-        synthesizer = Mock()
-        synthesizer.sample.return_value = data
-        n_samples = 3
 
-        # Run
-        sampled_data = base_synthesizer._sample_from_synthesizer(synthesizer, n_samples)
+@patch('sdgym.synthesizers.sdv.LOGGER')
+def test__sample_from_synthesizer(mock_logger):
+    """Test the `_sample_from_synthesizer` method."""
+    # Setup
+    data = pd.DataFrame({
+        'column1': [1, 2, 3, 4, 5],
+        'column2': ['A', 'B', 'C', 'D', 'E'],
+    })
+    base_synthesizer = Mock()
+    base_synthesizer.__class__.__name__ = 'GaussianCopulaSynthesizer'
+    base_synthesizer.modality = 'single_table'
+    synthesizer = Mock()
+    synthesizer.sample.return_value = data
+    n_samples = 3
 
-        # Assert
-        mock_logger.info.assert_called_with('Sampling %s', 'GaussianCopulaSynthesizer')
-        pd.testing.assert_frame_equal(sampled_data, data)
-        synthesizer.sample.assert_called_once_with(num_rows=n_samples)
+    # Run
+    sampled_data = _sample_from_synthesizer(base_synthesizer, synthesizer, n_samples)
+
+    # Assert
+    mock_logger.info.assert_called_with('Sampling %s', 'GaussianCopulaSynthesizer')
+    pd.testing.assert_frame_equal(sampled_data, data)
+    synthesizer.sample.assert_called_once_with(num_rows=n_samples)
+
+
+@patch('sdgym.synthesizers.sdv.sys.modules')
+def test__retrieve_sdv_class(mock_sys_modules):
+    """Test the `_retrieve_sdv_class` method."""
+    # Setup
+    CTGANSynthesizer = type('CTGANSynthesizer', (), {})
+    fake_module = type('FakeMod', (), {'CTGANSynthesizer': CTGANSynthesizer})()
+    mock_sys_modules.__getitem__.return_value = fake_module
+
+    # Run
+    defined_class = _retrieve_sdv_class('CTGANSynthesizer')
+    undefined_class = _retrieve_sdv_class('UndefinedSynthesizer')
+
+    # Assert
+    assert defined_class is CTGANSynthesizer
+    assert undefined_class is None
+
+
+def test__get_modality():
+    """Test the `_get_modality` method."""
+    # Setup
+    single_table_sdv = 'GaussianCopulaSynthesizer'
+    multi_table_sdv = 'HMASynthesizer'
+    invalid_name = 'InvalidSynthesizer'
+    expected_error = re.escape(f"Synthesizer '{invalid_name}' is not a SDV synthesizer.")
+
+    # Run
+    single_table_modality = _get_modality(single_table_sdv)
+    multi_table_modality = _get_modality(multi_table_sdv)
+    with pytest.raises(ValueError, match=expected_error):
+        _get_modality(invalid_name)
+
+    # Assert
+    assert single_table_modality == 'single_table'
+    assert multi_table_modality == 'multi_table'
+
+
+@patch('sdgym.synthesizers.sdv.sys.modules')
+@patch('sdgym.synthesizers.sdv._get_modality')
+def test__create_sdv_class_mock(mock_get_modality, mock_sys_modules):
+    """Test the `_create_sdv_class` method with mocks."""
+    # Setup
+    sdv_name = 'GaussianCopulaSynthesizer'
+    mock_get_modality.return_value = 'single_table'
+    fake_module = type('FakeMod', (), {})()
+    mock_sys_modules.__getitem__.return_value = fake_module
+
+    # Run
+    synt_class = _create_sdv_class(sdv_name)
+    instance = synt_class()
+
+    # Assert
+    assert synt_class.__name__ == sdv_name
+    assert synt_class.modality == 'single_table'
+    assert synt_class._MODEL_KWARGS == {}
+    assert synt_class.SDV_NAME == sdv_name
+    assert issubclass(synt_class, BaselineSynthesizer)
+    assert getattr(synt_class, '_get_trained_synthesizer') is _get_trained_synthesizer
+    assert getattr(synt_class, '_sample_from_synthesizer') is _sample_from_synthesizer
+    assert getattr(fake_module, sdv_name) is synt_class
+    assert instance._get_trained_synthesizer.__self__ is instance
+    assert instance._get_trained_synthesizer.__func__ is _get_trained_synthesizer
+    assert instance._sample_from_synthesizer.__self__ is instance
+    assert instance._sample_from_synthesizer.__func__ is _sample_from_synthesizer
+    assert instance.SDV_NAME == sdv_name
+    mock_get_modality.assert_called_once_with(sdv_name)
+
+
+def test__create_sdv_class():
+    """Test the `_create_sdv_class` method."""
+    # Setup
+    sdv_name = 'GaussianCopulaSynthesizer'
+
+    # Run
+    synthesizer_class = _create_sdv_class(sdv_name)
+
+    # Assert
+    assert synthesizer_class.__name__ == sdv_name
+    assert synthesizer_class.modality == 'single_table'
+    assert synthesizer_class._MODEL_KWARGS == {}
+    assert issubclass(synthesizer_class, BaselineSynthesizer)
+
+
+@patch('sdgym.synthesizers.sdv._create_sdv_class')
+@patch('sdgym.synthesizers.sdv._retrieve_sdv_class')
+def test_create_sdv_synthesizer_class(
+    mock_retrieve_sdv_class,
+    mock_create_sdv_class,
+):
+    """Test the `create_sdv_synthesizer_class` method."""
+    # Setup
+    mock_retrieve_sdv_class.return_value = None
+    mock_create_sdv_class.return_value = 'GaussianCopulaSynthesizerClass'
+
+    # Run
+    synthesizer_class = create_sdv_synthesizer_class('GaussianCopulaSynthesizer')
+
+    # Assert
+    mock_retrieve_sdv_class.assert_called_once_with('GaussianCopulaSynthesizer')
+    mock_create_sdv_class.assert_called_once_with('GaussianCopulaSynthesizer')
+    assert synthesizer_class == 'GaussianCopulaSynthesizerClass'
+
+
+def test_create_sdv_synthesizer_class_invalid():
+    """Test the `create_sdv_synthesizer_class` method with invalid synthesizer name."""
+    # Setup
+    invalid_name = 'InvalidSynthesizer'
+    expected_error = re.escape(f"Synthesizer '{invalid_name}' is not a supported SDV synthesizer.")
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_error):
+        create_sdv_synthesizer_class(invalid_name)

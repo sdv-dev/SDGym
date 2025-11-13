@@ -1,7 +1,7 @@
 """Utility functions for synthesizers in SDGym."""
 
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.sdv import _get_sdv_synthesizers
+from sdgym.synthesizers.sdv import _get_all_sdv_synthesizers, _get_sdv_synthesizers
 
 
 def _get_sdgym_synthesizers():
@@ -11,9 +11,12 @@ def _get_sdgym_synthesizers():
         list:
             A list of available SDGym synthesizer names.
     """
-    synthesizers = BaselineSynthesizer.get_subclasses()
-    synthesizers.pop('BaselineSDVSynthesizer', None)
-    return sorted(synthesizers.keys())
+    synthesizers = BaselineSynthesizer.get_subclasses().keys()
+    sdv_synthesizer = _get_all_sdv_synthesizers()
+    sdgym_synthesizer = [
+        synthesizer for synthesizer in synthesizers if synthesizer not in sdv_synthesizer
+    ]
+    return sorted(sdgym_synthesizer)
 
 
 def get_available_single_table_synthesizers():
@@ -36,3 +39,19 @@ def get_available_multi_table_synthesizers():
             A sorted list of available multi-table synthesizer names.
     """
     return sorted(_get_sdv_synthesizers('multi_table'))
+
+
+def _get_supported_synthesizers():
+    """Get SDGym supported synthesizers.
+
+    Returns:
+        list:
+            A list of available SDGym supported synthesizer names.
+    """
+    synthesizers = BaselineSynthesizer.get_subclasses().keys()
+    synthesizers = [
+        synthesizer
+        for synthesizer in synthesizers
+        if not synthesizer.startswith('Variant:') and not synthesizer.startswith('Custom:')
+    ]
+    return sorted(synthesizers)
