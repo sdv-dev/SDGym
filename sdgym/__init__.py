@@ -12,12 +12,16 @@ __version__ = '0.11.2.dev0'
 
 import logging
 
-from sdgym.benchmark import benchmark_single_table
+from sdgym.benchmark import benchmark_single_table, benchmark_single_table_aws
 from sdgym.cli.collect import collect_results
 from sdgym.cli.summary import make_summary_spreadsheet
 from sdgym.dataset_explorer import DatasetExplorer
 from sdgym.datasets import get_available_datasets, load_dataset
-from sdgym.synthesizers import create_sdv_synthesizer_variant, create_single_table_synthesizer
+from sdgym.synthesizers import (
+    create_synthesizer_variant,
+    create_single_table_synthesizer,
+    create_multi_table_synthesizer,
+)
 from sdgym.result_explorer import ResultsExplorer
 
 # Clear the logging wrongfully configured by tensorflow/absl
@@ -28,9 +32,11 @@ __all__ = [
     'DatasetExplorer',
     'ResultsExplorer',
     'benchmark_single_table',
+    'benchmark_single_table_aws',
     'collect_results',
-    'create_sdv_synthesizer_variant',
+    'create_synthesizer_variant',
     'create_single_table_synthesizer',
+    'create_multi_table_synthesizer',
     'get_available_datasets',
     'load_dataset',
     'make_summary_spreadsheet',
