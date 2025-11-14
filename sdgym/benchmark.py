@@ -271,7 +271,11 @@ def _generate_job_args_list(
         if additional_datasets_folder is None
         else get_dataset_paths(
             modality='single_table',
-            bucket=additional_datasets_folder,
+            bucket=(
+                additional_datasets_folder
+                if is_s3_path(additional_datasets_folder)
+                else os.path.join(additional_datasets_folder, 'single_table')
+            ),
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key_key,
         )
