@@ -13,7 +13,7 @@ import tracemalloc
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from urllib.parse import urlparse
@@ -40,7 +40,7 @@ from sdmetrics.reports.single_table import (
 from sdmetrics.single_table import DCRBaselineProtection
 
 from sdgym.datasets import get_dataset_paths, load_dataset
-from sdgym.errors import SDGymError
+from sdgym.errors import SDGymError, SynthesisRunError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
@@ -341,23 +341,62 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
     sample_from_synthesizer = synthesizer.sample_from_synthesizer
     data = real_data.copy()
     num_samples = len(data)
-
     tracemalloc.start()
-    now = get_utc_now()
-    synthesizer_obj = get_synthesizer(data, metadata)
-    synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
-    train_now = get_utc_now()
-    synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
-    sample_now = get_utc_now()
+    synthesizer_obj = None
+    synthetic_data = None
+    synthesizer_size = None
+    peak_memory = None
+    start = get_utc_now()
+    train_end = None
+    try:
+        synthesizer_obj = get_synthesizer(data, metadata)
+        try:
+            synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
+        except Exception:
+            synthesizer_size = None
 
-    peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
-    tracemalloc.stop()
-    tracemalloc.clear_traces()
-    if synthesizer_path is not None and result_writer is not None:
-        result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
-        result_writer.write_pickle(synthesizer_obj, synthesizer_path['synthesizer'])
+        train_end = get_utc_now()
+        train_time = train_end - start
+        synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
+        sample_end = get_utc_now()
+        sample_time = sample_end - train_end
+        peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
 
-    return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
+        if synthesizer_path is not None and result_writer is not None:
+            result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
+            result_writer.write_pickle(synthesizer_obj, synthesizer_path['synthesizer'])
+
+        return synthetic_data, train_time, sample_time, synthesizer_size, peak_memory
+
+    except Exception as e:
+        now = get_utc_now()
+        if train_end is None:
+            train_time = now - start
+            sample_time = timedelta(0)
+        else:
+            train_time = train_end - start
+            sample_time = now - train_end
+
+        try:
+            peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
+        except Exception:
+            peak_memory = None
+
+        exception_text, error_text = format_exception()
+        raise SynthesisRunError(
+            original_exc=e,
+            synthetic_data=None,
+            train_time=train_time,
+            sample_time=sample_time,
+            synthesizer_size=synthesizer_size,
+            peak_memory=peak_memory,
+            exception_text=exception_text,
+            error_text=error_text,
+        ) from e
+
+    finally:
+        tracemalloc.stop()
+        tracemalloc.clear_traces()
 
 
 def _compute_scores(
@@ -483,52 +522,68 @@ def _score(
         output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
-        synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer,
-            data.copy(),
-            metadata,
-            synthesizer_path=synthesizer_path,
-            result_writer=result_writer,
-        )
 
-        output['synthetic_data'] = synthetic_data
-        output['train_time'] = train_time.total_seconds()
-        output['sample_time'] = sample_time.total_seconds()
-        output['synthesizer_size'] = synthesizer_size
-        output['peak_memory'] = peak_memory
+        try:
+            synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
+                synthesizer,
+                data.copy(),
+                metadata,
+                synthesizer_path=synthesizer_path,
+                result_writer=result_writer,
+            )
 
-        LOGGER.info(
-            'Scoring %s on %s dataset %s; %s',
-            synthesizer['name'],
-            modality,
-            dataset_name,
-            used_memory(),
-        )
+            output['synthetic_data'] = synthetic_data
+            output['train_time'] = train_time.total_seconds()
+            output['sample_time'] = sample_time.total_seconds()
+            output['synthesizer_size'] = synthesizer_size
+            output['peak_memory'] = peak_memory
 
-        # No error so far. _compute_scores tracks its own errors by metric
-        del output['error']
-        _compute_scores(
-            metrics,
-            data,
-            synthetic_data,
-            metadata,
-            output,
-            compute_quality_score,
-            compute_diagnostic_score,
-            compute_privacy_score,
-            modality,
-            dataset_name,
-        )
+            LOGGER.info(
+                'Scoring %s on %s dataset %s; %s',
+                synthesizer['name'],
+                modality,
+                dataset_name,
+                used_memory(),
+            )
 
-        output['timeout'] = False  # There was no timeout
+            del output['error']
+            _compute_scores(
+                metrics,
+                data,
+                synthetic_data,
+                metadata,
+                output,
+                compute_quality_score,
+                compute_diagnostic_score,
+                compute_privacy_score,
+                modality,
+                dataset_name,
+            )
+
+            output['timeout'] = False
+
+        except SynthesisRunError as sre:
+            LOGGER.exception(
+                'Synthesis failed for %s on dataset %s;',
+                synthesizer['name'],
+                dataset_name,
+            )
+
+            output['train_time'] = sre.train_time.total_seconds() if sre.train_time else None
+            output['sample_time'] = sre.sample_time.total_seconds() if sre.sample_time else None
+            output['synthesizer_size'] = sre.synthesizer_size
+            output['peak_memory'] = sre.peak_memory
+
+            output['exception'] = sre.exception
+            output['error'] = sre.error
+            output['timeout'] = False
 
     except Exception:
         LOGGER.exception('Error running %s on dataset %s;', synthesizer['name'], dataset_name)
-
-        exception, error = format_exception()
+        exception, error = format_exception()  # no args
         output['exception'] = exception
         output['error'] = error
-        output['timeout'] = False  # There was no timeout
+        output['timeout'] = False
 
     finally:
         LOGGER.info(
