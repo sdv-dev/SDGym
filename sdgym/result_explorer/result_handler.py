@@ -83,12 +83,6 @@ class ResultsHandler(ABC):
                 f' - # datasets: {folder_infos[folder]["# datasets"]}'
                 f' - sdgym version: {folder_infos[folder]["sdgym_version"]}'
             )
-            results['Synthesizer'] = (
-                results['Synthesizer']
-                    .astype(str)
-                    .str.replace(r'\s*\(\d+\)\s*$', '', regex=True)
-                    .str.strip()
-            )
             results = results.loc[results['Synthesizer'] != SYNTHESIZER_BASELINE]
             column_data = results.groupby(['Synthesizer'])['Win'].sum()
             columns.append((date_obj, column_name, column_data))
@@ -101,9 +95,6 @@ class ResultsHandler(ABC):
         summarized_results = summarized_results.fillna('-')
         summarized_results = summarized_results.reset_index()
         summarized_results = summarized_results.rename(columns={'index': 'Synthesizer'})
-        summarized_results = summarized_results.drop_duplicates(
-            subset=['Synthesizer'], keep='first'
-        ) # Remove the multiple `UniformSynthesizer` entries
 
         return summarized_results
 
@@ -129,6 +120,12 @@ class ResultsHandler(ABC):
     def _process_results(self, results):
         """Process results to ensure they are unique and each dataset has all synthesizers."""
         aggregated_results = pd.concat(results, ignore_index=True)
+        aggregated_results['Synthesizer'] = (
+            aggregated_results['Synthesizer']
+            .astype(str)
+            .str.replace(r'\s*\(\d+\)\s*$', '', regex=True)
+            .str.strip()
+        )
         aggregated_results = aggregated_results.drop_duplicates(subset=['Dataset', 'Synthesizer'])
         all_synthesizers = aggregated_results['Synthesizer'].unique()
         dataset_synth_counts = aggregated_results.groupby('Dataset')['Synthesizer'].nunique()
@@ -141,6 +138,9 @@ class ResultsHandler(ABC):
             )
 
         filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
+        filtered_results = filtered_results.drop_duplicates(
+            subset=['Dataset', 'Synthesizer'], keep='first'
+        )
         return filtered_results.reset_index(drop=True)
 
     def summarize(self, folder_name):
