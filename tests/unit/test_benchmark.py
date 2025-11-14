@@ -20,6 +20,7 @@ from sdgym.benchmark import (
     _ensure_uniform_included,
     _fill_adjusted_scores_with_none,
     _format_output,
+    _generate_job_args_list,
     _get_metainfo_increment,
     _handle_deprecated_parameters,
     _setup_output_destination,
@@ -998,6 +999,75 @@ def test__add_adjusted_scores_missing_fallback():
 
     # Assert
     assert scores.equals(expected)
+
+
+@patch('sdgym.benchmark.get_dataset_paths')
+def test__generate_job_args_list_local_root_additional_folder(get_dataset_paths_mock, tmp_path):
+    """Local additional_datasets_folder should point to root/single_table."""
+    # Setup
+    local_root = tmp_path / 'my_root'
+    local_root.mkdir()
+    dataset_path = tmp_path / 'my_root' / 'single_table' / 'datasetA'
+    get_dataset_paths_mock.return_value = [dataset_path]
+
+    # Run
+    _generate_job_args_list(
+        limit_dataset_size=False,
+        sdv_datasets=None,
+        additional_datasets_folder=str(local_root),
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        synthesizers=[],
+        custom_synthesizers=None,
+        s3_client=None,
+    )
+
+    # Assert
+    get_dataset_paths_mock.assert_called_once_with(
+        modality='single_table',
+        bucket=str(local_root / 'single_table'),
+        aws_access_key_id=None,
+        aws_secret_access_key=None,
+    )
+
+
+@patch('sdgym.benchmark.get_dataset_paths')
+def test__generate_job_args_list_s3_root_additional_folder(get_dataset_paths_mock):
+    """S3 additional_datasets_folder should point to the root path."""
+    # Setup
+    s3_root = 's3://my-bucket/custom-datasets'
+    dataset_path = Path('/dummy/single_table/datasetA')
+    get_dataset_paths_mock.return_value = [dataset_path]
+
+    # Run
+    _generate_job_args_list(
+        limit_dataset_size=False,
+        sdv_datasets=None,
+        additional_datasets_folder=s3_root,
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        synthesizers=[],
+        custom_synthesizers=None,
+        s3_client=None,
+    )
+
+    # Assert
+    get_dataset_paths_mock.assert_called_once_with(
+        modality='single_table',
+        bucket=s3_root,
+        aws_access_key_id=None,
+        aws_secret_access_key=None,
+    )
 
 
 def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
