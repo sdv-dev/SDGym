@@ -16,6 +16,7 @@ RESULTS_FOLDER_PREFIX = 'SDGym_results_'
 metainfo_PREFIX = 'metainfo'
 RESULTS_FILE_PREFIX = 'results'
 NUM_DIGITS_DATE = 10
+REGEX_SYNTHESIZER_NAME = r'\s*\(\d+\)\s*$'
 
 
 class ResultsHandler(ABC):
@@ -123,7 +124,7 @@ class ResultsHandler(ABC):
         aggregated_results['Synthesizer'] = (
             aggregated_results['Synthesizer']
             .astype(str)
-            .str.replace(r'\s*\(\d+\)\s*$', '', regex=True)
+            .str.replace(REGEX_SYNTHESIZER_NAME, '', regex=True)
             .str.strip()
         )
         aggregated_results = aggregated_results.drop_duplicates(subset=['Dataset', 'Synthesizer'])

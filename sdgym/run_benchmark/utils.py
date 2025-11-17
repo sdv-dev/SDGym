@@ -104,7 +104,7 @@ def post_benchmark_launch_message(date_str):
 
 def post_benchmark_uploaded_message(folder_name, commit_url=None):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
-    channel = SLACK_CHANNEL
+    channel = DEBUG_SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}SDGym Monthly Run.xlsx'))
     body = (
