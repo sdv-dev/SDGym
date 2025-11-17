@@ -14,6 +14,7 @@ import psutil
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.sdv import _get_all_sdv_synthesizers, create_sdv_synthesizer_class
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,14 +53,22 @@ def get_synthesizers(synthesizers):
         raise TypeError('`synthesizers` must be a list.')
 
     synthesizers_dicts = []
+    baselines = BaselineSynthesizer.get_subclasses(include_parents=True)
     for synthesizer in synthesizers:
         if isinstance(synthesizer, str):
-            baselines = BaselineSynthesizer.get_subclasses(include_parents=True)
-            if synthesizer in baselines:
-                LOGGER.info('Trying to import synthesizer by name.')
-                synthesizer = baselines[synthesizer]
-            else:
-                raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
+            LOGGER.info('Trying to import synthesizer by name.')
+            synthesizer_class = baselines.get(synthesizer)
+            if synthesizer_class is None:
+                if synthesizer in _get_all_sdv_synthesizers():
+                    synthesizer_class = create_sdv_synthesizer_class(synthesizer)
+                else:
+                    raise SDGymError(f'Unknown synthesizer {synthesizer}') from None
+
+            synthesizers_dicts.append({
+                'name': synthesizer,
+                'synthesizer': synthesizer_class(),
+            })
+            continue
 
         if isinstance(synthesizer, type) or hasattr(synthesizer, '__name__'):
             synthesizer_name = getattr(synthesizer, '__name__', 'undefined')

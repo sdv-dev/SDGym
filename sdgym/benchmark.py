@@ -52,7 +52,7 @@ from sdgym.s3 import (
     write_csv,
     write_file,
 )
-from sdgym.synthesizers import CTGANSynthesizer, GaussianCopulaSynthesizer, UniformSynthesizer
+from sdgym.synthesizers import UniformSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
     calculate_score_time,
@@ -67,7 +67,7 @@ from sdgym.utils import (
 )
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_SYNTHESIZERS = [GaussianCopulaSynthesizer, CTGANSynthesizer, UniformSynthesizer]
+DEFAULT_SYNTHESIZERS = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'UniformSynthesizer']
 DEFAULT_DATASETS = [
     'adult',
     'alarm',
@@ -865,6 +865,7 @@ def _directory_exists(bucket_name, s3_file_path):
 
 
 def _check_write_permissions(s3_client, bucket_name):
+    s3_client = s3_client or boto3.client('s3')
     try:
         s3_client.put_object(Bucket=bucket_name, Key='__test__', Body=b'')
         write_permission = True
@@ -885,7 +886,7 @@ def _create_sdgym_script(params, output_filepath):
     bucket_name, key_prefix = parse_s3_path(output_filepath)
     if not _directory_exists(bucket_name, key_prefix):
         raise ValueError(f'Directories in {key_prefix} do not exist')
-    if not _check_write_permissions(bucket_name):
+    if not _check_write_permissions(None, bucket_name):
         raise ValueError('No write permissions allowed for the bucket.')
 
     # Add quotes to parameter strings
@@ -897,23 +898,22 @@ def _create_sdgym_script(params, output_filepath):
         params['output_filepath'] = "'" + params['output_filepath'] + "'"
 
     # Generate the output script to run on the e2 instance
-    synthesizer_string = 'synthesizers=['
-    for synthesizer in params['synthesizers']:
+    synthesizers = params.get('synthesizers', [])
+    names = []
+    for synthesizer in synthesizers:
         if isinstance(synthesizer, str):
-            synthesizer_string += synthesizer + ', '
+            names.append(synthesizer)
+        elif hasattr(synthesizer, '__name__'):
+            names.append(synthesizer.__name__)
         else:
-            synthesizer_string += synthesizer.__name__ + ', '
-    if params['synthesizers']:
-        synthesizer_string = synthesizer_string[:-2]
-    synthesizer_string += ']'
+            names.append(synthesizer.__class__.__name__)
+
+    all_names = '", "'.join(names)
+    synthesizer_string = f'synthesizers=["{all_names}"]'
     # The indentation of the string is important for the python script
     script_content = f"""import boto3
 from io import StringIO
 import sdgym
-from sdgym.synthesizers.sdv import (CopulaGANSynthesizer, CTGANSynthesizer,
-    GaussianCopulaSynthesizer, HMASynthesizer, PARSynthesizer, SDVRelationalSynthesizer,
-    SDVTabularSynthesizer, TVAESynthesizer)
-from sdgym.synthesizers import RealTabFormerSynthesizer
 
 results = sdgym.benchmark_single_table(
     {synthesizer_string}, custom_synthesizers={params['custom_synthesizers']},
@@ -1190,7 +1190,7 @@ def benchmark_single_table(
         custom_synthesizers (list[class] or ``None``):
             A list of custom synthesizer classes to use. These can be completely custom or
             they can be synthesizer variants (the output from ``create_single_table_synthesizer``
-            or ``create_sdv_synthesizer_variant``). Defaults to ``None``.
+            or ``create_synthesizer_variant``). Defaults to ``None``.
         sdv_datasets (list[str] or ``None``):
             Names of the SDV demo datasets to use for the benchmark. Defaults to
             ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,

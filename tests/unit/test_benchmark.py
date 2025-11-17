@@ -33,7 +33,6 @@ from sdgym.benchmark import (
 )
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.s3 import S3_REGION
-from sdgym.synthesizers import GaussianCopulaSynthesizer, UniformSynthesizer
 
 
 @patch('sdgym.benchmark.os.path')
@@ -279,7 +278,7 @@ def test_run_ec2_flag(create_ec2_mock, session_mock, mock_write_permissions, moc
 def test__ensure_uniform_included_adds_uniform(caplog):
     """Test that UniformSynthesizer gets added to the synthesizers list."""
     # Setup
-    synthesizers = [GaussianCopulaSynthesizer]
+    synthesizers = ['GaussianCopulaSynthesizer']
     expected_message = 'Adding UniformSynthesizer to list of synthesizers.'
 
     # Run
@@ -287,14 +286,14 @@ def test__ensure_uniform_included_adds_uniform(caplog):
         _ensure_uniform_included(synthesizers)
 
     # Assert
-    assert synthesizers == [GaussianCopulaSynthesizer, 'UniformSynthesizer']
+    assert synthesizers == ['GaussianCopulaSynthesizer', 'UniformSynthesizer']
     assert any(expected_message in record.message for record in caplog.records)
 
 
 def test__ensure_uniform_included_detects_uniform_class(caplog):
     """Test that the synthesizers list is unchanged if UniformSynthesizer class present."""
     # Setup
-    synthesizers = [UniformSynthesizer, GaussianCopulaSynthesizer]
+    synthesizers = ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
     expected_message = 'Adding UniformSynthesizer to list of synthesizers.'
 
     # Run
@@ -302,7 +301,7 @@ def test__ensure_uniform_included_detects_uniform_class(caplog):
         _ensure_uniform_included(synthesizers)
 
     # Assert
-    assert synthesizers == [UniformSynthesizer, GaussianCopulaSynthesizer]
+    assert synthesizers == ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
     assert all(expected_message not in record.message for record in caplog.records)
 
 
@@ -329,7 +328,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     # Setup
     session_mock.get_credentials.return_value = MagicMock()
     test_params = {
-        'synthesizers': [GaussianCopulaSynthesizer, 'CTGANSynthesizer'],
+        'synthesizers': ['GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
         'custom_synthesizers': None,
         'sdv_datasets': [
             'adult',
@@ -362,7 +361,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     result = _create_sdgym_script(test_params, 's3://Bucket/Filepath')
 
     # Assert
-    assert 'synthesizers=[GaussianCopulaSynthesizer, CTGANSynthesizer]' in result
+    assert 'synthesizers=["GaussianCopulaSynthesizer", "CTGANSynthesizer"]' in result
     assert 'detailed_results_folder=None' in result
     assert "additional_datasets_folder='Details/'" in result
     assert 'multi_processing_config=None' in result
