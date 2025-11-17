@@ -99,7 +99,7 @@ def test__get_trained_synthesizer(mock_logger):
     synthesizer = Mock()
     synthesizer.__class__.__name__ = 'GaussianCopulaClass'
     synthesizer._MODEL_KWARGS = {'enforce_min_max_values': False}
-    synthesizer.modality = 'single_table'
+    synthesizer._MODALITY_FLAG = 'single_table'
     synthesizer.SDV_NAME = 'GaussianCopulaSynthesizer'
 
     # Run
@@ -121,7 +121,7 @@ def test__sample_from_synthesizer(mock_logger):
     })
     base_synthesizer = Mock()
     base_synthesizer.__class__.__name__ = 'GaussianCopulaSynthesizer'
-    base_synthesizer.modality = 'single_table'
+    base_synthesizer._MODALITY_FLAG = 'single_table'
     synthesizer = Mock()
     synthesizer.sample.return_value = data
     n_samples = 3
@@ -187,7 +187,7 @@ def test__create_sdv_class_mock(mock_get_modality, mock_sys_modules):
 
     # Assert
     assert synt_class.__name__ == sdv_name
-    assert synt_class.modality == 'single_table'
+    assert synt_class._MODALITY_FLAG == 'single_table'
     assert synt_class._MODEL_KWARGS == {}
     assert synt_class.SDV_NAME == sdv_name
     assert issubclass(synt_class, BaselineSynthesizer)
@@ -212,7 +212,7 @@ def test__create_sdv_class():
 
     # Assert
     assert synthesizer_class.__name__ == sdv_name
-    assert synthesizer_class.modality == 'single_table'
+    assert synthesizer_class._MODALITY_FLAG == 'single_table'
     assert synthesizer_class._MODEL_KWARGS == {}
     assert issubclass(synthesizer_class, BaselineSynthesizer)
 

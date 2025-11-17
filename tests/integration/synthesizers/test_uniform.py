@@ -2,8 +2,10 @@
 
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
+from sdv.datasets.demo import download_demo
 
-from sdgym.synthesizers.uniform import UniformSynthesizer
+from sdgym.synthesizers import MultiTableUniformSynthesizer, UniformSynthesizer
 
 
 def test_uniform_synthesizer():
@@ -69,3 +71,25 @@ def test_uniform_synthesizer():
 
     assert n_values_interval2 * 0.9 < n_values_interval1 < n_values_interval2 * 1.1
     assert n_values_interval3 * 0.9 < n_values_interval1 < n_values_interval3 * 1.1
+
+
+def test_multitable_uniform_synthesizer_end_to_end():
+    """Test the MultiTableUniformSynthesizer end to end."""
+    # Setup
+    data, metadata = download_demo(dataset_name='fake_hotels', modality='multi_table')
+    synthesizer = MultiTableUniformSynthesizer()
+
+    # Run
+    trained_synthesizer = synthesizer.get_trained_synthesizer(data, metadata.to_dict())
+    sampled_data = synthesizer.sample_from_synthesizer(trained_synthesizer, scale=2)
+
+    # Assert
+    for table_name, table_data in data.items():
+        sampled_table = sampled_data[table_name]
+        assert len(sampled_table) == len(table_data) * 2
+        for column_name in table_data.columns:
+            original_column = table_data[column_name]
+            sampled_column = sampled_table[column_name]
+            if is_numeric_dtype(original_column):
+                assert sampled_column.min() >= original_column.min()
+                assert sampled_column.max() <= original_column.max()

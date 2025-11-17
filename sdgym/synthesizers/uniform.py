@@ -60,7 +60,7 @@ class UniformSynthesizer(BaselineSynthesizer):
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'i':
-                values = np.random.randint(column.min(), column.max() + 1, size=n_samples)
+                values = np.random.randint(int(column.min()), int(column.max()) + 1, size=n_samples)
             elif kind in ['O', 'b']:
                 values = np.random.choice(column.unique(), size=n_samples)
             else:
@@ -71,7 +71,11 @@ class UniformSynthesizer(BaselineSynthesizer):
 
 
 class MultiTableUniformSynthesizer(BaselineSynthesizer):
-    """Synthesizer that uses UniformSynthesizer for multi-table data."""
+    """Multi-table Uniform Synthesizer.
+
+    This synthesizer trains a UniformSynthesizer on each table in the multi-table dataset.
+    It samples data from each table independently using the corresponding trained synthesizer.
+    """
 
     _MODALITY_FLAG = 'multi_table'
 
@@ -80,7 +84,7 @@ class MultiTableUniformSynthesizer(BaselineSynthesizer):
         self.num_rows_per_table = {}
 
     def _get_trained_synthesizer(self, data, metadata):
-        """This function should train single table UniformSynthesizers on each table in the data.
+        """Train a UniformSynthesizer for each table in the multi-table dataset.
 
         Args:
             data (dict):

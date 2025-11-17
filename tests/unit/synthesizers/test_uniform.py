@@ -1,7 +1,11 @@
+from unittest.mock import Mock, call, patch
+
 import numpy as np
 import pandas as pd
+from rdt import HyperTransformer
+from sdv.metadata import Metadata
 
-from sdgym.synthesizers.uniform import UniformSynthesizer
+from sdgym.synthesizers.uniform import MultiTableUniformSynthesizer, UniformSynthesizer
 
 
 class TestUniformSynthesizer:
@@ -78,3 +82,203 @@ class TestUniformSynthesizer:
                 assert metadata_sdtype == config_sdtypes[column]
             else:
                 assert config_sdtypes[column] == 'pii'
+
+
+class TestMultiTableUniformSynthesizer:
+    @patch('sdgym.synthesizers.uniform.BaselineSynthesizer.__init__')
+    def test__init__(self, mock_baseline_init):
+        """Test the `__init__` method."""
+        # Run
+        synthesizer = MultiTableUniformSynthesizer()
+
+        # Assert
+        mock_baseline_init.assert_called_once()
+        assert synthesizer.num_rows_per_table == {}
+
+    @patch('sdgym.synthesizers.uniform.UniformSynthesizer._get_trained_synthesizer')
+    def test__get_trained_synthesizer_mock(self, mock_uniform_get_trained):
+        """Test the `_get_trained_synthesizer` method with mocking."""
+        # Setup
+        synthesizer = MultiTableUniformSynthesizer()
+        data = {
+            'table1': pd.DataFrame({
+                'col1': [1, 2, 3],
+                'col2': ['A', 'B', 'C'],
+            }),
+            'table2': pd.DataFrame({
+                'col3': [10.0, 20.0, 30.0],
+                'col4': [True, False, True],
+            }),
+        }
+        metadata = Mock()
+        metadata.get_table_metadata.side_effect = [
+            {
+                'primary_key': 'col1',
+                'columns': {
+                    'col1': {'sdtype': 'numerical'},
+                    'col2': {'sdtype': 'categorical'},
+                },
+            },
+            {
+                'primary_key': 'col3',
+                'columns': {
+                    'col3': {'sdtype': 'numerical'},
+                    'col4': {'sdtype': 'boolean'},
+                },
+            },
+        ]
+        mock_uniform_get_trained.side_effect = [
+            'trained_synthesizer_table1',
+            'trained_synthesizer_table2',
+        ]
+
+        # Run
+        trained_synthesizer = synthesizer._get_trained_synthesizer(data, metadata)
+
+        # Assert
+        assert synthesizer.num_rows_per_table == {
+            'table1': 3,
+            'table2': 3,
+        }
+        assert trained_synthesizer == {
+            'table1': 'trained_synthesizer_table1',
+            'table2': 'trained_synthesizer_table2',
+        }
+        metadata.get_table_metadata.assert_has_calls([
+            call('table1'),
+            call('table2'),
+        ])
+
+    def test__get_trained_synthesizer(self):
+        """Test the `_get_trained_synthesizer` method."""
+        # Setup
+        synthesizer = MultiTableUniformSynthesizer()
+        data = {
+            'table1': pd.DataFrame({
+                'col1': [1, 2, 3, 4, 5],
+                'col2': ['A', 'B', 'C', 'D', 'E'],
+            }),
+            'table2': pd.DataFrame({
+                'col3': [10.0, 20.0, 30.0],
+                'col4': [True, False, True],
+            }),
+        }
+        metadata = Metadata.load_from_dict({
+            'tables': {
+                'table1': {
+                    'columns': {
+                        'col1': {'sdtype': 'numerical'},
+                        'col2': {'sdtype': 'categorical'},
+                    },
+                    'primary_key': 'col1',
+                },
+                'table2': {
+                    'columns': {
+                        'col3': {'sdtype': 'numerical'},
+                        'col4': {'sdtype': 'boolean'},
+                    },
+                    'primary_key': 'col3',
+                },
+            },
+            'relationships': [],
+        })
+
+        # Run
+        trained_synthesizer = synthesizer._get_trained_synthesizer(data, metadata)
+
+        # Assert
+        assert synthesizer.num_rows_per_table == {
+            'table1': 5,
+            'table2': 3,
+        }
+        assert set(trained_synthesizer.keys()) == {'table1', 'table2'}
+        for table_name in data:
+            hyper_transformer, transformed = trained_synthesizer[table_name]
+            assert isinstance(hyper_transformer, HyperTransformer)
+            assert isinstance(transformed, pd.DataFrame)
+            assert set(transformed.columns) == set(data[table_name].columns)
+
+    @patch('sdgym.synthesizers.uniform.UniformSynthesizer.sample_from_synthesizer')
+    def test_sample_from_synthesizer_mock(self, mock_sample_from_synthesizer):
+        """Test the `sample_from_synthesizer` method with mocking."""
+        # Setup
+        synthesizer = MultiTableUniformSynthesizer()
+        synthesizer.num_rows_per_table = {
+            'table1': 3,
+            'table2': 2,
+        }
+        synthesizer_table1 = Mock()
+        synthesizer_table2 = Mock()
+        trained_synthesizer = {
+            'table1': synthesizer_table1,
+            'table2': synthesizer_table2,
+        }
+        mock_sample_from_synthesizer.side_effect = [
+            'sampled_data_table1',
+            'sampled_data_table2',
+        ]
+        scale = 2
+
+        # Run
+        sampled_data = synthesizer.sample_from_synthesizer(trained_synthesizer, scale)
+
+        # Assert
+        assert sampled_data == {
+            'table1': 'sampled_data_table1',
+            'table2': 'sampled_data_table2',
+        }
+        mock_sample_from_synthesizer.assert_has_calls([
+            call(synthesizer_table1, 6),
+            call(synthesizer_table2, 4),
+        ])
+
+    def test_sample_from_synthesizer(self):
+        """Test the `sample_from_synthesizer` method."""
+        # Setup
+        np.random.seed(0)
+        synthesizer = MultiTableUniformSynthesizer()
+        data = {
+            'table1': pd.DataFrame({
+                'col1': [1, 2, 3, 4, 5],
+                'col2': ['A', 'B', 'C', 'D', 'E'],
+            }),
+            'table2': pd.DataFrame({
+                'col3': [10, 20, 30],
+                'col4': [True, False, True],
+            }),
+        }
+        hp_table1 = HyperTransformer()
+        hp_table1.detect_initial_config(data['table1'])
+        hp_table1.fit(data['table1'])
+        hp_table2 = HyperTransformer()
+        hp_table2.detect_initial_config(data['table2'])
+        hp_table2.fit(data['table2'])
+        trained_synthesizer = {
+            'table1': (hp_table1, hp_table1.transform(data['table1'])),
+            'table2': (hp_table2, hp_table2.transform(data['table2'])),
+        }
+        synthesizer.num_rows_per_table = {
+            'table1': 5,
+            'table2': 3,
+        }
+        scale = 2
+        expected_data = {
+            'table1': pd.DataFrame({
+                'col1': [3, 4, 3, 3, 3, 4, 3, 5, 5, 3],
+                'col2': ['D', 'C', 'C', 'D', 'A', 'A', 'A', 'D', 'D', 'D'],
+            }),
+            'table2': pd.DataFrame({
+                'col3': [30, 26, 19, 26, 12, 23],
+                'col4': [True, False, True, True, True, True],
+            }),
+        }
+
+        # Run
+        sampled_data = synthesizer.sample_from_synthesizer(trained_synthesizer, scale)
+
+        # Assert
+        for table_name, table_data in sampled_data.items():
+            pd.testing.assert_frame_equal(
+                table_data,
+                expected_data[table_name],
+            )

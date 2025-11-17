@@ -9,15 +9,17 @@ from sdgym.synthesizers.base import BaselineSynthesizer
 
 class TestBaselineSynthesizer:
     @patch('sdgym.synthesizers.utils.BaselineSynthesizer.get_subclasses')
-    def test__get_supported_synthesizers_mock(self, mock_get_subclasses):
+    @patch('sdgym.synthesizers.base._validate_modality')
+    def test__get_supported_synthesizers_mock(self, mock_validate_modality, mock_get_subclasses):
         """Test the `_get_supported_synthesizers` method with mocks."""
         # Setup
         mock_get_subclasses.return_value = {
-            'Variant:ColumnSynthesizer': Mock(_NATIVELY_SUPPORTED=False),
-            'Custom:MySynthesizer': Mock(_NATIVELY_SUPPORTED=False),
-            'ColumnSynthesizer': Mock(_NATIVELY_SUPPORTED=True),
-            'UniformSynthesizer': Mock(_NATIVELY_SUPPORTED=True),
-            'DataIdentity': Mock(_NATIVELY_SUPPORTED=True),
+            'Variant:Synthesizer': Mock(_NATIVELY_SUPPORTED=False, _MODALITY_FLAG='single_table'),
+            'Custom:MySynthesizer': Mock(_NATIVELY_SUPPORTED=False, _MODALITY_FLAG='single_table'),
+            'ColumnSynthesizer': Mock(_NATIVELY_SUPPORTED=True, _MODALITY_FLAG='single_table'),
+            'UniformSynthesizer': Mock(_NATIVELY_SUPPORTED=True, _MODALITY_FLAG='single_table'),
+            'MultiTableSynthesizer': Mock(_NATIVELY_SUPPORTED=True, _MODALITY_FLAG='multi_table'),
+            'DataIdentity': Mock(_NATIVELY_SUPPORTED=True, _MODALITY_FLAG='single_table'),
         }
         expected_synthesizers = [
             'ColumnSynthesizer',
@@ -26,9 +28,11 @@ class TestBaselineSynthesizer:
         ]
 
         # Run
-        synthesizers = BaselineSynthesizer._get_supported_synthesizers()
+        synthesizers = BaselineSynthesizer._get_supported_synthesizers('single_table')
 
         # Assert
+        mock_validate_modality.assert_called_once_with('single_table')
+        mock_get_subclasses.assert_called_once_with(include_parents=True)
         assert synthesizers == expected_synthesizers
 
     def test_get_trained_synthesizer(self):

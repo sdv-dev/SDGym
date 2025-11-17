@@ -55,7 +55,7 @@ def test_create_sdv_variant_synthesizer():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out.modality == 'single_table'
+    assert out._MODALITY_FLAG == 'single_table'
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert out.SDV_NAME == synthesizer_class
     assert out._NATIVELY_SUPPORTED is False
@@ -85,7 +85,7 @@ def test_create_sdv_variant_synthesizer_multi_table():
 
     # Assert
     assert out.__name__ == 'Variant:test_synth'
-    assert out.modality == 'multi_table'
+    assert out._MODALITY_FLAG == 'multi_table'
     assert out._MODEL_KWARGS == synthesizer_parameters
     assert out.SDV_NAME == synthesizer_class
     assert out._NATIVELY_SUPPORTED is False
