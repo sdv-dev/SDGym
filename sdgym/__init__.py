@@ -21,7 +21,6 @@ from sdgym.synthesizers import (
     create_synthesizer_variant,
     create_single_table_synthesizer,
     create_multi_table_synthesizer,
-    create_sdv_synthesizer_variant
 )
 from sdgym.result_explorer import ResultsExplorer
 
