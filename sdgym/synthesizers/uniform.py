@@ -52,7 +52,6 @@ class UniformSynthesizer(BaselineSynthesizer):
         hyper_transformer.fit(real_data)
         transformed = hyper_transformer.transform(real_data)
 
-        self.length = len(real_data)
         return (hyper_transformer, transformed)
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
@@ -61,12 +60,65 @@ class UniformSynthesizer(BaselineSynthesizer):
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'i':
-                values = np.random.randint(column.min(), column.max() + 1, size=self.length)
+                values = np.random.randint(column.min(), column.max() + 1, size=n_samples)
             elif kind in ['O', 'b']:
-                values = np.random.choice(column.unique(), size=self.length)
+                values = np.random.choice(column.unique(), size=n_samples)
             else:
-                values = np.random.uniform(column.min(), column.max(), size=self.length)
-
+                values = np.random.uniform(column.min(), column.max(), size=n_samples)
             sampled[name] = values
 
         return hyper_transformer.reverse_transform(sampled)
+
+
+class MultiTableUniformSynthesizer(BaselineSynthesizer):
+    """Synthesizer that uses UniformSynthesizer for multi-table data."""
+
+    def __init__(self):
+        super().__init__()
+        self.num_rows_per_table = {}
+
+    def _get_trained_synthesizer(self, data, metadata):
+        """This function should train single table UniformSynthesizers on each table in the data.
+
+        Args:
+            data (dict):
+                A dict mapping table name to table data.
+            metadata (sdv.metadata.Metadata):
+                The metadata
+
+        Returns:
+            A dict mapping table name to trained UniformSynthesizer instance.
+        """
+        synthesizers = {}
+        for table_name, table_data in data.items():
+            self.num_rows_per_table[table_name] = len(table_data)
+            table_metadata = metadata.get_table_metadata(table_name)
+            synthesizer = UniformSynthesizer()
+            trained_synthesizer = synthesizer._get_trained_synthesizer(table_data, table_metadata)
+            synthesizers[table_name] = trained_synthesizer
+
+        return synthesizers
+
+    def sample_from_synthesizer(self, synthesizer, scale=1.0):
+        """Sample data from the provided synthesizer.
+
+        Args:
+            synthesizer (dict[table_name, UniformSynthesizer]):
+                Dict mapping table name to trained single-table UniformSynthesizer.
+                This is the output of `get_trained_synthesizer`.
+            scale (float):
+                The scale of data to sample.
+                Defaults to 1.0.
+
+        Returns:
+            dict:  A dict mapping table name to the sampled data.
+        """
+        sampled_data = {}
+        for table_name, table_synthesizer in synthesizer.items():
+            n_samples = int(self.num_rows_per_table[table_name] * scale)
+            sampled_table = UniformSynthesizer().sample_from_synthesizer(
+                table_synthesizer, n_samples
+            )
+            sampled_data[table_name] = sampled_table
+
+        return sampled_data
