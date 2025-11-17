@@ -1,17 +1,21 @@
 """Utility functions for synthesizers in SDGym."""
 
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.sdv import _get_all_sdv_synthesizers, _get_sdv_synthesizers
+from sdgym.synthesizers.sdv import (
+    _get_all_sdv_synthesizers,
+    _validate_modality,
+)
 
 
-def _get_sdgym_synthesizers():
+def _get_sdgym_synthesizers(modality):
     """Get SDGym synthesizers.
 
     Returns:
         list:
             A list of available SDGym synthesizer names.
     """
-    synthesizers = BaselineSynthesizer._get_supported_synthesizers()
+    _validate_modality(modality)
+    synthesizers = BaselineSynthesizer._get_supported_synthesizers(modality)
     sdv_synthesizer = _get_all_sdv_synthesizers()
     sdgym_synthesizer = [
         synthesizer for synthesizer in synthesizers if synthesizer not in sdv_synthesizer
@@ -26,9 +30,7 @@ def get_available_single_table_synthesizers():
         list:
             A sorted list of available single-table synthesizer names.
     """
-    sdv_synthesizers = _get_sdv_synthesizers('single_table')
-    sdgym_synthesizers = _get_sdgym_synthesizers()
-    return sorted(sdv_synthesizers + sdgym_synthesizers)
+    return sorted(BaselineSynthesizer._get_supported_synthesizers('single_table'))
 
 
 def get_available_multi_table_synthesizers():
@@ -38,7 +40,7 @@ def get_available_multi_table_synthesizers():
         list:
             A sorted list of available multi-table synthesizer names.
     """
-    return sorted(_get_sdv_synthesizers('multi_table'))
+    return sorted(BaselineSynthesizer._get_supported_synthesizers('multi_table'))
 
 
 def _get_supported_synthesizers():
@@ -48,4 +50,8 @@ def _get_supported_synthesizers():
         list:
             A list of available SDGym supported synthesizer names.
     """
-    return BaselineSynthesizer._get_supported_synthesizers()
+    synthesizers = []
+    for modality in ['single_table', 'multi_table']:
+        synthesizers.extend(BaselineSynthesizer._get_supported_synthesizers(modality))
+
+    return sorted(synthesizers)

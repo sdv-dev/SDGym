@@ -9,11 +9,18 @@ from sdv.metadata import Metadata
 LOGGER = logging.getLogger(__name__)
 
 
+def _validate_modality(modality):
+    """Validate that the modality is correct."""
+    if modality not in ['single_table', 'multi_table']:
+        raise ValueError("`modality` must be one of 'single_table' or 'multi_table'.")
+
+
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
     _MODEL_KWARGS = {}
     _NATIVELY_SUPPORTED = True
+    _MODALITY_FLAG = 'single_table'
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -34,12 +41,13 @@ class BaselineSynthesizer(abc.ABC):
         return subclasses
 
     @classmethod
-    def _get_supported_synthesizers(cls):
+    def _get_supported_synthesizers(cls, modality):
         """Get the natively supported synthesizer class names."""
+        _validate_modality(modality)
         subclasses = cls.get_subclasses(include_parents=True)
         synthesizers = set()
         for name, subclass in subclasses.items():
-            if subclass._NATIVELY_SUPPORTED:
+            if subclass._NATIVELY_SUPPORTED and subclass._MODALITY_FLAG == modality:
                 synthesizers.add(name)
 
         return sorted(synthesizers)

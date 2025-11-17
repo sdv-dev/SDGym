@@ -73,6 +73,8 @@ class UniformSynthesizer(BaselineSynthesizer):
 class MultiTableUniformSynthesizer(BaselineSynthesizer):
     """Synthesizer that uses UniformSynthesizer for multi-table data."""
 
+    _MODALITY_FLAG = 'multi_table'
+
     def __init__(self):
         super().__init__()
         self.num_rows_per_table = {}

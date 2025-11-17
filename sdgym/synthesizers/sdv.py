@@ -6,7 +6,7 @@ from importlib import import_module
 
 from sdv import multi_table, single_table
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer, _validate_modality
 
 LOGGER = logging.getLogger(__name__)
 UNSUPPORTED_SDV_SYNTHESIZERS = ['DayZSynthesizer']
@@ -14,12 +14,6 @@ MODALITY_TO_MODULE = {
     'single_table': single_table,
     'multi_table': multi_table,
 }
-
-
-def _validate_modality(modality):
-    """Validate that the modality is correct."""
-    if modality not in ['single_table', 'multi_table']:
-        raise ValueError("`modality` must be one of 'single_table' or 'multi_table'.")
 
 
 def _get_sdv_synthesizers(modality):
@@ -41,7 +35,7 @@ def _get_all_sdv_synthesizers():
 
 def _get_trained_synthesizer(self, data, metadata):
     LOGGER.info('Fitting %s', self.__class__.__name__)
-    sdv_class = getattr(import_module(f'sdv.{self.modality}'), self.SDV_NAME)
+    sdv_class = getattr(import_module(f'sdv.{self._MODALITY_FLAG}'), self.SDV_NAME)
     synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
     synthesizer.fit(data)
     return synthesizer
@@ -49,7 +43,7 @@ def _get_trained_synthesizer(self, data, metadata):
 
 def _sample_from_synthesizer(self, synthesizer, sample_arg):
     LOGGER.info('Sampling %s', self.__class__.__name__)
-    if self.modality == 'multi_table':
+    if self._MODALITY_FLAG == 'multi_table':
         return synthesizer.sample(scale=sample_arg)
 
     return synthesizer.sample(num_rows=sample_arg)
@@ -88,7 +82,7 @@ def _create_sdv_class(sdv_name):
         {
             '__module__': __name__,
             'SDV_NAME': sdv_name,
-            'modality': modality,
+            '_MODALITY_FLAG': modality,
             '_MODEL_KWARGS': {},
             '_get_trained_synthesizer': _get_trained_synthesizer,
             '_sample_from_synthesizer': _sample_from_synthesizer,
