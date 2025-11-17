@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from unittest.mock import MagicMock, patch
 
@@ -203,6 +204,58 @@ class TestDatasetExplorer:
         expected_msg = "The 'output_filepath' has to be a .csv file, provided: 'output.txt'."
         with pytest.raises(ValueError, match=expected_msg):
             explorer._validate_output_filepath('output.txt')
+
+    def test__validate_output_filepath_existing_file(self, tmp_path):
+        """Test the ``_validate_output_filepath`` method when file already exists."""
+        # Setup
+        explorer = DatasetExplorer()
+        existing_file = tmp_path / 'exists.csv'
+        existing_file.write_text('already here')
+
+        # Run and Assert
+        expected_msg = (
+            f"The file '{existing_file}' already exists. Please provide a new 'output_filepath'."
+        )
+        with pytest.raises(ValueError, match=expected_msg):
+            explorer._validate_output_filepath(str(existing_file))
+
+    def test___init__valid_s3_bucket_urls(self):
+        """DatasetExplorer initializes with valid bucket-only S3 URLs."""
+        # Run and Assert
+        explorer = DatasetExplorer(s3_url='s3://my-bucket')
+        assert explorer._bucket_name == 'my-bucket'
+
+        # Run and Assert
+        explorer = DatasetExplorer(s3_url='s3://my-bucket/')
+        assert explorer._bucket_name == 'my-bucket'
+
+    @pytest.mark.parametrize(
+        'value',
+        [
+            None,
+            123,
+            12.34,
+            '',
+            's3://',
+            's3:///',
+            's3:///path-only',
+            's3://my-bucket/path',
+            's3://my-bucket/folder/',
+            's3://my-bucket?query=1',
+            's3://my-bucket#frag',
+            'http://my-bucket',
+            'https://my-bucket',
+            'ftp://my-bucket',
+        ],
+    )
+    def test___init__invalid_s3_bucket_urls(self, value):
+        """DatasetExplorer rejects invalid S3 URLs during initialization."""
+        err_msg = re.escape(
+            f"The provided s3_url parameter ('{value}') is not a valid S3 URL.\n"
+            "Please provide a string that starts with 's3://' and refers to a AWS bucket."
+        )
+        with pytest.raises(ValueError, match=err_msg):
+            DatasetExplorer(s3_url=value)
 
     @patch('sdgym.dataset_explorer._get_available_datasets')
     @patch('sdgym.dataset_explorer.load_dataset')
