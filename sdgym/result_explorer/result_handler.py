@@ -127,7 +127,9 @@ class ResultsHandler(ABC):
             .str.replace(REGEX_SYNTHESIZER_NAME, '', regex=True)
             .str.strip()
         )
-        aggregated_results = aggregated_results.drop_duplicates(subset=['Dataset', 'Synthesizer'])
+        aggregated_results = aggregated_results.drop_duplicates(
+            subset=['Dataset', 'Synthesizer'], keep='first'
+        )
         all_synthesizers = aggregated_results['Synthesizer'].unique()
         dataset_synth_counts = aggregated_results.groupby('Dataset')['Synthesizer'].nunique()
         valid_datasets = dataset_synth_counts[dataset_synth_counts == len(all_synthesizers)].index
@@ -139,9 +141,6 @@ class ResultsHandler(ABC):
             )
 
         filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
-        filtered_results = filtered_results.drop_duplicates(
-            subset=['Dataset', 'Synthesizer'], keep='first'
-        )
         return filtered_results.reset_index(drop=True)
 
     def summarize(self, folder_name):
