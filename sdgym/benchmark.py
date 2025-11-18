@@ -1384,7 +1384,7 @@ def _get_s3_script_content(
 ):
     return f"""
 import boto3
-import pickle
+import cloudpickle
 from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
@@ -1396,7 +1396,7 @@ s3_client = boto3.client(
     region_name='{region_name}'
 )
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
-job_args_list = pickle.loads(response['Body'].read())
+job_args_list = cloudpickle.loads(response['Body'].read())
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_metainfo_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
