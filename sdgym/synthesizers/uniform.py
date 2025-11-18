@@ -60,7 +60,9 @@ class UniformSynthesizer(BaselineSynthesizer):
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'i':
-                values = np.random.randint(int(column.min()), int(column.max()) + 1, size=n_samples)
+                values = np.random.randint(
+                    int(column.min()), int(column.max()) + 1, size=n_samples, dtype=np.int64
+                )
             elif kind in ['O', 'b']:
                 values = np.random.choice(column.unique(), size=n_samples)
             else:

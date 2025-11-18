@@ -103,13 +103,15 @@ def test__create_synthesizer_class():
         'test_synth',
         get_trained_synthesizer_fn,
         sample_fn,
-        sample_arg_name='num_samples',
+        modality='single_table',
     )
 
     # Assert
     assert out.__name__ == 'Custom:test_synth'
     assert hasattr(out, 'get_trained_synthesizer')
     assert hasattr(out, 'sample_from_synthesizer')
+    assert out._NATIVELY_SUPPORTED is False
+    assert out._MODALITY_FLAG == 'single_table'
 
 
 @patch('sdgym.synthesizers.generate._create_synthesizer_class')
@@ -128,7 +130,7 @@ def test_create_single_table_synthesizer_mock(mock_create_class):
         'test_synth',
         get_trained_synthesizer_fn,
         sample_fn,
-        sample_arg_name='num_samples',
+        modality='single_table',
     )
     assert out == 'synthesizer_class'
 
@@ -149,6 +151,6 @@ def test_create_multi_table_synthesizer_mock(mock_create_class):
         'test_synth',
         get_trained_synthesizer_fn,
         sample_fn,
-        sample_arg_name='scale',
+        modality='multi_table',
     )
     assert out == 'synthesizer_class'
