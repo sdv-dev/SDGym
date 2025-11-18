@@ -113,9 +113,10 @@ class MultiTableUniformSynthesizer(BaselineSynthesizer):
         """Sample data from the provided synthesizer.
 
         Args:
-            synthesizer (dict[table_name, UniformSynthesizer]):
+            synthesizer (dict[table_name, (HyperTransformer, pd.DataFrame)]):
                 Dict mapping table name to trained single-table UniformSynthesizer.
-                This is the output of `get_trained_synthesizer`.
+                This is the output of `get_trained_synthesizer` which is a
+                tuple of (HyperTransformer, transformed data).
             scale (float):
                 The scale of data to sample.
                 Defaults to 1.0.
