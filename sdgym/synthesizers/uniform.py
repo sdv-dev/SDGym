@@ -15,6 +15,8 @@ LOGGER = logging.getLogger(__name__)
 class UniformSynthesizer(BaselineSynthesizer):
     """Synthesizer that samples each column using a Uniform distribution."""
 
+    _MODALITY_FLAG = 'single_table'
+
     def _get_trained_synthesizer(self, real_data, metadata):
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(real_data)

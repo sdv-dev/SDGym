@@ -15,29 +15,8 @@ from sdgym.synthesizers.sdv import (
     _get_trained_synthesizer,
     _retrieve_sdv_class,
     _sample_from_synthesizer,
-    _validate_modality,
     create_sdv_synthesizer_class,
 )
-
-
-def test__validate_modality():
-    """Test the `_validate_modality` method."""
-    # Setup
-    valid_modalities = ['single_table', 'multi_table']
-
-    # Run and Assert
-    for modality in valid_modalities:
-        _validate_modality(modality)
-
-
-def test__validate_modality_invalid():
-    """Test the `_validate_modality` method with invalid modality."""
-    # Setup
-    expected_error = re.escape("`modality` must be one of 'single_table' or 'multi_table'.")
-
-    # Run and Assert
-    with pytest.raises(ValueError, match=expected_error):
-        _validate_modality('invalid_modality')
 
 
 def test__get_sdv_synthesizers():

@@ -9,10 +9,15 @@ from sdv.metadata import Metadata
 LOGGER = logging.getLogger(__name__)
 
 
+def _is_valid_modality(modality):
+    return modality in ('single_table', 'multi_table')
+
+
 def _validate_modality(modality):
-    """Validate that the modality is correct."""
-    if modality not in ['single_table', 'multi_table']:
-        raise ValueError("`modality` must be one of 'single_table' or 'multi_table'.")
+    if not _is_valid_modality(modality):
+        raise ValueError(
+            f"Modality '{modality}' is not valid. Must be either 'single_table' or 'multi_table'."
+        )
 
 
 class BaselineSynthesizer(abc.ABC):
@@ -20,7 +25,7 @@ class BaselineSynthesizer(abc.ABC):
 
     _MODEL_KWARGS = {}
     _NATIVELY_SUPPORTED = True
-    _MODALITY_FLAG = 'single_table'
+    _MODALITY_FLAG = None
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -63,6 +68,13 @@ class BaselineSynthesizer(abc.ABC):
 
         return synthesizers
 
+    def _validate_modality_flag(self):
+        if not _is_valid_modality(self._MODALITY_FLAG):
+            raise ValueError(
+                f"The `_MODALITY_FLAG` '{self._MODALITY_FLAG}' of the synthesizer is not valid. "
+                "Must be either 'single_table' or 'multi_table'."
+            )
+
     def get_trained_synthesizer(self, data, metadata):
         """Get a synthesizer that has been trained on the provided data and metadata.
 
@@ -76,6 +88,7 @@ class BaselineSynthesizer(abc.ABC):
             obj:
                 The synthesizer object.
         """
+        self._validate_modality_flag()
         metadata_object = Metadata()
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
