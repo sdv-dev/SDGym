@@ -110,12 +110,12 @@ class TestResultsHandler:
         results = [
             pd.DataFrame({
                 'Dataset': ['A', 'A', 'B', 'B', 'C'],
-                'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'Synth2', 'Synth1'],
+                'Synthesizer': ['Synth1', 'Synth2(1)', 'Synth1', 'Synth2(1)', 'Synth1'],
                 'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
             }),
             pd.DataFrame({
                 'Dataset': ['D', 'D', 'D'],
-                'Synthesizer': ['Synth1', 'Synth2', 'Synth1'],
+                'Synthesizer': ['Synth1(2)', 'Synth2', 'Synth1(2)'],
                 'Quality_Score': [0.7, 0.8, 0.9],
             }),
         ]
