@@ -6,7 +6,11 @@ from importlib import import_module
 
 from sdv import multi_table, single_table
 
-from sdgym.synthesizers.base import BaselineSynthesizer, _validate_modality
+from sdgym.synthesizers.base import (
+    BaselineSynthesizer,
+    MultiTableBaselineSynthesizer,
+    _validate_modality,
+)
 
 LOGGER = logging.getLogger(__name__)
 UNSUPPORTED_SDV_SYNTHESIZERS = ['DayZSynthesizer']
@@ -76,9 +80,10 @@ def _create_sdv_class(sdv_name):
     """Create a SDV synthesizer class dynamically."""
     current_module = sys.modules[__name__]
     modality = _get_modality(sdv_name)
+    base_class = MultiTableBaselineSynthesizer if modality == 'multi_table' else BaselineSynthesizer
     synthesizer_class = type(
         sdv_name,
-        (BaselineSynthesizer,),
+        (base_class,),
         {
             '__module__': __name__,
             'SDV_NAME': sdv_name,

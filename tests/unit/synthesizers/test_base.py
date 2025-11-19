@@ -1,12 +1,17 @@
 import re
 import warnings
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pandas as pd
 import pytest
 from sdv.metadata import Metadata
 
-from sdgym.synthesizers.base import BaselineSynthesizer, _is_valid_modality, _validate_modality
+from sdgym.synthesizers.base import (
+    BaselineSynthesizer,
+    MultiTableBaselineSynthesizer,
+    _is_valid_modality,
+    _validate_modality,
+)
 
 
 @pytest.mark.parametrize(
@@ -111,3 +116,36 @@ class TestBaselineSynthesizer:
         assert args[1].to_dict() == metadata.to_dict()
         assert isinstance(args[1], Metadata)
         assert instance._get_trained_synthesizer.return_value == mock_synthesizer
+
+
+class TestMultiTableBaselineSynthesizer:
+    def test_sample_from_synthesizer(self):
+        """Test it calls the correct methods and returns the correct values."""
+        # Setup
+        synthesizer = MultiTableBaselineSynthesizer()
+        mock_synthesizer = Mock()
+        synthesizer._sample_from_synthesizer = Mock(return_value='sampled_data')
+        expected_error = re.escape(
+            'Multi-table synthesizers do not support `n_samples`. Use `scale` instead.'
+        )
+
+        # Run
+        sampled_data = synthesizer.sample_from_synthesizer(mock_synthesizer)
+        sampled_data_with_scale = synthesizer.sample_from_synthesizer(
+            mock_synthesizer,
+            scale=2.0,
+        )
+        with pytest.raises(TypeError, match=expected_error):
+            synthesizer.sample_from_synthesizer(
+                mock_synthesizer,
+                n_samples=10,
+            )
+
+        # Assert
+        assert synthesizer._MODALITY_FLAG == 'multi_table'
+        synthesizer._sample_from_synthesizer.assert_has_calls([
+            call(mock_synthesizer, scale=1.0),
+            call(mock_synthesizer, scale=2.0),
+        ])
+        assert sampled_data == 'sampled_data'
+        assert sampled_data_with_scale == 'sampled_data'

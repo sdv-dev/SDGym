@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer, MultiTableBaselineSynthesizer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,14 +74,12 @@ class UniformSynthesizer(BaselineSynthesizer):
         return hyper_transformer.reverse_transform(sampled)
 
 
-class MultiTableUniformSynthesizer(BaselineSynthesizer):
+class MultiTableUniformSynthesizer(MultiTableBaselineSynthesizer):
     """Multi-table Uniform Synthesizer.
 
     This synthesizer trains a UniformSynthesizer on each table in the multi-table dataset.
     It samples data from each table independently using the corresponding trained synthesizer.
     """
-
-    _MODALITY_FLAG = 'multi_table'
 
     def __init__(self):
         super().__init__()
@@ -109,7 +107,7 @@ class MultiTableUniformSynthesizer(BaselineSynthesizer):
 
         return synthesizers
 
-    def sample_from_synthesizer(self, synthesizer, scale=1.0):
+    def _sample_from_synthesizer(self, synthesizer, scale):
         """Sample data from the provided synthesizer.
 
         Args:
@@ -128,7 +126,7 @@ class MultiTableUniformSynthesizer(BaselineSynthesizer):
         for table_name, table_synthesizer in synthesizer.items():
             n_samples = int(self.num_rows_per_table[table_name] * scale)
             sampled_table = UniformSynthesizer().sample_from_synthesizer(
-                table_synthesizer, n_samples
+                table_synthesizer, n_samples=n_samples
             )
             sampled_data[table_name] = sampled_table
 

@@ -1,6 +1,6 @@
 """Helpers to create SDGym synthesizer variants."""
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer, MultiTableBaselineSynthesizer
 from sdgym.synthesizers.utils import _get_supported_synthesizers
 
 
@@ -59,19 +59,26 @@ def _create_synthesizer_class(display_name, get_trained_fn, sample_fn, modality)
     def get_trained_synthesizer(self, data, metadata):
         return get_trained_fn(data, metadata)
 
-    if modality == 'single_table':
+    if modality == 'multi_table':
 
-        def sample_from_synthesizer(self, synthesizer, num_samples):
-            return sample_fn(synthesizer, num_samples)
+        def sample_from_synthesizer(self, synthesizer, *, scale=1.0, n_samples=None):
+            if n_samples is not None:
+                raise TypeError(
+                    'Multi-table synthesizers do not support `n_samples`. Use `scale` instead.'
+                )
+            return sample_fn(synthesizer, scale)
 
+        base_class = MultiTableBaselineSynthesizer
     else:
 
-        def sample_from_synthesizer(self, synthesizer, scale):
-            return sample_fn(synthesizer, scale)
+        def sample_from_synthesizer(self, synthesizer, *, n_samples):
+            return sample_fn(synthesizer, n_samples)
+
+        base_class = BaselineSynthesizer
 
     CustomSynthesizer = type(
         class_name,
-        (BaselineSynthesizer,),
+        (base_class,),
         {
             '__module__': __name__,
             '_NATIVELY_SUPPORTED': False,

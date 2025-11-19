@@ -29,7 +29,9 @@ class TestUniformSynthesizer:
 
         # Run
         trained_synthesizer = column_synthesizer.get_trained_synthesizer(data, {})
-        samples = column_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples)
+        samples = column_synthesizer.sample_from_synthesizer(
+            trained_synthesizer, n_samples=n_samples
+        )
 
         # Assert
         assert samples['num'].between(-10, 10).all()

@@ -49,13 +49,15 @@ class BaselineSynthesizer(abc.ABC):
     def _get_supported_synthesizers(cls, modality):
         """Get the natively supported synthesizer class names."""
         _validate_modality(modality)
-        subclasses = cls.get_subclasses(include_parents=True)
-        synthesizers = set()
-        for name, subclass in subclasses.items():
-            if subclass._NATIVELY_SUPPORTED and subclass._MODALITY_FLAG == modality:
-                synthesizers.add(name)
-
-        return sorted(synthesizers)
+        return sorted({
+            name
+            for name, subclass in cls.get_subclasses(include_parents=True).items()
+            if (
+                name != 'MultiTableBaselineSynthesizer'
+                and subclass._NATIVELY_SUPPORTED
+                and subclass._MODALITY_FLAG == modality
+            )
+        })
 
     @classmethod
     def get_baselines(cls):
@@ -96,7 +98,7 @@ class BaselineSynthesizer(abc.ABC):
 
         return self._get_trained_synthesizer(data, metadata)
 
-    def sample_from_synthesizer(self, synthesizer, n_samples):
+    def sample_from_synthesizer(self, synthesizer, *, n_samples):
         """Sample data from the provided synthesizer.
 
         Args:
@@ -111,3 +113,33 @@ class BaselineSynthesizer(abc.ABC):
                 should be a dict mapping table name to DataFrame.
         """
         return self._sample_from_synthesizer(synthesizer, n_samples)
+
+
+class MultiTableBaselineSynthesizer(BaselineSynthesizer):
+    """Base class for all multi-table synthesizers."""
+
+    _MODALITY_FLAG = 'multi_table'
+
+    def sample_from_synthesizer(self, synthesizer, *, scale=1.0, n_samples=None):
+        """Sample data from the provided synthesizer.
+
+        Args:
+            synthesizer (obj):
+                The synthesizer object to sample data from.
+            scale (float):
+                The scale of data to sample.
+                Defaults to 1.0.
+            n_samples (int):
+                This parameter is not supported for multi-table synthesizers.
+                Use `scale` instead.
+
+        Returns:
+            dict:
+                The sampled data. A dict mapping table name to DataFrame.
+        """
+        if n_samples is not None:
+            raise TypeError(
+                'Multi-table synthesizers do not support `n_samples`. Use `scale` instead.'
+            )
+
+        return self._sample_from_synthesizer(synthesizer, scale=scale)

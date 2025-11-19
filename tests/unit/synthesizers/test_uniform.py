@@ -85,7 +85,7 @@ class TestUniformSynthesizer:
 
 
 class TestMultiTableUniformSynthesizer:
-    @patch('sdgym.synthesizers.uniform.BaselineSynthesizer.__init__')
+    @patch('sdgym.synthesizers.uniform.MultiTableBaselineSynthesizer.__init__')
     def test__init__(self, mock_baseline_init):
         """Test the `__init__` method."""
         # Run
@@ -220,7 +220,7 @@ class TestMultiTableUniformSynthesizer:
         scale = 2
 
         # Run
-        sampled_data = synthesizer.sample_from_synthesizer(trained_synthesizer, scale)
+        sampled_data = synthesizer.sample_from_synthesizer(trained_synthesizer, scale=scale)
 
         # Assert
         assert sampled_data == {
@@ -228,8 +228,8 @@ class TestMultiTableUniformSynthesizer:
             'table2': 'sampled_data_table2',
         }
         mock_sample_from_synthesizer.assert_has_calls([
-            call(synthesizer_table1, 6),
-            call(synthesizer_table2, 4),
+            call(synthesizer_table1, n_samples=6),
+            call(synthesizer_table2, n_samples=4),
         ])
 
     def test_sample_from_synthesizer(self):
@@ -274,7 +274,7 @@ class TestMultiTableUniformSynthesizer:
         }
 
         # Run
-        sampled_data = synthesizer.sample_from_synthesizer(trained_synthesizer, scale)
+        sampled_data = synthesizer.sample_from_synthesizer(trained_synthesizer, scale=scale)
 
         # Assert
         for table_name, table_data in sampled_data.items():
