@@ -213,7 +213,7 @@ class TestDatasetExplorer:
         existing_file.write_text('already here')
 
         # Run and Assert
-        expected_msg = (
+        expected_msg = re.escape(
             f"The file '{existing_file}' already exists. Please provide a new 'output_filepath'."
         )
         with pytest.raises(ValueError, match=expected_msg):
