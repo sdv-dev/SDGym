@@ -347,7 +347,7 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
     synthesizer_obj = get_synthesizer(data, metadata)
     synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
     train_now = get_utc_now()
-    synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
+    synthetic_data = sample_from_synthesizer(synthesizer_obj, n_samples=num_samples)
     sample_now = get_utc_now()
 
     peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB

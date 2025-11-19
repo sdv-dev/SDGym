@@ -9,11 +9,23 @@ from sdv.metadata import Metadata
 LOGGER = logging.getLogger(__name__)
 
 
+def _is_valid_modality(modality):
+    return modality in ('single_table', 'multi_table')
+
+
+def _validate_modality(modality):
+    if not _is_valid_modality(modality):
+        raise ValueError(
+            f"Modality '{modality}' is not valid. Must be either 'single_table' or 'multi_table'."
+        )
+
+
 class BaselineSynthesizer(abc.ABC):
     """Base class for all the ``SDGym`` baselines."""
 
     _MODEL_KWARGS = {}
     _NATIVELY_SUPPORTED = True
+    _MODALITY_FLAG = None
 
     @classmethod
     def get_subclasses(cls, include_parents=False):
@@ -34,15 +46,18 @@ class BaselineSynthesizer(abc.ABC):
         return subclasses
 
     @classmethod
-    def _get_supported_synthesizers(cls):
+    def _get_supported_synthesizers(cls, modality):
         """Get the natively supported synthesizer class names."""
-        subclasses = cls.get_subclasses(include_parents=True)
-        synthesizers = set()
-        for name, subclass in subclasses.items():
-            if subclass._NATIVELY_SUPPORTED:
-                synthesizers.add(name)
-
-        return sorted(synthesizers)
+        _validate_modality(modality)
+        return sorted({
+            name
+            for name, subclass in cls.get_subclasses(include_parents=True).items()
+            if (
+                name != 'MultiTableBaselineSynthesizer'
+                and subclass._NATIVELY_SUPPORTED
+                and subclass._MODALITY_FLAG == modality
+            )
+        })
 
     @classmethod
     def get_baselines(cls):
@@ -54,6 +69,13 @@ class BaselineSynthesizer(abc.ABC):
                 synthesizers.append(subclass)
 
         return synthesizers
+
+    def _validate_modality_flag(self):
+        if not _is_valid_modality(self._MODALITY_FLAG):
+            raise ValueError(
+                f"The `_MODALITY_FLAG` '{self._MODALITY_FLAG}' of the synthesizer is not valid. "
+                "Must be either 'single_table' or 'multi_table'."
+            )
 
     def get_trained_synthesizer(self, data, metadata):
         """Get a synthesizer that has been trained on the provided data and metadata.
@@ -68,6 +90,7 @@ class BaselineSynthesizer(abc.ABC):
             obj:
                 The synthesizer object.
         """
+        self._validate_modality_flag()
         metadata_object = Metadata()
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
@@ -75,7 +98,7 @@ class BaselineSynthesizer(abc.ABC):
 
         return self._get_trained_synthesizer(data, metadata)
 
-    def sample_from_synthesizer(self, synthesizer, n_samples):
+    def sample_from_synthesizer(self, synthesizer, *, n_samples):
         """Sample data from the provided synthesizer.
 
         Args:
@@ -90,3 +113,33 @@ class BaselineSynthesizer(abc.ABC):
                 should be a dict mapping table name to DataFrame.
         """
         return self._sample_from_synthesizer(synthesizer, n_samples)
+
+
+class MultiTableBaselineSynthesizer(BaselineSynthesizer):
+    """Base class for all multi-table synthesizers."""
+
+    _MODALITY_FLAG = 'multi_table'
+
+    def sample_from_synthesizer(self, synthesizer, *, scale=1.0, n_samples=None):
+        """Sample data from the provided synthesizer.
+
+        Args:
+            synthesizer (obj):
+                The synthesizer object to sample data from.
+            scale (float):
+                The scale of data to sample.
+                Defaults to 1.0.
+            n_samples (int):
+                This parameter is not supported for multi-table synthesizers.
+                Use `scale` instead.
+
+        Returns:
+            dict:
+                The sampled data. A dict mapping table name to DataFrame.
+        """
+        if n_samples is not None:
+            raise TypeError(
+                'Multi-table synthesizers do not support `n_samples`. Use `scale` instead.'
+            )
+
+        return self._sample_from_synthesizer(synthesizer, scale=scale)

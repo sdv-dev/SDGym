@@ -24,6 +24,7 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
 
     LOGGER = logging.getLogger(__name__)
     _MODEL_KWARGS = None
+    _MODALITY_FLAG = 'single_table'
 
     def _get_trained_synthesizer(self, data, metadata):
         try:

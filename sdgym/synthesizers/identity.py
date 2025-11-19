@@ -11,6 +11,8 @@ class DataIdentity(BaselineSynthesizer):
     Returns the same exact data that is used to fit it.
     """
 
+    _MODALITY_FLAG = 'single_table'
+
     def __init__(self):
         self._data = None
 

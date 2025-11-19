@@ -7,13 +7,15 @@ import numpy as np
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import BaselineSynthesizer, MultiTableBaselineSynthesizer
 
 LOGGER = logging.getLogger(__name__)
 
 
 class UniformSynthesizer(BaselineSynthesizer):
     """Synthesizer that samples each column using a Uniform distribution."""
+
+    _MODALITY_FLAG = 'single_table'
 
     def _get_trained_synthesizer(self, real_data, metadata):
         hyper_transformer = HyperTransformer()
@@ -52,7 +54,6 @@ class UniformSynthesizer(BaselineSynthesizer):
         hyper_transformer.fit(real_data)
         transformed = hyper_transformer.transform(real_data)
 
-        self.length = len(real_data)
         return (hyper_transformer, transformed)
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
@@ -61,12 +62,72 @@ class UniformSynthesizer(BaselineSynthesizer):
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'i':
-                values = np.random.randint(column.min(), column.max() + 1, size=self.length)
+                values = np.random.randint(
+                    int(column.min()), int(column.max()) + 1, size=n_samples, dtype=np.int64
+                )
             elif kind in ['O', 'b']:
-                values = np.random.choice(column.unique(), size=self.length)
+                values = np.random.choice(column.unique(), size=n_samples)
             else:
-                values = np.random.uniform(column.min(), column.max(), size=self.length)
-
+                values = np.random.uniform(column.min(), column.max(), size=n_samples)
             sampled[name] = values
 
         return hyper_transformer.reverse_transform(sampled)
+
+
+class MultiTableUniformSynthesizer(MultiTableBaselineSynthesizer):
+    """Multi-table Uniform Synthesizer.
+
+    This synthesizer trains a UniformSynthesizer on each table in the multi-table dataset.
+    It samples data from each table independently using the corresponding trained synthesizer.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.num_rows_per_table = {}
+
+    def _get_trained_synthesizer(self, data, metadata):
+        """Train a UniformSynthesizer for each table in the multi-table dataset.
+
+        Args:
+            data (dict):
+                A dict mapping table name to table data.
+            metadata (sdv.metadata.Metadata):
+                The metadata
+
+        Returns:
+            A dict mapping table name to trained UniformSynthesizer instance.
+        """
+        synthesizers = {}
+        for table_name, table_data in data.items():
+            self.num_rows_per_table[table_name] = len(table_data)
+            table_metadata = metadata.get_table_metadata(table_name)
+            synthesizer = UniformSynthesizer()
+            trained_synthesizer = synthesizer._get_trained_synthesizer(table_data, table_metadata)
+            synthesizers[table_name] = trained_synthesizer
+
+        return synthesizers
+
+    def _sample_from_synthesizer(self, synthesizer, scale):
+        """Sample data from the provided synthesizer.
+
+        Args:
+            synthesizer (dict[table_name, (HyperTransformer, pd.DataFrame)]):
+                Dict mapping table name to trained single-table UniformSynthesizer.
+                This is the output of `get_trained_synthesizer` which is a
+                tuple of (HyperTransformer, transformed data).
+            scale (float):
+                The scale of data to sample.
+                Defaults to 1.0.
+
+        Returns:
+            dict:  A dict mapping table name to the sampled data.
+        """
+        sampled_data = {}
+        for table_name, table_synthesizer in synthesizer.items():
+            n_samples = int(self.num_rows_per_table[table_name] * scale)
+            sampled_table = UniformSynthesizer().sample_from_synthesizer(
+                table_synthesizer, n_samples=n_samples
+            )
+            sampled_data[table_name] = sampled_table
+
+        return sampled_data
