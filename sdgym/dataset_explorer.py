@@ -2,12 +2,12 @@
 
 from collections import defaultdict
 from pathlib import Path
-from urllib.parse import urlparse
 
 import pandas as pd
 from sdv.metadata import Metadata
 
 from sdgym.datasets import BUCKET, _get_available_datasets, _validate_modality, load_dataset
+from sdgym.s3 import _validate_s3_url
 
 
 class DatasetExplorer:
@@ -23,50 +23,14 @@ class DatasetExplorer:
         aws_access_key_id (str, optional):
             AWS access key ID for authentication. Defaults to ``None``.
         aws_secret_access_key (str, optional):
-            AWS secret access key for authentication. Defaults to ``Non``.
+            AWS secret access key for authentication. Defaults to ``None``.
     """
-
-    @staticmethod
-    def _validate_s3_url(s3_url):
-        """Validate the provided S3 URL and return the bucket name.
-
-        Args:
-            s3_url (str):
-                The S3 URL that should point to a bucket, e.g. ``'s3://my-bucket'``.
-
-        Returns:
-            str:
-                The validated bucket name.
-
-        Raises:
-            ValueError:
-                If the S3 URL is malformed or does not point to a bucket.
-        """
-        error_msg = (
-            f"The provided s3_url parameter ('{s3_url}') is not a valid S3 URL.\n"
-            "Please provide a string that starts with 's3://' and refers to a AWS bucket."
-        )
-        if not isinstance(s3_url, str):
-            raise ValueError(error_msg)
-
-        parsed = urlparse(s3_url)
-        if parsed.scheme != 's3':
-            raise ValueError(error_msg)
-
-        bucket_name = parsed.netloc
-        # Only bucket-level URLs are allowed (no keys/paths), allow optional trailing slash
-        if not bucket_name or parsed.path not in ('', '/'):
-            raise ValueError(error_msg)
-        if parsed.params or parsed.query or parsed.fragment:
-            raise ValueError(error_msg)
-
-        return bucket_name
 
     def __init__(self, s3_url=BUCKET, aws_access_key_id=None, aws_secret_access_key=None):
         self.s3_url = s3_url
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-        self._bucket_name = self._validate_s3_url(self.s3_url)
+        self._bucket_name = _validate_s3_url(self.s3_url)
 
     @staticmethod
     def _get_max_schema_branch_factor(relationships):
