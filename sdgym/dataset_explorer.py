@@ -291,13 +291,11 @@ class DatasetExplorer:
         results = self._load_and_summarize_datasets(modality)
 
         if not results:
-            warnings.warn(
-                (
-                    f"The provided S3 URL '{self.s3_url}' does not contain any datasets "
-                    f"of modality '{modality}'."
-                ),
-                UserWarning,
+            warning_msg = (
+                f"The provided S3 URL '{self.s3_url}' does not contain any datasets "
+                f"of modality '{modality}'."
             )
+            warnings.warn(warning_msg, UserWarning)
             dataset_summary = pd.DataFrame(columns=SUMMARY_OUTPUT_COLUMNS)
         else:
             dataset_summary = pd.DataFrame(results)
