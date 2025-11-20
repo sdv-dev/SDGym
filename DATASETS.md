@@ -66,12 +66,12 @@ Out[6]:
 ## Getting the list of all the datasets
 
 If you want to obtain the list of all the available datasets you can use the
-`sdgym.get_available_datasets` function:
+`list_datasets` function:
 
 ```python
-In [7]: from sdgym import get_available_datasets
+In [7]: from sdgym.dataset_explorer import DatasetExplorer
 
-In [8]: get_available_datasets()
+In [8]: DatasetExplorer().list_datasets()
 Out[8]:
               dataset_name     size_MB  num_tables
 0                   KRK_v1    0.072128           1

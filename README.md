@@ -103,10 +103,10 @@ Learn more in the [Custom Synthesizers Guide](https://docs.sdv.dev/sdgym/customi
 ## Customizing your datasets
 
 The SDGym library includes many publicly available datasets that you can include right away.
-List these using the ``get_available_datasets`` feature.
+List these using the ``list_datasets`` feature.
 
 ```python
-sdgym.get_available_datasets()
+sdgym.dataset_explorer.DatasetExplorer().list_datasets()
 ```
 
 ```

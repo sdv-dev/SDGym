@@ -330,3 +330,57 @@ class TestDatasetExplorer:
         assert output_filepath.exists()
         assert isinstance(df, pd.DataFrame)
         assert df.columns.to_list() == SUMMARY_OUTPUT_COLUMNS
+
+    @patch('sdgym.dataset_explorer._validate_modality')
+    @patch('sdgym.dataset_explorer._get_available_datasets')
+    def test_list_datasets_without_output(self, mock_get_available, mock_validate_modality):
+        """Test that `list_datasets` returns the expected dataframe."""
+        # Setup
+        explorer = DatasetExplorer()
+        expected_df = pd.DataFrame([
+            {'dataset_name': 'ds1', 'size_MB': 12.5, 'num_tables': 1},
+            {'dataset_name': 'ds2', 'size_MB': 3.0, 'num_tables': 2},
+        ])
+        mock_get_available.return_value = expected_df
+
+        # Run
+        result = explorer.list_datasets('single_table')
+
+        # Assert
+        mock_validate_modality.assert_called_once_with('single_table')
+        mock_get_available.assert_called_once_with(
+            modality='single_table',
+            bucket='sdv-datasets-public',
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+        )
+        pd.testing.assert_frame_equal(result, expected_df)
+
+    @patch('sdgym.dataset_explorer._validate_modality')
+    @patch('sdgym.dataset_explorer._get_available_datasets')
+    def test_list_datasets_with_output(self, mock_get_available, mock_validate_modality, tmp_path):
+        """Test that `list_datasets` writes CSV when output path is provided."""
+        # Setup
+        explorer = DatasetExplorer()
+        expected_df = pd.DataFrame([
+            {'dataset_name': 'alpha', 'size_MB': 1.5, 'num_tables': 1},
+            {'dataset_name': 'beta', 'size_MB': 2.0, 'num_tables': 3},
+        ])
+        mock_get_available.return_value = expected_df
+        output_filepath = tmp_path / 'datasets_list.csv'
+
+        # Run
+        result = explorer.list_datasets('multi_table', output_filepath=str(output_filepath))
+
+        # Assert
+        mock_validate_modality.assert_called_once_with('multi_table')
+        mock_get_available.assert_called_once_with(
+            modality='multi_table',
+            bucket='sdv-datasets-public',
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+        )
+        assert output_filepath.exists()
+        loaded = pd.read_csv(output_filepath)
+        pd.testing.assert_frame_equal(loaded, expected_df)
+        pd.testing.assert_frame_equal(result, expected_df)

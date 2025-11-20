@@ -97,7 +97,7 @@ def _download_datasets(args):
     _env_setup(args.logfile, args.verbose)
     datasets = args.datasets
     if not datasets:
-        datasets = sdgym.datasets.get_available_datasets(
+        datasets = sdgym.datasets._get_available_datasets(
             args.bucket, args.aws_access_key_id, args.aws_secret_access_key
         )['name']
 
@@ -118,7 +118,7 @@ def _list_downloaded(args):
 
 
 def _list_available(args):
-    datasets = sdgym.datasets.get_available_datasets(
+    datasets = sdgym.datasets._get_available_datasets(
         args.bucket, args.aws_access_key_id, args.aws_secret_access_key
     )
     _print_table(datasets, args.sort, args.reverse, {'size': humanfriendly.format_size})
