@@ -20,6 +20,7 @@ from sdgym.benchmark import (
     _ensure_uniform_included,
     _fill_adjusted_scores_with_none,
     _format_output,
+    _generate_job_args_list,
     _get_metainfo_increment,
     _handle_deprecated_parameters,
     _setup_output_destination,
@@ -32,7 +33,6 @@ from sdgym.benchmark import (
 )
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.s3 import S3_REGION
-from sdgym.synthesizers import GaussianCopulaSynthesizer, UniformSynthesizer
 
 
 @patch('sdgym.benchmark.os.path')
@@ -278,7 +278,7 @@ def test_run_ec2_flag(create_ec2_mock, session_mock, mock_write_permissions, moc
 def test__ensure_uniform_included_adds_uniform(caplog):
     """Test that UniformSynthesizer gets added to the synthesizers list."""
     # Setup
-    synthesizers = [GaussianCopulaSynthesizer]
+    synthesizers = ['GaussianCopulaSynthesizer']
     expected_message = 'Adding UniformSynthesizer to list of synthesizers.'
 
     # Run
@@ -286,14 +286,14 @@ def test__ensure_uniform_included_adds_uniform(caplog):
         _ensure_uniform_included(synthesizers)
 
     # Assert
-    assert synthesizers == [GaussianCopulaSynthesizer, 'UniformSynthesizer']
+    assert synthesizers == ['GaussianCopulaSynthesizer', 'UniformSynthesizer']
     assert any(expected_message in record.message for record in caplog.records)
 
 
 def test__ensure_uniform_included_detects_uniform_class(caplog):
     """Test that the synthesizers list is unchanged if UniformSynthesizer class present."""
     # Setup
-    synthesizers = [UniformSynthesizer, GaussianCopulaSynthesizer]
+    synthesizers = ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
     expected_message = 'Adding UniformSynthesizer to list of synthesizers.'
 
     # Run
@@ -301,7 +301,7 @@ def test__ensure_uniform_included_detects_uniform_class(caplog):
         _ensure_uniform_included(synthesizers)
 
     # Assert
-    assert synthesizers == [UniformSynthesizer, GaussianCopulaSynthesizer]
+    assert synthesizers == ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
     assert all(expected_message not in record.message for record in caplog.records)
 
 
@@ -328,7 +328,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     # Setup
     session_mock.get_credentials.return_value = MagicMock()
     test_params = {
-        'synthesizers': [GaussianCopulaSynthesizer, 'CTGANSynthesizer'],
+        'synthesizers': ['GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
         'custom_synthesizers': None,
         'sdv_datasets': [
             'adult',
@@ -361,7 +361,7 @@ def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directo
     result = _create_sdgym_script(test_params, 's3://Bucket/Filepath')
 
     # Assert
-    assert 'synthesizers=[GaussianCopulaSynthesizer, CTGANSynthesizer]' in result
+    assert 'synthesizers=["GaussianCopulaSynthesizer", "CTGANSynthesizer"]' in result
     assert 'detailed_results_folder=None' in result
     assert "additional_datasets_folder='Details/'" in result
     assert 'multi_processing_config=None' in result
@@ -999,6 +999,75 @@ def test__add_adjusted_scores_missing_fallback():
 
     # Assert
     assert scores.equals(expected)
+
+
+@patch('sdgym.benchmark.get_dataset_paths')
+def test__generate_job_args_list_local_root_additional_folder(get_dataset_paths_mock, tmp_path):
+    """Local additional_datasets_folder should point to root/single_table."""
+    # Setup
+    local_root = tmp_path / 'my_root'
+    local_root.mkdir()
+    dataset_path = tmp_path / 'my_root' / 'single_table' / 'datasetA'
+    get_dataset_paths_mock.return_value = [dataset_path]
+
+    # Run
+    _generate_job_args_list(
+        limit_dataset_size=False,
+        sdv_datasets=None,
+        additional_datasets_folder=str(local_root),
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        synthesizers=[],
+        custom_synthesizers=None,
+        s3_client=None,
+    )
+
+    # Assert
+    get_dataset_paths_mock.assert_called_once_with(
+        modality='single_table',
+        bucket=str(local_root / 'single_table'),
+        aws_access_key_id=None,
+        aws_secret_access_key=None,
+    )
+
+
+@patch('sdgym.benchmark.get_dataset_paths')
+def test__generate_job_args_list_s3_root_additional_folder(get_dataset_paths_mock):
+    """S3 additional_datasets_folder should point to the root path."""
+    # Setup
+    s3_root = 's3://my-bucket/custom-datasets'
+    dataset_path = Path('/dummy/single_table/datasetA')
+    get_dataset_paths_mock.return_value = [dataset_path]
+
+    # Run
+    _generate_job_args_list(
+        limit_dataset_size=False,
+        sdv_datasets=None,
+        additional_datasets_folder=s3_root,
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        synthesizers=[],
+        custom_synthesizers=None,
+        s3_client=None,
+    )
+
+    # Assert
+    get_dataset_paths_mock.assert_called_once_with(
+        modality='single_table',
+        bucket=s3_root,
+        aws_access_key_id=None,
+        aws_secret_access_key=None,
+    )
 
 
 def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):

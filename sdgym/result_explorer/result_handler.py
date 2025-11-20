@@ -16,6 +16,7 @@ RESULTS_FOLDER_PREFIX = 'SDGym_results_'
 metainfo_PREFIX = 'metainfo'
 RESULTS_FILE_PREFIX = 'results'
 NUM_DIGITS_DATE = 10
+REGEX_SYNTHESIZER_NAME = r'\s*\(\d+\)\s*$'
 
 
 class ResultsHandler(ABC):
@@ -120,7 +121,15 @@ class ResultsHandler(ABC):
     def _process_results(self, results):
         """Process results to ensure they are unique and each dataset has all synthesizers."""
         aggregated_results = pd.concat(results, ignore_index=True)
-        aggregated_results = aggregated_results.drop_duplicates(subset=['Dataset', 'Synthesizer'])
+        aggregated_results['Synthesizer'] = (
+            aggregated_results['Synthesizer']
+            .astype(str)
+            .str.replace(REGEX_SYNTHESIZER_NAME, '', regex=True)
+            .str.strip()
+        )
+        aggregated_results = aggregated_results.drop_duplicates(
+            subset=['Dataset', 'Synthesizer'], keep='first'
+        )
         all_synthesizers = aggregated_results['Synthesizer'].unique()
         dataset_synth_counts = aggregated_results.groupby('Dataset')['Synthesizer'].nunique()
         valid_datasets = dataset_synth_counts[dataset_synth_counts == len(all_synthesizers)].index
