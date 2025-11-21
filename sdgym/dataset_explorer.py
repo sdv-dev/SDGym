@@ -1,5 +1,6 @@
 """Dataset Explorer to summarize datasets stored in S3 buckets."""
 
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -8,6 +9,24 @@ from sdv.metadata import Metadata
 
 from sdgym.datasets import BUCKET, _get_available_datasets, _validate_modality, load_dataset
 from sdgym.s3 import _validate_s3_url
+
+SUMMARY_OUTPUT_COLUMNS = [
+    'Dataset',
+    'Datasize_Size_MB',
+    'Num_Tables',
+    'Total_Num_Columns',
+    'Total_Num_Columns_Categorical',
+    'Total_Num_Columns_Numerical',
+    'Total_Num_Columns_Datetime',
+    'Total_Num_Columns_PII',
+    'Total_Num_Columns_ID_NonKey',
+    'Max_Num_Columns_Per_Table',
+    'Total_Num_Rows',
+    'Max_Num_Rows_Per_Table',
+    'Num_Relationships',
+    'Max_Schema_Depth',
+    'Max_Schema_Branch',
+]
 
 
 class DatasetExplorer:
@@ -277,7 +296,17 @@ class DatasetExplorer:
         self._validate_output_filepath(output_filepath)
         _validate_modality(modality)
         results = self._load_and_summarize_datasets(modality)
-        dataset_summary = pd.DataFrame(results)
+
+        if not results:
+            warning_msg = (
+                f"The provided S3 URL '{self.s3_url}' does not contain any datasets "
+                f"of modality '{modality}'."
+            )
+            warnings.warn(warning_msg, UserWarning)
+            dataset_summary = pd.DataFrame(columns=SUMMARY_OUTPUT_COLUMNS)
+        else:
+            dataset_summary = pd.DataFrame(results)
+
         if output_filepath:
             dataset_summary.to_csv(output_filepath, index=False)
 

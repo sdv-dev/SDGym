@@ -5,26 +5,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from sdgym.dataset_explorer import DatasetExplorer
+from sdgym.dataset_explorer import SUMMARY_OUTPUT_COLUMNS, DatasetExplorer
 from sdgym.datasets import BUCKET
-
-SUMMARY_OUTPUT_COLUMNS = [
-    'Dataset',
-    'Datasize_Size_MB',
-    'Num_Tables',
-    'Total_Num_Columns',
-    'Total_Num_Columns_Categorical',
-    'Total_Num_Columns_Numerical',
-    'Total_Num_Columns_Datetime',
-    'Total_Num_Columns_PII',
-    'Total_Num_Columns_ID_NonKey',
-    'Max_Num_Columns_Per_Table',
-    'Total_Num_Rows',
-    'Max_Num_Rows_Per_Table',
-    'Num_Relationships',
-    'Max_Schema_Depth',
-    'Max_Schema_Branch',
-]
 
 
 class TestDatasetExplorer:
