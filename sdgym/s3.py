@@ -238,3 +238,39 @@ def _load_yaml_metainfo_from_s3(s3_client, bucket_name, yaml_key):
     """Load and parse YAML metainfo from an S3 key."""
     raw_data = _read_data_from_bucket_key(s3_client, bucket_name, yaml_key)
     return yaml.safe_load(raw_data) or {}
+
+
+def _validate_s3_url(s3_url):
+    """Validate the provided S3 URL and return the bucket name.
+
+    Args:
+        s3_url (str):
+            The S3 URL that should point to a bucket, e.g. ``'s3://my-bucket'``.
+
+    Returns:
+        str:
+            The validated bucket name.
+
+    Raises:
+        ValueError:
+            If the S3 URL is malformed or does not point to a bucket.
+    """
+    error_msg = (
+        f"The provided s3_url parameter ('{s3_url}') is not a valid S3 URL.\n"
+        "Please provide a string that starts with 's3://' and refers to a AWS bucket."
+    )
+    if not isinstance(s3_url, str):
+        raise ValueError(error_msg)
+
+    parsed = urlparse(s3_url)
+    if parsed.scheme != 's3':
+        raise ValueError(error_msg)
+
+    bucket_name = parsed.netloc
+    # Only bucket-level URLs are allowed (no keys/paths), allow optional trailing slash
+    if not bucket_name or parsed.path not in ('', '/'):
+        raise ValueError(error_msg)
+    if parsed.params or parsed.query or parsed.fragment:
+        raise ValueError(error_msg)
+
+    return bucket_name

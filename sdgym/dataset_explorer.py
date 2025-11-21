@@ -2,12 +2,12 @@
 
 from collections import defaultdict
 from pathlib import Path
-from urllib.parse import urlparse
 
 import pandas as pd
 from sdv.metadata import Metadata
 
 from sdgym.datasets import BUCKET, _get_available_datasets, _validate_modality, load_dataset
+from sdgym.s3 import _validate_s3_url
 
 
 class DatasetExplorer:
@@ -23,14 +23,14 @@ class DatasetExplorer:
         aws_access_key_id (str, optional):
             AWS access key ID for authentication. Defaults to ``None``.
         aws_secret_access_key (str, optional):
-            AWS secret access key for authentication. Defaults to ``Non``.
+            AWS secret access key for authentication. Defaults to ``None``.
     """
 
     def __init__(self, s3_url=BUCKET, aws_access_key_id=None, aws_secret_access_key=None):
         self.s3_url = s3_url
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-        self._bucket_name = urlparse(self.s3_url).netloc
+        self._bucket_name = _validate_s3_url(self.s3_url)
 
     @staticmethod
     def _get_max_schema_branch_factor(relationships):
@@ -240,12 +240,19 @@ class DatasetExplorer:
 
         Raises:
             ValueError:
-                If the provided path is not None and does not end with '.csv'.
+                If the provided path is not None and does not end with '.csv', or
+                if the target file already exists.
         """
-        if output_filepath and not Path(output_filepath).suffix == '.csv':
-            raise ValueError(
-                f"The 'output_filepath' has to be a .csv file, provided: '{output_filepath}'."
-            )
+        if output_filepath:
+            path_obj = Path(output_filepath)
+            if path_obj.suffix != '.csv':
+                raise ValueError(
+                    f"The 'output_filepath' has to be a .csv file, provided: '{output_filepath}'."
+                )
+            if path_obj.exists():
+                raise ValueError(
+                    f"The file '{path_obj}' already exists. Please provide a new 'output_filepath'."
+                )
 
     def summarize_datasets(self, modality, output_filepath=None):
         """Load, summarize, and optionally export dataset statistics for a given modality.
