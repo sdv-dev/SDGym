@@ -1,5 +1,18 @@
 # History
 
+## v0.12.0 - 2025-11-20
+
+### New Features
+
+* Rename create_sdv_synthesizer_variant to create_synthesizer_variant - Issue [#491](https://github.com/sdv-dev/SDGym/issues/491) by @R-Palazzo
+* SDGym should be able to automatically discover SDV Enterprise synthesizers - Issue [#481](https://github.com/sdv-dev/SDGym/issues/481) by @R-Palazzo
+* Incorporate the `get_available_datasets` functionality into the `DatasetExplorer` - Issue [#473](https://github.com/sdv-dev/SDGym/issues/473) by @fealho
+
+### Bugs Fixed
+
+* Update result aggregation logic in the ResultExplorer to match new naming schema - Issue [#494](https://github.com/sdv-dev/SDGym/issues/494) by @R-Palazzo
+* When running a benchmark locally, the `additional_datasets_folder` path should be the root path - Issue [#484](https://github.com/sdv-dev/SDGym/issues/484) by @fealho
+
 ## v0.11.1 - 2025-11-03
 
 ### Bugs Fixed
