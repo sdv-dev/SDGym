@@ -38,6 +38,7 @@ def test_end_to_end_local(tmp_path):
         dataset_name='fake_companies',
         synthesizer_name='TVAESynthesizer',
     )
+    assert isinstance(synthesizer, TVAESynthesizer)
     new_synthetic_data = synthesizer.sample(num_rows=10)
 
     # Assert

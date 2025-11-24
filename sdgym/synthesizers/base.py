@@ -77,6 +77,35 @@ class BaselineSynthesizer(abc.ABC):
                 "Must be either 'single_table' or 'multi_table'."
             )
 
+    def _fit(self, data, metadata):
+        """Fit the synthesizer to the data.
+
+        Args:
+            data (pandas.DataFrame):
+                The data to fit the synthesizer to.
+            metadata (sdv.metadata.Metadata):
+                The metadata describing the data.
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    def _get_trained_synthesizer(cls, data, metadata):
+        """Train a UniformSynthesizer for each table in the multi-table dataset.
+
+        Args:
+            data (dict):
+                A dict mapping table name to table data.
+            metadata (sdv.metadata.Metadata):
+                The metadata
+
+        Returns:
+            A synthesizer object
+        """
+        synthesizer = cls()
+        synthesizer._fit(data, metadata)
+
+        return synthesizer
+
     def get_trained_synthesizer(self, data, metadata):
         """Get a synthesizer that has been trained on the provided data and metadata.
 

@@ -17,9 +17,22 @@ class UniformSynthesizer(BaselineSynthesizer):
 
     _MODALITY_FLAG = 'single_table'
 
-    def _get_trained_synthesizer(self, real_data, metadata):
+    def __init__(self):
+        super().__init__()
+        self.hyper_transformer = None
+        self.transformed_data = None
+
+    def _fit(self, data, metadata):
+        """Fit the synthesizer to the data.
+
+        Args:
+            data (pd.DataFrame):
+                The data to fit the synthesizer to.
+            metadata (sdv.metadata.Metadata):
+                The metadata describing the data.
+        """
         hyper_transformer = HyperTransformer()
-        hyper_transformer.detect_initial_config(real_data)
+        hyper_transformer.detect_initial_config(data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
         table = next(iter(metadata.tables.values()))
@@ -46,18 +59,19 @@ class UniformSynthesizer(BaselineSynthesizer):
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
             column_name
-            for column_name, data in real_data.items()
-            if data.dtype.kind in {'O', 'i', 'b'}
+            for column_name, column_data in data.items()
+            if column_data.dtype.kind in {'O', 'i', 'b'}
         ]
         hyper_transformer.remove_transformers(columns_to_remove)
 
-        hyper_transformer.fit(real_data)
-        transformed = hyper_transformer.transform(real_data)
-
-        return (hyper_transformer, transformed)
+        hyper_transformer.fit(data)
+        transformed = hyper_transformer.transform(data)
+        self.hyper_transformer = hyper_transformer
+        self.transformed_data = transformed
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
-        hyper_transformer, transformed = synthesizer
+        hyper_transformer = synthesizer.hyper_transformer
+        transformed = synthesizer.transformed_data
         sampled = pd.DataFrame()
         for name, column in transformed.items():
             kind = column.dtype.kind
@@ -84,28 +98,23 @@ class MultiTableUniformSynthesizer(MultiTableBaselineSynthesizer):
     def __init__(self):
         super().__init__()
         self.num_rows_per_table = {}
+        self.table_synthesizers = {}
 
-    def _get_trained_synthesizer(self, data, metadata):
-        """Train a UniformSynthesizer for each table in the multi-table dataset.
+    def _fit(self, data, metadata):
+        """Fit the synthesizer to the multi-table data.
 
         Args:
             data (dict):
                 A dict mapping table name to table data.
-            metadata (sdv.metadata.Metadata):
-                The metadata
-
-        Returns:
-            A dict mapping table name to trained UniformSynthesizer instance.
+            metadata (sdv.metadata.MultiTableMetadata):
+                The multi-table metadata describing the data.
         """
-        synthesizers = {}
         for table_name, table_data in data.items():
-            self.num_rows_per_table[table_name] = len(table_data)
             table_metadata = metadata.get_table_metadata(table_name)
             synthesizer = UniformSynthesizer()
-            trained_synthesizer = synthesizer._get_trained_synthesizer(table_data, table_metadata)
-            synthesizers[table_name] = trained_synthesizer
-
-        return synthesizers
+            synthesizer._fit(table_data, table_metadata)
+            self.num_rows_per_table[table_name] = len(table_data)
+            self.table_synthesizers[table_name] = synthesizer
 
     def _sample_from_synthesizer(self, synthesizer, scale):
         """Sample data from the provided synthesizer.
@@ -123,8 +132,8 @@ class MultiTableUniformSynthesizer(MultiTableBaselineSynthesizer):
             dict:  A dict mapping table name to the sampled data.
         """
         sampled_data = {}
-        for table_name, table_synthesizer in synthesizer.items():
-            n_samples = int(self.num_rows_per_table[table_name] * scale)
+        for table_name, table_synthesizer in synthesizer.table_synthesizers.items():
+            n_samples = int(synthesizer.num_rows_per_table[table_name] * scale)
             sampled_table = UniformSynthesizer().sample_from_synthesizer(
                 table_synthesizer, n_samples=n_samples
             )

@@ -1,4 +1,4 @@
-import pickle
+import cloudpickle
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -57,7 +57,7 @@ class TestLocalResultsWriter:
 
         # Assert
         with open(file_path, 'rb') as f:
-            loaded_obj = pickle.load(f)
+            loaded_obj = cloudpickle.load(f)
 
         assert loaded_obj == obj
 
@@ -172,7 +172,7 @@ class TestS3ResultsWriter:
         # Assert
         mockparse_s3_path.assert_called_once_with('test_object.pkl')
         mock_s3_client.put_object.assert_called_once_with(
-            Body=pickle.dumps(obj),
+            Body=cloudpickle.dumps(obj),
             Bucket='bucket_name',
             Key='key_prefix/test_object.pkl',
         )

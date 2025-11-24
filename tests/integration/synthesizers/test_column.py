@@ -107,7 +107,7 @@ class TestUniformSynthesizer:
         # Run
         real_data = pd.DataFrame(data)
         synthesizer = ColumnSynthesizer().get_trained_synthesizer(real_data, metadata)
-        hyper_transformer_config = synthesizer[0].get_config()
+        hyper_transformer_config = synthesizer.hyper_transformer.get_config()
 
         # Assert
         config_sdtypes = hyper_transformer_config['sdtypes']
