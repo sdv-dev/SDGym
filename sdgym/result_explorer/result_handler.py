@@ -5,11 +5,15 @@ import operator
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
+from io import BytesIO
+from zipfile import ZipFile
 
 import cloudpickle
 import pandas as pd
 import yaml
 from botocore.exceptions import ClientError
+
+from sdgym._dataset_utils import _read_zipped_data
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
@@ -270,8 +274,12 @@ class LocalResultsHandler(ResultsHandler):
             return cloudpickle.load(f)
 
     def load_synthetic_data(self, file_path):
-        """Load synthetic data from a CSV file."""
-        return pd.read_csv(os.path.join(self.base_path, file_path))
+        """Load synthetic data from a CSV or ZIP file."""
+        full_path = os.path.join(self.base_path, file_path)
+        if full_path.endswith('.zip'):
+            return _read_zipped_data(full_path, modality='multi_table')
+
+        return pd.read_csv(full_path)
 
     def _get_results_files(self, folder_name, prefix, suffix):
         return [
@@ -383,10 +391,21 @@ class S3ResultsHandler(ResultsHandler):
 
     def load_synthetic_data(self, file_path):
         """Load synthetic data from S3."""
-        response = self.s3_client.get_object(
-            Bucket=self.bucket_name, Key=f'{self.prefix}{file_path}'
-        )
-        return pd.read_csv(io.BytesIO(response['Body'].read()))
+        key = f'{self.prefix}{file_path}'
+        response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+        body = response['Body'].read()
+        if file_path.endswith('.zip'):
+            tables = {}
+            with ZipFile(BytesIO(body)) as zf:
+                for name in zf.namelist():
+                    if name.endswith('.csv'):
+                        table_name = os.path.splitext(os.path.basename(name))[0]
+                        with zf.open(name) as csv_file:
+                            tables[table_name] = pd.read_csv(csv_file, low_memory=False)
+
+            return tables
+
+        return pd.read_csv(io.BytesIO(body))
 
     def _get_results_files(self, folder_name, prefix, suffix):
         s3_prefix = f'{self.prefix}{folder_name}/'

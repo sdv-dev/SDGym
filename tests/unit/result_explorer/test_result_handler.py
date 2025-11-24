@@ -1,3 +1,4 @@
+import io
 import os
 import pickle
 import re
@@ -326,6 +327,31 @@ class TestLocalResultsHandler:
         assert loaded_synthesizer is not None
         assert isinstance(loaded_synthesizer, GaussianCopulaSynthesizer)
 
+    def test_load_synthetic_data_zip(self, tmp_path):
+        """Test the `load_synthetic_data` method for zipped multi-table data (local)."""
+        # Setup
+        base = tmp_path / 'results'
+        data_dir = base / 'SDGym_results_07_07_2025' / 'dataset_07_07_2025' / 'Synth'
+        data_dir.mkdir(parents=True)
+
+        # Create a zip with two csvs
+        import zipfile
+
+        zip_path = data_dir / 'Synth_synthetic_data.zip'
+        with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr('table1.csv', 'a,b\n1,2\n')
+            zf.writestr('table2.csv', 'x,y\n3,4\n')
+
+        result_handler = LocalResultsHandler(str(base))
+
+        # Run
+        tables = result_handler.load_synthetic_data(str(zip_path))
+
+        # Assert
+        assert set(tables.keys()) == {'table1', 'table2'}
+        pd.testing.assert_frame_equal(tables['table1'], pd.DataFrame({'a': [1], 'b': [2]}))
+        pd.testing.assert_frame_equal(tables['table2'], pd.DataFrame({'x': [3], 'y': [4]}))
+
     @patch('os.path.exists')
     @patch('os.path.isfile')
     def test_get_file_path_local(self, mock_isfile, mock_exists):
@@ -464,6 +490,34 @@ class TestS3ResultsHandler:
         assert isinstance(loaded_synthesizer, GaussianCopulaSynthesizer)
         mock_s3_client.get_object.assert_called_once_with(
             Bucket='my-bucket', Key='prefix/synthesizer.pkl'
+        )
+
+    def test_load_synthetic_data_zip(self):
+        """Test the `load_synthetic_data` method for zipped multi-table data (S3)."""
+        # Setup
+        import zipfile
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr('customers.csv', 'id,age\n1,30\n')
+            zf.writestr('transactions.csv', 'id,amount\n1,100\n')
+        buffer.seek(0)
+
+        mock_s3_client = Mock()
+        mock_s3_client.get_object.return_value = {'Body': Mock(read=lambda: buffer.getvalue())}
+        result_handler = S3ResultsHandler('s3://my-bucket/prefix', mock_s3_client)
+
+        # Run
+        tables = result_handler.load_synthetic_data('some/path.zip')
+
+        # Assert
+        assert set(tables.keys()) == {'customers', 'transactions'}
+        pd.testing.assert_frame_equal(tables['customers'], pd.DataFrame({'id': [1], 'age': [30]}))
+        pd.testing.assert_frame_equal(
+            tables['transactions'], pd.DataFrame({'id': [1], 'amount': [100]})
+        )
+        mock_s3_client.get_object.assert_called_once_with(
+            Bucket='my-bucket', Key='prefix/some/path.zip'
         )
 
     def test_get_file_path_s3(self):

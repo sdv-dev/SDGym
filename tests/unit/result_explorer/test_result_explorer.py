@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -76,6 +77,22 @@ class TestResultsExplorer:
         assert result_explorer.aws_secret_access_key == aws_secret_access_key
         assert isinstance(result_explorer._handler, S3ResultsHandler)
 
+    def test_list_with_modality_local(self, tmp_path):
+        """Test the `list` method respects the modality subfolder (local)."""
+        # Setup
+        base = tmp_path / 'results'
+        (base / 'unscoped_run').mkdir(parents=True)
+        (base / 'multi_table' / 'run_mt1').mkdir(parents=True)
+        (base / 'multi_table' / 'run_mt2').mkdir(parents=True)
+
+        result_explorer = ResultsExplorer(str(base), modality='multi_table')
+
+        # Run
+        runs = result_explorer.list()
+
+        # Assert
+        assert set(runs) == {'run_mt1', 'run_mt2'}
+
     def test_list_local(self, tmp_path):
         """Test the `list` method with a local path"""
         # Setup
@@ -135,6 +152,28 @@ class TestResultsExplorer:
             f'{synthesizer_name}.pkl',
         )
         assert file_path == expected_filepath
+
+    def test__get_file_path_multi_table_synthetic_data(self, tmp_path):
+        """Test `_get_file_path` returns .zip for multi_table synthetic data."""
+        base = tmp_path / 'results'
+        multi_table_dir = base / 'multi_table'
+        multi_table_dir.mkdir(parents=True, exist_ok=True)
+        explorer = ResultsExplorer(str(multi_table_dir), modality='multi_table')
+        try:
+            explorer._handler = Mock()
+            explorer._handler.get_file_path.return_value = 'irrelevant'
+            explorer._get_file_path(
+                results_folder_name='results_folder_07_07_2025',
+                dataset_name='my_dataset',
+                synthesizer_name='my_synthesizer',
+                file_type='synthetic_data',
+            )
+            explorer._handler.get_file_path.assert_called_once_with(
+                ['results_folder_07_07_2025', 'my_dataset_07_07_2025', 'my_synthesizer'],
+                'my_synthesizer_synthetic_data.zip',
+            )
+        finally:
+            shutil.rmtree(multi_table_dir)
 
     def test_load_synthesizer(self, tmp_path):
         """Test `load_synthesizer` method."""
@@ -208,6 +247,31 @@ class TestResultsExplorer:
             aws_secret_access_key=None,
         )
         pd.testing.assert_frame_equal(real_data, expected_data)
+
+    @patch('sdgym.result_explorer.result_explorer.load_dataset')
+    def test_load_real_data_multi_table(self, mock_load_dataset, tmp_path):
+        """Test `load_real_data` for multi_table modality calls load_dataset correctly."""
+        dataset_name = 'synthea'
+        expected_data = {'patients': pd.DataFrame({'id': [1]})}
+        mock_load_dataset.return_value = (expected_data, None)
+        multi_table_dir = tmp_path / 'multi_table'
+        multi_table_dir.mkdir(parents=True, exist_ok=True)
+        result_explorer = ResultsExplorer(tmp_path, modality='multi_table')
+
+        try:
+            # Run
+            real_data = result_explorer.load_real_data(dataset_name)
+
+            # Assert
+            mock_load_dataset.assert_called_once_with(
+                modality='multi_table',
+                dataset='synthea',
+                aws_access_key_id=None,
+                aws_secret_access_key=None,
+            )
+            assert real_data == expected_data
+        finally:
+            shutil.rmtree(multi_table_dir)
 
     def test_load_real_data_invalid_dataset(self, tmp_path):
         """Test `load_real_data` method with an invalid dataset."""

@@ -1833,7 +1833,7 @@ def benchmark_multi_table(
     output_destination=None,
     show_progress=False,
 ):
-    """Run the SDGym benchmark on single-table datasets.
+    """Run the SDGym benchmark on multi-table datasets.
 
     Args:
         synthesizers (list[string]):
@@ -1845,8 +1845,8 @@ def benchmark_multi_table(
             or ``create_synthesizer_variant``). Defaults to ``None``.
         sdv_datasets (list[str] or ``None``):
             Names of the SDV demo datasets to use for the benchmark. Defaults to
-            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
-            covtype]``. Use ``None`` to disable using any sdv datasets.
+            ``[NBA, financial, Student_loan, Biodegradability, fake_hotels, restbase,
+            airbnb-simplified]``. Use ``None`` to disable using any sdv datasets.
         additional_datasets_folder (str or ``None``):
             The path to a folder (local or an S3 bucket). Datasets found in this folder are
             run in addition to the SDV datasets. If ``None``, no additional datasets are used.

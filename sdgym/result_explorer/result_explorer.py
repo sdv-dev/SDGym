@@ -57,14 +57,17 @@ def _resolve_effective_path(path, modality):
 class ResultsExplorer:
     """Explorer for SDGym benchmark results, supporting both local and S3 storage."""
 
-    def __init__(self, path, aws_access_key_id=None, aws_secret_access_key=None):
+    def __init__(self, path, modality, aws_access_key_id=None, aws_secret_access_key=None):
         self.path = path
+        self.modality = modality
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
 
         baseline_synthesizer = _get_baseline_synthesizer(modality)
         effective_path = _resolve_effective_path(path, modality)
         if is_s3_path(path):
+            # Use original path to obtain client (keeps backwards compatibility),
+            # but handler should operate on the modality-specific effective path.
             s3_client = _get_s3_client(path, aws_access_key_id, aws_secret_access_key)
             self._handler = S3ResultsHandler(
                 effective_path, s3_client, baseline_synthesizer=baseline_synthesizer
@@ -83,7 +86,11 @@ class ResultsExplorer:
         """Validate access to the synthesizer or synthetic data file."""
         end_filename = f'{synthesizer_name}'
         if file_type == 'synthetic_data':
-            end_filename += '_synthetic_data.csv'
+            # Multi-table synthetic data is zipped (multiple CSVs), single table is CSV
+            if self.modality == 'multi_table':
+                end_filename += '_synthetic_data.zip'
+            else:
+                end_filename += '_synthetic_data.csv'
         elif file_type == 'synthesizer':
             end_filename += '.pkl'
 
@@ -108,14 +115,17 @@ class ResultsExplorer:
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset."""
-        if dataset_name not in DEFAULT_SINGLE_TABLE_DATASETS:
+        # Keep strict validation for single_table to preserve existing behavior
+        if (self.modality is None or self.modality == 'single_table') and (
+            dataset_name not in DEFAULT_SINGLE_TABLE_DATASETS
+        ):
             raise ValueError(
                 f"Dataset '{dataset_name}' is not a SDGym dataset. "
                 'Please provide a valid dataset name.'
             )
 
         data, _ = load_dataset(
-            modality='single_table',
+            modality=self.modality or 'single_table',
             dataset=dataset_name,
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,
