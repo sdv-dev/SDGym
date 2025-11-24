@@ -522,8 +522,21 @@ def test__validate_output_destination_with_aws_access_key_ids(mock_validate):
     )
 
 
-def test__setup_output_destination(tmp_path):
-    """Test the `_setup_output_destination` function."""
+def test__setup_output_destination_none():
+    """If output_destination is None, the function should return an empty dict."""
+    # Setup
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
+    datasets = ['adult', 'census']
+
+    # Run
+    result = _setup_output_destination(None, synthesizers, datasets, 'single_table')
+
+    # Assert
+    assert result == {}
+
+
+def test__setup_output_destination_single_table(tmp_path):
+    """Test the `_setup_output_destination` function with `single_table` modality."""
     # Setup
     output_destination = tmp_path / 'output_destination'
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
@@ -532,8 +545,7 @@ def test__setup_output_destination(tmp_path):
     base_path = output_destination / f'SDGym_results_{today}'
 
     # Run
-    result_1 = _setup_output_destination(None, synthesizers, datasets)
-    result_2 = _setup_output_destination(output_destination, synthesizers, datasets)
+    result = _setup_output_destination(output_destination, synthesizers, datasets, 'single_table')
 
     # Assert
     expected = {
@@ -554,8 +566,41 @@ def test__setup_output_destination(tmp_path):
         for dataset in datasets
     }
 
-    assert result_1 == {}
-    assert json.loads(json.dumps(result_2)) == expected
+    assert json.loads(json.dumps(result)) == expected
+
+
+def test__setup_output_destination_multi_table(tmp_path):
+    """Test the `_setup_output_destination` function with `multi_table` modality."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    synthesizers = ['HMASynthesizer']
+    datasets = ['NBA', 'financial']
+    today = datetime.today().strftime('%m_%d_%Y')
+    base_path = output_destination / f'SDGym_results_{today}'
+
+    # Run
+    result = _setup_output_destination(output_destination, synthesizers, datasets, 'multi_table')
+
+    # Assert
+    expected = {
+        dataset: {
+            synth: {
+                'synthesizer': str(base_path / f'{dataset}_{today}' / synth / f'{synth}.pkl'),
+                'synthetic_data': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.zip'
+                ),
+                'benchmark_result': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
+                ),
+                'metainfo': str(base_path / 'metainfo.yaml'),
+                'results': str(base_path / 'results.csv'),
+            }
+            for synth in synthesizers
+        }
+        for dataset in datasets
+    }
+
+    assert json.loads(json.dumps(result)) == expected
 
 
 @patch('sdgym.benchmark.datetime')
@@ -575,19 +620,21 @@ def test__write_metainfo_file(mock_datetime, tmp_path):
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
 
     # Run
-    _write_metainfo_file(synthesizers, jobs, result_writer)
+    _write_metainfo_file(synthesizers, jobs, 'single_table', result_writer)
 
     # Assert
-    assert Path(file_name['metainfo']).exists()
     with open(file_name['metainfo'], 'r') as file:
         metainfo_data = yaml.safe_load(file)
-        assert metainfo_data['run_id'] == 'run_06_26_2025_0'
-        assert metainfo_data['starting_date'] == '06_26_2025'
-        assert metainfo_data['jobs'] == expected_jobs
-        assert metainfo_data['sdgym_version'] == version('sdgym')
-        assert metainfo_data['sdv_version'] == version('sdv')
-        assert metainfo_data['realtabformer_version'] == version('realtabformer')
-        assert metainfo_data['completed_date'] is None
+
+    assert Path(file_name['metainfo']).exists()
+    assert metainfo_data['run_id'] == 'run_06_26_2025_0'
+    assert metainfo_data['starting_date'] == '06_26_2025'
+    assert metainfo_data['jobs'] == expected_jobs
+    assert metainfo_data['sdgym_version'] == version('sdgym')
+    assert metainfo_data['sdv_version'] == version('sdv')
+    assert metainfo_data['realtabformer_version'] == version('realtabformer')
+    assert metainfo_data['completed_date'] is None
+    assert metainfo_data['modality'] == 'single_table'
 
 
 @patch('sdgym.benchmark.datetime')
@@ -794,6 +841,7 @@ def test_benchmark_single_table_aws(
         detailed_results_folder=None,
         custom_synthesizers=None,
         s3_client='s3_client_mock',
+        modality='single_table',
     )
     mock_run_on_aws.assert_called_once_with(
         output_destination=output_destination,
@@ -852,6 +900,7 @@ def test_benchmark_single_table_aws_synthesizers_none(
         detailed_results_folder=None,
         custom_synthesizers=None,
         s3_client='s3_client_mock',
+        modality='single_table',
     )
     mock_run_on_aws.assert_called_once_with(
         output_destination=output_destination,
@@ -1010,13 +1059,18 @@ def test__add_adjusted_scores_missing_fallback():
     assert scores.equals(expected)
 
 
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
 @patch('sdgym.benchmark.get_dataset_paths')
-def test__generate_job_args_list_local_root_additional_folder(get_dataset_paths_mock, tmp_path):
+def test__generate_job_args_list_local_root_additional_folder(
+    get_dataset_paths_mock,
+    tmp_path,
+    modality,
+):
     """Local additional_datasets_folder should point to root/single_table."""
     # Setup
     local_root = tmp_path / 'my_root'
     local_root.mkdir()
-    dataset_path = tmp_path / 'my_root' / 'single_table' / 'datasetA'
+    dataset_path = tmp_path / 'my_root' / modality / 'datasetA'
     get_dataset_paths_mock.return_value = [dataset_path]
 
     # Run
@@ -1034,12 +1088,13 @@ def test__generate_job_args_list_local_root_additional_folder(get_dataset_paths_
         synthesizers=[],
         custom_synthesizers=None,
         s3_client=None,
+        modality=modality,
     )
 
     # Assert
     get_dataset_paths_mock.assert_called_once_with(
-        modality='single_table',
-        bucket=str(local_root / 'single_table'),
+        modality=modality,
+        bucket=str(local_root / modality),
         aws_access_key_id=None,
         aws_secret_access_key=None,
     )
@@ -1068,6 +1123,7 @@ def test__generate_job_args_list_s3_root_additional_folder(get_dataset_paths_moc
         synthesizers=[],
         custom_synthesizers=None,
         s3_client=None,
+        modality='single_table',
     )
 
     # Assert

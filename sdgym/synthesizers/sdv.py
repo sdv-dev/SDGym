@@ -19,6 +19,8 @@ MODALITY_TO_MODULE = {
     'multi_table': multi_table,
 }
 
+MODEL_KWARGS = {'HMASynthesizer': {'verbose': False}}
+
 
 def _get_sdv_synthesizers(modality):
     _validate_modality(modality)
@@ -81,6 +83,7 @@ def _create_sdv_class(sdv_name):
     current_module = sys.modules[__name__]
     modality = _get_modality(sdv_name)
     base_class = MultiTableBaselineSynthesizer if modality == 'multi_table' else BaselineSynthesizer
+    model_kwargs = MODEL_KWARGS.get(sdv_name, {})
     synthesizer_class = type(
         sdv_name,
         (base_class,),
@@ -88,7 +91,7 @@ def _create_sdv_class(sdv_name):
             '__module__': __name__,
             'SDV_NAME': sdv_name,
             '_MODALITY_FLAG': modality,
-            '_MODEL_KWARGS': {},
+            '_MODEL_KWARGS': model_kwargs,
             '_fit': _fit,
             '_sample_from_synthesizer': _sample_from_synthesizer,
         },
