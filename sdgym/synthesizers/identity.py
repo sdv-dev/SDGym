@@ -16,21 +16,16 @@ class DataIdentity(BaselineSynthesizer):
     def __init__(self):
         self._data = None
 
-    def get_trained_synthesizer(self, data, metadata):
-        """Get a synthesizer that has been trained on the provided data and metadata.
+    def _fit(self, data, metadata):
+        """Fit the synthesizer to the data.
 
         Args:
             data (pandas.DataFrame):
-                The data to train on.
+                The data to fit the synthesizer to.
             metadata (dict):
                 The metadata dictionary.
-
-        Returns:
-            obj:
-                The synthesizer object.
         """
         self._data = data
-        return None
 
     def sample_from_synthesizer(self, synthesizer, n_samples):
         """Sample data from the provided synthesizer.

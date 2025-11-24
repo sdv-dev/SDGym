@@ -1,6 +1,6 @@
-import cloudpickle
 from unittest.mock import Mock, patch
 
+import cloudpickle
 import pandas as pd
 import yaml
 

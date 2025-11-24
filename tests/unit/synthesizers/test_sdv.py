@@ -86,9 +86,9 @@ def test__fit(mock_logger):
 
     # Assert
     mock_logger.info.assert_called_with('Fitting %s', 'GaussianCopulaClass')
-    assert isinstance(synthesizer.sdv_synthesizer, GaussianCopulaSynthesizer)
-    assert synthesizer.sdv_synthesizer.enforce_min_max_values is False
-    assert synthesizer.sdv_synthesizer._fitted is True
+    assert isinstance(synthesizer._internal_synthesizer, GaussianCopulaSynthesizer)
+    assert synthesizer._internal_synthesizer.enforce_min_max_values is False
+    assert synthesizer._internal_synthesizer._fitted is True
 
 
 @patch('sdgym.synthesizers.sdv.LOGGER')
@@ -103,8 +103,8 @@ def test__sample_from_synthesizer(mock_logger):
     base_synthesizer.__class__.__name__ = 'GaussianCopulaSynthesizer'
     base_synthesizer._MODALITY_FLAG = 'single_table'
     synthesizer = Mock()
-    synthesizer.sdv_synthesizer = Mock()
-    synthesizer.sdv_synthesizer.sample.return_value = data
+    synthesizer._internal_synthesizer = Mock()
+    synthesizer._internal_synthesizer.sample.return_value = data
     n_samples = 3
 
     # Run
@@ -113,7 +113,7 @@ def test__sample_from_synthesizer(mock_logger):
     # Assert
     mock_logger.info.assert_called_with('Sampling %s', 'GaussianCopulaSynthesizer')
     pd.testing.assert_frame_equal(sampled_data, data)
-    synthesizer.sdv_synthesizer.sample.assert_called_once_with(num_rows=n_samples)
+    synthesizer._internal_synthesizer.sample.assert_called_once_with(num_rows=n_samples)
 
 
 @patch('sdgym.synthesizers.sdv.sys.modules')

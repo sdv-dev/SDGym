@@ -354,7 +354,8 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
     tracemalloc.clear_traces()
     if synthesizer_path is not None and result_writer is not None:
         result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
-        result_writer.write_pickle(synthesizer_obj.sdv_synthesizer, synthesizer_path['synthesizer'])
+        internal_synthesizer = getattr(synthesizer_obj, '_internal_synthesizer', synthesizer_obj)
+        result_writer.write_pickle(internal_synthesizer, synthesizer_path['synthesizer'])
 
     return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
 
