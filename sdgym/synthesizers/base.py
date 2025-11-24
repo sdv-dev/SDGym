@@ -127,7 +127,7 @@ class BaselineSynthesizer(abc.ABC):
 
         return self._get_trained_synthesizer(data, metadata)
 
-    def sample_from_synthesizer(self, synthesizer, *, n_samples):
+    def sample_from_synthesizer(self, synthesizer, n_samples):
         """Sample data from the provided synthesizer.
 
         Args:
@@ -149,7 +149,7 @@ class MultiTableBaselineSynthesizer(BaselineSynthesizer):
 
     _MODALITY_FLAG = 'multi_table'
 
-    def sample_from_synthesizer(self, synthesizer, *, scale=1.0, n_samples=None):
+    def sample_from_synthesizer(self, synthesizer, scale=1.0):
         """Sample data from the provided synthesizer.
 
         Args:
@@ -158,17 +158,9 @@ class MultiTableBaselineSynthesizer(BaselineSynthesizer):
             scale (float):
                 The scale of data to sample.
                 Defaults to 1.0.
-            n_samples (int):
-                This parameter is not supported for multi-table synthesizers.
-                Use `scale` instead.
 
         Returns:
             dict:
                 The sampled data. A dict mapping table name to DataFrame.
         """
-        if n_samples is not None:
-            raise TypeError(
-                'Multi-table synthesizers do not support `n_samples`. Use `scale` instead.'
-            )
-
         return self._sample_from_synthesizer(synthesizer, scale=scale)

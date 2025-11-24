@@ -126,7 +126,8 @@ class TestMultiTableBaselineSynthesizer:
         mock_synthesizer = Mock()
         synthesizer._sample_from_synthesizer = Mock(return_value='sampled_data')
         expected_error = re.escape(
-            'Multi-table synthesizers do not support `n_samples`. Use `scale` instead.'
+            'MultiTableBaselineSynthesizer.sample_from_synthesizer() got an unexpected'
+            " keyword argument 'n_samples'"
         )
 
         # Run

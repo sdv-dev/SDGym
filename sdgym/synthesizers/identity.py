@@ -41,4 +41,4 @@ class DataIdentity(BaselineSynthesizer):
                 The sampled data. If single-table, should be a DataFrame. If multi-table,
                 should be a dict mapping table name to DataFrame.
         """
-        return copy.deepcopy(self._data)
+        return copy.deepcopy(synthesizer._data)
