@@ -70,13 +70,6 @@ class BaselineSynthesizer(abc.ABC):
 
         return synthesizers
 
-    def _validate_modality_flag(self):
-        if not _is_valid_modality(self._MODALITY_FLAG):
-            raise ValueError(
-                f"The `_MODALITY_FLAG` '{self._MODALITY_FLAG}' of the synthesizer is not valid. "
-                "Must be either 'single_table' or 'multi_table'."
-            )
-
     def _fit(self, data, metadata):
         """Fit the synthesizer to the data.
 
@@ -119,7 +112,6 @@ class BaselineSynthesizer(abc.ABC):
             obj:
                 The synthesizer object.
         """
-        self._validate_modality_flag()
         metadata_object = Metadata()
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)

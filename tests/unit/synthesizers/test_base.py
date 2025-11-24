@@ -44,22 +44,6 @@ def test__validate_modality():
 
 
 class TestBaselineSynthesizer:
-    def test__validate_modality_flag(self):
-        """Test the `_validate_modality_flag` method."""
-        # Setup
-        instance = BaselineSynthesizer()
-        instance._MODALITY_FLAG = 'single_table'
-        expected_error = re.escape(
-            "The `_MODALITY_FLAG` 'None' of the synthesizer is not valid. Must be"
-            " either 'single_table' or 'multi_table'."
-        )
-
-        # Run and Assert
-        instance._validate_modality_flag()
-        instance._MODALITY_FLAG = None
-        with pytest.raises(ValueError, match=expected_error):
-            instance._validate_modality_flag()
-
     @patch('sdgym.synthesizers.base.BaselineSynthesizer.get_subclasses')
     @patch('sdgym.synthesizers.base._validate_modality')
     def test__get_supported_synthesizers_mock(self, mock_validate_modality, mock_get_subclasses):
@@ -87,8 +71,7 @@ class TestBaselineSynthesizer:
         mock_get_subclasses.assert_called_once_with(include_parents=True)
         assert synthesizers == expected_synthesizers
 
-    @patch('sdgym.synthesizers.base.BaselineSynthesizer._validate_modality_flag')
-    def test_get_trained_synthesizer(self, mock_validate_modality_flag):
+    def test_get_trained_synthesizer(self):
         """Test it calls the correct methods and returns the correct values."""
         # Setup
         data = pd.DataFrame({
@@ -109,7 +92,6 @@ class TestBaselineSynthesizer:
             assert len(recorded_warnings) == 0
 
         # Assert
-        mock_validate_modality_flag.assert_called_once_with()
         instance._get_trained_synthesizer.assert_called_once()
         args = instance._get_trained_synthesizer.call_args[0]
         assert (args[0] == data).all().all()
@@ -126,8 +108,7 @@ class TestMultiTableBaselineSynthesizer:
         mock_synthesizer = Mock()
         synthesizer._sample_from_synthesizer = Mock(return_value='sampled_data')
         expected_error = re.escape(
-            'MultiTableBaselineSynthesizer.sample_from_synthesizer() got an unexpected'
-            " keyword argument 'n_samples'"
+            "sample_from_synthesizer() got an unexpected keyword argument 'n_samples'"
         )
 
         # Run
