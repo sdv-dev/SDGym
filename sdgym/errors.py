@@ -14,9 +14,7 @@ class BenchmarkError(RuntimeError):
 
     def __init__(
         self,
-        *,
         original_exc,
-        synthetic_data,
         train_time,
         sample_time,
         synthesizer_size,
@@ -26,7 +24,6 @@ class BenchmarkError(RuntimeError):
     ):
         super().__init__(str(original_exc))
         self.original_exc = original_exc
-        self.synthetic_data = synthetic_data
         self.train_time = train_time
         self.sample_time = sample_time
         self.synthesizer_size = synthesizer_size
