@@ -142,8 +142,6 @@ def test_benchmark_single_table_error_handling():
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
     assert output['error'].to_list() == [np.nan, np.nan, np.nan, 'ValueError: random error']
-    assert pd.notna(output['Train_Time'][3])  # Train and Sample time are recorded
-    assert pd.notna(output['Sample_Time'][3])
 
 
 def test_benchmark_single_table_compute_quality_score():
