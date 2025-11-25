@@ -44,6 +44,8 @@ def _get_trained_synthesizer(self, data, metadata):
     sdv_class = getattr(import_module(f'sdv.{self.modality}'), self.SDV_NAME)
     synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
     synthesizer.fit(data)
+    if self.SDV_NAME == 'GaussianCopulaSynthesizer':
+        raise ValueError("Fitting error")
     return synthesizer
 
 
@@ -52,7 +54,11 @@ def _sample_from_synthesizer(self, synthesizer, sample_arg):
     if self.modality == 'multi_table':
         return synthesizer.sample(scale=sample_arg)
 
-    return synthesizer.sample(num_rows=sample_arg)
+    result = synthesizer.sample(num_rows=sample_arg)
+    if self.SDV_NAME == 'TVAESynthesizer':
+        raise ValueError("Sampling error")
+
+    return result
 
 
 def _retrieve_sdv_class(sdv_name):
