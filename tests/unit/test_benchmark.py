@@ -11,7 +11,6 @@ import pandas as pd
 import pytest
 import yaml
 
-from sdgym import benchmark_single_table
 from sdgym.benchmark import (
     _add_adjusted_scores,
     _check_write_permissions,
@@ -29,6 +28,8 @@ from sdgym.benchmark import (
     _validate_aws_inputs,
     _validate_output_destination,
     _write_metainfo_file,
+    benchmark_multi_table,
+    benchmark_single_table,
     benchmark_single_table_aws,
 )
 from sdgym.result_writer import LocalResultsWriter
@@ -542,7 +543,7 @@ def test__setup_output_destination_single_table(tmp_path):
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
     datasets = ['adult', 'census']
     today = datetime.today().strftime('%m_%d_%Y')
-    base_path = output_destination / f'SDGym_results_{today}'
+    base_path = output_destination / 'single_table' / f'SDGym_results_{today}'
 
     # Run
     result = _setup_output_destination(output_destination, synthesizers, datasets, 'single_table')
@@ -565,7 +566,6 @@ def test__setup_output_destination_single_table(tmp_path):
         }
         for dataset in datasets
     }
-
     assert json.loads(json.dumps(result)) == expected
 
 
@@ -576,7 +576,7 @@ def test__setup_output_destination_multi_table(tmp_path):
     synthesizers = ['HMASynthesizer']
     datasets = ['NBA', 'financial']
     today = datetime.today().strftime('%m_%d_%Y')
-    base_path = output_destination / f'SDGym_results_{today}'
+    base_path = output_destination / 'multi_table' / f'SDGym_results_{today}'
 
     # Run
     result = _setup_output_destination(output_destination, synthesizers, datasets, 'multi_table')
@@ -1162,3 +1162,148 @@ def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
     warnings_text = ' '.join(str(w.message) for w in recwarn)
     assert 'is incompatible with transformer' not in warnings_text
     pd.testing.assert_frame_equal(result[expected_result.columns], expected_result)
+
+
+@patch('sdgym.benchmark._update_metainfo_file')
+@patch('sdgym.benchmark._write_metainfo_file')
+@patch('sdgym.benchmark._run_jobs')
+@patch('sdgym.benchmark._generate_job_args_list')
+@patch('sdgym.benchmark._validate_inputs')
+@patch('sdgym.benchmark.LocalResultsWriter')
+@patch('sdgym.benchmark._validate_output_destination')
+def test_benchmark_multi_table_with_jobs(
+    mock__validate_output_destination,
+    mock_LocalResultsWriter,
+    mock__validate_inputs,
+    mock__generate_job_args_list,
+    mock__run_jobs,
+    mock__write_metainfo_file,
+    mock__update_metainfo_file,
+):
+    """Test that `benchmark_multi_table` runs jobs and updates metainfo when there are job args."""
+    # Setup
+    fake_scores = pd.DataFrame({'a': [1]})
+    mock__run_jobs.return_value = fake_scores
+    job_args = ('arg1', 'arg2', {'metainfo': 'meta.yaml'})
+    mock__generate_job_args_list.return_value = [job_args]
+
+    # Run
+    scores = benchmark_multi_table(
+        synthesizers=['HMASynthesizer'],
+        custom_synthesizers=['CustomSynth'],
+        sdv_datasets=['dataset1'],
+        additional_datasets_folder='extra',
+        limit_dataset_size=True,
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        timeout=10,
+        output_destination='output_dir',
+        show_progress=True,
+    )
+
+    # Assert
+    mock__validate_output_destination.assert_called_once_with('output_dir')
+    mock_LocalResultsWriter.assert_called_once_with()
+    mock__validate_inputs.assert_called_once_with(
+        output_filepath=None,
+        detailed_results_folder=None,
+        synthesizers=['HMASynthesizer'],
+        custom_synthesizers=['CustomSynth'],
+    )
+    mock__generate_job_args_list.assert_called_once_with(
+        limit_dataset_size=True,
+        sdv_datasets=['dataset1'],
+        additional_datasets_folder='extra',
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=10,
+        output_destination='output_dir',
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        compute_privacy_score=None,
+        synthesizers=['HMASynthesizer'],
+        custom_synthesizers=['CustomSynth'],
+        s3_client=None,
+        modality='multi_table',
+    )
+    mock__write_metainfo_file.assert_called_once()
+    mock__run_jobs.assert_called_once_with(
+        multi_processing_config=None,
+        job_args_list=[job_args],
+        show_progress=True,
+        result_writer=mock_LocalResultsWriter.return_value,
+    )
+    mock__update_metainfo_file.assert_called_once_with(
+        'meta.yaml',
+        mock_LocalResultsWriter.return_value,
+    )
+    pd.testing.assert_frame_equal(scores, fake_scores)
+
+
+@patch('sdgym.benchmark._get_empty_dataframe')
+@patch('sdgym.benchmark._write_metainfo_file')
+@patch('sdgym.benchmark._generate_job_args_list')
+@patch('sdgym.benchmark._validate_inputs')
+@patch('sdgym.benchmark.LocalResultsWriter')
+@patch('sdgym.benchmark._validate_output_destination')
+def test_benchmark_multi_table_no_jobs(
+    mock__validate_output_destination,
+    mock_LocalResultsWriter,
+    mock__validate_inputs,
+    mock__generate_job_args_list,
+    mock__write_metainfo_file,
+    mock__get_empty_dataframe,
+):
+    """Test that benchmark_multi_table returns empty dataframe when there are no job args."""
+    # Setup
+    empty_scores = pd.DataFrame()
+    mock__generate_job_args_list.return_value = []
+    mock__get_empty_dataframe.return_value = empty_scores
+
+    # Run
+    scores = benchmark_multi_table(
+        synthesizers=[],
+        custom_synthesizers=None,
+        sdv_datasets=None,
+        additional_datasets_folder=None,
+        limit_dataset_size=False,
+        compute_quality_score=False,
+        compute_diagnostic_score=True,
+        timeout=None,
+        output_destination=None,
+        show_progress=False,
+    )
+
+    # Assert
+    mock__validate_output_destination.assert_called_once_with(None)
+    mock_LocalResultsWriter.assert_called_once_with()
+    mock__validate_inputs.assert_called_once_with(
+        output_filepath=None,
+        detailed_results_folder=None,
+        synthesizers=[],
+        custom_synthesizers=None,
+    )
+    mock__generate_job_args_list.assert_called_once_with(
+        limit_dataset_size=False,
+        sdv_datasets=None,
+        additional_datasets_folder=None,
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=True,
+        compute_privacy_score=None,
+        synthesizers=[],
+        custom_synthesizers=None,
+        s3_client=None,
+        modality='multi_table',
+    )
+    mock__get_empty_dataframe.assert_called_once_with(
+        compute_diagnostic_score=True,
+        compute_quality_score=False,
+        compute_privacy_score=None,
+        sdmetrics=None,
+    )
+    mock__write_metainfo_file.assert_called_once()
+    pd.testing.assert_frame_equal(scores, empty_scores)
