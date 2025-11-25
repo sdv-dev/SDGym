@@ -1,10 +1,10 @@
 """Results writer for SDGym benchmark."""
 
 import io
-import pickle
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+import cloudpickle
 import pandas as pd
 import plotly.graph_objects as go
 import yaml
@@ -82,7 +82,7 @@ class LocalResultsWriter:
     def write_pickle(self, obj, file_path):
         """Write a Python object to a pickle file."""
         with open(file_path, 'wb') as f:
-            pickle.dump(obj, f)
+            cloudpickle.dump(obj, f)
 
     def write_yaml(self, data, file_path, append=False):
         """Write data to a YAML file."""
@@ -126,7 +126,7 @@ class S3ResultsWriter(ResultsWriter):
         """Write a Python object to S3 as a pickle file."""
         bucket, key = parse_s3_path(file_path)
         buffer = io.BytesIO()
-        pickle.dump(obj, buffer)
+        cloudpickle.dump(obj, buffer)
         buffer.seek(0)
         self.s3_client.put_object(Body=buffer.read(), Bucket=bucket, Key=key)
 

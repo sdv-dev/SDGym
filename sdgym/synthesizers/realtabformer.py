@@ -24,8 +24,10 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
 
     LOGGER = logging.getLogger(__name__)
     _MODEL_KWARGS = None
+    _MODALITY_FLAG = 'single_table'
 
-    def _get_trained_synthesizer(self, data, metadata):
+    def _fit(self, data, metadata):
+        """Fit the REaLTabFormer model to the data."""
         try:
             from realtabformer import REaLTabFormer
         except Exception as exception:
@@ -39,8 +41,8 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
             model = REaLTabFormer(model_type='tabular', **model_kwargs)
             model.fit(data)
 
-            return model
+        self._internal_synthesizer = model
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
-        return synthesizer.sample(n_sample)
+        return synthesizer._internal_synthesizer.sample(n_sample)
