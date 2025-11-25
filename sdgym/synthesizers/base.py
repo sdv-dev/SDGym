@@ -83,11 +83,11 @@ class BaselineSynthesizer(abc.ABC):
 
     @classmethod
     def _get_trained_synthesizer(cls, data, metadata):
-        """Train a UniformSynthesizer for each table in the multi-table dataset.
+        """Train a synthesizer on the provided data and metadata.
 
         Args:
-            data (dict):
-                A dict mapping table name to table data.
+            data (pd.DataFrame or dict):
+                The data to train on.
             metadata (sdv.metadata.Metadata):
                 The metadata
 
