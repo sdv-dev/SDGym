@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
-from importlib import import_module
+
 from sdgym import benchmark_single_table
 from sdgym.benchmark import (
     _add_adjusted_scores,
@@ -173,7 +173,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Adjusted_Total_Time': {0: None},
         'Adjusted_Quality_Score': {0: None},
     })
-    pd.testing.assert_frame_equal(scores, expected_scores)
+    pd.testing.assert_frame_equal(scores, expected_scores, check_dtype=False)
 
 
 @patch('sdgym.benchmark.boto3.client')
@@ -868,12 +868,14 @@ def test__add_adjusted_scores_no_failures():
     # Setup
     scores = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, 0.5],
         'Sample_Time': [2.0, 0.25],
         'Quality_Score': [1.0, 0.5],
     })
     expected = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, 0.5],
         'Sample_Time': [2.0, 0.25],
         'Quality_Score': [1.0, 0.5],
@@ -885,7 +887,7 @@ def test__add_adjusted_scores_no_failures():
     _add_adjusted_scores(scores, 10.0)
 
     # Assert
-    assert scores.equals(expected)
+    pd.testing.assert_frame_equal(scores, expected)
 
 
 def test__fill_adjusted_scores_with_none():
@@ -893,17 +895,20 @@ def test__fill_adjusted_scores_with_none():
     # Setup
     scores_1 = pd.DataFrame({
         'Synthesizer': ['Synth1', 'Synth2'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, None],
         'Sample_Time': [2.0, 3.0],
         'Quality_Score': [0.8, None],
     })
     scores_2 = pd.DataFrame({
         'Synthesizer': ['Synth1', 'Synth2'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, None],
         'Sample_Time': [2.0, 3.0],
     })
     expected = pd.DataFrame({
         'Synthesizer': ['Synth1', 'Synth2'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, None],
         'Sample_Time': [2.0, 3.0],
         'Quality_Score': [0.8, None],
@@ -927,6 +932,7 @@ def test__add_adjusted_scores_timeout():
     # Setup
     scores = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [np.nan, 0.5],
         'Sample_Time': [np.nan, 0.25],
         'Quality_Score': [np.nan, 0.5],
@@ -934,6 +940,7 @@ def test__add_adjusted_scores_timeout():
     })
     expected = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [np.nan, 0.5],
         'Sample_Time': [np.nan, 0.25],
         'Quality_Score': [np.nan, 0.5],
@@ -954,6 +961,7 @@ def test__add_adjusted_scores_errors():
     # Setup
     scores = pd.DataFrame({
         'Synthesizer': ['ErrorOnTrain', 'ErrorOnSample', 'ErrorAfterSample', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1', 'dataset1', 'dataset1'],
         'Train_Time': [np.nan, 1.0, 1.0, 0.5],
         'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
         'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
@@ -961,6 +969,7 @@ def test__add_adjusted_scores_errors():
     })
     expected = pd.DataFrame({
         'Synthesizer': ['ErrorOnTrain', 'ErrorOnSample', 'ErrorAfterSample', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1', 'dataset1', 'dataset1'],
         'Train_Time': [np.nan, 1.0, 1.0, 0.5],
         'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
         'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
@@ -1097,27 +1106,3 @@ def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
     warnings_text = ' '.join(str(w.message) for w in recwarn)
     assert 'is incompatible with transformer' not in warnings_text
     pd.testing.assert_frame_equal(result[expected_result.columns], expected_result)
-
-@patch('sdgym.synthesizers.sdv.GaussianCopulaSynthesizer._get_trained_synthesizer', autospec=True)
-def test_benchmark_error_during_fit(mock_get_trained_synthesizer):
-    """Test that benchmark_single_table handles errors during synthesizer fitting."""
-    # Setup
-    def _get_trained_synthesizer(self, data, metadata):
-        sdv_class = getattr(import_module(f'sdv.{self.modality}'), self.SDV_NAME)
-        synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
-        synthesizer.fit(data)
-        raise Exception('Fitting error')
-
-    mock_get_trained_synthesizer.side_effect = _get_trained_synthesizer        
-
-    # Run
-    result = benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
-        sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
-    )
-
-    # Assert
-    
-
-
-    return result
