@@ -9,8 +9,8 @@ class UnsupportedDataset(SDGymError):
     """The Dataset is not supported by this Synthesizer."""
 
 
-class SynthesisRunError(RuntimeError):
-    """Error to raise when there is an error during the benchmark."""
+class BenchmarkError(RuntimeError):
+    """Error raised during benchmarking."""
 
     def __init__(
         self,

@@ -40,7 +40,7 @@ from sdmetrics.reports.single_table import (
 from sdmetrics.single_table import DCRBaselineProtection
 
 from sdgym.datasets import get_dataset_paths, load_dataset
-from sdgym.errors import SDGymError, SynthesisRunError
+from sdgym.errors import SDGymError, BenchmarkError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
@@ -324,8 +324,7 @@ def _generate_job_args_list(
 
     return job_args_list
 
-
-def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, result_writer=None):
+def _get_synthesizer_object(synthesizer_dict):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
         assert issubclass(synthesizer, BaselineSynthesizer), (
@@ -337,38 +336,39 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
             '`synthesizer` must be an instance of a synthesizer class.'
         )
 
+    return synthesizer
+
+def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, result_writer=None):
+    synthesizer = _get_synthesizer_object(synthesizer_dict)
     get_synthesizer = synthesizer.get_trained_synthesizer
     sample_from_synthesizer = synthesizer.sample_from_synthesizer
     data = real_data.copy()
     num_samples = len(data)
     tracemalloc.start()
-    synthesizer_obj = None
+    fitted_synthesizer = None
     synthetic_data = None
     synthesizer_size = None
     peak_memory = None
     start = get_utc_now()
     train_end = None
     try:
-        synthesizer_obj = get_synthesizer(data, metadata)
-        try:
-            synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
-        except Exception:
-            synthesizer_size = None
-
+        fitted_synthesizer = get_synthesizer(data, metadata)
+        synthesizer_size = len(pickle.dumps(fitted_synthesizer)) / N_BYTES_IN_MB
         train_end = get_utc_now()
         train_time = train_end - start
-        synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
+        synthetic_data = sample_from_synthesizer(fitted_synthesizer, num_samples)
         sample_end = get_utc_now()
         sample_time = sample_end - train_end
         peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
 
         if synthesizer_path is not None and result_writer is not None:
             result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
-            result_writer.write_pickle(synthesizer_obj, synthesizer_path['synthesizer'])
+            result_writer.write_pickle(fitted_synthesizer, synthesizer_path['synthesizer'])
 
         return synthetic_data, train_time, sample_time, synthesizer_size, peak_memory
 
     except Exception as e:
+        peak_memory = None
         now = get_utc_now()
         if train_end is None:
             train_time = now - start
@@ -377,13 +377,8 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
             train_time = train_end - start
             sample_time = now - train_end
 
-        try:
-            peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
-        except Exception:
-            peak_memory = None
-
         exception_text, error_text = format_exception()
-        raise SynthesisRunError(
+        raise BenchmarkError(
             original_exc=e,
             synthetic_data=None,
             train_time=train_time,
@@ -562,7 +557,7 @@ def _score(
 
             output['timeout'] = False
 
-        except SynthesisRunError as sre:
+        except BenchmarkError as sre:
             LOGGER.exception(
                 'Synthesis failed for %s on dataset %s;',
                 synthesizer['name'],
@@ -580,10 +575,10 @@ def _score(
 
     except Exception:
         LOGGER.exception('Error running %s on dataset %s;', synthesizer['name'], dataset_name)
-        exception, error = format_exception()  # no args
+        exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
-        output['timeout'] = False
+        output['timeout'] = False # There was no timeout
 
     finally:
         LOGGER.info(
