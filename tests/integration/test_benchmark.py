@@ -7,6 +7,7 @@ import re
 import sys
 import time
 import warnings
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -140,9 +141,8 @@ def test_benchmark_single_table_error_handling():
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
-
     output = output[output['Synthesizer'] == 'Custom:my_synth'][['Train_Time', 'Sample_Time']]
-    assert output.isna().all(1).all()
+    assert output.notna().all(1).all()  # Train and Sample time are recorded
 
 
 def test_benchmark_single_table_compute_quality_score():
@@ -777,3 +777,91 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
     saved_result_2 = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results(1).csv')
     pd.testing.assert_frame_equal(result_1, saved_result_1, check_dtype=False)
     pd.testing.assert_frame_equal(result_2, saved_result_2, check_dtype=False)
+
+
+@patch('sdv.single_table.GaussianCopulaSynthesizer.fit', autospec=True)
+def test_benchmark_error_during_fit(mock_fit):
+    """Test that benchmark_single_table handles errors during synthesizer fitting."""
+
+    # Setup
+    def fit(self, data):
+        processed_data = self.preprocess(data)
+        self._fit(processed_data)
+        raise Exception('Fitting error')
+
+    mock_fit.side_effect = fit
+
+    # Run
+    result = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer', 'ColumnSynthesizer'],
+        sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
+    )
+
+    # Assert
+    assert result['error'].to_list() == [
+        'Exception: Fitting error',
+        np.nan,
+        np.nan,
+        'Exception: Fitting error',
+        np.nan,
+        np.nan,
+    ]
+    for dataset, data in result.groupby('Dataset'):
+        uniform = data.loc[data['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
+        uniform_train = uniform['Train_Time']
+        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
+
+        for synth in ['GaussianCopulaSynthesizer', 'ColumnSynthesizer']:
+            row = data.loc[data['Synthesizer'] == synth]
+            if row.empty:
+                continue
+            row = row.iloc[0]
+
+            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
+            extra = uniform_total if synth == 'GaussianCopulaSynthesizer' else uniform_train
+            expected_time = base_time + extra
+
+            assert np.isclose(row['Adjusted_Total_Time'], expected_time)
+
+
+@patch('sdv.single_table.GaussianCopulaSynthesizer.sample', autospec=True)
+def test_benchmark_error_during_sample(mock_sample):
+    """Test that benchmark_single_table handles errors during synthesizer sampling."""
+
+    # Setup
+    def sample(self, num_rows):
+        self._sample(num_rows)
+        raise Exception('Sampling error')
+
+    mock_sample.side_effect = sample
+
+    # Run
+    result = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer', 'ColumnSynthesizer'],
+        sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
+    )
+
+    # Assert
+    assert result['error'].to_list() == [
+        'Exception: Sampling error',
+        np.nan,
+        np.nan,
+        'Exception: Sampling error',
+        np.nan,
+        np.nan,
+    ]
+    for dataset, data in result.groupby('Dataset'):
+        uniform = data.loc[data['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
+        uniform_train = uniform['Train_Time']
+        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
+        for synth in ['GaussianCopulaSynthesizer', 'ColumnSynthesizer']:
+            row = data.loc[data['Synthesizer'] == synth]
+            if row.empty:
+                continue
+            row = row.iloc[0]
+
+            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
+            extra = uniform_total if synth == 'GaussianCopulaSynthesizer' else uniform_train
+            expected_time = base_time + extra
+
+            assert np.isclose(row['Adjusted_Total_Time'], expected_time)
