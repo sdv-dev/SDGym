@@ -29,7 +29,7 @@ def unit(c):
 
 @task
 def integration(c):
-    c.run('python -m pytest ./tests/integration --cov=sdgym --cov-report=xml:./integration_cov.xml')
+    c.run('python -m pytest --full-trace ./tests/integration --cov=sdgym --cov-report=xml:./integration_cov.xml')
 
 
 @task
