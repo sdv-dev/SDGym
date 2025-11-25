@@ -28,7 +28,7 @@ def test_get_available_single_table_synthesizers():
 def test_get_available_multi_table_synthesizers():
     """Test the `get_available_multi_table_synthesizers` method"""
     # Setup
-    expected_synthesizers = ['HMASynthesizer']
+    expected_synthesizers = ['HMASynthesizer', 'MultiTableUniformSynthesizer']
 
     # Run
     synthesizers = get_available_multi_table_synthesizers()

@@ -5,7 +5,6 @@ import logging
 import math
 import multiprocessing
 import os
-import pickle
 import re
 import textwrap
 import threading
@@ -351,7 +350,7 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
     train_end = None
     try:
         fitted_synthesizer = get_synthesizer(data, metadata)
-        synthesizer_size = len(pickle.dumps(fitted_synthesizer)) / N_BYTES_IN_MB
+        synthesizer_size = len(cloudpickle.dumps(fitted_synthesizer)) / N_BYTES_IN_MB
         train_end = get_utc_now()
         train_time = train_end - start
         synthetic_data = sample_from_synthesizer(fitted_synthesizer, num_samples)
@@ -361,7 +360,10 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
 
         if synthesizer_path is not None and result_writer is not None:
             result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
-            result_writer.write_pickle(fitted_synthesizer, synthesizer_path['synthesizer'])
+            internal_synthesizer = getattr(
+                fitted_synthesizer, '_internal_synthesizer', fitted_synthesizer
+            )
+            result_writer.write_pickle(internal_synthesizer, synthesizer_path['synthesizer'])
 
         return synthetic_data, train_time, sample_time, synthesizer_size, peak_memory
 
@@ -1438,7 +1440,7 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     job_args_key = f'job_args_list_{metainfo}.pkl'
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
-    serialized_data = pickle.dumps(job_args_list)
+    serialized_data = cloudpickle.dumps(job_args_list)
     s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=serialized_data)
 
     return bucket_name, job_args_key
@@ -1449,7 +1451,7 @@ def _get_s3_script_content(
 ):
     return f"""
 import boto3
-import pickle
+import cloudpickle
 from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
@@ -1461,7 +1463,7 @@ s3_client = boto3.client(
     region_name='{region_name}'
 )
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
-job_args_list = pickle.loads(response['Body'].read())
+job_args_list = cloudpickle.loads(response['Body'].read())
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_metainfo_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
