@@ -40,7 +40,7 @@ from sdmetrics.reports.single_table import (
 from sdmetrics.single_table import DCRBaselineProtection
 
 from sdgym.datasets import get_dataset_paths, load_dataset
-from sdgym.errors import SDGymError, BenchmarkError
+from sdgym.errors import BenchmarkError, SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
@@ -324,6 +324,7 @@ def _generate_job_args_list(
 
     return job_args_list
 
+
 def _get_synthesizer_object(synthesizer_dict):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
@@ -337,6 +338,7 @@ def _get_synthesizer_object(synthesizer_dict):
         )
 
     return synthesizer
+
 
 def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, result_writer=None):
     synthesizer = _get_synthesizer_object(synthesizer_dict)
@@ -578,7 +580,7 @@ def _score(
         exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
-        output['timeout'] = False # There was no timeout
+        output['timeout'] = False  # There was no timeout
 
     finally:
         LOGGER.info(
@@ -1165,43 +1167,62 @@ def _add_adjusted_scores(scores, timeout):
     if not uniform_mask.any():
         return _fill_adjusted_scores_with_none(scores)
 
-    uniform_row = scores.loc[uniform_mask].iloc[0]
-    base_fit_time = uniform_row.get('Train_Time')
-    base_sample_time = uniform_row.get('Sample_Time')
-    base_quality_score = uniform_row.get('Quality_Score', None)
+    scores['Adjusted_Total_Time'] = np.nan
+    if 'Quality_Score' in scores.columns:
+        scores['Adjusted_Quality_Score'] = np.nan
 
-    if pd.isna(base_fit_time) or pd.isna(base_sample_time):
-        return _fill_adjusted_scores_with_none(scores)
+    for dataset in scores['Dataset'].unique():
+        dataset_mask = scores['Dataset'] == dataset
+        uniform_mask = dataset_mask & scores['Synthesizer'].str.contains(
+            'UniformSynthesizer', na=False
+        )
+        if not uniform_mask.any():
+            scores.loc[dataset_mask, 'Adjusted_Total_Time'] = None
+            if 'Adjusted_Quality_Score' in scores.columns:
+                scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = None
+            continue
 
-    fit_times = scores['Train_Time'].fillna(0)
-    sample_times = scores['Sample_Time'].fillna(0)
-    errors = scores.get('error', pd.Series([None] * len(scores)))
+        uniform_row = scores.loc[uniform_mask].iloc[0]
+        base_fit_time = uniform_row.get('Train_Time')
+        base_sample_time = uniform_row.get('Sample_Time')
+        base_quality_score = uniform_row.get('Quality_Score', None)
+        if pd.isna(base_fit_time) or pd.isna(base_sample_time):
+            scores.loc[dataset_mask, 'Adjusted_Total_Time'] = None
+            if 'Adjusted_Quality_Score' in scores.columns:
+                scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = None
+            continue
 
-    timeout_mask = errors == 'Synthesizer Timeout'
-    other_error_mask = errors.notna() & ~timeout_mask
-    no_error_mask = errors.isna()
-    adjusted_times = np.select(
-        [timeout_mask, other_error_mask, no_error_mask],
-        [
-            base_fit_time + timeout + base_sample_time,
-            base_fit_time + fit_times + sample_times + base_sample_time,
-            base_fit_time + fit_times + sample_times,
-        ],
-        default=np.nan,
-    )
-    scores['Adjusted_Total_Time'] = adjusted_times
+        fit_times = scores.loc[dataset_mask, 'Train_Time'].fillna(0)
+        sample_times = scores.loc[dataset_mask, 'Sample_Time'].fillna(0)
+        if 'error' in scores.columns:
+            errors = scores.loc[dataset_mask, 'error']
+        else:
+            errors = pd.Series([None] * dataset_mask.sum(), index=scores.index[dataset_mask])
 
-    if 'Quality_Score' not in scores.columns:
-        return scores
+        timeout_mask = errors == 'Synthesizer Timeout'
+        other_error_mask = errors.notna() & ~timeout_mask
+        no_error_mask = errors.isna()
+        adjusted_times = np.select(
+            [timeout_mask, other_error_mask, no_error_mask],
+            [
+                base_fit_time + timeout + base_sample_time,  # timeout
+                base_fit_time + fit_times + sample_times + base_sample_time,  # other error
+                base_fit_time + fit_times + sample_times,  # no error
+            ],
+            default=np.nan,
+        )
+        scores.loc[dataset_mask, 'Adjusted_Total_Time'] = adjusted_times
+        if 'Adjusted_Quality_Score' not in scores.columns:
+            continue
 
-    if pd.isna(base_quality_score):
-        scores['Adjusted_Quality_Score'] = None
-        return scores
+        if pd.isna(base_quality_score):
+            scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = None
+            continue
 
-    has_error = errors.notna()
-    scores['Adjusted_Quality_Score'] = np.where(
-        has_error, base_quality_score, scores['Quality_Score']
-    )
+        has_error = errors.notna()
+        original_quality = scores.loc[dataset_mask, 'Quality_Score']
+        adjusted_quality = np.where(has_error, base_quality_score, original_quality)
+        scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = adjusted_quality
 
     return scores
 
