@@ -11,24 +11,21 @@ class DataIdentity(BaselineSynthesizer):
     Returns the same exact data that is used to fit it.
     """
 
+    _MODALITY_FLAG = 'single_table'
+
     def __init__(self):
         self._data = None
 
-    def get_trained_synthesizer(self, data, metadata):
-        """Get a synthesizer that has been trained on the provided data and metadata.
+    def _fit(self, data, metadata):
+        """Fit the synthesizer to the data.
 
         Args:
             data (pandas.DataFrame):
-                The data to train on.
+                The data to fit the synthesizer to.
             metadata (dict):
                 The metadata dictionary.
-
-        Returns:
-            obj:
-                The synthesizer object.
         """
         self._data = data
-        return None
 
     def sample_from_synthesizer(self, synthesizer, n_samples):
         """Sample data from the provided synthesizer.
@@ -44,4 +41,4 @@ class DataIdentity(BaselineSynthesizer):
                 The sampled data. If single-table, should be a DataFrame. If multi-table,
                 should be a dict mapping table name to DataFrame.
         """
-        return copy.deepcopy(self._data)
+        return copy.deepcopy(synthesizer._data)
