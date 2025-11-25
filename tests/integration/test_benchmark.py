@@ -141,8 +141,9 @@ def test_benchmark_single_table_error_handling():
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
-    output = output[output['Synthesizer'] == 'Custom:my_synth'][['Train_Time', 'Sample_Time']]
-    assert output.notna().all(1).all()  # Train and Sample time are recorded
+    assert output['error'].to_list() == [np.nan, np.nan, np.nan, 'ValueError: random error']
+    assert pd.notna(output['Train_Time'][3])  # Train and Sample time are recorded
+    assert pd.notna(output['Sample_Time'][3])
 
 
 def test_benchmark_single_table_compute_quality_score():

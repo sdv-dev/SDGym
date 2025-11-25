@@ -325,7 +325,7 @@ def _generate_job_args_list(
     return job_args_list
 
 
-def _get_synthesizer_object(synthesizer_dict):
+def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, result_writer=None):
     synthesizer = synthesizer_dict['synthesizer']
     if isinstance(synthesizer, type):
         assert issubclass(synthesizer, BaselineSynthesizer), (
@@ -337,15 +337,11 @@ def _get_synthesizer_object(synthesizer_dict):
             '`synthesizer` must be an instance of a synthesizer class.'
         )
 
-    return synthesizer
-
-
-def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, result_writer=None):
-    synthesizer = _get_synthesizer_object(synthesizer_dict)
     get_synthesizer = synthesizer.get_trained_synthesizer
     sample_from_synthesizer = synthesizer.sample_from_synthesizer
     data = real_data.copy()
     num_samples = len(data)
+
     tracemalloc.start()
     fitted_synthesizer = None
     synthetic_data = None
@@ -382,7 +378,6 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
         exception_text, error_text = format_exception()
         raise BenchmarkError(
             original_exc=e,
-            synthetic_data=None,
             train_time=train_time,
             sample_time=sample_time,
             synthesizer_size=synthesizer_size,
@@ -543,6 +538,7 @@ def _score(
                 used_memory(),
             )
 
+            # No error so far. _compute_scores tracks its own errors by metric
             del output['error']
             _compute_scores(
                 metrics,
@@ -557,22 +553,22 @@ def _score(
                 dataset_name,
             )
 
-            output['timeout'] = False
+            output['timeout'] = False  # There was no timeout
 
-        except BenchmarkError as sre:
+        except BenchmarkError as err:
             LOGGER.exception(
                 'Synthesis failed for %s on dataset %s;',
                 synthesizer['name'],
                 dataset_name,
             )
 
-            output['train_time'] = sre.train_time.total_seconds() if sre.train_time else None
-            output['sample_time'] = sre.sample_time.total_seconds() if sre.sample_time else None
-            output['synthesizer_size'] = sre.synthesizer_size
-            output['peak_memory'] = sre.peak_memory
+            output['train_time'] = err.train_time.total_seconds() if err.train_time else None
+            output['sample_time'] = err.sample_time.total_seconds() if err.sample_time else None
+            output['synthesizer_size'] = err.synthesizer_size
+            output['peak_memory'] = err.peak_memory
 
-            output['exception'] = sre.exception
-            output['error'] = sre.error
+            output['exception'] = err.exception
+            output['error'] = err.error
             output['timeout'] = False
 
     except Exception:
