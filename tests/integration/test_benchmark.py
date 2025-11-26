@@ -854,6 +854,8 @@ def test_benchmark_multi_table_with_output_destination_multiple_runs(tmp_path):
     assert set(synthesizer_dirs) == {
         'HMASynthesizer',
         'HMASynthesizer(1)',
+        'MultiTableUniformSynthesizer',
+        'MultiTableUniformSynthesizer(1)',
     }
 
     # Validate each synthesizer directory
