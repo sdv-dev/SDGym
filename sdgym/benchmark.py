@@ -220,7 +220,13 @@ def _get_metainfo_increment(top_folder, s3_client=None):
     return max(increments) + 1 if increments else 0
 
 
-def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client):
+def _setup_output_destination_aws(
+    output_destination,
+    synthesizers,
+    datasets,
+    modality,
+    s3_client,
+):
     paths = defaultdict(dict)
     s3_path = output_destination[len(S3_PREFIX) :].rstrip('/')
     parts = s3_path.split('/')
@@ -228,24 +234,32 @@ def _setup_output_destination_aws(output_destination, synthesizers, datasets, s3
     prefix_parts = parts[1:]
     paths['bucket_name'] = bucket_name
     today = datetime.today().strftime('%m_%d_%Y')
-    top_folder = '/'.join(prefix_parts + [f'SDGym_results_{today}'])
+
+    modality_prefix = '/'.join(prefix_parts + [modality])
+    top_folder = f'{modality_prefix}/SDGym_results_{today}'
     increment = _get_metainfo_increment(f's3://{bucket_name}/{top_folder}', s3_client)
     suffix = f'({increment})' if increment >= 1 else ''
     s3_client.put_object(Bucket=bucket_name, Key=top_folder + '/')
+    synthetic_data_extension = 'zip' if modality == 'multi_table' else 'csv'
     for dataset in datasets:
         dataset_folder = f'{top_folder}/{dataset}_{today}'
         s3_client.put_object(Bucket=bucket_name, Key=dataset_folder + '/')
-        paths[dataset]['meta'] = f's3://{bucket_name}/{dataset_folder}/meta.yaml'
+
         for synth_name in synthesizers:
             final_synth_name = f'{synth_name}{suffix}'
             synth_folder = f'{dataset_folder}/{final_synth_name}'
             s3_client.put_object(Bucket=bucket_name, Key=synth_folder + '/')
             paths[dataset][final_synth_name] = {
-                'synthesizer': f's3://{bucket_name}/{synth_folder}/{final_synth_name}.pkl',
-                'synthetic_data': f's3://{bucket_name}/{synth_folder}/{final_synth_name}_synthetic_data.csv',
-                'benchmark_result': f's3://{bucket_name}/{synth_folder}/{final_synth_name}_benchmark_result.csv',
-                'results': f's3://{bucket_name}/{top_folder}/results{suffix}.csv',
-                'metainfo': f's3://{bucket_name}/{top_folder}/metainfo{suffix}.yaml',
+                'synthesizer': (f's3://{bucket_name}/{synth_folder}/{final_synth_name}.pkl'),
+                'synthetic_data': (
+                    f's3://{bucket_name}/{synth_folder}/'
+                    f'{final_synth_name}_synthetic_data.{synthetic_data_extension}'
+                ),
+                'benchmark_result': (
+                    f's3://{bucket_name}/{synth_folder}/{final_synth_name}_benchmark_result.csv'
+                ),
+                'metainfo': (f's3://{bucket_name}/{top_folder}/metainfo{suffix}.yaml'),
+                'results': (f's3://{bucket_name}/{top_folder}/results{suffix}.csv'),
             }
 
     s3_client.put_object(
@@ -1619,7 +1633,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-487-benchmark-multi_table_aws"
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-487-benchmark_mutli_table_aws"
         pip install s3fs
 
         echo "======== Write Script ==========="
@@ -1919,7 +1933,7 @@ def benchmark_multi_table(
     return scores
 
 
-def benchmark_mutli_table_aws(
+def benchmark_multi_table_aws(
     output_destination,
     aws_access_key_id=None,
     aws_secret_access_key=None,
@@ -1995,6 +2009,8 @@ def benchmark_mutli_table_aws(
         custom_synthesizers=None,
         s3_client=s3_client,
         modality='multi_table',
+        sdmetrics=None,
+        compute_privacy_score=None,
     )
     if not job_args_list:
         return _get_empty_dataframe(
