@@ -51,7 +51,7 @@ def _get_multi_table_dataset_subset(data, metadata_dict):
     metadata = Metadata.load_from_dict(metadata_dict)
     for table_name, table in metadata.tables.items():
         all_columns = list(table.columns)
-        mandatory = metadata._get_all_keys(table_name)
+        mandatory = list(metadata._get_all_keys(table_name))
         optional_columns = [column for column in all_columns if column not in mandatory]
         if len(mandatory) >= 10:
             keep_columns = mandatory

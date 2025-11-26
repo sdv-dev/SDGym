@@ -1207,7 +1207,7 @@ def test_benchmark_multi_table_with_jobs(
     mock__validate_inputs.assert_called_once_with(
         output_filepath=None,
         detailed_results_folder=None,
-        synthesizers=['HMASynthesizer'],
+        synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
         custom_synthesizers=['CustomSynth'],
     )
     mock__generate_job_args_list.assert_called_once_with(
@@ -1221,7 +1221,7 @@ def test_benchmark_multi_table_with_jobs(
         compute_quality_score=True,
         compute_diagnostic_score=True,
         compute_privacy_score=None,
-        synthesizers=['HMASynthesizer'],
+        synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
         custom_synthesizers=['CustomSynth'],
         s3_client=None,
         modality='multi_table',
@@ -1280,7 +1280,7 @@ def test_benchmark_multi_table_no_jobs(
     mock__validate_inputs.assert_called_once_with(
         output_filepath=None,
         detailed_results_folder=None,
-        synthesizers=[],
+        synthesizers=['MultiTableUniformSynthesizer'],
         custom_synthesizers=None,
     )
     mock__generate_job_args_list.assert_called_once_with(
@@ -1294,7 +1294,7 @@ def test_benchmark_multi_table_no_jobs(
         compute_quality_score=False,
         compute_diagnostic_score=True,
         compute_privacy_score=None,
-        synthesizers=[],
+        synthesizers=['MultiTableUniformSynthesizer'],
         custom_synthesizers=None,
         s3_client=None,
         modality='multi_table',

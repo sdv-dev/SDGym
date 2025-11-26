@@ -996,6 +996,7 @@ def test_benchmark_multi_table_basic_synthesizers():
     synths = sorted(output['Synthesizer'].unique())
     assert synths == [
         'HMASynthesizer',
+        'MultiTableUniformSynthesizer',
     ]
 
     diagnostic_rank = (
@@ -1003,11 +1004,13 @@ def test_benchmark_multi_table_basic_synthesizers():
     )
 
     assert diagnostic_rank == [
+        'MultiTableUniformSynthesizer',
         'HMASynthesizer',
     ]
 
     quality_rank = output.groupby('Synthesizer').Quality_Score.mean().sort_values().index.tolist()
 
     assert quality_rank == [
+        'MultiTableUniformSynthesizer',
         'HMASynthesizer',
     ]

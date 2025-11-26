@@ -51,7 +51,7 @@ from sdgym.s3 import (
     write_csv,
     write_file,
 )
-from sdgym.synthesizers import UniformSynthesizer
+from sdgym.synthesizers import MultiTableUniformSynthesizer, UniformSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
     calculate_score_time,
@@ -71,7 +71,7 @@ DEFAULT_SINGLE_TABLE_SYNTHESIZERS = [
     'CTGANSynthesizer',
     'UniformSynthesizer',
 ]
-DEFAULT_MULTI_TABLE_SYNTHESIZERS = ['HMASynthesizer']
+DEFAULT_MULTI_TABLE_SYNTHESIZERS = ['MultiTableUniformSynthesizer', 'HMASynthesizer']
 DEFAULT_SINGLE_TABLE_DATASETS = [
     'adult',
     'alarm',
@@ -153,6 +153,7 @@ def _get_metainfo_increment(top_folder, s3_client=None):
                 if match:
                     # Extract numeric suffix (e.g. metainfo(3).yaml → 3) or 0 if plain metainfo.yaml
                     increments.append(int(match.group(1)) if match.group(1) else 0)
+
         except Exception:
             LOGGER.info(first_file_message)
             return 0  # start with (0) if error
@@ -390,7 +391,12 @@ def _synthesize(
         synthesizer_size = len(cloudpickle.dumps(fitted_synthesizer)) / N_BYTES_IN_MB
         train_end = get_utc_now()
         train_time = train_end - start
-        synthetic_data = sample_from_synthesizer(fitted_synthesizer, num_samples)
+
+        if modality == 'multi_table':
+            synthetic_data = sample_from_synthesizer(fitted_synthesizer, 1.0)
+        else:
+            synthetic_data = sample_from_synthesizer(fitted_synthesizer, n_samples=len(data))
+
         sample_end = get_utc_now()
         sample_time = sample_end - train_end
         peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
@@ -1203,6 +1209,16 @@ def _ensure_uniform_included(synthesizers):
         synthesizers.append('UniformSynthesizer')
 
 
+def _ensure_multi_table_uniform_is_included(synthesizers):
+    uniform_not_included = bool(
+        MultiTableUniformSynthesizer not in synthesizers
+        and MultiTableUniformSynthesizer.__name__ not in synthesizers
+    )
+    if uniform_not_included:
+        LOGGER.info('Adding MultiTableUniformSynthesizer to the list of synthesizers.')
+        synthesizers.append('MultiTableUniformSynthesizer')
+
+
 def _fill_adjusted_scores_with_none(scores):
     """Fill adjusted total time and quality score with NaN values."""
     scores['Adjusted_Total_Time'] = None
@@ -1802,8 +1818,7 @@ def benchmark_multi_table(
     if not synthesizers:
         synthesizers = []
 
-    # _ensure_uniform_included(synthesizers)
-    # _ensure_multi_table_uniform_is_included (synthesizers)
+    _ensure_multi_table_uniform_is_included(synthesizers)
     result_writer = LocalResultsWriter()
 
     _validate_inputs(
