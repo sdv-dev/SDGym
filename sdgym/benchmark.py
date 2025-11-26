@@ -1619,7 +1619,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install sdgym[all]
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-487-benchmark-multi_table_aws"
         pip install s3fs
 
         echo "======== Write Script ==========="
@@ -1917,3 +1917,96 @@ def benchmark_multi_table(
         _update_metainfo_file(metainfo_filename, result_writer)
 
     return scores
+
+
+def benchmark_mutli_table_aws(
+    output_destination,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    synthesizers=DEFAULT_MULTI_TABLE_SYNTHESIZERS,
+    sdv_datasets=DEFAULT_MULTI_TABLE_DATASETS,
+    additional_datasets_folder=None,
+    limit_dataset_size=False,
+    compute_quality_score=True,
+    compute_diagnostic_score=True,
+    timeout=None,
+):
+    """Run the SDGym benchmark on multi-table datasets.
+
+    Args:
+        output_destination (str):
+            An S3 bucket or filepath. The results output folder will be written here.
+            Should be structured as:
+            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
+        aws_access_key_id (str): The AWS access key id. Optional
+        aws_secret_access_key (str): The AWS secret access key. Optional
+        synthesizers (list[string]):
+            The synthesizer(s) to evaluate. Defaults to
+            ``[HMASynthesizer, MultiTableUniformSynthesizer]``. The available options
+            are:
+                - ``HMASynthesizer``
+                - ``MultiTableUniformSynthesizer``
+        sdv_datasets (list[str] or ``None``):
+            Names of the SDV demo datasets to use for the benchmark. Defaults to
+            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
+            covtype]``. Use ``None`` to disable using any sdv datasets.
+        additional_datasets_folder (str or ``None``):
+            The path to an S3 bucket. Datasets found in this folder are
+            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
+        limit_dataset_size (bool):
+            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
+            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
+            columns.
+        compute_quality_score (bool):
+            Whether or not to evaluate an overall quality score. Defaults to ``True``.
+        compute_diagnostic_score (bool):
+            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
+        compute_privacy_score (bool):
+            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
+        timeout (int or ``None``):
+            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
+            timeout is enforced.
+
+    Returns:
+        pandas.DataFrame:
+            A table containing one row per synthesizer + dataset + metric.
+    """
+    s3_client = _validate_output_destination(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    if not synthesizers:
+        synthesizers = []
+
+    _ensure_uniform_included(synthesizers, modality='multi_table')
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        custom_synthesizers=None,
+        s3_client=s3_client,
+        modality='multi_table',
+    )
+    if not job_args_list:
+        return _get_empty_dataframe(
+            compute_diagnostic_score=compute_diagnostic_score,
+            compute_quality_score=compute_quality_score,
+        )
+
+    _run_on_aws(
+        output_destination=output_destination,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        job_args_list=job_args_list,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
