@@ -1169,16 +1169,14 @@ def _add_adjusted_scores(scores, timeout):
 
     for dataset in scores['Dataset'].unique():
         dataset_mask = scores['Dataset'] == dataset
-        uniform_mask = dataset_mask & scores['Synthesizer'].str.contains(
-            'UniformSynthesizer', na=False
-        )
-        if not uniform_mask.any():
+        uniform_mask_dataset = dataset_mask & uniform_mask
+        if not uniform_mask_dataset.any():
             scores.loc[dataset_mask, 'Adjusted_Total_Time'] = None
             if 'Adjusted_Quality_Score' in scores.columns:
                 scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = None
             continue
 
-        uniform_row = scores.loc[uniform_mask].iloc[0]
+        uniform_row = scores.loc[uniform_mask_dataset].iloc[0]
         base_fit_time = uniform_row.get('Train_Time')
         base_sample_time = uniform_row.get('Sample_Time')
         base_quality_score = uniform_row.get('Quality_Score', None)
