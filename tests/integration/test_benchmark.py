@@ -965,3 +965,49 @@ def test_benchmark_error_during_sample(mock_sample):
             expected_time = base_time + extra
 
             assert np.isclose(row['Adjusted_Total_Time'], expected_time)
+
+
+def test_benchmark_multi_table_basic_synthesizers():
+    """Integration test: run HMASynthesizer + MultiTableUniformSynthesizer on fake_hotels."""
+    output = benchmark_multi_table(
+        synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
+        sdv_datasets=['fake_hotels'],
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        limit_dataset_size=True,
+        show_progress=False,
+        timeout=30,
+    )
+
+    # Assert
+    assert isinstance(output, pd.DataFrame)
+    assert not output.empty
+
+    # Required SDGym benchmark output columns
+    for col in [
+        'Synthesizer',
+        'Train_Time',
+        'Sample_Time',
+        'Quality_Score',
+        'Diagnostic_Score',
+    ]:
+        assert col in output.columns
+
+    synths = sorted(output['Synthesizer'].unique())
+    assert synths == [
+        'HMASynthesizer',
+    ]
+
+    diagnostic_rank = (
+        output.groupby('Synthesizer').Diagnostic_Score.mean().sort_values().index.tolist()
+    )
+
+    assert diagnostic_rank == [
+        'HMASynthesizer',
+    ]
+
+    quality_rank = output.groupby('Synthesizer').Quality_Score.mean().sort_values().index.tolist()
+
+    assert quality_rank == [
+        'HMASynthesizer',
+    ]

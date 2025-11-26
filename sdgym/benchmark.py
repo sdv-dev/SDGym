@@ -396,7 +396,11 @@ def _synthesize(
         peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
 
         if synthesizer_path is not None and result_writer is not None:
-            internal_synthesizer = getattr(fitted_synthesizer, '_internal_synthesizer', fitted_synthesizer)
+            internal_synthesizer = getattr(
+                fitted_synthesizer,
+                '_internal_synthesizer',
+                fitted_synthesizer
+            )
             result_writer.write_pickle(internal_synthesizer, synthesizer_path['synthesizer'])
             if modality == 'multi_table':
                 result_writer.write_zipped_dataframes(
