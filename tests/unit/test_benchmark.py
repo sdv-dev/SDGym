@@ -801,13 +801,13 @@ def test_setup_output_destination_aws(mock_get_metainfo_increment):
 
     # Run
     paths = _setup_output_destination_aws(
-        output_destination, synthesizers, datasets, s3_client_mock
+        output_destination, synthesizers, datasets, 'single_table', s3_client_mock
     )
 
     # Assert
     today = datetime.today().strftime('%m_%d_%Y')
     bucket_name = 'my-bucket'
-    top_folder = f'results/SDGym_results_{today}'
+    top_folder = f'results/single_table/SDGym_results_{today}'
     expected_calls = [call(Bucket=bucket_name, Key=top_folder + '/')]
     mock_get_metainfo_increment.assert_called_once_with(
         f's3://{bucket_name}/{top_folder}', s3_client_mock

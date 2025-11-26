@@ -293,7 +293,9 @@ def _setup_output_destination(
             The s3 client that can be used to read / write to s3. Defaults to ``None``.
     """
     if s3_client:
-        return _setup_output_destination_aws(output_destination, synthesizers, datasets, s3_client)
+        return _setup_output_destination_aws(
+            output_destination, synthesizers, datasets, modality, s3_client
+        )
 
     if output_destination is None:
         return {}
