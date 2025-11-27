@@ -12,6 +12,9 @@ from sdv.utils import poc
 
 LOGGER = logging.getLogger(__name__)
 
+MAX_NUM_COLUMNS = 10
+MAX_NUM_ROWS = 1000
+
 
 def _parse_numeric_value(value, dataset_name, field_name, target_type=float):
     """Generic parser for numeric values with logging and NaN fallback."""
@@ -23,6 +26,23 @@ def _parse_numeric_value(value, dataset_name, field_name, target_type=float):
             f"'{dataset_name}' defaulting to NaN."
         )
         return np.nan
+
+
+def _filter_columns(columns, mandatory_columns):
+    """Given a dictionary of columns and a list of mandatory ones, return a filtered subset."""
+    all_columns = list(columns)
+    mandatory_columns = [m_col for m_col in mandatory_columns if m_col in columns]
+    optional_columns = [opt_col for opt_col in all_columns if opt_col not in mandatory_columns]
+
+    if len(mandatory_columns) >= MAX_NUM_COLUMNS:
+        keep_columns = mandatory_columns
+    elif len(all_columns) > MAX_NUM_COLUMNS:
+        keep_count = MAX_NUM_COLUMNS - len(mandatory_columns)
+        keep_columns = mandatory_columns + optional_columns[:keep_count]
+    else:
+        keep_columns = mandatory_columns + optional_columns
+
+    return {col: columns[col] for col in keep_columns if col in columns}
 
 
 def _get_multi_table_dataset_subset(data, metadata_dict):
@@ -50,22 +70,11 @@ def _get_multi_table_dataset_subset(data, metadata_dict):
     """
     metadata = Metadata.load_from_dict(metadata_dict)
     for table_name, table in metadata.tables.items():
-        all_columns = list(table.columns)
-        mandatory = list(metadata._get_all_keys(table_name))
-        optional_columns = [column for column in all_columns if column not in mandatory]
-        if len(mandatory) >= 10:
-            keep_columns = mandatory
-        else:
-            extra = 10 - len(mandatory)
-            keep_columns = mandatory + optional_columns[:extra]
-
-        # Filter only the subset of columns that will be used
-        subset_column_schema = {
-            column_name: table.columns[column_name]
-            for column_name in keep_columns
-            if column_name in table.columns
-        }
-        # Replace the columns with only the subset ones
+        table_columns = table.columns
+        mandatory_columns = list(metadata._get_all_keys(table_name))
+        subset_column_schema = _filter_columns(
+            columns=table_columns, mandatory_columns=mandatory_columns
+        )
         metadata_dict['tables'][table_name]['columns'] = subset_column_schema
 
     # Re-load the metadata object that will be used with the `SDV` utility function
@@ -81,7 +90,7 @@ def _get_multi_table_dataset_subset(data, metadata_dict):
         data=data,
         metadata=metadata,
         main_table_name=largest_table_name,
-        num_rows=1000,
+        num_rows=MAX_NUM_ROWS,
         verbose=False,
     )
     return data, metadata_dict
@@ -111,33 +120,21 @@ def _get_dataset_subset(data, metadata_dict, modality):
     if modality == 'multi_table':
         return _get_multi_table_dataset_subset(data, metadata_dict)
 
-    max_rows, max_columns = (1000, 10)
     tables = metadata_dict.get('tables', {})
     mandatory_columns = []
     table_name, table_info = next(iter(tables.items()))
-
     columns = table_info.get('columns', {})
-    keep_columns = list(columns)
-    if modality == 'sequential':
-        seq_index = table_info.get('sequence_index')
-        seq_key = table_info.get('sequence_key')
-        mandatory_columns = [col for col in (seq_index, seq_key) if col]
 
-    optional_columns = [col for col in columns if col not in mandatory_columns]
+    seq_index = table_info.get('sequence_index')
+    seq_key = table_info.get('sequence_key')
+    mandatory_columns = [column for column in (seq_index, seq_key) if column]
+    filtered = _filter_columns(columns=columns, mandatory_columns=mandatory_columns)
 
-    # If we have too many columns, drop extras but never mandatory ones
-    if len(columns) > max_columns:
-        keep_count = max_columns - len(mandatory_columns)
-        keep_columns = mandatory_columns + optional_columns[:keep_count]
-        table_info['columns'] = {
-            column_name: column_definition
-            for column_name, column_definition in columns.items()
-            if column_name in keep_columns
-        }
-
-    data = data[list(keep_columns)]
-    max_rows = min(1000, len(data))
+    table_info['columns'] = filtered
+    data = data[list(filtered)]
+    max_rows = min(MAX_NUM_ROWS, len(data))
     data = data.sample(max_rows)
+
     return data, metadata_dict
 
 
