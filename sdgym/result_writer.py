@@ -166,4 +166,4 @@ class S3ResultsWriter(ResultsWriter):
                 zf.writestr(f'{table_name}.csv', csv_buf.getvalue())
 
         zip_buffer.seek(0)
-        self.s3_client.upload_fileobj(Body=zip_buffer, Bucket=bucket, Key=key)
+        self.s3_client.upload_fileobj(zip_buffer, bucket, key)
