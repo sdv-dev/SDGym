@@ -256,3 +256,32 @@ class TestS3ResultsWriter:
             Bucket='bucket_name',
             Key='key_prefix/test_data.yaml',
         )
+
+    @patch('sdgym.result_writer.parse_s3_path')
+    @patch('sdgym.result_writer.io.StringIO')
+    def write_zipped_dataframes(self, mock_string_io, mockparse_s3_path):
+        """Test the `write_zipped_dataframes` method."""
+        # Setup
+        mock_s3_client = Mock()
+        mockparse_s3_path.return_value = ('bucket_name', 'key_prefix/test_data.zip')
+        result_writer = S3ResultsWriter(mock_s3_client)
+        df1 = pd.DataFrame({'col1': [1, 2]})
+        df2 = pd.DataFrame({'colA': ['x', 'y']})
+        df1.to_csv = Mock(return_value='csv1')
+        df2.to_csv = Mock(return_value='csv2')
+        data = {'table1': df1, 'table2': df2}
+        mock_string_io.side_effect = ['buffer1', 'buffer2']
+
+        # Run
+        result_writer.write_zipped_dataframes(data, 'test_data.zip')
+
+        # Assert
+        mockparse_s3_path.assert_called_once_with('test_data.zip')
+        mock_s3_client.upload_fileobj.assert_called_once()
+        df1.to_csv.assert_called_once_with('buffer1', index=False)
+        df2.to_csv.assert_called_once_with('buffer2', index=False)
+        args, _ = mock_s3_client.upload_fileobj.call_args
+        uploaded_buffer = args[0]
+        uploaded_buffer.seek(0)
+        with zipfile.ZipFile(uploaded_buffer, 'r') as zf:
+            assert set(zf.namelist()) == {'table1.csv', 'table2.csv'}
