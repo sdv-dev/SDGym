@@ -13,7 +13,7 @@ import tracemalloc
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from urllib.parse import urlparse
@@ -40,7 +40,7 @@ from sdmetrics.reports.single_table import (
 from sdmetrics.single_table import DCRBaselineProtection
 
 from sdgym.datasets import get_dataset_paths, load_dataset
-from sdgym.errors import SDGymError
+from sdgym.errors import BenchmarkError, SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
 from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
@@ -343,21 +343,52 @@ def _synthesize(synthesizer_dict, real_data, metadata, synthesizer_path=None, re
     num_samples = len(data)
 
     tracemalloc.start()
-    now = get_utc_now()
-    synthesizer_obj = get_synthesizer(data, metadata)
-    synthesizer_size = len(pickle.dumps(synthesizer_obj)) / N_BYTES_IN_MB
-    train_now = get_utc_now()
-    synthetic_data = sample_from_synthesizer(synthesizer_obj, num_samples)
-    sample_now = get_utc_now()
+    fitted_synthesizer = None
+    synthetic_data = None
+    synthesizer_size = None
+    peak_memory = None
+    start = get_utc_now()
+    train_end = None
+    try:
+        fitted_synthesizer = get_synthesizer(data, metadata)
+        synthesizer_size = len(pickle.dumps(fitted_synthesizer)) / N_BYTES_IN_MB
+        train_end = get_utc_now()
+        train_time = train_end - start
+        synthetic_data = sample_from_synthesizer(fitted_synthesizer, num_samples)
+        sample_end = get_utc_now()
+        sample_time = sample_end - train_end
+        peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
 
-    peak_memory = tracemalloc.get_traced_memory()[1] / N_BYTES_IN_MB
-    tracemalloc.stop()
-    tracemalloc.clear_traces()
-    if synthesizer_path is not None and result_writer is not None:
-        result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
-        result_writer.write_pickle(synthesizer_obj, synthesizer_path['synthesizer'])
+        if synthesizer_path is not None and result_writer is not None:
+            result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
+            result_writer.write_pickle(fitted_synthesizer, synthesizer_path['synthesizer'])
 
-    return synthetic_data, train_now - now, sample_now - train_now, synthesizer_size, peak_memory
+        return synthetic_data, train_time, sample_time, synthesizer_size, peak_memory
+
+    except Exception as e:
+        peak_memory = None
+        now = get_utc_now()
+        if train_end is None:
+            train_time = now - start
+            sample_time = timedelta(0)
+        else:
+            train_time = train_end - start
+            sample_time = now - train_end
+
+        exception_text, error_text = format_exception()
+        raise BenchmarkError(
+            original_exc=e,
+            train_time=train_time,
+            sample_time=sample_time,
+            synthesizer_size=synthesizer_size,
+            peak_memory=peak_memory,
+            exception_text=exception_text,
+            error_text=error_text,
+        ) from e
+
+    finally:
+        tracemalloc.stop()
+        tracemalloc.clear_traces()
 
 
 def _compute_scores(
@@ -483,48 +514,65 @@ def _score(
         output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
         # To be deleted if there is no error
         output['error'] = 'Synthesizer Timeout'
-        synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
-            synthesizer,
-            data.copy(),
-            metadata,
-            synthesizer_path=synthesizer_path,
-            result_writer=result_writer,
-        )
 
-        output['synthetic_data'] = synthetic_data
-        output['train_time'] = train_time.total_seconds()
-        output['sample_time'] = sample_time.total_seconds()
-        output['synthesizer_size'] = synthesizer_size
-        output['peak_memory'] = peak_memory
+        try:
+            synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
+                synthesizer,
+                data.copy(),
+                metadata,
+                synthesizer_path=synthesizer_path,
+                result_writer=result_writer,
+            )
 
-        LOGGER.info(
-            'Scoring %s on %s dataset %s; %s',
-            synthesizer['name'],
-            modality,
-            dataset_name,
-            used_memory(),
-        )
+            output['synthetic_data'] = synthetic_data
+            output['train_time'] = train_time.total_seconds()
+            output['sample_time'] = sample_time.total_seconds()
+            output['synthesizer_size'] = synthesizer_size
+            output['peak_memory'] = peak_memory
 
-        # No error so far. _compute_scores tracks its own errors by metric
-        del output['error']
-        _compute_scores(
-            metrics,
-            data,
-            synthetic_data,
-            metadata,
-            output,
-            compute_quality_score,
-            compute_diagnostic_score,
-            compute_privacy_score,
-            modality,
-            dataset_name,
-        )
+            LOGGER.info(
+                'Scoring %s on %s dataset %s; %s',
+                synthesizer['name'],
+                modality,
+                dataset_name,
+                used_memory(),
+            )
 
-        output['timeout'] = False  # There was no timeout
+            # No error so far. _compute_scores tracks its own errors by metric
+            del output['error']
+            _compute_scores(
+                metrics,
+                data,
+                synthetic_data,
+                metadata,
+                output,
+                compute_quality_score,
+                compute_diagnostic_score,
+                compute_privacy_score,
+                modality,
+                dataset_name,
+            )
+
+            output['timeout'] = False  # There was no timeout
+
+        except BenchmarkError as err:
+            LOGGER.exception(
+                'Synthesis failed for %s on dataset %s;',
+                synthesizer['name'],
+                dataset_name,
+            )
+
+            output['train_time'] = err.train_time.total_seconds() if err.train_time else None
+            output['sample_time'] = err.sample_time.total_seconds() if err.sample_time else None
+            output['synthesizer_size'] = err.synthesizer_size
+            output['peak_memory'] = err.peak_memory
+
+            output['exception'] = err.exception
+            output['error'] = err.error
+            output['timeout'] = False
 
     except Exception:
         LOGGER.exception('Error running %s on dataset %s;', synthesizer['name'], dataset_name)
-
         exception, error = format_exception()
         output['exception'] = exception
         output['error'] = error
@@ -1115,43 +1163,60 @@ def _add_adjusted_scores(scores, timeout):
     if not uniform_mask.any():
         return _fill_adjusted_scores_with_none(scores)
 
-    uniform_row = scores.loc[uniform_mask].iloc[0]
-    base_fit_time = uniform_row.get('Train_Time')
-    base_sample_time = uniform_row.get('Sample_Time')
-    base_quality_score = uniform_row.get('Quality_Score', None)
+    scores['Adjusted_Total_Time'] = np.nan
+    if 'Quality_Score' in scores.columns:
+        scores['Adjusted_Quality_Score'] = np.nan
 
-    if pd.isna(base_fit_time) or pd.isna(base_sample_time):
-        return _fill_adjusted_scores_with_none(scores)
+    for dataset in scores['Dataset'].unique():
+        dataset_mask = scores['Dataset'] == dataset
+        uniform_mask_dataset = dataset_mask & uniform_mask
+        if not uniform_mask_dataset.any():
+            scores.loc[dataset_mask, 'Adjusted_Total_Time'] = None
+            if 'Adjusted_Quality_Score' in scores.columns:
+                scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = None
+            continue
 
-    fit_times = scores['Train_Time'].fillna(0)
-    sample_times = scores['Sample_Time'].fillna(0)
-    errors = scores.get('error', pd.Series([None] * len(scores)))
+        uniform_row = scores.loc[uniform_mask_dataset].iloc[0]
+        base_fit_time = uniform_row.get('Train_Time')
+        base_sample_time = uniform_row.get('Sample_Time')
+        base_quality_score = uniform_row.get('Quality_Score', None)
+        if pd.isna(base_fit_time) or pd.isna(base_sample_time):
+            scores.loc[dataset_mask, 'Adjusted_Total_Time'] = None
+            if 'Adjusted_Quality_Score' in scores.columns:
+                scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = None
+            continue
 
-    timeout_mask = errors == 'Synthesizer Timeout'
-    other_error_mask = errors.notna() & ~timeout_mask
-    no_error_mask = errors.isna()
-    adjusted_times = np.select(
-        [timeout_mask, other_error_mask, no_error_mask],
-        [
-            base_fit_time + timeout + base_sample_time,
-            base_fit_time + fit_times + sample_times + base_sample_time,
-            base_fit_time + fit_times + sample_times,
-        ],
-        default=np.nan,
-    )
-    scores['Adjusted_Total_Time'] = adjusted_times
+        fit_times = scores.loc[dataset_mask, 'Train_Time'].fillna(0)
+        sample_times = scores.loc[dataset_mask, 'Sample_Time'].fillna(0)
+        if 'error' in scores.columns:
+            errors = scores.loc[dataset_mask, 'error']
+        else:
+            errors = pd.Series([None] * dataset_mask.sum(), index=scores.index[dataset_mask])
 
-    if 'Quality_Score' not in scores.columns:
-        return scores
+        timeout_mask = errors == 'Synthesizer Timeout'
+        other_error_mask = errors.notna() & ~timeout_mask
+        no_error_mask = errors.isna()
+        adjusted_times = np.select(
+            [timeout_mask, other_error_mask, no_error_mask],
+            [
+                base_fit_time + timeout + base_sample_time,  # timeout
+                base_fit_time + fit_times + sample_times + base_sample_time,  # other error
+                base_fit_time + fit_times + sample_times,  # no error
+            ],
+            default=np.nan,
+        )
+        scores.loc[dataset_mask, 'Adjusted_Total_Time'] = adjusted_times
+        if 'Adjusted_Quality_Score' not in scores.columns:
+            continue
 
-    if pd.isna(base_quality_score):
-        scores['Adjusted_Quality_Score'] = None
-        return scores
+        if pd.isna(base_quality_score):
+            scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = None
+            continue
 
-    has_error = errors.notna()
-    scores['Adjusted_Quality_Score'] = np.where(
-        has_error, base_quality_score, scores['Quality_Score']
-    )
+        has_error = errors.notna()
+        original_quality = scores.loc[dataset_mask, 'Quality_Score']
+        adjusted_quality = np.where(has_error, base_quality_score, original_quality)
+        scores.loc[dataset_mask, 'Adjusted_Quality_Score'] = adjusted_quality
 
     return scores
 
