@@ -21,8 +21,6 @@ MODALITY_TO_MODULE = {
 
 MODEL_KWARGS = {'HMASynthesizer': {'verbose': False}}
 
-MODEL_KWARGS = {'HMASynthesizer': {'verbose': False}}
-
 
 def _get_sdv_synthesizers(modality):
     _validate_modality(modality)

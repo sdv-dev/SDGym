@@ -107,7 +107,7 @@ SDV_SINGLE_TABLE_SYNTHESIZERS = [
     'TVAESynthesizer',
 ]
 SDV_MULTI_TABLE_SYNTHESIZERS = ['HMASynthesizer']
-
+MODALITY_IDX = 10
 SDV_SYNTHESIZERS = SDV_SINGLE_TABLE_SYNTHESIZERS + SDV_MULTI_TABLE_SYNTHESIZERS
 
 
@@ -1587,7 +1587,7 @@ def _get_s3_script_content(
     return f"""
 import boto3
 import cloudpickle
-from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file
+from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file, MODALITY_IDX
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
 
@@ -1599,8 +1599,9 @@ s3_client = boto3.client(
 )
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
 job_args_list = cloudpickle.loads(response['Body'].read())
+modality = job_args_list[0][MODALITY_IDX]
 result_writer = S3ResultsWriter(s3_client=s3_client)
-_write_metainfo_file({synthesizers}, job_args_list, 'single_table', result_writer)
+_write_metainfo_file({synthesizers}, job_args_list, modality, result_writer)
 scores = _run_jobs(None, job_args_list, False, result_writer=result_writer)
 metainfo_filename = job_args_list[0][-1]['metainfo']
 _update_metainfo_file(metainfo_filename, result_writer)
@@ -1977,15 +1978,13 @@ def benchmark_multi_table_aws(
             Whether or not to evaluate an overall quality score. Defaults to ``True``.
         compute_diagnostic_score (bool):
             Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
-        compute_privacy_score (bool):
-            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
         timeout (int or ``None``):
             The maximum number of seconds to wait for synthetic data creation. If ``None``, no
             timeout is enforced.
 
     Returns:
         pandas.DataFrame:
-            A table containing one row per synthesizer + dataset + metric.
+            A table containing one row per synthesizer + dataset.
     """
     s3_client = _validate_output_destination(
         output_destination,
@@ -2002,17 +2001,17 @@ def benchmark_multi_table_aws(
         limit_dataset_size=limit_dataset_size,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=None,
         timeout=timeout,
         output_destination=output_destination,
         compute_quality_score=compute_quality_score,
         compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=None,
         synthesizers=synthesizers,
         detailed_results_folder=None,
         custom_synthesizers=None,
         s3_client=s3_client,
         modality='multi_table',
-        sdmetrics=None,
-        compute_privacy_score=None,
     )
     if not job_args_list:
         return _get_empty_dataframe(
