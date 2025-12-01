@@ -42,7 +42,6 @@ __all__ = [
     'create_multi_table_synthesizer',
     'create_single_table_synthesizer',
     'create_synthesizer_variant',
-    'get_available_datasets',
     'load_dataset',
     'make_summary_spreadsheet',
 ]

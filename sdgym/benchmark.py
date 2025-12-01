@@ -274,7 +274,7 @@ def _setup_output_destination(
         datasets (list):
             The list of datasets to benchmark.
         modality (str):
-            The dataset modality to load (e.g., 'single-table' or 'multi-table').
+            The dataset modality to load (e.g., 'single_table' or 'multi_table').
         s3_client (boto3.session.Session.client or None):
             The s3 client that can be used to read / write to s3. Defaults to ``None``.
     """
@@ -287,7 +287,7 @@ def _setup_output_destination(
     output_path = Path(output_destination)
     output_path.mkdir(parents=True, exist_ok=True)
     today = datetime.today().strftime('%m_%d_%Y')
-    top_folder = output_path / f'SDGym_results_{today}'
+    top_folder = output_path / modality / f'SDGym_results_{today}'
     top_folder.mkdir(parents=True, exist_ok=True)
     increment = _get_metainfo_increment(top_folder)
     suffix = f'({increment})' if increment >= 1 else ''
@@ -421,7 +421,6 @@ def _synthesize(
     get_synthesizer = synthesizer.get_trained_synthesizer
     sample_from_synthesizer = synthesizer.sample_from_synthesizer
     data = real_data.copy()
-    num_samples = len(data)
 
     tracemalloc.start()
     fitted_synthesizer = None
@@ -447,9 +446,7 @@ def _synthesize(
 
         if synthesizer_path is not None and result_writer is not None:
             internal_synthesizer = getattr(
-                fitted_synthesizer,
-                '_internal_synthesizer',
-                fitted_synthesizer
+                fitted_synthesizer, '_internal_synthesizer', fitted_synthesizer
             )
             result_writer.write_pickle(internal_synthesizer, synthesizer_path['synthesizer'])
             if modality == 'multi_table':

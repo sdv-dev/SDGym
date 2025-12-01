@@ -689,6 +689,7 @@ def test__setup_output_destination_single_table(tmp_path):
         }
         for dataset in datasets
     }
+
     assert json.loads(json.dumps(result)) == expected
 
 
