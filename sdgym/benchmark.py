@@ -111,7 +111,7 @@ SDV_MULTI_TABLE_SYNTHESIZERS = ['HMASynthesizer']
 SDV_SYNTHESIZERS = SDV_SINGLE_TABLE_SYNTHESIZERS + SDV_MULTI_TABLE_SYNTHESIZERS
 
 
-def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers):
+def _validate_output_filepath_and_detailed_results_folder(output_filepath, detailed_results_folder):
     if output_filepath and os.path.exists(output_filepath):
         raise ValueError(
             f'{output_filepath} already exists. Please provide a file that does not already exist.'
@@ -123,14 +123,64 @@ def _validate_inputs(output_filepath, detailed_results_folder, synthesizers, cus
             'Please provide a folder that does not already exist.'
         )
 
-    duplicates = get_duplicates(synthesizers) if synthesizers else set()
-    if custom_synthesizers:
-        duplicates.update(get_duplicates(custom_synthesizers))
-    if len(duplicates) > 0:
+
+def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modality):
+    """Import user-provided synthesizer and validate modality and uniqueness.
+
+    This function takes lists of synthesizer, imports them as synthesizer classes,
+    and validates two conditions:
+        - Modality match – all synthesizers must match the expected `modality`.
+        A `ValueError` is raised if any synthesizer has a different modality
+        flag.
+
+        - Uniqueness – duplicate synthesizer across the two input lists
+        (`synthesizers` and `custom_synthesizers`) are not allowed. A
+        `ValueError` is raised if duplicates are found.
+
+    Args:
+        synthesizers (list | None):
+            A list of synthesizer strings or classes. May be ``None``, in which case it
+            is treated as an empty list.
+        custom_synthesizers (list | None):
+            A list of custom synthesizer.
+        modality (str):
+            The required modality that all synthesizers must match.
+
+    Returns:
+        list:
+            A list of synthesizer classes.
+
+    Raises:
+        ValueError:
+            If any synthesizer does not match the expected modality.
+        ValueError:
+            If duplicate synthesizer are found across the provided lists.
+    """
+    # Get list of synthesizer objects
+    synthesizers = synthesizers or []
+    custom_synthesizers = custom_synthesizers or []
+    resolved_synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
+    mismatched = [
+        synth['synthesizer']
+        for synth in resolved_synthesizers
+        if synth['synthesizer']._MODALITY_FLAG != modality
+    ]
+    if mismatched:
+        raise ValueError(
+            f"Synthesizers must be of modality '{modality}'. "
+            "Found this synthesizers that don't match: "
+            f'{", ".join([type(synth).__name__ for synth in mismatched])}'
+        )
+
+    # Check duplicate input values
+    duplicates = get_duplicates(synthesizers + custom_synthesizers)
+    if duplicates:
         raise ValueError(
             'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
             'and `custom_synthesizers` parameters.'
         )
+
+    return resolved_synthesizers
 
 
 def _create_detailed_results_directory(detailed_results_folder):
@@ -276,15 +326,9 @@ def _generate_job_args_list(
     compute_diagnostic_score,
     compute_privacy_score,
     synthesizers,
-    custom_synthesizers,
     s3_client,
     modality,
 ):
-    # Get list of synthesizer objects
-    synthesizers = [] if synthesizers is None else synthesizers
-    custom_synthesizers = [] if custom_synthesizers is None else custom_synthesizers
-    synthesizers = get_synthesizers(synthesizers + custom_synthesizers)
-
     # Get list of dataset paths
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key_key = os.getenv('AWS_SECRET_ACCESS_KEY')
@@ -1183,8 +1227,8 @@ def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=No
     }
 
     for synthesizer in synthesizers:
-        if synthesizer not in SDV_SYNTHESIZERS:
-            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY.get(synthesizer)
+        if synthesizer['name'] not in SDV_SYNTHESIZERS:
+            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY.get(synthesizer['name'])
             if ext_lib:
                 library_version = version(ext_lib)
                 metadata[f'{ext_lib}_version'] = library_version
@@ -1203,20 +1247,17 @@ def _update_metainfo_file(run_file, result_writer=None):
         result_writer.write_yaml(update, run_file, append=True)
 
 
-def _ensure_uniform_included(synthesizers):
-    if UniformSynthesizer not in synthesizers and UniformSynthesizer.__name__ not in synthesizers:
-        LOGGER.info('Adding UniformSynthesizer to list of synthesizers.')
-        synthesizers.append('UniformSynthesizer')
+def _ensure_uniform_included(synthesizers, modality):
+    uniform_class = UniformSynthesizer
+    if modality == 'multi_table':
+        uniform_class = MultiTableUniformSynthesizer
 
-
-def _ensure_multi_table_uniform_is_included(synthesizers):
     uniform_not_included = bool(
-        MultiTableUniformSynthesizer not in synthesizers
-        and MultiTableUniformSynthesizer.__name__ not in synthesizers
+        uniform_class not in synthesizers and uniform_class.__name__ not in synthesizers
     )
     if uniform_not_included:
-        LOGGER.info('Adding MultiTableUniformSynthesizer to the list of synthesizers.')
-        synthesizers.append('MultiTableUniformSynthesizer')
+        LOGGER.info(f'Adding {uniform_class.__name__} to the list of synthesizers.')
+        synthesizers.append(uniform_class.__name__)
 
 
 def _fill_adjusted_scores_with_none(scores):
@@ -1401,7 +1442,7 @@ def benchmark_single_table(
     if not synthesizers:
         synthesizers = []
 
-    _ensure_uniform_included(synthesizers)
+    _ensure_uniform_included(synthesizers, 'single_table')
     result_writer = LocalResultsWriter()
     if run_on_ec2:
         print("This will create an instance for the current AWS user's account.")  # noqa
@@ -1413,21 +1454,25 @@ def benchmark_single_table(
 
         return None
 
-    _validate_inputs(output_filepath, detailed_results_folder, synthesizers, custom_synthesizers)
-    _create_detailed_results_directory(detailed_results_folder)
-    job_args_list = _generate_job_args_list(
-        limit_dataset_size,
-        sdv_datasets,
-        additional_datasets_folder,
-        sdmetrics,
-        detailed_results_folder,
-        timeout,
-        output_destination,
-        compute_quality_score,
-        compute_diagnostic_score,
-        compute_privacy_score,
+    _validate_output_filepath_and_detailed_results_folder(output_filepath, detailed_results_folder)
+    synthesizers = _import_and_validate_synthesizers(
         synthesizers,
         custom_synthesizers,
+        'single_table',
+    )
+    _create_detailed_results_directory(detailed_results_folder)
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=limit_dataset_size,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        sdmetrics=sdmetrics,
+        detailed_results_folder=detailed_results_folder,
+        timeout=timeout,
+        output_destination=output_destination,
+        compute_quality_score=compute_quality_score,
+        compute_diagnostic_score=compute_diagnostic_score,
+        compute_privacy_score=compute_privacy_score,
+        synthesizers=synthesizers,
         s3_client=None,
         modality='single_table',
     )
@@ -1720,7 +1765,13 @@ def benchmark_single_table_aws(
     if not synthesizers:
         synthesizers = []
 
-    _ensure_uniform_included(synthesizers)
+    _ensure_uniform_included(synthesizers, 'single_table')
+    synthesizers = _import_and_validate_synthesizers(
+        synthesizers=synthesizers,
+        custom_synthesizers=None,
+        modality='single_table',
+    )
+
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
         sdv_datasets=sdv_datasets,
@@ -1733,7 +1784,6 @@ def benchmark_single_table_aws(
         compute_privacy_score=compute_privacy_score,
         synthesizers=synthesizers,
         detailed_results_folder=None,
-        custom_synthesizers=None,
         s3_client=s3_client,
         modality='single_table',
     )
@@ -1812,20 +1862,19 @@ def benchmark_multi_table(
 
     Returns:
         pandas.DataFrame:
-            A table containing one row per synthesizer + dataset + metric.
+            A table containing one row per synthesizer + dataset.
     """
     _validate_output_destination(output_destination)
     if not synthesizers:
         synthesizers = []
 
-    _ensure_multi_table_uniform_is_included(synthesizers)
+    _ensure_uniform_included(synthesizers, 'multi_table')
     result_writer = LocalResultsWriter()
 
-    _validate_inputs(
-        output_filepath=None,
-        detailed_results_folder=None,
-        synthesizers=synthesizers,
-        custom_synthesizers=custom_synthesizers,
+    synthesizers = _import_and_validate_synthesizers(
+        synthesizers,
+        custom_synthesizers,
+        'multi_table',
     )
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
@@ -1839,7 +1888,6 @@ def benchmark_multi_table(
         compute_diagnostic_score=compute_diagnostic_score,
         compute_privacy_score=None,
         synthesizers=synthesizers,
-        custom_synthesizers=custom_synthesizers,
         s3_client=None,
         modality='multi_table',
     )

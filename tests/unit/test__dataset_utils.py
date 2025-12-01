@@ -78,7 +78,7 @@ def test__get_dataset_subset_single_table():
     metadata = {'tables': {'table': {'columns': {f'c{i}': {} for i in range(15)}}}}
 
     # Run
-    result_df, result_meta = _get_dataset_subset(df, metadata, modality='regular')
+    result_df, result_meta = _get_dataset_subset(df, metadata, modality='single_table')
 
     # Assert
     assert len(result_df) <= 1000
@@ -162,7 +162,7 @@ def test__read_zipped_data_single(mock_read):
 
     # Run
     with patch('sdgym._dataset_utils.ZipFile', return_value=mock_zip):
-        data_single = _read_zipped_data('fake.zip', modality='single')
+        data_single = _read_zipped_data('fake.zip', modality='single_table')
 
     # Assert
     assert isinstance(data_single, pd.DataFrame)

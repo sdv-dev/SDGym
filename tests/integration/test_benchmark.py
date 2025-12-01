@@ -509,7 +509,7 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
         .all()
     )
     assert result['Evaluate_Time'] is None
-    assert result['error'] == 'ValueError: Unknown single-table metric: a'
+    assert result['error'] == 'ValueError: Unknown single_table metric: a'
 
 
 def test_benchmark_single_table_custom_synthesizer():
