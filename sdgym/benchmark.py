@@ -1997,6 +1997,11 @@ def benchmark_multi_table_aws(
         synthesizers = []
 
     _ensure_uniform_included(synthesizers, modality='multi_table')
+    synthesizers = _import_and_validate_synthesizers(
+        synthesizers=synthesizers,
+        custom_synthesizers=None,
+        modality='multi_table',
+    )
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
         sdv_datasets=sdv_datasets,
@@ -2009,7 +2014,6 @@ def benchmark_multi_table_aws(
         compute_privacy_score=None,
         synthesizers=synthesizers,
         detailed_results_folder=None,
-        custom_synthesizers=None,
         s3_client=s3_client,
         modality='multi_table',
     )

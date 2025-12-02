@@ -1418,8 +1418,12 @@ def test_benchmark_multi_table_no_jobs(
 @patch('sdgym.benchmark._validate_output_destination')
 @patch('sdgym.benchmark._generate_job_args_list')
 @patch('sdgym.benchmark._run_on_aws')
+@patch('sdgym.benchmark._import_and_validate_synthesizers')
 def test_benchmark_multi_table_aws(
-    mock_run_on_aws, mock_generate_job_args_list, mock_validate_output_destination
+    mock_import_and_validate_synthesizers,
+    mock_run_on_aws,
+    mock_generate_job_args_list,
+    mock_validate_output_destination,
 ):
     """Test `benchmark_multi_table_aws` method."""
     # Setup
@@ -1430,6 +1434,7 @@ def test_benchmark_multi_table_aws(
     aws_secret_access_key = '67890'
     mock_validate_output_destination.return_value = 's3_client_mock'
     mock_generate_job_args_list.return_value = 'job_args_list_mock'
+    mock_import_and_validate_synthesizers.return_value = synthesizers
 
     # Run
     benchmark_multi_table_aws(
@@ -1449,6 +1454,11 @@ def test_benchmark_multi_table_aws(
             'aws_secret_access_key': aws_secret_access_key,
         },
     )
+    mock_import_and_validate_synthesizers.assert_called_once_with(
+        synthesizers=synthesizers,
+        custom_synthesizers=None,
+        modality='multi_table',
+    )
     mock_generate_job_args_list.assert_called_once_with(
         limit_dataset_size=False,
         sdv_datasets=datasets,
@@ -1461,7 +1471,6 @@ def test_benchmark_multi_table_aws(
         compute_privacy_score=None,
         synthesizers=synthesizers,
         detailed_results_folder=None,
-        custom_synthesizers=None,
         s3_client='s3_client_mock',
         modality='multi_table',
     )
