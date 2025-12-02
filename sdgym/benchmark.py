@@ -1661,13 +1661,14 @@ def _run_on_aws(
     aws_secret_access_key,
 ):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
+    synthesizer_names = [{'name': synthesizer['name']} for synthesizer in synthesizers]
     script_content = _get_s3_script_content(
         aws_access_key_id,
         aws_secret_access_key,
         S3_REGION,
         bucket_name,
         job_args_key,
-        synthesizers,
+        synthesizer_names,
     )
 
     # Create a session and EC2 client using the provided S3 client's credentials
