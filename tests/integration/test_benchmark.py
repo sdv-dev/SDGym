@@ -202,8 +202,7 @@ def test_benchmark_single_table_duplicate_synthesizers():
 
     # Run and Assert
     error_msg = re.escape(
-        'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
-        'and `custom_synthesizers` parameters.'
+        'Synthesizers must be unique. Please remove repeated values in the provided synthesizers.'
     )
     with pytest.raises(ValueError, match=error_msg):
         sdgym.benchmark_single_table(
