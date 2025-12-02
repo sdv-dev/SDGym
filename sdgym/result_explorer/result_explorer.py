@@ -4,7 +4,11 @@ import os
 
 from sdgym.benchmark import DEFAULT_SINGLE_TABLE_DATASETS
 from sdgym.datasets import load_dataset
-from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
+from sdgym.result_explorer.result_handler import (
+    SYNTHESIZER_BASELINE,
+    LocalResultsHandler,
+    S3ResultsHandler,
+)
 from sdgym.s3 import _get_s3_client, is_s3_path
 
 
@@ -12,6 +16,42 @@ def _validate_local_path(path):
     """Validates that the local path exists and is a directory."""
     if not os.path.isdir(path):
         raise ValueError(f"The provided path '{path}' is not a valid local directory.")
+
+
+_FOLDER_BY_MODALITY = {
+    'single_table': 'single_table',
+    'multi_table': 'multi_table',
+}
+
+_BASELINE_BY_MODALITY = {
+    'multi_table': 'MultiTableUniformSynthesizer',
+}
+
+
+def _get_baseline_synthesizer(modality):
+    """Return the appropriate baseline synthesizer for the given modality."""
+    return _BASELINE_BY_MODALITY.get(modality, SYNTHESIZER_BASELINE)
+
+
+def _resolve_effective_path(path, modality):
+    """Append the modality folder to the given base path if provided."""
+    if not modality:
+        return path
+
+    folder = _FOLDER_BY_MODALITY.get(modality)
+    if folder is None:
+        valid = ', '.join(sorted(_FOLDER_BY_MODALITY))
+        raise ValueError(f'Invalid modality "{modality}". Valid options are: {valid}.')
+
+    # Avoid double-appending if already included
+    if str(path).rstrip('/').endswith(('/' + folder, folder)):
+        return path
+
+    if is_s3_path(path):
+        path = path.rstrip('/') + '/' + folder
+        return path
+
+    return os.path.join(path, folder)
 
 
 class ResultsExplorer:
@@ -22,12 +62,18 @@ class ResultsExplorer:
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
 
+        baseline_synthesizer = _get_baseline_synthesizer(modality)
+        effective_path = _resolve_effective_path(path, modality)
         if is_s3_path(path):
             s3_client = _get_s3_client(path, aws_access_key_id, aws_secret_access_key)
-            self._handler = S3ResultsHandler(path, s3_client)
+            self._handler = S3ResultsHandler(
+                effective_path, s3_client, baseline_synthesizer=baseline_synthesizer
+            )
         else:
-            _validate_local_path(path)
-            self._handler = LocalResultsHandler(path)
+            _validate_local_path(effective_path)
+            self._handler = LocalResultsHandler(
+                effective_path, baseline_synthesizer=baseline_synthesizer
+            )
 
     def list(self):
         """List all runs available in the results directory."""

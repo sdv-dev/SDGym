@@ -70,6 +70,7 @@ class TestResultsHandler:
             }
         }
         handler = Mock()
+        handler.baseline_synthesizer = 'GaussianCopulaSynthesizer'
 
         # Run
         result = ResultsHandler._get_summarize_table(handler, folder_to_results, folder_infos)
@@ -97,6 +98,7 @@ class TestResultsHandler:
         handler = Mock()
         handler._get_results_files = Mock(return_value=['run_config.yaml'])
         handler._load_yaml_file = Mock(return_value=yaml_content)
+        handler.baseline_synthesizer = 'GaussianCopulaSynthesizer'
 
         # Run
         info = ResultsHandler._get_column_name_infos(handler, folder_to_results)

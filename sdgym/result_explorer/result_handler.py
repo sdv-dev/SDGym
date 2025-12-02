@@ -22,6 +22,10 @@ REGEX_SYNTHESIZER_NAME = r'\s*\(\d+\)\s*$'
 class ResultsHandler(ABC):
     """Abstract base class for handling results storage and retrieval."""
 
+    def __init__(self, baseline_synthesizer=SYNTHESIZER_BASELINE):
+        # Allow overrides per modality while maintaining the historical default.
+        self.baseline_synthesizer = baseline_synthesizer or SYNTHESIZER_BASELINE
+
     @abstractmethod
     def list(self):
         """List all runs in the results directory."""
@@ -59,7 +63,8 @@ class ResultsHandler(ABC):
         result['Win'] = 0
         for dataset in datasets:
             score_baseline = result.loc[
-                (result['Synthesizer'] == SYNTHESIZER_BASELINE) & (result['Dataset'] == dataset)
+                (result['Synthesizer'] == self.baseline_synthesizer)
+                & (result['Dataset'] == dataset)
             ]['Quality_Score'].to_numpy()
             if score_baseline.size == 0:
                 continue
@@ -84,7 +89,7 @@ class ResultsHandler(ABC):
                 f' - # datasets: {folder_infos[folder]["# datasets"]}'
                 f' - sdgym version: {folder_infos[folder]["sdgym_version"]}'
             )
-            results = results.loc[results['Synthesizer'] != SYNTHESIZER_BASELINE]
+            results = results.loc[results['Synthesizer'] != self.baseline_synthesizer]
             column_data = results.groupby(['Synthesizer'])['Win'].sum()
             columns.append((date_obj, column_name, column_data))
 
@@ -107,9 +112,11 @@ class ResultsHandler(ABC):
                 continue
 
             metainfo_info = self._load_yaml_file(folder, yaml_files[0])
-            num_datasets = results.loc[
-                results['Synthesizer'] == SYNTHESIZER_BASELINE, 'Dataset'
-            ].nunique()
+            baseline_mask = results['Synthesizer'] == self.baseline_synthesizer
+            if baseline_mask.any():
+                num_datasets = results.loc[baseline_mask, 'Dataset'].nunique()
+            else:
+                num_datasets = results['Dataset'].nunique()
             folder_to_info[folder] = {
                 'date': metainfo_info.get('starting_date')[:NUM_DIGITS_DATE],
                 'sdgym_version': metainfo_info.get('sdgym_version'),
@@ -236,7 +243,8 @@ class ResultsHandler(ABC):
 class LocalResultsHandler(ResultsHandler):
     """Results handler for local filesystem."""
 
-    def __init__(self, base_path):
+    def __init__(self, base_path, baseline_synthesizer=SYNTHESIZER_BASELINE):
+        super().__init__(baseline_synthesizer=baseline_synthesizer)
         self.base_path = base_path
 
     def list(self):
@@ -287,7 +295,8 @@ class LocalResultsHandler(ResultsHandler):
 class S3ResultsHandler(ResultsHandler):
     """Results handler for AWS S3 storage."""
 
-    def __init__(self, path, s3_client):
+    def __init__(self, path, s3_client, baseline_synthesizer=SYNTHESIZER_BASELINE):
+        super().__init__(baseline_synthesizer=baseline_synthesizer)
         self.s3_client = s3_client
         self.bucket_name = path.split('/')[2]
         self.prefix = '/'.join(path.split('/')[3:]).rstrip('/') + '/'
@@ -396,8 +405,8 @@ class S3ResultsHandler(ResultsHandler):
         for file_name in file_names:
             s3_key = f'{self.prefix}{folder_name}/{file_name}'
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
-            df = pd.read_csv(io.BytesIO(response['Body'].read()))
-            results.append(df)
+            result_df = pd.read_csv(io.BytesIO(response['Body'].read()))
+            results.append(result_df)
 
         return results
 
