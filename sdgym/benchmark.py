@@ -168,7 +168,7 @@ def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modalit
     if mismatched:
         raise ValueError(
             f"Synthesizers must be of modality '{modality}'. "
-            "Found this synthesizers that don't match: "
+            "Found these synthesizers that don't match: "
             f'{", ".join([type(synth).__name__ for synth in mismatched])}'
         )
 
@@ -176,8 +176,8 @@ def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modalit
     duplicates = get_duplicates(synthesizers + custom_synthesizers)
     if duplicates:
         raise ValueError(
-            'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
-            'and `custom_synthesizers` parameters.'
+            'Synthesizers must be unique. Please remove repeated values in the provided '
+            'synthesizers.'
         )
 
     return resolved_synthesizers

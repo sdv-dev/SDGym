@@ -91,7 +91,7 @@ def test__import_and_validate_synthesizers_mismatched_modality(
 
     expected_message = (
         f"Synthesizers must be of modality '{modality}'. "
-        f"Found this synthesizers that don't match: BadSynth"
+        f"Found these synthesizers that don't match: BadSynth"
     )
 
     # Run and Assert
@@ -115,8 +115,7 @@ def test__import_and_validate_synthesizers_duplicates(
     mock_get_synthesizers.return_value = [{'name': 'DupSynth', 'synthesizer': fake_synth}]
 
     expected_message = re.escape(
-        'Synthesizers must be unique. Please remove repeated values in the '
-        '`synthesizers` and `custom_synthesizers` parameters.'
+        'Synthesizers must be unique. Please remove repeated values in the provided synthesizers.'
     )
 
     # Run and Assert
