@@ -793,6 +793,143 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
     pd.testing.assert_frame_equal(result_2, saved_result_2, check_dtype=False)
 
 
+@patch('sdv.single_table.GaussianCopulaSynthesizer.fit', autospec=True)
+def test_benchmark_single_table_error_during_fit(mock_fit):
+    """Test that benchmark_single_table handles errors during synthesizer fitting."""
+
+    # Setup
+    def fit(self, data):
+        processed_data = self.preprocess(data)
+        self._fit(processed_data)
+        raise Exception('Fitting error')
+
+    mock_fit.side_effect = fit
+
+    # Run
+    result = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer', 'ColumnSynthesizer'],
+        sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
+    )
+
+    # Assert
+    assert result['error'].to_list() == [
+        'Exception: Fitting error',
+        np.nan,
+        np.nan,
+        'Exception: Fitting error',
+        np.nan,
+        np.nan,
+    ]
+    for dataset, data in result.groupby('Dataset'):
+        uniform = data.loc[data['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
+        uniform_train = uniform['Train_Time']
+        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
+
+        for synth in ['GaussianCopulaSynthesizer', 'ColumnSynthesizer']:
+            row = data.loc[data['Synthesizer'] == synth]
+            if row.empty:
+                continue
+            row = row.iloc[0]
+
+            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
+            extra = uniform_total if synth == 'GaussianCopulaSynthesizer' else uniform_train
+            expected_time = base_time + extra
+
+            assert np.isclose(row['Adjusted_Total_Time'], expected_time)
+
+
+@patch('sdv.single_table.GaussianCopulaSynthesizer.sample', autospec=True)
+def test_benchmark_single_table_error_during_sample(mock_sample):
+    """Test that benchmark_single_table handles errors during synthesizer sampling."""
+
+    # Setup
+    def sample(self, num_rows):
+        self._sample(num_rows)
+        raise Exception('Sampling error')
+
+    mock_sample.side_effect = sample
+
+    # Run
+    result = benchmark_single_table(
+        synthesizers=['GaussianCopulaSynthesizer', 'ColumnSynthesizer'],
+        sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
+    )
+
+    # Assert
+    assert result['error'].to_list() == [
+        'Exception: Sampling error',
+        np.nan,
+        np.nan,
+        'Exception: Sampling error',
+        np.nan,
+        np.nan,
+    ]
+    for dataset, data in result.groupby('Dataset'):
+        uniform = data.loc[data['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
+        uniform_train = uniform['Train_Time']
+        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
+        for synth in ['GaussianCopulaSynthesizer', 'ColumnSynthesizer']:
+            row = data.loc[data['Synthesizer'] == synth]
+            if row.empty:
+                continue
+            row = row.iloc[0]
+
+            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
+            extra = uniform_total if synth == 'GaussianCopulaSynthesizer' else uniform_train
+            expected_time = base_time + extra
+
+            assert np.isclose(row['Adjusted_Total_Time'], expected_time)
+
+
+def test_benchmark_multi_table_basic_synthesizers():
+    """Integration test that runs HMASynthesizer and MultiTableUniformSynthesizer on fake_hotels."""
+    output = benchmark_multi_table(
+        synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
+        sdv_datasets=['fake_hotels'],
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        limit_dataset_size=True,
+        show_progress=False,
+        timeout=30,
+    )
+
+    # Assert
+    assert isinstance(output, pd.DataFrame)
+    assert not output.empty
+
+    # Required SDGym benchmark output columns
+    for col in [
+        'Synthesizer',
+        'Train_Time',
+        'Sample_Time',
+        'Quality_Score',
+        'Diagnostic_Score',
+    ]:
+        assert col in output.columns
+
+    synths = sorted(output['Synthesizer'].unique())
+    assert synths == [
+        'HMASynthesizer',
+        'MultiTableUniformSynthesizer',
+    ]
+
+    diagnostic_rank = (
+        output.groupby('Synthesizer').Diagnostic_Score.mean().sort_values().index.tolist()
+    )
+
+    assert diagnostic_rank == [
+        'MultiTableUniformSynthesizer',
+        'HMASynthesizer',
+    ]
+
+    quality_rank = output.groupby('Synthesizer').Quality_Score.mean().sort_values().index.tolist()
+
+    assert quality_rank == [
+        'MultiTableUniformSynthesizer',
+        'HMASynthesizer',
+    ]
+
+
 def test_benchmark_multi_table_with_output_destination_multiple_runs(tmp_path):
     """Test saving in ``output_destination`` with multiple runs in multi-table mode.
 
@@ -881,138 +1018,42 @@ def test_benchmark_multi_table_with_output_destination_multiple_runs(tmp_path):
     pd.testing.assert_frame_equal(result_2, saved_result_2, check_dtype=False)
 
 
-@patch('sdv.single_table.GaussianCopulaSynthesizer.fit', autospec=True)
-def test_benchmark_error_during_fit(mock_fit):
-    """Test that benchmark_single_table handles errors during synthesizer fitting."""
+@patch('sdv.multi_table.HMASynthesizer._augment_tables', autospec=True)
+def test_benchmark_multi_table_error_during_fit(mock_augment_tables):
+    """Test that benchmark_multi_table handles errors during synthesizer fitting."""
 
     # Setup
-    def fit(self, data):
-        processed_data = self.preprocess(data)
-        self._fit(processed_data)
+    def _augment_tables(self, data):
         raise Exception('Fitting error')
 
-    mock_fit.side_effect = fit
+    mock_augment_tables.side_effect = _augment_tables
 
     # Run
-    result = benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer', 'ColumnSynthesizer'],
-        sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
-    )
-
-    # Assert
-    assert result['error'].to_list() == [
-        'Exception: Fitting error',
-        np.nan,
-        np.nan,
-        'Exception: Fitting error',
-        np.nan,
-        np.nan,
-    ]
-    for dataset, data in result.groupby('Dataset'):
-        uniform = data.loc[data['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
-        uniform_train = uniform['Train_Time']
-        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
-
-        for synth in ['GaussianCopulaSynthesizer', 'ColumnSynthesizer']:
-            row = data.loc[data['Synthesizer'] == synth]
-            if row.empty:
-                continue
-            row = row.iloc[0]
-
-            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
-            extra = uniform_total if synth == 'GaussianCopulaSynthesizer' else uniform_train
-            expected_time = base_time + extra
-
-            assert np.isclose(row['Adjusted_Total_Time'], expected_time)
-
-
-@patch('sdv.single_table.GaussianCopulaSynthesizer.sample', autospec=True)
-def test_benchmark_error_during_sample(mock_sample):
-    """Test that benchmark_single_table handles errors during synthesizer sampling."""
-
-    # Setup
-    def sample(self, num_rows):
-        self._sample(num_rows)
-        raise Exception('Sampling error')
-
-    mock_sample.side_effect = sample
-
-    # Run
-    result = benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer', 'ColumnSynthesizer'],
-        sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
-    )
-
-    # Assert
-    assert result['error'].to_list() == [
-        'Exception: Sampling error',
-        np.nan,
-        np.nan,
-        'Exception: Sampling error',
-        np.nan,
-        np.nan,
-    ]
-    for dataset, data in result.groupby('Dataset'):
-        uniform = data.loc[data['Synthesizer'] == 'UniformSynthesizer'].iloc[0]
-        uniform_train = uniform['Train_Time']
-        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
-        for synth in ['GaussianCopulaSynthesizer', 'ColumnSynthesizer']:
-            row = data.loc[data['Synthesizer'] == synth]
-            if row.empty:
-                continue
-            row = row.iloc[0]
-
-            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
-            extra = uniform_total if synth == 'GaussianCopulaSynthesizer' else uniform_train
-            expected_time = base_time + extra
-
-            assert np.isclose(row['Adjusted_Total_Time'], expected_time)
-
-
-def test_benchmark_multi_table_basic_synthesizers():
-    """Integration test: run HMASynthesizer + MultiTableUniformSynthesizer on fake_hotels."""
-    output = benchmark_multi_table(
+    result = benchmark_multi_table(
         synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
-        sdv_datasets=['fake_hotels'],
-        compute_quality_score=True,
-        compute_diagnostic_score=True,
-        limit_dataset_size=True,
-        show_progress=False,
-        timeout=30,
+        sdv_datasets=['Student_loan', 'fake_hotels'],
     )
 
     # Assert
-    assert isinstance(output, pd.DataFrame)
-    assert not output.empty
-
-    # Required SDGym benchmark output columns
-    for col in [
-        'Synthesizer',
-        'Train_Time',
-        'Sample_Time',
-        'Quality_Score',
-        'Diagnostic_Score',
-    ]:
-        assert col in output.columns
-
-    synths = sorted(output['Synthesizer'].unique())
-    assert synths == [
-        'HMASynthesizer',
-        'MultiTableUniformSynthesizer',
+    assert result['error'].to_list() == [
+        'Exception: Fitting error',
+        np.nan,
+        'Exception: Fitting error',
+        np.nan,
     ]
+    for dataset, data in result.groupby('Dataset'):
+        uniform = data.loc[data['Synthesizer'] == 'MultiTableUniformSynthesizer'].iloc[0]
+        uniform_train = uniform['Train_Time']
+        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
 
-    diagnostic_rank = (
-        output.groupby('Synthesizer').Diagnostic_Score.mean().sort_values().index.tolist()
-    )
+        for synth in ['HMASynthesizer', 'MultiTableUniformSynthesizer']:
+            row = data.loc[data['Synthesizer'] == synth]
+            if row.empty:
+                continue
 
-    assert diagnostic_rank == [
-        'MultiTableUniformSynthesizer',
-        'HMASynthesizer',
-    ]
+            row = row.iloc[0]
+            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
+            extra = uniform_total if synth == 'HMASynthesizer' else uniform_train
+            expected_time = base_time + extra
 
-    quality_rank = output.groupby('Synthesizer').Quality_Score.mean().sort_values().index.tolist()
-
-    assert quality_rank == [
-        'MultiTableUniformSynthesizer',
-        'HMASynthesizer',
-    ]
+            assert np.isclose(row['Adjusted_Total_Time'], expected_time)

@@ -1373,25 +1373,27 @@ def test_benchmark_multi_table_with_jobs(
 
 
 @patch('sdgym.benchmark._import_and_validate_synthesizers')
-@patch('sdgym.benchmark._get_empty_dataframe')
 @patch('sdgym.benchmark._write_metainfo_file')
-@patch('sdgym.benchmark._generate_job_args_list')
-@patch('sdgym.benchmark.LocalResultsWriter')
 @patch('sdgym.benchmark._validate_output_destination')
 def test_benchmark_multi_table_no_jobs(
     mock__validate_output_destination,
-    mock_LocalResultsWriter,
-    mock__generate_job_args_list,
     mock__write_metainfo_file,
-    mock__get_empty_dataframe,
     mock__import_and_validate_synthesizers,
 ):
     """Test that benchmark_multi_table returns empty dataframe when there are no job args."""
     # Setup
-    empty_scores = pd.DataFrame()
-    mock__generate_job_args_list.return_value = []
-    mock__get_empty_dataframe.return_value = empty_scores
-    mock__import_and_validate_synthesizers
+    empty_scores = pd.DataFrame({
+        'Synthesizer': [],
+        'Dataset': [],
+        'Dataset_Size_MB': [],
+        'Train_Time': [],
+        'Peak_Memory_MB': [],
+        'Synthesizer_Size_MB': [],
+        'Sample_Time': [],
+        'Evaluate_Time': [],
+        'Adjusted_Total_Time': [],
+        'Diagnostic_Score': [],
+    })
 
     # Run
     scores = benchmark_multi_table(
@@ -1409,27 +1411,5 @@ def test_benchmark_multi_table_no_jobs(
 
     # Assert
     mock__validate_output_destination.assert_called_once_with(None)
-    mock_LocalResultsWriter.assert_called_once_with()
-    mock__generate_job_args_list.assert_called_once_with(
-        limit_dataset_size=False,
-        sdv_datasets=None,
-        additional_datasets_folder=None,
-        sdmetrics=None,
-        detailed_results_folder=None,
-        timeout=None,
-        output_destination=None,
-        compute_quality_score=False,
-        compute_diagnostic_score=True,
-        compute_privacy_score=None,
-        synthesizers=mock__import_and_validate_synthesizers.return_value,
-        s3_client=None,
-        modality='multi_table',
-    )
-    mock__get_empty_dataframe.assert_called_once_with(
-        compute_diagnostic_score=True,
-        compute_quality_score=False,
-        compute_privacy_score=None,
-        sdmetrics=None,
-    )
     mock__write_metainfo_file.assert_called_once()
     pd.testing.assert_frame_equal(scores, empty_scores)

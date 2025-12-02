@@ -1,3 +1,4 @@
+import zipfile
 from unittest.mock import Mock, patch
 
 import cloudpickle
@@ -224,3 +225,34 @@ class TestS3ResultsWriter:
             Bucket='bucket_name',
             Key='key_prefix/test_data.yaml',
         )
+
+    def test_write_zipped_dataframes(self, tmp_path):
+        """Test the `write_zipped_dataframes` method."""
+        # Setup
+        base_path = tmp_path / 'sdgym_results'
+        base_path.mkdir(parents=True, exist_ok=True)
+        result_writer = LocalResultsWriter()
+        file_path = base_path / 'data.zip'
+
+        data = {
+            'table1': pd.DataFrame({'a': [1, 2], 'b': [3, 4]}),
+            'table2': pd.DataFrame({'x': [5, 6], 'y': [7, 8]}),
+        }
+
+        # Run
+        result_writer.write_zipped_dataframes(data, file_path)
+
+        # Assert
+        assert file_path.exists()
+
+        with zipfile.ZipFile(file_path, 'r') as zf:
+            # Check that all tables are present
+            names = zf.namelist()
+            assert 'table1.csv' in names
+            assert 'table2.csv' in names
+
+            # Check each table content matches the original
+            for table_name, df in data.items():
+                with zf.open(f'{table_name}.csv') as f:
+                    loaded_df = pd.read_csv(f)
+                    pd.testing.assert_frame_equal(df, loaded_df)

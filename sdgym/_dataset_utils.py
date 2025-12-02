@@ -30,18 +30,9 @@ def _parse_numeric_value(value, dataset_name, field_name, target_type=float):
 
 def _filter_columns(columns, mandatory_columns):
     """Given a dictionary of columns and a list of mandatory ones, return a filtered subset."""
-    all_columns = list(columns)
     mandatory_columns = [m_col for m_col in mandatory_columns if m_col in columns]
-    optional_columns = [opt_col for opt_col in all_columns if opt_col not in mandatory_columns]
-
-    if len(mandatory_columns) >= MAX_NUM_COLUMNS:
-        keep_columns = mandatory_columns
-    elif len(all_columns) > MAX_NUM_COLUMNS:
-        keep_count = MAX_NUM_COLUMNS - len(mandatory_columns)
-        keep_columns = mandatory_columns + optional_columns[:keep_count]
-    else:
-        keep_columns = mandatory_columns + optional_columns
-
+    optional_columns = [col for col in columns if col not in mandatory_columns]
+    keep_columns = mandatory_columns + optional_columns[:MAX_NUM_COLUMNS]
     return {col: columns[col] for col in keep_columns if col in columns}
 
 

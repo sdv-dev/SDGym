@@ -1398,7 +1398,7 @@ def benchmark_single_table(
                 SDGym_results_<date>/
                     results.csv
                     <dataset_name>_<date>/
-                    meta.yaml
+                    metainfo.yaml
                     <synthesizer_name>/
                         synthesizer.pkl
                         synthetic_data.csv
@@ -1850,7 +1850,7 @@ def benchmark_multi_table(
                 SDGym_results_<date>/
                     results.csv
                     <dataset_name>_<date>/
-                    meta.yaml
+                    metainfo.yaml
                     <synthesizer_name>/
                         synthesizer.pkl
                         synthetic_data.csv

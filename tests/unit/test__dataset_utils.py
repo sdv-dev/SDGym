@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from sdgym._dataset_utils import (
+    _filter_columns,
     _get_dataset_subset,
     _get_multi_table_dataset_subset,
     _parse_numeric_value,
@@ -111,7 +112,7 @@ def test__get_dataset_subset_sequential():
     # Assert
     assert 'seq_id' in subset_df.columns
     assert 'seq_key' in subset_df.columns
-    assert len(subset_df.columns) <= 10
+    assert len(subset_df.columns) <= 12
 
 
 @patch('sdgym._dataset_utils._get_multi_table_dataset_subset')
@@ -198,3 +199,21 @@ def test__read_metadata_json(tmp_path):
 
     # Assert
     assert result == meta
+
+
+def test__filter_columns():
+    """Test filtering keeps mandatory columns and limits total optional columns."""
+    # Setup
+    columns = {f'c{i}': {} for i in range(20)}
+    mandatory = ['c10', 'c11', 'c19']
+
+    # Run
+    filtered = _filter_columns(columns, mandatory)
+
+    # Assert
+    for col in mandatory:
+        assert col in filtered
+
+    assert len(filtered) == len(mandatory) + 10
+    expected_optional = [f'c{i}' for i in range(20) if f'c{i}' not in mandatory][:10]
+    assert list(filtered.keys()) == mandatory + expected_optional
