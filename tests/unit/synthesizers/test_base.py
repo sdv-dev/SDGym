@@ -1,6 +1,6 @@
 import re
 import warnings
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -101,33 +101,42 @@ class TestBaselineSynthesizer:
 
 
 class TestMultiTableBaselineSynthesizer:
-    def test_sample_from_synthesizer(self):
-        """Test it calls the correct methods and returns the correct values."""
-        # Setup
+    @pytest.mark.parametrize(
+        'scale, expected_scale',
+        [
+            (None, 1.0),
+            (2.0, 2.0),
+        ],
+    )
+    def test_sample_from_synthesizer_valid(self, scale, expected_scale):
+        """Test that valid calls return correct values and call underlying method."""
         synthesizer = MultiTableBaselineSynthesizer()
         mock_synthesizer = Mock()
         synthesizer._sample_from_synthesizer = Mock(return_value='sampled_data')
+
+        # Run
+        if scale is None:
+            result = synthesizer.sample_from_synthesizer(mock_synthesizer)
+        else:
+            result = synthesizer.sample_from_synthesizer(mock_synthesizer, scale)
+
+        # Assert call
+        synthesizer._sample_from_synthesizer.assert_called_with(mock_synthesizer, expected_scale)
+
+        assert result == 'sampled_data'
+        assert synthesizer._MODALITY_FLAG == 'multi_table'
+
+    def test_sample_from_synthesizer_raises_on_unexpected_kwarg(self):
+        """Test that passing n_samples raises a TypeError."""
+        synthesizer = MultiTableBaselineSynthesizer()
+        mock_synthesizer = Mock()
+
         expected_error = re.escape(
             "sample_from_synthesizer() got an unexpected keyword argument 'n_samples'"
         )
 
-        # Run
-        sampled_data = synthesizer.sample_from_synthesizer(mock_synthesizer)
-        sampled_data_with_scale = synthesizer.sample_from_synthesizer(
-            mock_synthesizer,
-            scale=2.0,
-        )
         with pytest.raises(TypeError, match=expected_error):
             synthesizer.sample_from_synthesizer(
                 mock_synthesizer,
                 n_samples=10,
             )
-
-        # Assert
-        assert synthesizer._MODALITY_FLAG == 'multi_table'
-        synthesizer._sample_from_synthesizer.assert_has_calls([
-            call(mock_synthesizer, scale=1.0),
-            call(mock_synthesizer, scale=2.0),
-        ])
-        assert sampled_data == 'sampled_data'
-        assert sampled_data_with_scale == 'sampled_data'
