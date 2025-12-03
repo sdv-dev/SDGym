@@ -790,8 +790,9 @@ def test__update_metainfo_file(mock_datetime, tmp_path):
         assert metainfo_data['run_id'] == run_id
 
 
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
 @patch('sdgym.benchmark._get_metainfo_increment')
-def test_setup_output_destination_aws(mock_get_metainfo_increment):
+def test_setup_output_destination_aws(mock_get_metainfo_increment, modality):
     """Test the `_setup_output_destination_aws` function."""
     # Setup
     output_destination = 's3://my-bucket/results'
@@ -799,16 +800,17 @@ def test_setup_output_destination_aws(mock_get_metainfo_increment):
     datasets = ['Dataset1', 'Dataset2']
     s3_client_mock = Mock()
     mock_get_metainfo_increment.return_value = 0
+    data_suffix = '_synthetic_data.csv' if modality == 'single_table' else '_synthetic_data.zip'
 
     # Run
     paths = _setup_output_destination_aws(
-        output_destination, synthesizers, datasets, 'single_table', s3_client_mock
+        output_destination, synthesizers, datasets, modality, s3_client_mock
     )
 
     # Assert
     today = datetime.today().strftime('%m_%d_%Y')
     bucket_name = 'my-bucket'
-    top_folder = f'results/single_table/SDGym_results_{today}'
+    top_folder = f'results/{modality}/SDGym_results_{today}'
     expected_calls = [call(Bucket=bucket_name, Key=top_folder + '/')]
     mock_get_metainfo_increment.assert_called_once_with(
         f's3://{bucket_name}/{top_folder}', s3_client_mock
@@ -829,7 +831,7 @@ def test_setup_output_destination_aws(mock_get_metainfo_increment):
             )
             assert 'synthetic_data' in paths[dataset][synth]
             assert paths[dataset][synth]['synthetic_data'] == (
-                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_synthetic_data.csv'
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}{data_suffix}'
             )
             assert 'benchmark_result' in paths[dataset][synth]
             assert paths[dataset][synth]['benchmark_result'] == (
@@ -1481,4 +1483,71 @@ def test_benchmark_multi_table_aws(
         job_args_list='job_args_list_mock',
         aws_access_key_id='12345',
         aws_secret_access_key='67890',
+    )
+
+
+@patch('sdgym.benchmark._validate_output_destination')
+@patch('sdgym.benchmark._generate_job_args_list')
+@patch('sdgym.benchmark._import_and_validate_synthesizers')
+@patch('sdgym.benchmark._get_empty_dataframe')
+def test_benchmark_multi_table_aws_no_jobs(
+    mock_get_empty_dataframe,
+    mock_import_and_validate_synthesizers,
+    mock_generate_job_args_list,
+    mock_validate_output_destination,
+):
+    """Test `benchmark_multi_table_aws` method."""
+    # Setup
+    output_destination = 's3://sdgym-benchmark/Debug/Issue_487_test_1'
+    synthesizers = ['HMASynthesizer']
+    datasets = ['financial', 'NBA']
+    aws_access_key_id = '12345'
+    aws_secret_access_key = '67890'
+    mock_validate_output_destination.return_value = 's3_client_mock'
+    mock_generate_job_args_list.return_value = []
+    mock_import_and_validate_synthesizers.return_value = synthesizers
+
+    # Run
+    benchmark_multi_table_aws(
+        output_destination=output_destination,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        synthesizers=synthesizers,
+        sdv_datasets=datasets,
+    )
+
+    # Assert
+    assert 'MultiTableUniformSynthesizer' in synthesizers
+    mock_validate_output_destination.assert_called_once_with(
+        output_destination,
+        aws_keys={
+            'aws_access_key_id': aws_access_key_id,
+            'aws_secret_access_key': aws_secret_access_key,
+        },
+    )
+    mock_import_and_validate_synthesizers.assert_called_once_with(
+        synthesizers=synthesizers,
+        custom_synthesizers=None,
+        modality='multi_table',
+    )
+    mock_generate_job_args_list.assert_called_once_with(
+        limit_dataset_size=False,
+        sdv_datasets=datasets,
+        additional_datasets_folder=None,
+        sdmetrics=None,
+        timeout=None,
+        output_destination=output_destination,
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        compute_privacy_score=None,
+        synthesizers=synthesizers,
+        detailed_results_folder=None,
+        s3_client='s3_client_mock',
+        modality='multi_table',
+    )
+    mock_get_empty_dataframe.assert_called_once_with(
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        compute_privacy_score=None,
+        sdmetrics=None,
     )
