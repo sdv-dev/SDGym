@@ -80,15 +80,15 @@ PROBLEM_TYPE_METRICS = {
     ],
 }
 DATA_MODALITY_METRICS = {
-    'single-table': [
+    'single_table': [
         'CSTest',
         'KSComplement',
     ],
-    'multi-table': [
+    'multi_table': [
         'CSTest',
         'KSComplement',
     ],
-    'timeseries': [
+    'sequential': [
         'TSFClassifierEfficacy',
         'LSTMClassifierEfficacy',
         'TSFCDetection',
@@ -104,17 +104,17 @@ def get_metrics(metrics, modality):
         metrics (list):
             List of strings or tuples ``(metric, metric_args)`` describing the metrics.
         modality (str):
-            It must be ``'single-table'``, ``'multi-table'`` or ``'timeseries'``.
+            It must be ``'single_table'``, ``'multi_table'`` or ``'sequential'``.
 
     Returns:
         list, kwargs:
             A list of metrics for the given modality, and their corresponding kwargs.
     """
-    if modality == 'multi-table':
+    if modality == 'multi_table':
         metric_classes = sdmetrics.multi_table.MultiTableMetric.get_subclasses()
-    elif modality == 'single-table':
+    elif modality == 'single_table':
         metric_classes = sdmetrics.single_table.SingleTableMetric.get_subclasses()
-    elif modality == 'timeseries':
+    elif modality == 'sequential':
         metric_classes = sdmetrics.timeseries.TimeSeriesMetric.get_subclasses()
 
     if not metrics:

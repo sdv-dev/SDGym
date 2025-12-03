@@ -12,7 +12,11 @@ __version__ = '0.12.1.dev0'
 
 import logging
 
-from sdgym.benchmark import benchmark_single_table, benchmark_single_table_aws
+from sdgym.benchmark import (
+    benchmark_multi_table,
+    benchmark_single_table,
+    benchmark_single_table_aws,
+)
 from sdgym.cli.collect import collect_results
 from sdgym.cli.summary import make_summary_spreadsheet
 from sdgym.dataset_explorer import DatasetExplorer
@@ -31,12 +35,13 @@ list(map(logging.root.removeFilter, logging.root.filters))
 __all__ = [
     'DatasetExplorer',
     'ResultsExplorer',
+    'benchmark_multi_table',
     'benchmark_single_table',
     'benchmark_single_table_aws',
     'collect_results',
-    'create_synthesizer_variant',
-    'create_single_table_synthesizer',
     'create_multi_table_synthesizer',
+    'create_single_table_synthesizer',
+    'create_synthesizer_variant',
     'load_dataset',
     'make_summary_spreadsheet',
 ]

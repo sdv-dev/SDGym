@@ -169,13 +169,13 @@ class TestDatasetExplorer:
         assert result['Total_Num_Rows'] == 5
         assert result['Max_Num_Rows_Per_Table'] == 3
 
-    def test__validate_output_filepath_valid(self):
+    def test__validate_output_filepath_valid(self, tmp_path):
         """Test the ``_validate_output_filepath`` method with valid CSV path."""
         # Setup
         explorer = DatasetExplorer()
 
         # Run and Assert
-        explorer._validate_output_filepath('output.csv')
+        explorer._validate_output_filepath(tmp_path / 'output.csv')
 
     def test__validate_output_filepath_invalid(self):
         """Test the ``_validate_output_filepath`` method with invalid file path."""

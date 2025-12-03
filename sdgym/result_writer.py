@@ -1,6 +1,7 @@
 """Results writer for SDGym benchmark."""
 
 import io
+import zipfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -34,6 +35,14 @@ class ResultsWriter(ABC):
 
 class LocalResultsWriter:
     """Local results writer for saving results to the local filesystem."""
+
+    def write_zipped_dataframes(self, data, file_path, index=False):
+        """Write a dictoinary of dataframes to a ZIP file."""
+        with zipfile.ZipFile(file_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for table_name, table in data.items():
+                buf = io.StringIO()
+                table.to_csv(buf, index=index)
+                zf.writestr(f'{table_name}.csv', buf.getvalue())
 
     def write_dataframe(self, data, file_path, append=False, index=False):
         """Write a DataFrame to a CSV file."""
