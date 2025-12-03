@@ -148,11 +148,10 @@ class MultiTableBaselineSynthesizer(BaselineSynthesizer):
             synthesizer (obj):
                 The synthesizer object to sample data from.
             scale (float):
-                The scale of data to sample.
-                Defaults to 1.0.
+                The scale of data to sample. Defaults to 1.0.
 
         Returns:
             dict:
                 The sampled data. A dict mapping table name to DataFrame.
         """
-        return self._sample_from_synthesizer(synthesizer, scale=scale)
+        return self._sample_from_synthesizer(synthesizer, scale)
