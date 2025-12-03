@@ -1506,9 +1506,11 @@ def test_benchmark_multi_table_aws_no_jobs(
     mock_validate_output_destination.return_value = 's3_client_mock'
     mock_generate_job_args_list.return_value = []
     mock_import_and_validate_synthesizers.return_value = synthesizers
+    expected_result = pd.DataFrame({'Dataset': []})
+    mock_get_empty_dataframe.return_value = expected_result
 
     # Run
-    benchmark_multi_table_aws(
+    result = benchmark_multi_table_aws(
         output_destination=output_destination,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -1517,6 +1519,7 @@ def test_benchmark_multi_table_aws_no_jobs(
     )
 
     # Assert
+    pd.testing.assert_frame_equal(result, expected_result)
     assert 'MultiTableUniformSynthesizer' in synthesizers
     mock_validate_output_destination.assert_called_once_with(
         output_destination,
