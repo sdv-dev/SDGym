@@ -18,6 +18,7 @@ from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
 import sdgym
 from sdgym import (
+    benchmark_multi_table,
     benchmark_single_table,
     create_single_table_synthesizer,
     create_synthesizer_variant,
@@ -201,8 +202,7 @@ def test_benchmark_single_table_duplicate_synthesizers():
 
     # Run and Assert
     error_msg = re.escape(
-        'Synthesizers must be unique. Please remove repeated values in the `synthesizers` '
-        'and `custom_synthesizers` parameters.'
+        'Synthesizers must be unique. Please remove repeated values in the provided synthesizers.'
     )
     with pytest.raises(ValueError, match=error_msg):
         sdgym.benchmark_single_table(
@@ -508,7 +508,7 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
         .all()
     )
     assert result['Evaluate_Time'] is None
-    assert result['error'] == 'ValueError: Unknown single-table metric: a'
+    assert result['error'] == 'ValueError: Unknown single_table metric: a'
 
 
 def test_benchmark_single_table_custom_synthesizer():
@@ -628,73 +628,82 @@ def test_benchmark_single_table_instantiated_synthesizer():
 def test_benchmark_single_table_no_warnings():
     """Test that the benchmark does not raise any FutureWarnings."""
     # Run
-    with warnings.catch_warnings(record=True) as w:
+    with warnings.catch_warnings(record=True) as catched_warnings:
         benchmark_single_table(
             synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['fake_companies']
         )
-        future_warnings = [warning for warning in w if issubclass(warning.category, FutureWarning)]
-        assert len(future_warnings) == 0
+
+    # Assert
+    future_warnings = [
+        warning for warning in catched_warnings if issubclass(warning.category, FutureWarning)
+    ]
+    assert len(future_warnings) == 0
 
 
 def test_benchmark_single_table_with_output_destination(tmp_path):
     """Test it works with the ``output_destination`` argument."""
     # Setup
-    output_destination = str(tmp_path / 'benchmark_output')
+    output_destination = tmp_path / 'benchmark_output'
     today_date = pd.Timestamp.now().strftime('%m_%d_%Y')
 
     # Run
     results = benchmark_single_table(
         synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
         sdv_datasets=['fake_companies'],
-        output_destination=output_destination,
+        output_destination=str(output_destination),  # function may require str
     )
 
     # Assert
-    directions = os.listdir(output_destination)
-    score_saved_separately = pd.DataFrame()
-    assert directions == [f'SDGym_results_{today_date}']
-    subdirections = os.listdir(os.path.join(output_destination, directions[0]))
-    assert set(subdirections) == {
+    top_level = os.listdir(output_destination)
+    assert top_level == ['single_table']
+
+    second_level = os.listdir(output_destination / 'single_table')
+    assert second_level == [f'SDGym_results_{today_date}']
+
+    subdir = output_destination / 'single_table' / f'SDGym_results_{today_date}'
+    assert set(os.listdir(subdir)) == {
         'results.csv',
         f'fake_companies_{today_date}',
         'metainfo.yaml',
     }
-    with open(os.path.join(output_destination, directions[0], 'metainfo.yaml'), 'r') as f:
-        metadata = yaml.safe_load(f)
-        assert metadata['completed_date'] is not None
-        assert metadata['sdgym_version'] == sdgym.__version__
 
-    synthesizer_directions = os.listdir(
-        os.path.join(output_destination, directions[0], f'fake_companies_{today_date}')
-    )
-    assert set(synthesizer_directions) == {
+    # Validate metadata
+    with open(subdir / 'metainfo.yaml', 'r') as f:
+        metadata = yaml.safe_load(f)
+
+    assert metadata['completed_date'] is not None
+    assert metadata['sdgym_version'] == sdgym.__version__
+
+    # Synthesizer directories
+    synth_dir = subdir / f'fake_companies_{today_date}'
+    synthesizer_dirs = os.listdir(synth_dir)
+    assert set(synthesizer_dirs) == {
         'TVAESynthesizer',
         'GaussianCopulaSynthesizer',
         'UniformSynthesizer',
     }
-    for synthesizer in sorted(synthesizer_directions):
-        synthesizer_files = os.listdir(
-            os.path.join(
-                output_destination, directions[0], f'fake_companies_{today_date}', synthesizer
-            )
-        )
-        assert set(synthesizer_files) == {
+
+    # Validate files in each synthesizer directory
+    score_saved_separately = pd.DataFrame()
+    for synthesizer in sorted(synthesizer_dirs):
+        files = os.listdir(synth_dir / synthesizer)
+        assert set(files) == {
             f'{synthesizer}.pkl',
             f'{synthesizer}_synthetic_data.csv',
             f'{synthesizer}_benchmark_result.csv',
         }
-        score = pd.read_csv(
-            os.path.join(
-                output_destination,
-                directions[0],
-                f'fake_companies_{today_date}',
-                synthesizer,
-                f'{synthesizer}_benchmark_result.csv',
-            )
-        )
+
+        score_path = synth_dir / synthesizer / f'{synthesizer}_benchmark_result.csv'
+        score = pd.read_csv(score_path)
         score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
 
-    saved_result = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
+    # Load top-level results.csv
+    saved_results_path = (
+        output_destination / 'single_table' / f'SDGym_results_{today_date}' / 'results.csv'
+    )
+    saved_result = pd.read_csv(saved_results_path)
+
+    # Assert Results
     pd.testing.assert_frame_equal(results, saved_result, check_dtype=False)
     results_no_adjusted = results.drop(columns=['Adjusted_Total_Time', 'Adjusted_Quality_Score'])
     pd.testing.assert_frame_equal(results_no_adjusted, score_saved_separately, check_dtype=False)
@@ -703,83 +712,88 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
 def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
     """Test saving in ``output_destination`` with multiple runs.
 
-    Here two benchmark runs are performed with different synthesizers
-    on the same dataset, and the results are saved in the same output directory.
-    The directory contains a `results.csv` file with the combined results
-    and a subdirectory for each synthesizer with its own results.
+    Two benchmark runs are performed with different synthesizers on the same
+    dataset, saving results to the same output directory. The directory contains
+    multiple `results.csv` files and synthesizer subdirectories.
     """
     # Setup
-    output_destination = str(tmp_path / 'benchmark_output')
+    output_destination = tmp_path / 'benchmark_output'
     today_date = pd.Timestamp.now().strftime('%m_%d_%Y')
 
     # Run
     result_1 = benchmark_single_table(
         synthesizers=['GaussianCopulaSynthesizer'],
         sdv_datasets=['fake_companies'],
-        output_destination=output_destination,
+        output_destination=str(output_destination),
     )
     result_2 = benchmark_single_table(
         synthesizers=['TVAESynthesizer'],
         sdv_datasets=['fake_companies'],
-        output_destination=output_destination,
+        output_destination=str(output_destination),
     )
 
     # Assert
     score_saved_separately = pd.DataFrame()
-    directions = os.listdir(output_destination)
-    assert directions == [f'SDGym_results_{today_date}']
-    subdirections = os.listdir(os.path.join(output_destination, directions[0]))
-    assert set(subdirections) == {
+
+    top_level = os.listdir(output_destination)
+    assert top_level == ['single_table']
+
+    second_level = os.listdir(output_destination / 'single_table')
+    assert second_level == [f'SDGym_results_{today_date}']
+
+    subdir = output_destination / 'single_table' / f'SDGym_results_{today_date}'
+    assert set(os.listdir(subdir)) == {
         'results.csv',
         'results(1).csv',
         f'fake_companies_{today_date}',
         'metainfo.yaml',
         'metainfo(1).yaml',
     }
-    with open(os.path.join(output_destination, directions[0], 'metainfo.yaml'), 'r') as f:
-        metadata = yaml.safe_load(f)
-        assert metadata['completed_date'] is not None
-        assert metadata['sdgym_version'] == sdgym.__version__
 
-    synthesizer_directions = os.listdir(
-        os.path.join(output_destination, directions[0], f'fake_companies_{today_date}')
-    )
-    assert set(synthesizer_directions) == {
+    # Validate metadata
+    with open(subdir / 'metainfo.yaml', 'r') as f:
+        metadata = yaml.safe_load(f)
+
+    assert metadata['completed_date'] is not None
+    assert metadata['sdgym_version'] == sdgym.__version__
+
+    # Synthesizer directories
+    synth_parent = subdir / f'fake_companies_{today_date}'
+    synthesizer_dirs = os.listdir(synth_parent)
+
+    # Assert Synthesizer directories
+    assert set(synthesizer_dirs) == {
         'TVAESynthesizer(1)',
         'GaussianCopulaSynthesizer',
         'UniformSynthesizer',
         'UniformSynthesizer(1)',
     }
-    for synthesizer in sorted(synthesizer_directions):
-        synthesizer_files = os.listdir(
-            os.path.join(
-                output_destination, directions[0], f'fake_companies_{today_date}', synthesizer
-            )
-        )
-        assert set(synthesizer_files) == {
+
+    # Validate each synthesizer directory
+    for synthesizer in sorted(synthesizer_dirs):
+        synth_path = synth_parent / synthesizer
+
+        synth_files = os.listdir(synth_path)
+        assert set(synth_files) == {
             f'{synthesizer}.pkl',
             f'{synthesizer}_synthetic_data.csv',
             f'{synthesizer}_benchmark_result.csv',
         }
-        score = pd.read_csv(
-            os.path.join(
-                output_destination,
-                directions[0],
-                f'fake_companies_{today_date}',
-                synthesizer,
-                f'{synthesizer}_benchmark_result.csv',
-            )
-        )
+
+        score = pd.read_csv(synth_path / f'{synthesizer}_benchmark_result.csv')
         score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
 
-    saved_result_1 = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results.csv')
-    saved_result_2 = pd.read_csv(f'{output_destination}/SDGym_results_{today_date}/results(1).csv')
+    # Load saved results
+    saved_result_1 = pd.read_csv(subdir / 'results.csv')
+    saved_result_2 = pd.read_csv(subdir / 'results(1).csv')
+
+    # Assert results
     pd.testing.assert_frame_equal(result_1, saved_result_1, check_dtype=False)
     pd.testing.assert_frame_equal(result_2, saved_result_2, check_dtype=False)
 
 
 @patch('sdv.single_table.GaussianCopulaSynthesizer.fit', autospec=True)
-def test_benchmark_error_during_fit(mock_fit):
+def test_benchmark_single_table_error_during_fit(mock_fit):
     """Test that benchmark_single_table handles errors during synthesizer fitting."""
 
     # Setup
@@ -824,7 +838,7 @@ def test_benchmark_error_during_fit(mock_fit):
 
 
 @patch('sdv.single_table.GaussianCopulaSynthesizer.sample', autospec=True)
-def test_benchmark_error_during_sample(mock_sample):
+def test_benchmark_single_table_error_during_sample(mock_sample):
     """Test that benchmark_single_table handles errors during synthesizer sampling."""
 
     # Setup
@@ -861,6 +875,184 @@ def test_benchmark_error_during_sample(mock_sample):
 
             base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
             extra = uniform_total if synth == 'GaussianCopulaSynthesizer' else uniform_train
+            expected_time = base_time + extra
+
+            assert np.isclose(row['Adjusted_Total_Time'], expected_time)
+
+
+def test_benchmark_multi_table_basic_synthesizers():
+    """Integration test that runs HMASynthesizer and MultiTableUniformSynthesizer on fake_hotels."""
+    output = benchmark_multi_table(
+        synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
+        sdv_datasets=['fake_hotels'],
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        limit_dataset_size=True,
+        show_progress=False,
+        timeout=30,
+    )
+
+    # Assert
+    assert isinstance(output, pd.DataFrame)
+    assert not output.empty
+
+    # Required SDGym benchmark output columns
+    for col in [
+        'Synthesizer',
+        'Train_Time',
+        'Sample_Time',
+        'Quality_Score',
+        'Diagnostic_Score',
+    ]:
+        assert col in output.columns
+
+    synths = sorted(output['Synthesizer'].unique())
+    assert synths == [
+        'HMASynthesizer',
+        'MultiTableUniformSynthesizer',
+    ]
+
+    diagnostic_rank = (
+        output.groupby('Synthesizer').Diagnostic_Score.mean().sort_values().index.tolist()
+    )
+
+    assert diagnostic_rank == [
+        'MultiTableUniformSynthesizer',
+        'HMASynthesizer',
+    ]
+
+    quality_rank = output.groupby('Synthesizer').Quality_Score.mean().sort_values().index.tolist()
+
+    assert quality_rank == [
+        'MultiTableUniformSynthesizer',
+        'HMASynthesizer',
+    ]
+
+
+def test_benchmark_multi_table_with_output_destination_multiple_runs(tmp_path):
+    """Test saving in ``output_destination`` with multiple runs in multi-table mode.
+
+    Two benchmark runs are performed with HMASynthesizer on the same multi-table
+    dataset, saving results to the same output directory. The directory contains
+    multiple `results*.csv` files, metainfo files, and synthesizer subdirectories.
+    """
+    # Setup
+    output_destination = tmp_path / 'benchmark_output'
+    today_date = pd.Timestamp.now().strftime('%m_%d_%Y')
+
+    # Run 1
+    result_1 = benchmark_multi_table(
+        synthesizers=['HMASynthesizer'],
+        sdv_datasets=['fake_hotels'],
+        output_destination=str(output_destination),
+    )
+
+    # Run 2
+    result_2 = benchmark_multi_table(
+        synthesizers=['HMASynthesizer'],
+        sdv_datasets=['fake_hotels'],
+        output_destination=str(output_destination),
+    )
+
+    # Assert
+    score_saved_separately = pd.DataFrame()
+
+    # Top level directory
+    top_level = os.listdir(output_destination)
+    assert top_level == ['multi_table']
+
+    # Second level
+    second_level = os.listdir(output_destination / 'multi_table')
+    assert second_level == [f'SDGym_results_{today_date}']
+
+    # SDGym results folder
+    subdir = output_destination / 'multi_table' / f'SDGym_results_{today_date}'
+    assert set(os.listdir(subdir)) == {
+        'results.csv',
+        'results(1).csv',
+        f'fake_hotels_{today_date}',
+        'metainfo.yaml',
+        'metainfo(1).yaml',
+    }
+
+    # Validate metadata
+    with open(subdir / 'metainfo.yaml', 'r') as f:
+        metadata = yaml.safe_load(f)
+
+    assert metadata['completed_date'] is not None
+    assert metadata['sdgym_version'] == sdgym.__version__
+    assert metadata['modality'] == 'multi_table'
+
+    # Synthesizer folders
+    synth_parent = subdir / f'fake_hotels_{today_date}'
+    synthesizer_dirs = os.listdir(synth_parent)
+
+    assert set(synthesizer_dirs) == {
+        'HMASynthesizer',
+        'HMASynthesizer(1)',
+        'MultiTableUniformSynthesizer',
+        'MultiTableUniformSynthesizer(1)',
+    }
+
+    # Validate each synthesizer directory
+    for synthesizer in sorted(synthesizer_dirs):
+        synth_path = synth_parent / synthesizer
+
+        synth_files = os.listdir(synth_path)
+        assert set(synth_files) == {
+            f'{synthesizer}.pkl',
+            f'{synthesizer}_synthetic_data.zip',
+            f'{synthesizer}_benchmark_result.csv',
+        }
+
+        score = pd.read_csv(synth_path / f'{synthesizer}_benchmark_result.csv')
+        score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
+
+    # Load results for both runs
+    saved_result_1 = pd.read_csv(subdir / 'results.csv')
+    saved_result_2 = pd.read_csv(subdir / 'results(1).csv')
+
+    # Validate the stored results match returned results
+    pd.testing.assert_frame_equal(result_1, saved_result_1, check_dtype=False)
+    pd.testing.assert_frame_equal(result_2, saved_result_2, check_dtype=False)
+
+
+@patch('sdv.multi_table.HMASynthesizer._augment_tables', autospec=True)
+def test_benchmark_multi_table_error_during_fit(mock_augment_tables):
+    """Test that benchmark_multi_table handles errors during synthesizer fitting."""
+
+    # Setup
+    def _augment_tables(self, data):
+        raise Exception('Fitting error')
+
+    mock_augment_tables.side_effect = _augment_tables
+
+    # Run
+    result = benchmark_multi_table(
+        synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
+        sdv_datasets=['Student_loan', 'fake_hotels'],
+    )
+
+    # Assert
+    assert result['error'].to_list() == [
+        'Exception: Fitting error',
+        np.nan,
+        'Exception: Fitting error',
+        np.nan,
+    ]
+    for dataset, data in result.groupby('Dataset'):
+        uniform = data.loc[data['Synthesizer'] == 'MultiTableUniformSynthesizer'].iloc[0]
+        uniform_train = uniform['Train_Time']
+        uniform_total = uniform[['Train_Time', 'Sample_Time']].sum()
+
+        for synth in ['HMASynthesizer', 'MultiTableUniformSynthesizer']:
+            row = data.loc[data['Synthesizer'] == synth]
+            if row.empty:
+                continue
+
+            row = row.iloc[0]
+            base_time = row[['Train_Time', 'Sample_Time']].sum(skipna=True)
+            extra = uniform_total if synth == 'HMASynthesizer' else uniform_train
             expected_time = base_time + extra
 
             assert np.isclose(row['Adjusted_Total_Time'], expected_time)

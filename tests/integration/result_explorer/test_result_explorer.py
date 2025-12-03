@@ -10,16 +10,17 @@ from sdgym.benchmark import benchmark_single_table
 def test_end_to_end_local(tmp_path):
     """Test the ResultsExplorer end-to-end with local paths."""
     # Setup
-    output_destination = str(tmp_path / 'benchmark_output')
+    output_destination = tmp_path / 'benchmark_output'
+    result_explorer_path = output_destination / 'single_table'
     benchmark_single_table(
-        output_destination=output_destination,
+        output_destination=str(output_destination),
         synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
         sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
     )
     today = time.strftime('%m_%d_%Y')
 
     # Run
-    result_explorer = ResultsExplorer(output_destination)
+    result_explorer = ResultsExplorer(str(result_explorer_path))
     runs = result_explorer.list()
     results = result_explorer.load_results(runs[0])
     metainfo = result_explorer.load_metainfo(runs[0])
@@ -42,7 +43,7 @@ def test_end_to_end_local(tmp_path):
     new_synthetic_data = synthesizer.sample(num_rows=10)
 
     # Assert
-    expected_results = pd.read_csv(f'{output_destination}/SDGym_results_{today}/results.csv')
+    expected_results = pd.read_csv(f'{result_explorer_path}/SDGym_results_{today}/results.csv')
     pd.testing.assert_frame_equal(results, expected_results)
     assert metainfo[f'run_{today}_0']['jobs'] == [
         ['expedia_hotel_logs', 'GaussianCopulaSynthesizer'],
@@ -63,7 +64,7 @@ def test_end_to_end_local(tmp_path):
 def test_summarize():
     """Test the `summarize` method."""
     # Setup
-    output_destination = 'tests/integration/result_explorer/_benchmark_results'
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
     result_explorer = ResultsExplorer(output_destination)
 
     # Run

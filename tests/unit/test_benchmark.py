@@ -11,7 +11,6 @@ import pandas as pd
 import pytest
 import yaml
 
-from sdgym import benchmark_single_table
 from sdgym.benchmark import (
     _add_adjusted_scores,
     _check_write_permissions,
@@ -23,16 +22,128 @@ from sdgym.benchmark import (
     _generate_job_args_list,
     _get_metainfo_increment,
     _handle_deprecated_parameters,
+    _import_and_validate_synthesizers,
     _setup_output_destination,
     _setup_output_destination_aws,
     _update_metainfo_file,
     _validate_aws_inputs,
     _validate_output_destination,
     _write_metainfo_file,
+    benchmark_multi_table,
+    benchmark_single_table,
     benchmark_single_table_aws,
 )
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.s3 import S3_REGION
+from sdgym.synthesizers import MultiTableUniformSynthesizer, UniformSynthesizer
+
+
+class FakeSynth:
+    """Simple fake synthesizer with a configurable modality flag."""
+
+    def __init__(self, modality):
+        self._MODALITY_FLAG = modality
+
+
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
+@patch('sdgym.benchmark.get_duplicates', return_value=[])
+@patch('sdgym.benchmark.get_synthesizers')
+def test__import_and_validate_synthesizers_valid(
+    mock_get_synthesizers, mock_get_duplicates, modality
+):
+    """Test that `_import_and_validate_synthesizers` returns the `get_synthesizers` values."""
+    # Setup
+    fake_synth = FakeSynth(modality)
+
+    mock_get_synthesizers.return_value = [{'name': 'FakeSynth', 'synthesizer': fake_synth}]
+
+    # Run
+    result = _import_and_validate_synthesizers(
+        synthesizers=['FakeSynth'],
+        custom_synthesizers=None,
+        modality=modality,
+    )
+
+    # Assert
+    assert result == mock_get_synthesizers.return_value
+    mock_get_synthesizers.assert_called_once_with(['FakeSynth'])
+
+
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
+@patch('sdgym.benchmark.get_duplicates', return_value=[])
+@patch('sdgym.benchmark.get_synthesizers')
+def test__import_and_validate_synthesizers_mismatched_modality(
+    mock_get_synthesizers, mock_get_duplicates, modality
+):
+    """Test `_import_and_validate_synthesizers` raises  ValueError.
+
+    Test to ensure that if a synthesizer's modality does not match the expected one a ValueError
+    is being raised.
+    """
+    # Setup
+    wrong_modality = 'multi_table' if modality == 'single_table' else 'single_table'
+
+    # Dynamically create a class named BadSynth
+    FakeWrong = type('BadSynth', (), {'_MODALITY_FLAG': wrong_modality})
+    fake_wrong = FakeWrong()
+
+    mock_get_synthesizers.return_value = [{'name': 'BadSynth', 'synthesizer': fake_wrong}]
+
+    expected_message = (
+        f"Synthesizers must be of modality '{modality}'. "
+        f"Found these synthesizers that don't match: BadSynth"
+    )
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _import_and_validate_synthesizers(
+            synthesizers=['BadSynth'],
+            custom_synthesizers=[],
+            modality=modality,
+        )
+
+
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
+@patch('sdgym.benchmark.get_duplicates', return_value=['DupSynth'])
+@patch('sdgym.benchmark.get_synthesizers')
+def test__import_and_validate_synthesizers_duplicates(
+    mock_get_synthesizers, mock_get_duplicates, modality
+):
+    """Test `_import_and_validate_synthesizers` raises a ValueError when duplicate values."""
+    # Setup
+    fake_synth = FakeSynth(modality)
+    mock_get_synthesizers.return_value = [{'name': 'DupSynth', 'synthesizer': fake_synth}]
+
+    expected_message = re.escape(
+        'Synthesizers must be unique. Please remove repeated values in the provided synthesizers.'
+    )
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _import_and_validate_synthesizers(
+            synthesizers=['DupSynth'],
+            custom_synthesizers=['DupSynth'],
+            modality=modality,
+        )
+
+
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
+@patch('sdgym.benchmark.get_duplicates', return_value=[])
+@patch('sdgym.benchmark.get_synthesizers')
+def test__import_and_validate_synthesizers_none_inputs(
+    mock_get_synthesizers, mock_get_duplicates, modality
+):
+    """Test `_import_and_validate_synthesizers` with empty lists."""
+    # Run
+    result = _import_and_validate_synthesizers(
+        synthesizers=None,
+        custom_synthesizers=None,
+        modality=modality,
+    )
+
+    # Assert
+    assert result == mock_get_synthesizers.return_value
+    mock_get_synthesizers.assert_called_once_with([])
 
 
 @patch('sdgym.benchmark.os.path')
@@ -275,37 +386,49 @@ def test_run_ec2_flag(create_ec2_mock, session_mock, mock_write_permissions, moc
         benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/mock/path')
 
 
-def test__ensure_uniform_included_adds_uniform(caplog):
+@pytest.mark.parametrize(
+    'modality,uniform_string',
+    [('single_table', 'UniformSynthesizer'), ('multi_table', 'MultiTableUniformSynthesizer')],
+)
+def test__ensure_uniform_included_adds_uniform(modality, uniform_string, caplog):
     """Test that UniformSynthesizer gets added to the synthesizers list."""
     # Setup
     synthesizers = ['GaussianCopulaSynthesizer']
-    expected_message = 'Adding UniformSynthesizer to list of synthesizers.'
+    expected_message = f'Adding {uniform_string} to the list of synthesizers.'
 
     # Run
     with caplog.at_level(logging.INFO):
-        _ensure_uniform_included(synthesizers)
+        _ensure_uniform_included(synthesizers, modality)
 
     # Assert
-    assert synthesizers == ['GaussianCopulaSynthesizer', 'UniformSynthesizer']
+    assert synthesizers == ['GaussianCopulaSynthesizer', uniform_string]
     assert any(expected_message in record.message for record in caplog.records)
 
 
-def test__ensure_uniform_included_detects_uniform_class(caplog):
+@pytest.mark.parametrize(
+    'modality,uniform_class',
+    [('single_table', UniformSynthesizer), ('multi_table', MultiTableUniformSynthesizer)],
+)
+def test__ensure_uniform_included_detects_uniform_class(modality, uniform_class, caplog):
     """Test that the synthesizers list is unchanged if UniformSynthesizer class present."""
     # Setup
-    synthesizers = ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
-    expected_message = 'Adding UniformSynthesizer to list of synthesizers.'
+    synthesizers = [uniform_class, 'GaussianCopulaSynthesizer']
+    expected_message = f'Adding {uniform_class} to the list of synthesizers.'
 
     # Run
     with caplog.at_level(logging.INFO):
-        _ensure_uniform_included(synthesizers)
+        _ensure_uniform_included(synthesizers, modality)
 
     # Assert
-    assert synthesizers == ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
+    assert synthesizers == [uniform_class, 'GaussianCopulaSynthesizer']
     assert all(expected_message not in record.message for record in caplog.records)
 
 
-def test__ensure_uniform_included_detects_uniform_string(caplog):
+@pytest.mark.parametrize(
+    'modality,uniform_string',
+    [('single_table', 'UniformSynthesizer'), ('multi_table', 'MultiTableUniformSynthesizer')],
+)
+def test__ensure_uniform_included_detects_uniform_string(modality, uniform_string, caplog):
     """Test that the synthesizers list is unchanged if UniformSynthesizer string present."""
     # Setup
     synthesizers = ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
@@ -313,7 +436,7 @@ def test__ensure_uniform_included_detects_uniform_string(caplog):
 
     # Run
     with caplog.at_level(logging.INFO):
-        _ensure_uniform_included(synthesizers)
+        _ensure_uniform_included(synthesizers, 'single_table')
 
     # Assert
     assert synthesizers == ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
@@ -522,18 +645,30 @@ def test__validate_output_destination_with_aws_access_key_ids(mock_validate):
     )
 
 
-def test__setup_output_destination(tmp_path):
-    """Test the `_setup_output_destination` function."""
+def test__setup_output_destination_none():
+    """If output_destination is None, the function should return an empty dict."""
+    # Setup
+    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
+    datasets = ['adult', 'census']
+
+    # Run
+    result = _setup_output_destination(None, synthesizers, datasets, 'single_table')
+
+    # Assert
+    assert result == {}
+
+
+def test__setup_output_destination_single_table(tmp_path):
+    """Test the `_setup_output_destination` function with `single_table` modality."""
     # Setup
     output_destination = tmp_path / 'output_destination'
     synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer']
     datasets = ['adult', 'census']
     today = datetime.today().strftime('%m_%d_%Y')
-    base_path = output_destination / f'SDGym_results_{today}'
+    base_path = output_destination / 'single_table' / f'SDGym_results_{today}'
 
     # Run
-    result_1 = _setup_output_destination(None, synthesizers, datasets)
-    result_2 = _setup_output_destination(output_destination, synthesizers, datasets)
+    result = _setup_output_destination(output_destination, synthesizers, datasets, 'single_table')
 
     # Assert
     expected = {
@@ -554,8 +689,41 @@ def test__setup_output_destination(tmp_path):
         for dataset in datasets
     }
 
-    assert result_1 == {}
-    assert json.loads(json.dumps(result_2)) == expected
+    assert json.loads(json.dumps(result)) == expected
+
+
+def test__setup_output_destination_multi_table(tmp_path):
+    """Test the `_setup_output_destination` function with `multi_table` modality."""
+    # Setup
+    output_destination = tmp_path / 'output_destination'
+    synthesizers = ['HMASynthesizer']
+    datasets = ['NBA', 'financial']
+    today = datetime.today().strftime('%m_%d_%Y')
+    base_path = output_destination / 'multi_table' / f'SDGym_results_{today}'
+
+    # Run
+    result = _setup_output_destination(output_destination, synthesizers, datasets, 'multi_table')
+
+    # Assert
+    expected = {
+        dataset: {
+            synth: {
+                'synthesizer': str(base_path / f'{dataset}_{today}' / synth / f'{synth}.pkl'),
+                'synthetic_data': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.zip'
+                ),
+                'benchmark_result': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
+                ),
+                'metainfo': str(base_path / 'metainfo.yaml'),
+                'results': str(base_path / 'results.csv'),
+            }
+            for synth in synthesizers
+        }
+        for dataset in datasets
+    }
+
+    assert json.loads(json.dumps(result)) == expected
 
 
 @patch('sdgym.benchmark.datetime')
@@ -572,22 +740,28 @@ def test__write_metainfo_file(mock_datetime, tmp_path):
         ({'name': 'CTGANSynthesizer'}, 'census', None, None),
     ]
     expected_jobs = [['adult', 'GaussianCopulaSynthesizer'], ['census', 'CTGANSynthesizer']]
-    synthesizers = ['GaussianCopulaSynthesizer', 'CTGANSynthesizer', 'RealTabFormerSynthesizer']
+    synthesizers = [
+        {'name': 'GaussianCopulaSynthesizer'},
+        {'name': 'CTGANSynthesizer'},
+        {'name': 'RealTabFormerSynthesizer'},
+    ]
 
     # Run
-    _write_metainfo_file(synthesizers, jobs, result_writer)
+    _write_metainfo_file(synthesizers, jobs, 'single_table', result_writer)
 
     # Assert
-    assert Path(file_name['metainfo']).exists()
     with open(file_name['metainfo'], 'r') as file:
         metainfo_data = yaml.safe_load(file)
-        assert metainfo_data['run_id'] == 'run_06_26_2025_0'
-        assert metainfo_data['starting_date'] == '06_26_2025'
-        assert metainfo_data['jobs'] == expected_jobs
-        assert metainfo_data['sdgym_version'] == version('sdgym')
-        assert metainfo_data['sdv_version'] == version('sdv')
-        assert metainfo_data['realtabformer_version'] == version('realtabformer')
-        assert metainfo_data['completed_date'] is None
+
+    assert Path(file_name['metainfo']).exists()
+    assert metainfo_data['run_id'] == 'run_06_26_2025_0'
+    assert metainfo_data['starting_date'] == '06_26_2025'
+    assert metainfo_data['jobs'] == expected_jobs
+    assert metainfo_data['sdgym_version'] == version('sdgym')
+    assert metainfo_data['sdv_version'] == version('sdv')
+    assert metainfo_data['realtabformer_version'] == version('realtabformer')
+    assert metainfo_data['completed_date'] is None
+    assert metainfo_data['modality'] == 'single_table'
 
 
 @patch('sdgym.benchmark.datetime')
@@ -746,11 +920,15 @@ def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock
         _validate_aws_inputs(valid_url, None, None)
 
 
+@patch('sdgym.benchmark._import_and_validate_synthesizers')
 @patch('sdgym.benchmark._validate_output_destination')
 @patch('sdgym.benchmark._generate_job_args_list')
 @patch('sdgym.benchmark._run_on_aws')
 def test_benchmark_single_table_aws(
-    mock_run_on_aws, mock_generate_job_args_list, mock_validate_output_destination
+    mock_run_on_aws,
+    mock_generate_job_args_list,
+    mock_validate_output_destination,
+    mock__import_and_validate_synthesizers,
 ):
     """Test `benchmark_single_table_aws` method."""
     # Setup
@@ -761,6 +939,7 @@ def test_benchmark_single_table_aws(
     aws_secret_access_key = '67890'
     mock_validate_output_destination.return_value = 's3_client_mock'
     mock_generate_job_args_list.return_value = 'job_args_list_mock'
+    mock__import_and_validate_synthesizers.return_value = synthesizers
 
     # Run
     benchmark_single_table_aws(
@@ -792,8 +971,8 @@ def test_benchmark_single_table_aws(
         compute_privacy_score=True,
         synthesizers=synthesizers,
         detailed_results_folder=None,
-        custom_synthesizers=None,
         s3_client='s3_client_mock',
+        modality='single_table',
     )
     mock_run_on_aws.assert_called_once_with(
         output_destination=output_destination,
@@ -805,11 +984,15 @@ def test_benchmark_single_table_aws(
     )
 
 
+@patch('sdgym.benchmark._import_and_validate_synthesizers')
 @patch('sdgym.benchmark._validate_output_destination')
 @patch('sdgym.benchmark._generate_job_args_list')
 @patch('sdgym.benchmark._run_on_aws')
 def test_benchmark_single_table_aws_synthesizers_none(
-    mock_run_on_aws, mock_generate_job_args_list, mock_validate_output_destination
+    mock_run_on_aws,
+    mock_generate_job_args_list,
+    mock_validate_output_destination,
+    mock__import_and_validate_synthesizers,
 ):
     """Test `benchmark_single_table_aws` includes UniformSynthesizer if omitted."""
     # Setup
@@ -820,6 +1003,7 @@ def test_benchmark_single_table_aws_synthesizers_none(
     aws_secret_access_key = '67890'
     mock_validate_output_destination.return_value = 's3_client_mock'
     mock_generate_job_args_list.return_value = 'job_args_list_mock'
+    mock__import_and_validate_synthesizers.return_value = ['UniformSynthesizer']
 
     # Run
     benchmark_single_table_aws(
@@ -848,10 +1032,10 @@ def test_benchmark_single_table_aws_synthesizers_none(
         compute_quality_score=True,
         compute_diagnostic_score=True,
         compute_privacy_score=True,
-        synthesizers=['UniformSynthesizer'],
         detailed_results_folder=None,
-        custom_synthesizers=None,
+        synthesizers=['UniformSynthesizer'],
         s3_client='s3_client_mock',
+        modality='single_table',
     )
     mock_run_on_aws.assert_called_once_with(
         output_destination=output_destination,
@@ -1010,13 +1194,18 @@ def test__add_adjusted_scores_missing_fallback():
     assert scores.equals(expected)
 
 
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
 @patch('sdgym.benchmark.get_dataset_paths')
-def test__generate_job_args_list_local_root_additional_folder(get_dataset_paths_mock, tmp_path):
+def test__generate_job_args_list_local_root_additional_folder(
+    get_dataset_paths_mock,
+    tmp_path,
+    modality,
+):
     """Local additional_datasets_folder should point to root/single_table."""
     # Setup
     local_root = tmp_path / 'my_root'
     local_root.mkdir()
-    dataset_path = tmp_path / 'my_root' / 'single_table' / 'datasetA'
+    dataset_path = tmp_path / 'my_root' / modality / 'datasetA'
     get_dataset_paths_mock.return_value = [dataset_path]
 
     # Run
@@ -1032,14 +1221,14 @@ def test__generate_job_args_list_local_root_additional_folder(get_dataset_paths_
         compute_diagnostic_score=False,
         compute_privacy_score=False,
         synthesizers=[],
-        custom_synthesizers=None,
         s3_client=None,
+        modality=modality,
     )
 
     # Assert
     get_dataset_paths_mock.assert_called_once_with(
-        modality='single_table',
-        bucket=str(local_root / 'single_table'),
+        modality=modality,
+        bucket=str(local_root / modality),
         aws_access_key_id=None,
         aws_secret_access_key=None,
     )
@@ -1066,8 +1255,8 @@ def test__generate_job_args_list_s3_root_additional_folder(get_dataset_paths_moc
         compute_diagnostic_score=False,
         compute_privacy_score=False,
         synthesizers=[],
-        custom_synthesizers=None,
         s3_client=None,
+        modality='single_table',
     )
 
     # Assert
@@ -1106,3 +1295,120 @@ def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
     warnings_text = ' '.join(str(w.message) for w in recwarn)
     assert 'is incompatible with transformer' not in warnings_text
     pd.testing.assert_frame_equal(result[expected_result.columns], expected_result)
+
+
+@patch('sdgym.benchmark._import_and_validate_synthesizers')
+@patch('sdgym.benchmark._update_metainfo_file')
+@patch('sdgym.benchmark._write_metainfo_file')
+@patch('sdgym.benchmark._run_jobs')
+@patch('sdgym.benchmark._generate_job_args_list')
+@patch('sdgym.benchmark.LocalResultsWriter')
+@patch('sdgym.benchmark._validate_output_destination')
+def test_benchmark_multi_table_with_jobs(
+    mock__validate_output_destination,
+    mock_LocalResultsWriter,
+    mock__generate_job_args_list,
+    mock__run_jobs,
+    mock__write_metainfo_file,
+    mock__update_metainfo_file,
+    mock__import_and_validate_synthesizers,
+):
+    """Test that `benchmark_multi_table` runs jobs and updates metainfo when there are job args."""
+    # Setup
+    fake_scores = pd.DataFrame({'a': [1]})
+    mock__run_jobs.return_value = fake_scores
+    job_args = ('arg1', 'arg2', {'metainfo': 'meta.yaml'})
+    mock__generate_job_args_list.return_value = [job_args]
+    expected_valid_synthesizers = ['HMASynthesizer', 'MultiTableUniformSynthesizer', 'CustomSynth']
+
+    mock__import_and_validate_synthesizers.return_value = expected_valid_synthesizers
+    # Run
+    scores = benchmark_multi_table(
+        synthesizers=['HMASynthesizer'],
+        custom_synthesizers=['CustomSynth'],
+        sdv_datasets=['dataset1'],
+        additional_datasets_folder='extra',
+        limit_dataset_size=True,
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        timeout=10,
+        output_destination='output_dir',
+        show_progress=True,
+    )
+
+    # Assert
+    mock__validate_output_destination.assert_called_once_with('output_dir')
+    mock_LocalResultsWriter.assert_called_once_with()
+    mock__generate_job_args_list.assert_called_once_with(
+        limit_dataset_size=True,
+        sdv_datasets=['dataset1'],
+        additional_datasets_folder='extra',
+        sdmetrics=None,
+        detailed_results_folder=None,
+        timeout=10,
+        output_destination='output_dir',
+        compute_quality_score=True,
+        compute_diagnostic_score=True,
+        compute_privacy_score=None,
+        synthesizers=expected_valid_synthesizers,
+        s3_client=None,
+        modality='multi_table',
+    )
+    mock__write_metainfo_file.assert_called_once()
+    mock__run_jobs.assert_called_once_with(
+        multi_processing_config=None,
+        job_args_list=[job_args],
+        show_progress=True,
+        result_writer=mock_LocalResultsWriter.return_value,
+    )
+    mock__update_metainfo_file.assert_called_once_with(
+        'meta.yaml',
+        mock_LocalResultsWriter.return_value,
+    )
+    pd.testing.assert_frame_equal(scores, fake_scores)
+    mock__import_and_validate_synthesizers.assert_called_once_with(
+        ['HMASynthesizer', 'MultiTableUniformSynthesizer'], ['CustomSynth'], 'multi_table'
+    )
+
+
+@patch('sdgym.benchmark._import_and_validate_synthesizers')
+@patch('sdgym.benchmark._write_metainfo_file')
+@patch('sdgym.benchmark._validate_output_destination')
+def test_benchmark_multi_table_no_jobs(
+    mock__validate_output_destination,
+    mock__write_metainfo_file,
+    mock__import_and_validate_synthesizers,
+):
+    """Test that benchmark_multi_table returns empty dataframe when there are no job args."""
+    # Setup
+    empty_scores = pd.DataFrame({
+        'Synthesizer': [],
+        'Dataset': [],
+        'Dataset_Size_MB': [],
+        'Train_Time': [],
+        'Peak_Memory_MB': [],
+        'Synthesizer_Size_MB': [],
+        'Sample_Time': [],
+        'Evaluate_Time': [],
+        'Adjusted_Total_Time': [],
+        'Diagnostic_Score': [],
+    })
+
+    # Run
+    scores = benchmark_multi_table(
+        synthesizers=[],
+        custom_synthesizers=None,
+        sdv_datasets=None,
+        additional_datasets_folder=None,
+        limit_dataset_size=False,
+        compute_quality_score=False,
+        compute_diagnostic_score=True,
+        timeout=None,
+        output_destination=None,
+        show_progress=False,
+    )
+
+    # Assert
+    mock__validate_output_destination.assert_called_once_with(None)
+    mock__write_metainfo_file.assert_called_once()
+    pd.testing.assert_frame_equal(scores, empty_scores)
