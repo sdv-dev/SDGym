@@ -2,7 +2,6 @@
 
 import os
 
-from sdgym.benchmark import DEFAULT_SINGLE_TABLE_DATASETS
 from sdgym.datasets import load_dataset
 from sdgym.result_explorer.result_handler import (
     SYNTHESIZER_BASELINE,
@@ -105,14 +104,6 @@ class ResultsExplorer:
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset."""
-        if (self.modality is None or self.modality == 'single_table') and (
-            dataset_name not in DEFAULT_SINGLE_TABLE_DATASETS
-        ):
-            raise ValueError(
-                f"Dataset '{dataset_name}' is not a SDGym dataset. "
-                'Please provide a valid dataset name.'
-            )
-
         data, _ = load_dataset(
             modality=self.modality,
             dataset=dataset_name,
