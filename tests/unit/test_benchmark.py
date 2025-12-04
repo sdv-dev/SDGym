@@ -730,7 +730,6 @@ def test__setup_output_destination_multi_table(tmp_path):
 @patch('sdgym.benchmark.datetime')
 def test__write_metainfo_file(mock_datetime, tmp_path):
     """Test the `_write_metainfo_file` method."""
-    pytest.importorskip('realtabformer')
     # Setup
     output_destination = tmp_path / 'SDGym_results_06_26_2025'
     output_destination.mkdir()

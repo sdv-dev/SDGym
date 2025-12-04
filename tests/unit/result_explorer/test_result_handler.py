@@ -261,6 +261,24 @@ class TestResultsHandler:
 class TestLocalResultsHandler:
     """Unit tests for the LocalResultsHandler class."""
 
+    def test__init__sets_base_path_and_default_baseline(self, tmp_path):
+        """Test it initializes base_path and default baseline."""
+        # Run
+        handler = LocalResultsHandler(str(tmp_path))
+
+        # Assert
+        assert handler.base_path == str(tmp_path)
+        assert handler.baseline_synthesizer == 'GaussianCopulaSynthesizer'
+
+    def test__init__supports_baseline_override(self, tmp_path):
+        """Test it allows overriding baseline synthesizer."""
+        # Run
+        handler = LocalResultsHandler(str(tmp_path), baseline_synthesizer='CustomBaseline')
+
+        # Assert
+        assert handler.base_path == str(tmp_path)
+        assert handler.baseline_synthesizer == 'CustomBaseline'
+
     def test_list(self, tmp_path):
         """Test the `list` method"""
         # Setup
@@ -418,9 +436,7 @@ class TestLocalResultsHandler:
 class TestS3ResultsHandler:
     """Unit tests for the S3ResultsHandler class."""
 
-    def test__init__(
-        self,
-    ):
+    def test__init__(self):
         """Test the `__init__` method."""
         # Setup
         path = 's3://my-bucket/prefix'
@@ -432,6 +448,21 @@ class TestS3ResultsHandler:
         assert result_handler.s3_client == 's3_client'
         assert result_handler.bucket_name == 'my-bucket'
         assert result_handler.prefix == 'prefix/'
+        assert result_handler.baseline_synthesizer == 'GaussianCopulaSynthesizer'
+
+    def test__init__supports_baseline_override(self):
+        """Test it allows overriding baseline synthesizer."""
+        # Run
+        s3_client = Mock()
+        handler = S3ResultsHandler(
+            's3://bkt/prefix', s3_client, baseline_synthesizer='CustomBaseline'
+        )
+
+        # Assert
+        assert handler.baseline_synthesizer == 'CustomBaseline'
+        assert handler.s3_client == s3_client
+        assert handler.bucket_name == 'bkt'
+        assert handler.prefix == 'prefix/'
 
     def test_list(self):
         """Test the `list` method."""

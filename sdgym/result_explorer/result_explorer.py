@@ -10,6 +10,7 @@ from sdgym.result_explorer.result_handler import (
     S3ResultsHandler,
 )
 from sdgym.s3 import _get_s3_client, is_s3_path
+from sdgym.synthesizers.base import _validate_modality
 
 
 def _validate_local_path(path):
@@ -34,9 +35,7 @@ def _resolve_effective_path(path, modality):
     if not modality:
         return path
 
-    if modality not in ('single_table', 'multi_table'):
-        valid = ', '.join(sorted(('single_table', 'multi_table')))
-        raise ValueError(f'Invalid modality "{modality}". Valid options are: {valid}.')
+    _validate_modality(modality)
 
     # Avoid double-appending if already included
     if str(path).rstrip('/').endswith(('/' + modality, modality)):

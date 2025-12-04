@@ -401,7 +401,7 @@ class S3ResultsHandler(ResultsHandler):
                     if name.endswith('.csv'):
                         table_name = os.path.splitext(os.path.basename(name))[0]
                         with zf.open(name) as csv_file:
-                            tables[table_name] = pd.read_csv(csv_file, low_memory=False)
+                            tables[table_name] = pd.read_csv(csv_file)
 
             return tables
 
