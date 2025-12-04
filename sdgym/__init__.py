@@ -16,6 +16,7 @@ from sdgym.benchmark import (
     benchmark_multi_table,
     benchmark_single_table,
     benchmark_single_table_aws,
+    benchmark_multi_table_aws,
 )
 from sdgym.cli.collect import collect_results
 from sdgym.cli.summary import make_summary_spreadsheet
@@ -36,6 +37,7 @@ __all__ = [
     'DatasetExplorer',
     'ResultsExplorer',
     'benchmark_multi_table',
+    'benchmark_multi_table_aws',
     'benchmark_single_table',
     'benchmark_single_table_aws',
     'collect_results',
