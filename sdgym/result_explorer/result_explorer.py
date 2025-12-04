@@ -25,11 +25,6 @@ _BASELINE_BY_MODALITY = {
 }
 
 
-def _get_baseline_synthesizer(modality):
-    """Return the appropriate baseline synthesizer for the given modality."""
-    return _BASELINE_BY_MODALITY.get(modality, SYNTHESIZER_BASELINE)
-
-
 def _resolve_effective_path(path, modality):
     """Append the modality folder to the given base path if provided."""
     if not modality:
@@ -51,11 +46,10 @@ def _resolve_effective_path(path, modality):
 class ResultsExplorer:
     """Explorer for SDGym benchmark results, supporting both local and S3 storage."""
 
-    def _create_results_handler(self, original_path, effective_path, baseline_synthesizer):
+    def _create_results_handler(self, original_path, effective_path):
         """Create the appropriate results handler for local or S3 storage."""
+        baseline_synthesizer = _BASELINE_BY_MODALITY.get(self.modality, SYNTHESIZER_BASELINE)
         if is_s3_path(original_path):
-            # Use original path to obtain client (keeps backwards compatibility),
-            # but handler should operate on the modality-specific effective path.
             s3_client = _get_s3_client(
                 original_path, self.aws_access_key_id, self.aws_secret_access_key
             )
@@ -71,9 +65,8 @@ class ResultsExplorer:
         self.modality = modality.lower()
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-        baseline_synthesizer = _get_baseline_synthesizer(modality)
         effective_path = _resolve_effective_path(path, modality)
-        self._handler = self._create_results_handler(path, effective_path, baseline_synthesizer)
+        self._handler = self._create_results_handler(path, effective_path)
 
     def list(self):
         """List all runs available in the results directory."""
@@ -112,7 +105,6 @@ class ResultsExplorer:
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset."""
-        # Keep strict validation for single_table to preserve existing behavior
         if (self.modality is None or self.modality == 'single_table') and (
             dataset_name not in DEFAULT_SINGLE_TABLE_DATASETS
         ):
