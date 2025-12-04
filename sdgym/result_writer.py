@@ -154,3 +154,16 @@ class S3ResultsWriter(ResultsWriter):
         run_data.update(data)
         new_content = yaml.dump(run_data)
         self.s3_client.put_object(Body=new_content.encode(), Bucket=bucket, Key=key)
+
+    def write_zipped_dataframes(self, data, file_path, index=False):
+        """Write a dictionary of DataFrames to a ZIP file in S3."""
+        bucket, key = parse_s3_path(file_path)
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for table_name, table in data.items():
+                csv_buf = io.StringIO()
+                table.to_csv(csv_buf, index=index)
+                zf.writestr(f'{table_name}.csv', csv_buf.getvalue())
+
+        zip_buffer.seek(0)
+        self.s3_client.upload_fileobj(zip_buffer, bucket, key)
