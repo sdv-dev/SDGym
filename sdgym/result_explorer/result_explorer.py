@@ -18,12 +18,8 @@ def _validate_local_path(path):
         raise ValueError(f"The provided path '{path}' is not a valid local directory.")
 
 
-_FOLDER_BY_MODALITY = {
-    'single_table': 'single_table',
-    'multi_table': 'multi_table',
-}
-
 _BASELINE_BY_MODALITY = {
+    'single_table': SYNTHESIZER_BASELINE,
     'multi_table': 'MultiTableUniformSynthesizer',
 }
 
@@ -38,45 +34,47 @@ def _resolve_effective_path(path, modality):
     if not modality:
         return path
 
-    folder = _FOLDER_BY_MODALITY.get(modality)
-    if folder is None:
-        valid = ', '.join(sorted(_FOLDER_BY_MODALITY))
+    if modality not in ('single_table', 'multi_table'):
+        valid = ', '.join(sorted(('single_table', 'multi_table')))
         raise ValueError(f'Invalid modality "{modality}". Valid options are: {valid}.')
 
     # Avoid double-appending if already included
-    if str(path).rstrip('/').endswith(('/' + folder, folder)):
+    if str(path).rstrip('/').endswith(('/' + modality, modality)):
         return path
 
     if is_s3_path(path):
-        path = path.rstrip('/') + '/' + folder
+        path = path.rstrip('/') + '/' + modality
         return path
 
-    return os.path.join(path, folder)
+    return os.path.join(path, modality)
 
 
 class ResultsExplorer:
     """Explorer for SDGym benchmark results, supporting both local and S3 storage."""
 
-    def __init__(self, path, modality, aws_access_key_id=None, aws_secret_access_key=None):
-        self.path = path
-        self.modality = modality
-        self.aws_access_key_id = aws_access_key_id
-        self.aws_secret_access_key = aws_secret_access_key
-
-        baseline_synthesizer = _get_baseline_synthesizer(modality)
-        effective_path = _resolve_effective_path(path, modality)
-        if is_s3_path(path):
+    def _create_results_handler(self, original_path, effective_path, baseline_synthesizer):
+        """Create the appropriate results handler for local or S3 storage."""
+        if is_s3_path(original_path):
             # Use original path to obtain client (keeps backwards compatibility),
             # but handler should operate on the modality-specific effective path.
-            s3_client = _get_s3_client(path, aws_access_key_id, aws_secret_access_key)
-            self._handler = S3ResultsHandler(
+            s3_client = _get_s3_client(
+                original_path, self.aws_access_key_id, self.aws_secret_access_key
+            )
+            return S3ResultsHandler(
                 effective_path, s3_client, baseline_synthesizer=baseline_synthesizer
             )
-        else:
-            _validate_local_path(effective_path)
-            self._handler = LocalResultsHandler(
-                effective_path, baseline_synthesizer=baseline_synthesizer
-            )
+
+        _validate_local_path(effective_path)
+        return LocalResultsHandler(effective_path, baseline_synthesizer=baseline_synthesizer)
+
+    def __init__(self, path, modality, aws_access_key_id=None, aws_secret_access_key=None):
+        self.path = path
+        self.modality = modality.lower()
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        baseline_synthesizer = _get_baseline_synthesizer(modality)
+        effective_path = _resolve_effective_path(path, modality)
+        self._handler = self._create_results_handler(path, effective_path, baseline_synthesizer)
 
     def list(self):
         """List all runs available in the results directory."""
@@ -125,7 +123,7 @@ class ResultsExplorer:
             )
 
         data, _ = load_dataset(
-            modality=self.modality or 'single_table',
+            modality=self.modality,
             dataset=dataset_name,
             aws_access_key_id=self.aws_access_key_id,
             aws_secret_access_key=self.aws_secret_access_key,

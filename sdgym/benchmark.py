@@ -38,7 +38,7 @@ from sdmetrics.reports.single_table import (
 )
 from sdmetrics.single_table import DCRBaselineProtection
 
-from sdgym import __version__ as SDGYM_VERSION
+# from sdgym import __version__ as SDGYM_VERSION
 from sdgym.datasets import get_dataset_paths, load_dataset
 from sdgym.errors import BenchmarkError, SDGymError
 from sdgym.metrics import get_metrics
@@ -1236,7 +1236,7 @@ def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=No
         'modality': modality,
         'starting_date': datetime.today().strftime('%m_%d_%Y %H:%M:%S'),
         'completed_date': None,
-        'sdgym_version': SDGYM_VERSION,
+        'sdgym_version': version('sdgym'),
         'jobs': jobs,
     }
 

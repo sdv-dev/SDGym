@@ -11,7 +11,6 @@ import pandas as pd
 import pytest
 import yaml
 
-import sdgym
 from sdgym.benchmark import (
     _add_adjusted_scores,
     _check_write_permissions,
@@ -760,7 +759,7 @@ def test__write_metainfo_file(mock_datetime, tmp_path):
     assert metainfo_data['run_id'] == 'run_06_26_2025_0'
     assert metainfo_data['starting_date'] == '06_26_2025'
     assert metainfo_data['jobs'] == expected_jobs
-    assert metainfo_data['sdgym_version'] == sdgym.__version__
+    assert metainfo_data['sdgym_version'] == version('sdgym')
     assert metainfo_data['sdv_version'] == version('sdv')
     assert metainfo_data['realtabformer_version'] == version('realtabformer')
     assert metainfo_data['completed_date'] is None
