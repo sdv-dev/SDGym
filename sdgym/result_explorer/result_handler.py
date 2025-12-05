@@ -5,8 +5,6 @@ import operator
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
-from io import BytesIO
-from zipfile import ZipFile
 
 import cloudpickle
 import pandas as pd
@@ -27,7 +25,6 @@ class ResultsHandler(ABC):
     """Abstract base class for handling results storage and retrieval."""
 
     def __init__(self, baseline_synthesizer=SYNTHESIZER_BASELINE):
-        # Allow overrides per modality while maintaining the historical default.
         self.baseline_synthesizer = baseline_synthesizer or SYNTHESIZER_BASELINE
 
     @abstractmethod
@@ -395,15 +392,7 @@ class S3ResultsHandler(ResultsHandler):
         response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
         body = response['Body'].read()
         if file_path.endswith('.zip'):
-            tables = {}
-            with ZipFile(BytesIO(body)) as zf:
-                for name in zf.namelist():
-                    if name.endswith('.csv'):
-                        table_name = os.path.splitext(os.path.basename(name))[0]
-                        with zf.open(name) as csv_file:
-                            tables[table_name] = pd.read_csv(csv_file)
-
-            return tables
+            return _read_zipped_data(io.BytesIO(body), modality='multi_table')
 
         return pd.read_csv(io.BytesIO(body))
 

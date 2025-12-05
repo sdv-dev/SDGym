@@ -26,18 +26,12 @@ _BASELINE_BY_MODALITY = {
 
 def _resolve_effective_path(path, modality):
     """Append the modality folder to the given base path if provided."""
-    if not modality:
-        return path
-
-    _validate_modality(modality)
-
     # Avoid double-appending if already included
     if str(path).rstrip('/').endswith(('/' + modality, modality)):
         return path
 
     if is_s3_path(path):
-        path = path.rstrip('/') + '/' + modality
-        return path
+        return path.rstrip('/') + '/' + modality
 
     return os.path.join(path, modality)
 
@@ -59,12 +53,15 @@ class ResultsExplorer:
         _validate_local_path(effective_path)
         return LocalResultsHandler(effective_path, baseline_synthesizer=baseline_synthesizer)
 
-    def __init__(self, path, modality, aws_access_key_id=None, aws_secret_access_key=None):
+    def __init__(
+        self, path, modality='single_table', aws_access_key_id=None, aws_secret_access_key=None
+    ):
         self.path = path
+        _validate_modality(modality)
         self.modality = modality.lower()
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-        effective_path = _resolve_effective_path(path, modality)
+        effective_path = _resolve_effective_path(path, self.modality)
         self._handler = self._create_results_handler(path, effective_path)
 
     def list(self):
