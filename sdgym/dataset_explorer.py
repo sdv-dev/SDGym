@@ -1,13 +1,32 @@
 """Dataset Explorer to summarize datasets stored in S3 buckets."""
 
+import warnings
 from collections import defaultdict
 from pathlib import Path
-from urllib.parse import urlparse
 
 import pandas as pd
 from sdv.metadata import Metadata
 
 from sdgym.datasets import BUCKET, _get_available_datasets, _validate_modality, load_dataset
+from sdgym.s3 import _validate_s3_url
+
+SUMMARY_OUTPUT_COLUMNS = [
+    'Dataset',
+    'Datasize_Size_MB',
+    'Num_Tables',
+    'Total_Num_Columns',
+    'Total_Num_Columns_Categorical',
+    'Total_Num_Columns_Numerical',
+    'Total_Num_Columns_Datetime',
+    'Total_Num_Columns_PII',
+    'Total_Num_Columns_ID_NonKey',
+    'Max_Num_Columns_Per_Table',
+    'Total_Num_Rows',
+    'Max_Num_Rows_Per_Table',
+    'Num_Relationships',
+    'Max_Schema_Depth',
+    'Max_Schema_Branch',
+]
 
 
 class DatasetExplorer:
@@ -23,14 +42,14 @@ class DatasetExplorer:
         aws_access_key_id (str, optional):
             AWS access key ID for authentication. Defaults to ``None``.
         aws_secret_access_key (str, optional):
-            AWS secret access key for authentication. Defaults to ``Non``.
+            AWS secret access key for authentication. Defaults to ``None``.
     """
 
     def __init__(self, s3_url=BUCKET, aws_access_key_id=None, aws_secret_access_key=None):
         self.s3_url = s3_url
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-        self._bucket_name = urlparse(self.s3_url).netloc
+        self._bucket_name = _validate_s3_url(self.s3_url)
 
     @staticmethod
     def _get_max_schema_branch_factor(relationships):
@@ -240,12 +259,19 @@ class DatasetExplorer:
 
         Raises:
             ValueError:
-                If the provided path is not None and does not end with '.csv'.
+                If the provided path is not None and does not end with '.csv', or
+                if the target file already exists.
         """
-        if output_filepath and not Path(output_filepath).suffix == '.csv':
-            raise ValueError(
-                f"The 'output_filepath' has to be a .csv file, provided: '{output_filepath}'."
-            )
+        if output_filepath:
+            path_obj = Path(output_filepath)
+            if path_obj.suffix != '.csv':
+                raise ValueError(
+                    f"The 'output_filepath' has to be a .csv file, provided: '{output_filepath}'."
+                )
+            if path_obj.exists():
+                raise ValueError(
+                    f"The file '{path_obj}' already exists. Please provide a new 'output_filepath'."
+                )
 
     def summarize_datasets(self, modality, output_filepath=None):
         """Load, summarize, and optionally export dataset statistics for a given modality.
@@ -270,7 +296,17 @@ class DatasetExplorer:
         self._validate_output_filepath(output_filepath)
         _validate_modality(modality)
         results = self._load_and_summarize_datasets(modality)
-        dataset_summary = pd.DataFrame(results)
+
+        if not results:
+            warning_msg = (
+                f"The provided S3 URL '{self.s3_url}' does not contain any datasets "
+                f"of modality '{modality}'."
+            )
+            warnings.warn(warning_msg, UserWarning)
+            dataset_summary = pd.DataFrame(columns=SUMMARY_OUTPUT_COLUMNS)
+        else:
+            dataset_summary = pd.DataFrame(results)
+
         if output_filepath:
             dataset_summary.to_csv(output_filepath, index=False)
 

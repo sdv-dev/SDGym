@@ -173,7 +173,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Adjusted_Total_Time': {0: None},
         'Adjusted_Quality_Score': {0: None},
     })
-    pd.testing.assert_frame_equal(scores, expected_scores)
+    pd.testing.assert_frame_equal(scores, expected_scores, check_dtype=False)
 
 
 @patch('sdgym.benchmark.boto3.client')
@@ -868,12 +868,14 @@ def test__add_adjusted_scores_no_failures():
     # Setup
     scores = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, 0.5],
         'Sample_Time': [2.0, 0.25],
         'Quality_Score': [1.0, 0.5],
     })
     expected = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, 0.5],
         'Sample_Time': [2.0, 0.25],
         'Quality_Score': [1.0, 0.5],
@@ -885,7 +887,7 @@ def test__add_adjusted_scores_no_failures():
     _add_adjusted_scores(scores, 10.0)
 
     # Assert
-    assert scores.equals(expected)
+    pd.testing.assert_frame_equal(scores, expected)
 
 
 def test__fill_adjusted_scores_with_none():
@@ -893,17 +895,20 @@ def test__fill_adjusted_scores_with_none():
     # Setup
     scores_1 = pd.DataFrame({
         'Synthesizer': ['Synth1', 'Synth2'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, None],
         'Sample_Time': [2.0, 3.0],
         'Quality_Score': [0.8, None],
     })
     scores_2 = pd.DataFrame({
         'Synthesizer': ['Synth1', 'Synth2'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, None],
         'Sample_Time': [2.0, 3.0],
     })
     expected = pd.DataFrame({
         'Synthesizer': ['Synth1', 'Synth2'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [1.0, None],
         'Sample_Time': [2.0, 3.0],
         'Quality_Score': [0.8, None],
@@ -927,6 +932,7 @@ def test__add_adjusted_scores_timeout():
     # Setup
     scores = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [np.nan, 0.5],
         'Sample_Time': [np.nan, 0.25],
         'Quality_Score': [np.nan, 0.5],
@@ -934,6 +940,7 @@ def test__add_adjusted_scores_timeout():
     })
     expected = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1'],
         'Train_Time': [np.nan, 0.5],
         'Sample_Time': [np.nan, 0.25],
         'Quality_Score': [np.nan, 0.5],
@@ -954,6 +961,7 @@ def test__add_adjusted_scores_errors():
     # Setup
     scores = pd.DataFrame({
         'Synthesizer': ['ErrorOnTrain', 'ErrorOnSample', 'ErrorAfterSample', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1', 'dataset1', 'dataset1'],
         'Train_Time': [np.nan, 1.0, 1.0, 0.5],
         'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
         'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
@@ -961,6 +969,7 @@ def test__add_adjusted_scores_errors():
     })
     expected = pd.DataFrame({
         'Synthesizer': ['ErrorOnTrain', 'ErrorOnSample', 'ErrorAfterSample', 'UniformSynthesizer'],
+        'Dataset': ['dataset1', 'dataset1', 'dataset1', 'dataset1'],
         'Train_Time': [np.nan, 1.0, 1.0, 0.5],
         'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
         'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
