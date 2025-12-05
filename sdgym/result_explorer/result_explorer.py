@@ -2,7 +2,7 @@
 
 import os
 
-from sdgym.benchmark import DEFAULT_DATASETS
+from sdgym.benchmark import DEFAULT_SINGLE_TABLE_DATASETS
 from sdgym.datasets import load_dataset
 from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 from sdgym.s3 import _get_s3_client, is_s3_path
@@ -62,7 +62,7 @@ class ResultsExplorer:
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset."""
-        if dataset_name not in DEFAULT_DATASETS:
+        if dataset_name not in DEFAULT_SINGLE_TABLE_DATASETS:
             raise ValueError(
                 f"Dataset '{dataset_name}' is not a SDGym dataset. "
                 'Please provide a valid dataset name.'

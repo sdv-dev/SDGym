@@ -3,10 +3,10 @@
 import io
 import operator
 import os
-import pickle
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+import cloudpickle
 import pandas as pd
 import yaml
 from botocore.exceptions import ClientError
@@ -259,7 +259,7 @@ class LocalResultsHandler(ResultsHandler):
     def load_synthesizer(self, file_path):
         """Load a synthesizer from a pickle file."""
         with open(os.path.join(self.base_path, file_path), 'rb') as f:
-            return pickle.load(f)
+            return cloudpickle.load(f)
 
     def load_synthetic_data(self, file_path):
         """Load synthetic data from a CSV file."""
@@ -370,7 +370,7 @@ class S3ResultsHandler(ResultsHandler):
         response = self.s3_client.get_object(
             Bucket=self.bucket_name, Key=f'{self.prefix}{file_path}'
         )
-        return pickle.loads(response['Body'].read())
+        return cloudpickle.loads(response['Body'].read())
 
     def load_synthetic_data(self, file_path):
         """Load synthetic data from S3."""

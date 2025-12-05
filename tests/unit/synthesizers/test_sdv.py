@@ -9,35 +9,14 @@ from sdv.single_table import GaussianCopulaSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.synthesizers.sdv import (
     _create_sdv_class,
+    _fit,
     _get_all_sdv_synthesizers,
     _get_modality,
     _get_sdv_synthesizers,
-    _get_trained_synthesizer,
     _retrieve_sdv_class,
     _sample_from_synthesizer,
-    _validate_modality,
     create_sdv_synthesizer_class,
 )
-
-
-def test__validate_modality():
-    """Test the `_validate_modality` method."""
-    # Setup
-    valid_modalities = ['single_table', 'multi_table']
-
-    # Run and Assert
-    for modality in valid_modalities:
-        _validate_modality(modality)
-
-
-def test__validate_modality_invalid():
-    """Test the `_validate_modality` method with invalid modality."""
-    # Setup
-    expected_error = re.escape("`modality` must be one of 'single_table' or 'multi_table'.")
-
-    # Run and Assert
-    with pytest.raises(ValueError, match=expected_error):
-        _validate_modality('invalid_modality')
 
 
 def test__get_sdv_synthesizers():
@@ -79,8 +58,8 @@ def test__get_all_sdv_synthesizers():
 
 
 @patch('sdgym.synthesizers.sdv.LOGGER')
-def test__get_trained_synthesizer(mock_logger):
-    """Test the `_get_trained_synthesizer` method."""
+def test__fit(mock_logger):
+    """Test the `_fit` method."""
     # Setup
     data = pd.DataFrame({
         'column1': [1, 2, 3, 4, 5],
@@ -99,16 +78,17 @@ def test__get_trained_synthesizer(mock_logger):
     synthesizer = Mock()
     synthesizer.__class__.__name__ = 'GaussianCopulaClass'
     synthesizer._MODEL_KWARGS = {'enforce_min_max_values': False}
-    synthesizer.modality = 'single_table'
+    synthesizer._MODALITY_FLAG = 'single_table'
     synthesizer.SDV_NAME = 'GaussianCopulaSynthesizer'
 
     # Run
-    valid_model = _get_trained_synthesizer(synthesizer, data, metadata)
+    _fit(synthesizer, data, metadata)
 
     # Assert
     mock_logger.info.assert_called_with('Fitting %s', 'GaussianCopulaClass')
-    assert isinstance(valid_model, GaussianCopulaSynthesizer)
-    assert valid_model.enforce_min_max_values is False
+    assert isinstance(synthesizer._internal_synthesizer, GaussianCopulaSynthesizer)
+    assert synthesizer._internal_synthesizer.enforce_min_max_values is False
+    assert synthesizer._internal_synthesizer._fitted is True
 
 
 @patch('sdgym.synthesizers.sdv.LOGGER')
@@ -121,9 +101,10 @@ def test__sample_from_synthesizer(mock_logger):
     })
     base_synthesizer = Mock()
     base_synthesizer.__class__.__name__ = 'GaussianCopulaSynthesizer'
-    base_synthesizer.modality = 'single_table'
+    base_synthesizer._MODALITY_FLAG = 'single_table'
     synthesizer = Mock()
-    synthesizer.sample.return_value = data
+    synthesizer._internal_synthesizer = Mock()
+    synthesizer._internal_synthesizer.sample.return_value = data
     n_samples = 3
 
     # Run
@@ -132,7 +113,7 @@ def test__sample_from_synthesizer(mock_logger):
     # Assert
     mock_logger.info.assert_called_with('Sampling %s', 'GaussianCopulaSynthesizer')
     pd.testing.assert_frame_equal(sampled_data, data)
-    synthesizer.sample.assert_called_once_with(num_rows=n_samples)
+    synthesizer._internal_synthesizer.sample.assert_called_once_with(num_rows=n_samples)
 
 
 @patch('sdgym.synthesizers.sdv.sys.modules')
@@ -187,15 +168,15 @@ def test__create_sdv_class_mock(mock_get_modality, mock_sys_modules):
 
     # Assert
     assert synt_class.__name__ == sdv_name
-    assert synt_class.modality == 'single_table'
+    assert synt_class._MODALITY_FLAG == 'single_table'
     assert synt_class._MODEL_KWARGS == {}
     assert synt_class.SDV_NAME == sdv_name
     assert issubclass(synt_class, BaselineSynthesizer)
-    assert getattr(synt_class, '_get_trained_synthesizer') is _get_trained_synthesizer
+    assert getattr(synt_class, '_fit') is _fit
     assert getattr(synt_class, '_sample_from_synthesizer') is _sample_from_synthesizer
     assert getattr(fake_module, sdv_name) is synt_class
-    assert instance._get_trained_synthesizer.__self__ is instance
-    assert instance._get_trained_synthesizer.__func__ is _get_trained_synthesizer
+    assert instance._fit.__self__ is instance
+    assert instance._fit.__func__ is _fit
     assert instance._sample_from_synthesizer.__self__ is instance
     assert instance._sample_from_synthesizer.__func__ is _sample_from_synthesizer
     assert instance.SDV_NAME == sdv_name
@@ -212,7 +193,7 @@ def test__create_sdv_class():
 
     # Assert
     assert synthesizer_class.__name__ == sdv_name
-    assert synthesizer_class.modality == 'single_table'
+    assert synthesizer_class._MODALITY_FLAG == 'single_table'
     assert synthesizer_class._MODEL_KWARGS == {}
     assert issubclass(synthesizer_class, BaselineSynthesizer)
 
