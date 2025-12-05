@@ -280,8 +280,9 @@ class TestResultsExplorer:
         path = tmp_path / 'single_table'
         path.mkdir(parents=True)
         result_explorer = ResultsExplorer(str(path), modality='single_table')
-        expected_error_message = re.escape(
-            f"Dataset '{dataset_name}' is not a SDGym dataset. Please provide a valid dataset name."
+        expected_error_message = (
+            "Dataset 'invalid_dataset' not found in bucket 's3://sdv-datasets-public' "
+            "for modality 'single_table'."
         )
 
         # Run and Assert
