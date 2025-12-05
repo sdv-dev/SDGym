@@ -34,16 +34,18 @@ def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX) :] if bucket.startswith(S3_PREFIX) else bucket
 
 
-def _validate_dataset_availability(
+def _raise_dataset_not_found_error(
     s3_client,
     bucket_name,
     dataset_name,
     current_modality,
-    display_name,
     bucket,
     modality,
 ):
-    """Return modalities where the dataset exists in the bucket, excluding the current modality."""
+    display_name = dataset_name
+    if isinstance(dataset_name, Path):
+        display_name = dataset_name.name
+
     available_modalities = []
     for other_modality in MODALITIES:
         if other_modality == current_modality:
@@ -85,12 +87,8 @@ def _download_dataset(
 
     contents = _list_s3_bucket_contents(s3_client, bucket_name, prefix)
     if not contents:
-        display_name = dataset_name
-        if isinstance(dataset_name, Path):
-            display_name = dataset_name.name
-
-        _validate_dataset_availability(
-            s3_client, bucket_name, dataset_name, modality, display_name, bucket, modality
+        _raise_dataset_not_found_error(
+            s3_client, bucket_name, dataset_name, modality, bucket, modality
         )
 
     for obj in contents:
