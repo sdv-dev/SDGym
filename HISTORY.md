@@ -1,5 +1,20 @@
 # History
 
+## v0.12.1 - 2025-12-05
+
+### New Features
+
+* If there are no datasets in the bucket, the `DatasetExplorer` should show a warning and return an empty table - Issue [#475](https://github.com/sdv-dev/SDGym/issues/475) by @fealho
+* Add input validation for the `DatasetExplorer` class and functions - Issue [#474](https://github.com/sdv-dev/SDGym/issues/474) by @fealho
+
+### Bugs Fixed
+
+* Record the train and sample times whenever an error occurs during a benchmark. - Issue [#503](https://github.com/sdv-dev/SDGym/issues/503) by @R-Palazzo
+
+### Maintenance
+
+* Workflow fails due to lack of space - Issue [#511](https://github.com/sdv-dev/SDGym/issues/511) by @rwedge
+
 ## v0.12.0 - 2025-11-20
 
 ### New Features
