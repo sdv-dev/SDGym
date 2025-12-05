@@ -1,4 +1,4 @@
-Run started:2025-11-20 21:17:17.099743
+Run started:2025-12-05 16:10:24.881223
 
 Test results:
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
@@ -39,81 +39,81 @@ Test results:
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:944:27
-943	    # User data script to install the library
-944	    user_data_script = f"""#!/bin/bash
-945	    sudo apt update -y
-946	    sudo apt install -y python3-pip python3-venv awscli
-947	    echo "======== Create Virtual Environment ============"
-948	    python3 -m venv ~/env
-949	    source ~/env/bin/activate
-950	    echo "======== Install Dependencies in venv ============"
-951	    pip install --upgrade pip
-952	    pip install sdgym[all]
-953	    pip install anyio
-954	    echo "======== Configure AWS CLI ============"
-955	    aws configure set aws_access_key_id {credentials.access_key}
-956	    aws configure set aws_secret_access_key {credentials.secret_key}
-957	    aws configure set region {session.region_name}
-958	    echo "======== Write Script ==========="
-959	    printf '%s\\n' "{escaped_script}" > ~/sdgym_script.py
-960	    echo "======== Run Script ==========="
-961	    python ~/sdgym_script.py
-962	
-963	    echo "======== Complete ==========="
-964	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-965	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-966	    """
-967	
+   Location: ./sdgym/benchmark.py:992:27
+991	    # User data script to install the library
+992	    user_data_script = f"""#!/bin/bash
+993	    sudo apt update -y
+994	    sudo apt install -y python3-pip python3-venv awscli
+995	    echo "======== Create Virtual Environment ============"
+996	    python3 -m venv ~/env
+997	    source ~/env/bin/activate
+998	    echo "======== Install Dependencies in venv ============"
+999	    pip install --upgrade pip
+1000	    pip install sdgym[all]
+1001	    pip install anyio
+1002	    echo "======== Configure AWS CLI ============"
+1003	    aws configure set aws_access_key_id {credentials.access_key}
+1004	    aws configure set aws_secret_access_key {credentials.secret_key}
+1005	    aws configure set region {session.region_name}
+1006	    echo "======== Write Script ==========="
+1007	    printf '%s\\n' "{escaped_script}" > ~/sdgym_script.py
+1008	    echo "======== Run Script ==========="
+1009	    python ~/sdgym_script.py
+1010	
+1011	    echo "======== Complete ==========="
+1012	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+1013	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+1014	    """
+1015	
 
 --------------------------------------------------
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:1410:31
-1409	def _get_user_data_script(access_key, secret_key, region_name, script_content):
-1410	    return textwrap.dedent(f"""\
-1411	        #!/bin/bash
-1412	        set -e
-1413	
-1414	        # Always terminate the instance when the script exits (success or failure)
-1415	        trap '
-1416	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
-1417	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
-1418	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
-1419	        ' EXIT
-1420	
-1421	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-1422	        echo "======== Update and Install Dependencies ============"
-1423	        sudo apt update -y
-1424	        sudo apt install -y python3-pip python3-venv awscli
-1425	        echo "======== Configure AWS CLI ============"
-1426	        aws configure set aws_access_key_id '{access_key}'
-1427	        aws configure set aws_secret_access_key '{secret_key}'
-1428	        aws configure set default.region '{region_name}'
-1429	
-1430	        echo "======== Create Virtual Environment ============"
-1431	        python3 -m venv ~/env
-1432	        source ~/env/bin/activate
-1433	
-1434	        echo "======== Install Dependencies in venv ============"
-1435	        pip install --upgrade pip
-1436	        pip install sdgym[all]
-1437	        pip install s3fs
-1438	
-1439	        echo "======== Write Script ==========="
-1440	        cat << 'EOF' > ~/sdgym_script.py
-1441	{script_content}
-1442	EOF
-1443	
-1444	        echo "======== Run Script ==========="
-1445	        python ~/sdgym_script.py
-1446	        echo "======== Complete ==========="
-1447	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-1448	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-1449	    """).strip()
-1450	
+   Location: ./sdgym/benchmark.py:1475:31
+1474	def _get_user_data_script(access_key, secret_key, region_name, script_content):
+1475	    return textwrap.dedent(f"""\
+1476	        #!/bin/bash
+1477	        set -e
+1478	
+1479	        # Always terminate the instance when the script exits (success or failure)
+1480	        trap '
+1481	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
+1482	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
+1483	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
+1484	        ' EXIT
+1485	
+1486	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+1487	        echo "======== Update and Install Dependencies ============"
+1488	        sudo apt update -y
+1489	        sudo apt install -y python3-pip python3-venv awscli
+1490	        echo "======== Configure AWS CLI ============"
+1491	        aws configure set aws_access_key_id '{access_key}'
+1492	        aws configure set aws_secret_access_key '{secret_key}'
+1493	        aws configure set default.region '{region_name}'
+1494	
+1495	        echo "======== Create Virtual Environment ============"
+1496	        python3 -m venv ~/env
+1497	        source ~/env/bin/activate
+1498	
+1499	        echo "======== Install Dependencies in venv ============"
+1500	        pip install --upgrade pip
+1501	        pip install sdgym[all]
+1502	        pip install s3fs
+1503	
+1504	        echo "======== Write Script ==========="
+1505	        cat << 'EOF' > ~/sdgym_script.py
+1506	{script_content}
+1507	EOF
+1508	
+1509	        echo "======== Run Script ==========="
+1510	        python ~/sdgym_script.py
+1511	        echo "======== Complete ==========="
+1512	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+1513	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+1514	    """).strip()
+1515	
 
 --------------------------------------------------
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
@@ -237,7 +237,7 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 4839
+	Total lines of code: 4978
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
