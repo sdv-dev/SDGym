@@ -80,10 +80,13 @@ def test__download_dataset_not_found(list_mock, bucket_name_mock, s3_client_mock
 
     # Assert
     s3_client_mock.assert_called_once()
-    bucket_name_mock.assert_called_once_with(bucket)
-    list_mock.assert_called_once_with(
-        s3_client_mock.return_value, 'fake-bucket', 'single_table/missing_dataset/'
-    )
+    bucket_name_mock.assert_called_with(bucket)
+    expected_calls = [
+        call(s3_client_mock.return_value, 'fake-bucket', 'single_table/missing_dataset/'),
+        call(s3_client_mock.return_value, 'fake-bucket', 'sequential/missing_dataset/'),
+        call(s3_client_mock.return_value, 'fake-bucket', 'multi_table/missing_dataset/'),
+    ]
+    list_mock.assert_has_calls(expected_calls, any_order=True)
 
 
 @patch('sdgym.datasets.get_s3_client')
