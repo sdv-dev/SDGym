@@ -116,6 +116,7 @@ def upload_results(
     run_date = folder_infos['date']
     result_explorer = ResultsExplorer(
         OUTPUT_DESTINATION_AWS,
+        modality='single_table',
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
     )
