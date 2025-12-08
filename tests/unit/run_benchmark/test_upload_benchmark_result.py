@@ -211,6 +211,7 @@ def test_upload_results(
     )
     mock_sdgym_results_explorer.assert_called_once_with(
         mock_output_destination_aws,
+        modality='single_table',
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
     )
@@ -260,6 +261,7 @@ def test_upload_results_not_all_runs_complete(
     mock_logger.warning.assert_called_once_with(f'Run {run_name} is not complete yet. Exiting.')
     mock_sdgym_results_explorer.assert_called_once_with(
         mock_output_destination_aws,
+        modality='single_table',
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
     )
