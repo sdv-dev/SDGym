@@ -6,7 +6,11 @@ from importlib import import_module
 
 from sdv import multi_table, single_table
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import (
+    BaselineSynthesizer,
+    MultiTableBaselineSynthesizer,
+    _validate_modality,
+)
 
 LOGGER = logging.getLogger(__name__)
 UNSUPPORTED_SDV_SYNTHESIZERS = ['DayZSynthesizer']
@@ -15,11 +19,7 @@ MODALITY_TO_MODULE = {
     'multi_table': multi_table,
 }
 
-
-def _validate_modality(modality):
-    """Validate that the modality is correct."""
-    if modality not in ['single_table', 'multi_table']:
-        raise ValueError("`modality` must be one of 'single_table' or 'multi_table'.")
+MODEL_KWARGS = {'HMASynthesizer': {'verbose': False}}
 
 
 def _get_sdv_synthesizers(modality):
@@ -39,20 +39,20 @@ def _get_all_sdv_synthesizers():
     return sorted(synthesizers)
 
 
-def _get_trained_synthesizer(self, data, metadata):
+def _fit(self, data, metadata):
     LOGGER.info('Fitting %s', self.__class__.__name__)
-    sdv_class = getattr(import_module(f'sdv.{self.modality}'), self.SDV_NAME)
+    sdv_class = getattr(import_module(f'sdv.{self._MODALITY_FLAG}'), self.SDV_NAME)
     synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
     synthesizer.fit(data)
-    return synthesizer
+    self._internal_synthesizer = synthesizer
 
 
 def _sample_from_synthesizer(self, synthesizer, sample_arg):
     LOGGER.info('Sampling %s', self.__class__.__name__)
-    if self.modality == 'multi_table':
-        return synthesizer.sample(scale=sample_arg)
+    if self._MODALITY_FLAG == 'multi_table':
+        return synthesizer._internal_synthesizer.sample(scale=sample_arg)
 
-    return synthesizer.sample(num_rows=sample_arg)
+    return synthesizer._internal_synthesizer.sample(num_rows=sample_arg)
 
 
 def _retrieve_sdv_class(sdv_name):
@@ -82,15 +82,17 @@ def _create_sdv_class(sdv_name):
     """Create a SDV synthesizer class dynamically."""
     current_module = sys.modules[__name__]
     modality = _get_modality(sdv_name)
+    base_class = MultiTableBaselineSynthesizer if modality == 'multi_table' else BaselineSynthesizer
+    model_kwargs = MODEL_KWARGS.get(sdv_name, {})
     synthesizer_class = type(
         sdv_name,
-        (BaselineSynthesizer,),
+        (base_class,),
         {
             '__module__': __name__,
             'SDV_NAME': sdv_name,
-            'modality': modality,
-            '_MODEL_KWARGS': {},
-            '_get_trained_synthesizer': _get_trained_synthesizer,
+            '_MODALITY_FLAG': modality,
+            '_MODEL_KWARGS': model_kwargs,
+            '_fit': _fit,
             '_sample_from_synthesizer': _sample_from_synthesizer,
         },
     )

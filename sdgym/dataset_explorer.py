@@ -205,7 +205,7 @@ class DatasetExplorer:
 
         Args:
             modality (str):
-                The dataset modality to load (e.g., 'single-table' or 'multi-table').
+                The dataset modality to load (e.g., 'single_table' or 'multi_table').
 
         Returns:
             list[dict]:

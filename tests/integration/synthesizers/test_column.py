@@ -29,7 +29,9 @@ class TestUniformSynthesizer:
 
         # Run
         trained_synthesizer = column_synthesizer.get_trained_synthesizer(data, {})
-        samples = column_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples)
+        samples = column_synthesizer.sample_from_synthesizer(
+            trained_synthesizer, n_samples=n_samples
+        )
 
         # Assert
         assert samples['num'].between(-10, 10).all()
@@ -105,7 +107,7 @@ class TestUniformSynthesizer:
         # Run
         real_data = pd.DataFrame(data)
         synthesizer = ColumnSynthesizer().get_trained_synthesizer(real_data, metadata)
-        hyper_transformer_config = synthesizer[0].get_config()
+        hyper_transformer_config = synthesizer.hyper_transformer.get_config()
 
         # Assert
         config_sdtypes = hyper_transformer_config['sdtypes']
