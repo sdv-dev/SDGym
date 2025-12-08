@@ -1,0 +1,11 @@
+completed_date: 12_02_2025 08:28:47
+jobs:
+- - fake_hotels
+  - MultiTableUniformSynthesizer
+- - fake_hotels
+  - HMASynthesizer
+modality: multi_table
+run_id: run_12_02_2025_0
+sdgym_version: 0.11.2.dev0
+sdv_version: 1.28.0
+starting_date: 12_02_2025 08:28:21
