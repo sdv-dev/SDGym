@@ -1632,109 +1632,81 @@ s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 
 
 def _get_user_data_script(credentials, script_content, compute_service='aws'):
-    """Generate user-data for either AWS or GCP.
-
-    Args:
-        credentials: dict with AWS and optional SDV credentials.
-        script_content: Python script to write and execute.
-        compute_service: "aws" or "gcp"
-    """
     aws_key = credentials['aws']['aws_access_key_id']
     aws_secret = credentials['aws']['aws_secret_access_key']
 
-    # Conditional bundle-xsynthesizers install
     sdv_creds = credentials.get('sdv', {})
     bundle_install = ''
     if sdv_creds.get('username') and sdv_creds.get('license_key'):
         bundle_install = (
-            f'pip install bundle-xsynthesizers '
+            'pip install bundle-xsynthesizers '
             f'--index-url https://{sdv_creds["username"]}:{sdv_creds["license_key"]}@pypi.datacebo.com'
         )
 
-    # --- Build termination trap depending on compute service ---
     if compute_service == 'aws':
-        termination_trap = textwrap.dedent("""\
-            # AWS termination
-            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)
-            if [ -n "$INSTANCE_ID" ]; then
-                echo "Terminating AWS EC2 instance: $INSTANCE_ID"
-                aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
-            fi
-        """).strip()
+        termination_body = """
+        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)
+        if [ -n "$INSTANCE_ID" ]; then
+            echo "Terminating AWS EC2 instance: $INSTANCE_ID"
+            aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
+        fi
+        """
+    else:
+        termination_body = """
+        echo "Terminating GCP instance via Compute API"
 
+        TOKEN=$(curl -s -H "Metadata-Flavor: Google" \
+            http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
+            | jq -r ".access_token" || true)
 
-    elif compute_service == 'gcp':
-        termination_trap = textwrap.dedent("""\
-            # GCP termination via Compute API (no gcloud required)
-            echo "Terminating GCP instance via Compute API"
+        PROJECT_ID=$(curl -s -H "Metadata-Flavor: Google" \
+            http://169.254.169.254/computeMetadata/v1/project/project-id || true)
 
-            TOKEN=$(curl -s -H "Metadata-Flavor: Google" \
-                http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
-                | jq -r ".access_token" || true)
+        ZONE=$(curl -s -H "Metadata-Flavor: Google" \
+            http://169.254.169.254/computeMetadata/v1/instance/zone | awk -F/ '{print $4}' || true)
 
-            PROJECT_ID=$(curl -s -H "Metadata-Flavor: Google" \
-                http://169.254.169.254/computeMetadata/v1/project/project-id || true)
+        if [ -n "$TOKEN" ] && [ -n "$PROJECT_ID" ] && [ -n "$ZONE" ]; then
+            curl -s -X DELETE \
+                -H "Authorization: Bearer $TOKEN" \
+                "https://compute.googleapis.com/compute/v1/projects/" \
+                "$PROJECT_ID/zones/$ZONE/instances/" \
+                "$HOSTNAME" \
+                || true
+        fi
+        """
 
-            ZONE=$(curl -s -H "Metadata-Flavor: Google" \
-                http://169.254.169.254/computeMetadata/v1/instance/zone \
-                | awk -F/ '{print $4}' || true)
-
-            if [ -n "$TOKEN" ] && [ -n "$PROJECT_ID" ] && [ -n "$ZONE" ]; then
-                curl -s -X DELETE \
-                    -H "Authorization: Bearer $TOKEN" \
-                    -H "Content-Type: application/json" \
-                    "https://compute.googleapis.com/compute/v1/projects/$PROJECT_ID/zones/$ZONE/instances/" \
-                    "$HOSTNAME" \
-                    || true
-            else
-                echo "GCP termination skipped (missing TOKEN/PROJECT_ID/ZONE)."
-            fi
-        """).strip()
-    
-    trap_block = textwrap.dedent(f"""\
-        trap '{{
-        echo "======== Auto-Termination Triggered =========="
-        {termination_trap}
-        }}' EXIT
-    """).strip()
-
-    # --- Final script assembly ---
     return textwrap.dedent(f"""\
         #!/bin/bash
         set -e
 
-        {trap_block}
+        terminate_instance() {{
+        {termination_body}
+        }}
+
+        trap terminate_instance EXIT
 
         exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
-        echo "======== Update and Install Dependencies ============"
         sudo apt update -y
         sudo apt install -y python3-pip python3-venv awscli git jq
 
-        echo "======== Configure AWS CLI (always needed for S3 output) ============"
         aws configure set aws_access_key_id '{aws_key}'
         aws configure set aws_secret_access_key '{aws_secret}'
         aws configure set default.region '{S3_REGION}'
 
-        echo "======== Create Virtual Environment ============"
         python3 -m venv ~/env
         source ~/env/bin/activate
 
-        echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
         {bundle_install}
         pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain"
         pip install s3fs
 
-        echo "======== Write Script ==========="
         cat << 'EOF' > ~/sdgym_script.py
 {script_content}
 EOF
 
-        echo "======== Run Script ==========="
         python ~/sdgym_script.py
-
-        echo "======== Complete ==========="
     """).strip()
 
 
