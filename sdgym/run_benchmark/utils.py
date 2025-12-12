@@ -48,11 +48,15 @@ PLOTLY_MARKERS = [
 ]
 
 # The synthesizers inside the same list will be run by the same ec2 instance
-SYNTHESIZERS_SPLIT = [
+SYNTHESIZERS_SPLIT_SINGLE_TABLE = [
     ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer', 'TVAESynthesizer'],
     ['CopulaGANSynthesizer'],
     ['CTGANSynthesizer'],
     ['RealTabFormerSynthesizer'],
+]
+SYNTHESIZERS_SPLIT_MULTI_TABLE = [
+    ['HMASynthesizer'],
+    ['HSASynthesizer', 'IndependentSynthesizer', 'MultiTableUniformSynthesizer'],
 ]
 
 
@@ -91,13 +95,13 @@ def post_slack_message(channel, text):
     client.chat_postMessage(channel=channel, text=text)
 
 
-def post_benchmark_launch_message(date_str):
+def post_benchmark_launch_message(date_str, compute_service='AWS'):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
     channel = SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/')
-    body = '🏃 SDGym benchmark has been launched! EC2 Instances are running. '
+    body = f'🏃 SDGym benchmark has been launched on {compute_service}! '
     body += f'Intermediate results can be found <{url_link}|here>.\n'
     post_slack_message(channel, body)
 

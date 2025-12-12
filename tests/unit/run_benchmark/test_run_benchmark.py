@@ -5,7 +5,7 @@ from unittest.mock import Mock, call, patch
 from botocore.exceptions import ClientError
 
 from sdgym.run_benchmark.run_benchmark import append_benchmark_run, main
-from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, SYNTHESIZERS_SPLIT
+from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, SYNTHESIZERS_SPLIT_SINGLE_TABLE
 
 
 @patch('sdgym.run_benchmark.run_benchmark.get_s3_client')
@@ -122,7 +122,7 @@ def test_main(
     mock_getenv.assert_any_call('AWS_ACCESS_KEY_ID')
     mock_getenv.assert_any_call('AWS_SECRET_ACCESS_KEY')
     expected_calls = []
-    for synthesizer in SYNTHESIZERS_SPLIT:
+    for synthesizer in SYNTHESIZERS_SPLIT_SINGLE_TABLE:
         expected_calls.append(
             call(
                 output_destination=OUTPUT_DESTINATION_AWS,

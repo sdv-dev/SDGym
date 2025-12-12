@@ -1654,30 +1654,37 @@ def _get_user_data_script(credentials, script_content, compute_service='aws'):
     else:
         termination_body = """
         echo "Terminating GCP instance via Compute API"
+        PROJECT_ID="$GCP_PROJECT"
+        ZONE="$GCP_ZONE"
+        INSTANCE="$INSTANCE_NAME"
 
-        TOKEN=$(curl -s -H "Metadata-Flavor: Google" \
+        TOKEN=$(curl -sf -H "Metadata-Flavor: Google" \
             http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
             | jq -r ".access_token" || true)
 
-        PROJECT_ID=$(curl -s -H "Metadata-Flavor: Google" \
-            http://169.254.169.254/computeMetadata/v1/project/project-id || true)
+        echo "GCP termination parameters:"
+        echo "  PROJECT_ID=$PROJECT_ID"
+        echo "  ZONE=$ZONE"
+        echo "  INSTANCE=$INSTANCE"
 
-        ZONE=$(curl -s -H "Metadata-Flavor: Google" \
-            http://169.254.169.254/computeMetadata/v1/instance/zone | awk -F/ '{print $4}' || true)
-
-        if [ -n "$TOKEN" ] && [ -n "$PROJECT_ID" ] && [ -n "$ZONE" ]; then
+        if [ -z "$PROJECT_ID" ] || [ -z "$ZONE" ] || [ -z "$INSTANCE" ] || [ -z "$TOKEN" ]; then
+            echo "Skipping GCP termination (missing required parameters)"
+        else
             curl -s -X DELETE \
                 -H "Authorization: Bearer $TOKEN" \
                 "https://compute.googleapis.com/compute/v1/projects/" \
                 "$PROJECT_ID/zones/$ZONE/instances/" \
-                "$HOSTNAME" \
+                "$INSTANCE" \
                 || true
         fi
-        """
-
+                """
     return textwrap.dedent(f"""\
         #!/bin/bash
         set -e
+
+        export GCP_PROJECT='{credentials['gcp']['gcp_project']}'
+        export GCP_ZONE='{credentials['gcp']['gcp_zone']}'
+        export INSTANCE_NAME='sdgym-run'
 
         terminate_instance() {{
         {termination_body}
