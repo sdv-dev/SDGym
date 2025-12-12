@@ -1656,45 +1656,54 @@ def _get_user_data_script(credentials, script_content, compute_service='aws'):
         termination_trap = textwrap.dedent("""\
             # AWS termination
             INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)
-            if [ ! -z "$INSTANCE_ID" ]; then
+            if [ -n "$INSTANCE_ID" ]; then
                 echo "Terminating AWS EC2 instance: $INSTANCE_ID"
-                aws ec2 terminate-instances --instance-ids $INSTANCE_ID || true
+                aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
             fi
-        """)
+        """).strip()
+
 
     elif compute_service == 'gcp':
         termination_trap = textwrap.dedent("""\
             # GCP termination via Compute API (no gcloud required)
-            echo "Detected GCP environment — terminating instance via Compute API"
+            echo "Terminating GCP instance via Compute API"
 
             TOKEN=$(curl -s -H "Metadata-Flavor: Google" \
                 http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
-                | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+                | jq -r ".access_token" || true)
 
             PROJECT_ID=$(curl -s -H "Metadata-Flavor: Google" \
-                http://169.254.169.254/computeMetadata/v1/project/project-id)
+                http://169.254.169.254/computeMetadata/v1/project/project-id || true)
 
             ZONE=$(curl -s -H "Metadata-Flavor: Google" \
-                http://169.254.169.254/computeMetadata/v1/instance/zone | awk -F/ '{print $4}')
+                http://169.254.169.254/computeMetadata/v1/instance/zone \
+                | awk -F/ '{print $4}' || true)
 
-            curl -s -X DELETE \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json" \
-                "https://compute.googleapis.com/compute/v1/projects/$PROJECT_ID/zones/$ZONE/" \
-                "instances/$HOSTNAME" \
-                || true
-        """)
+            if [ -n "$TOKEN" ] && [ -n "$PROJECT_ID" ] && [ -n "$ZONE" ]; then
+                curl -s -X DELETE \
+                    -H "Authorization: Bearer $TOKEN" \
+                    -H "Content-Type: application/json" \
+                    "https://compute.googleapis.com/compute/v1/projects/$PROJECT_ID/zones/$ZONE/instances/" \
+                    "$HOSTNAME" \
+                    || true
+            else
+                echo "GCP termination skipped (missing TOKEN/PROJECT_ID/ZONE)."
+            fi
+        """).strip()
+    
+    trap_block = textwrap.dedent(f"""\
+        trap '{{
+        echo "======== Auto-Termination Triggered =========="
+        {termination_trap}
+        }}' EXIT
+    """).strip()
 
     # --- Final script assembly ---
     return textwrap.dedent(f"""\
         #!/bin/bash
         set -e
 
-        # Auto-termination trap
-        trap '
-        echo "======== Auto-Termination Triggered =========="
-        {termination_trap}
-        ' EXIT
+        {trap_block}
 
         exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
