@@ -2459,7 +2459,7 @@ def _benchmark_multi_table_compute_gcp(
         limit_dataset_size=limit_dataset_size,
         compute_quality_score=compute_quality_score,
         compute_diagnostic_score=compute_diagnostic_score,
-        compute_privacy_score=compute_privacy_score,
+        compute_privacy_score=False,
         sdmetrics=sdmetrics,
         timeout=timeout,
         modality='multi_table',
