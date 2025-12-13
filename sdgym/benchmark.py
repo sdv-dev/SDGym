@@ -1644,76 +1644,129 @@ def _get_user_data_script(credentials, script_content, compute_service='aws'):
         )
 
     if compute_service == 'aws':
-        termination_body = """
-        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)
-        if [ -n "$INSTANCE_ID" ]; then
-            echo "Terminating AWS EC2 instance: $INSTANCE_ID"
-            aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
-        fi
-        """
+        gcp_exports = ''
+        gpu_driver_install = ''
+        termination_body = textwrap.dedent("""\
+            echo "======== Terminating AWS EC2 instance =========="
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)
+            if [ -n "$INSTANCE_ID" ]; then
+                echo "INSTANCE_ID=$INSTANCE_ID"
+                aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
+            else
+                echo "Skipping AWS termination (no INSTANCE_ID found)"
+            fi
+        """).strip()
+    elif compute_service == 'gcp':
+        gcp_exports = textwrap.dedent(f"""\
+            echo "======== Export GCP variables =========="
+            export GCP_PROJECT='{credentials['gcp']['gcp_project']}'
+            export GCP_ZONE='{credentials['gcp']['gcp_zone']}'
+            export INSTANCE_NAME='sdgym-run'
+        """).strip()
+
+        gpu_driver_install = textwrap.dedent("""\
+            echo "======== Installing NVIDIA drivers =========="
+            # Try installing NVIDIA drivers (no reboot). If it fails, continue on CPU.
+            sudo apt-get update -y
+            sudo apt-get install -y --no-install-recommends nvidia-driver
+            echo "======== NVIDIA driver check =========="
+            if command -v nvidia-smi >/dev/null 2>&1; then
+                nvidia-smi || true
+            else
+                echo "nvidia-smi not found; continuing without GPU drivers."
+            fi
+        """).strip()
+
+        termination_body = textwrap.dedent("""\
+            echo "======== Terminating GCP instance via Compute API =========="
+            PROJECT_ID="$GCP_PROJECT"
+            ZONE="$GCP_ZONE"
+            INSTANCE="$INSTANCE_NAME"
+
+            # Token fetch can fail under memory pressure; retry a few times.
+            TOKEN=""
+            for i in 1 2 3 4 5; do
+                TOKEN=$(curl -sf -H "Metadata-Flavor: Google" \
+                    http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
+                    | jq -r ".access_token" || true)
+                if [ -n "$TOKEN" ]; then
+                    break
+                fi
+                echo "Retrying GCP access token fetch ($i/5)..."
+                sleep 2
+            done
+
+            echo "======== GCP termination parameters =========="
+            echo "PROJECT_ID=$PROJECT_ID"
+            echo "ZONE=$ZONE"
+            echo "INSTANCE=$INSTANCE"
+
+            if [ -z "$PROJECT_ID" ] || [ -z "$ZONE" ] || [ -z "$INSTANCE" ] || [ -z "$TOKEN" ]; then
+                echo "Skipping GCP termination (missing required parameters)"
+            else
+                curl -s -X DELETE \
+                    -H "Authorization: Bearer $TOKEN" \
+                    -H "Content-Type: application/json" \
+                    "https://compute.googleapis.com/compute/v1/projects/" \
+                    "$PROJECT_ID/zones/$ZONE/instances/" \
+                    "$INSTANCE" \
+                    || true
+            fi
+        """).strip()
     else:
-        termination_body = """
-        echo "Terminating GCP instance via Compute API"
-        PROJECT_ID="$GCP_PROJECT"
-        ZONE="$GCP_ZONE"
-        INSTANCE="$INSTANCE_NAME"
+        raise ValueError("compute_service must be 'aws' or 'gcp'")
 
-        TOKEN=$(curl -sf -H "Metadata-Flavor: Google" \
-            http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
-            | jq -r ".access_token" || true)
-
-        echo "GCP termination parameters:"
-        echo "  PROJECT_ID=$PROJECT_ID"
-        echo "  ZONE=$ZONE"
-        echo "  INSTANCE=$INSTANCE"
-
-        if [ -z "$PROJECT_ID" ] || [ -z "$ZONE" ] || [ -z "$INSTANCE" ] || [ -z "$TOKEN" ]; then
-            echo "Skipping GCP termination (missing required parameters)"
-        else
-            curl -s -X DELETE \
-                -H "Authorization: Bearer $TOKEN" \
-                "https://compute.googleapis.com/compute/v1/projects/" \
-                "$PROJECT_ID/zones/$ZONE/instances/" \
-                "$INSTANCE" \
-                || true
-        fi
-                """
     return textwrap.dedent(f"""\
         #!/bin/bash
         set -e
 
-        export GCP_PROJECT='{credentials['gcp']['gcp_project']}'
-        export GCP_ZONE='{credentials['gcp']['gcp_zone']}'
-        export INSTANCE_NAME='sdgym-run'
-
+        # Always terminate the instance when the script exits (success or failure)
         terminate_instance() {{
         {termination_body}
         }}
-
         trap terminate_instance EXIT
 
-        exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
+        {gcp_exports}
+
+        echo "======== Update and Install Dependencies ============"
         sudo apt update -y
         sudo apt install -y python3-pip python3-venv awscli git jq
 
+        {gpu_driver_install}
+
+        echo "======== Setting up swap ============"
+        sudo fallocate -l 32G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+        echo "======== Configure AWS CLI ============"
         aws configure set aws_access_key_id '{aws_key}'
         aws configure set aws_secret_access_key '{aws_secret}'
         aws configure set default.region '{S3_REGION}'
 
+        echo "======== Create Virtual Environment ============"
         python3 -m venv ~/env
         source ~/env/bin/activate
 
+        echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
         {bundle_install}
         pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain"
         pip install s3fs
 
+        echo "======== Write Script ==========="
         cat << 'EOF' > ~/sdgym_script.py
 {script_content}
 EOF
 
+        echo "======== Run Script ==========="
         python ~/sdgym_script.py
+
+        echo "======== Complete ==========="
     """).strip()
 
 
@@ -1728,13 +1781,12 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         job_args_key,
         synthesizer_names,
     )
+
     instance_name = 'sdgym-run'
     gcp_zone = credentials['gcp']['gcp_zone']
     gcp_project = credentials['gcp']['gcp_project']
-    # Use the values passed into the function, don't overwrite them
     gcp_credentials = service_account.Credentials.from_service_account_info(credentials['gcp'])
 
-    machine_type = f'zones/{gcp_zone}/machineTypes/e2-standard-8'
     source_disk_image = 'projects/debian-cloud/global/images/family/debian-12'
     startup_script = _get_user_data_script(
         credentials=credentials,
@@ -1742,8 +1794,14 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         compute_service='gcp',
     )
 
+    machine_type = f'zones/{gcp_zone}/machineTypes/g2-standard-16'
+    gpu = compute_v1.AcceleratorConfig(
+        accelerator_type=f'zones/{gcp_zone}/acceleratorTypes/nvidia-l4',
+        accelerator_count=1,
+    )
+
     instance_client = compute_v1.InstancesClient(credentials=gcp_credentials)
-    # Boot disk
+
     boot_disk = compute_v1.AttachedDisk(
         auto_delete=True,
         boot=True,
@@ -1753,17 +1811,15 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         ),
     )
 
-    # Network interface WITH external IP (NAT)
     nic = compute_v1.NetworkInterface()
     nic.network = 'global/networks/default'
     nic.access_configs = [
         compute_v1.AccessConfig(
             name='External NAT',
-            type_='ONE_TO_ONE_NAT',  # request an ephemeral external IP
+            type_='ONE_TO_ONE_NAT',
         )
     ]
 
-    # Metadata with startup script
     metadata = compute_v1.Metadata(
         items=[
             compute_v1.Items(
@@ -1779,6 +1835,7 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         disks=[boot_disk],
         network_interfaces=[nic],
         metadata=metadata,
+        guest_accelerators=[gpu],
     )
 
     instance_client.insert(
@@ -2351,7 +2408,6 @@ def _benchmark_multi_table_compute_gcp(
     limit_dataset_size=False,
     compute_quality_score=True,
     compute_diagnostic_score=True,
-    compute_privacy_score=True,
     sdmetrics=None,
     timeout=None,
 ):
