@@ -1,12 +1,13 @@
 import textwrap
 import time
 import uuid
+from urllib.parse import urlparse
 
 from google.cloud import compute_v1
 from google.oauth2 import service_account
 
-from sdgym._benchmark.config_utils import resolve_compute_config
-from sdgym._benchmark.credentials_utils import _bundle_install_cmd, get_credentials
+from sdgym._benchmark.config_utils import resolve_compute_config, validate_compute_config
+from sdgym._benchmark.credentials_utils import bundle_install_cmd, get_credentials
 from sdgym.benchmark import (
     DEFAULT_MULTI_TABLE_DATASETS,
     DEFAULT_MULTI_TABLE_SYNTHESIZERS,
@@ -20,21 +21,52 @@ from sdgym.benchmark import (
     _import_and_validate_synthesizers,
     _store_job_args_in_s3,
     _validate_output_destination,
-    resolve_compute_config,
-    validate_compute_config,
 )
 
 
 def _make_instance_name(prefix):
-    return f"{prefix}-{int(time.time())}-{uuid.uuid4().hex[:6]}"
+    timestamp = int(time.time())
+    suffix = uuid.uuid4().hex[:6]
+    return f'{prefix}-{timestamp}-{suffix}'
 
 
-def _prepare_script_content(output_destination, synthesizers, s3_client, job_args_list, credentials):
-    bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
-    synthesizer_names = [{"name": s["name"]} for s in synthesizers]
+def _logs_s3_uri(output_destination, instance_name):
+    """Store logs next to output destination prefix.
+
+    Example:
+        output_destination='s3://bucket/prefix'
+        -> s3://bucket/prefix/logs/<instance>-user-data.log
+    """
+    if not output_destination.startswith('s3://'):
+        return ''
+
+    parsed = urlparse(output_destination)
+    bucket = parsed.netloc
+    prefix = parsed.path.lstrip('/').rstrip('/')
+    if prefix:
+        prefix = f'{prefix}/logs'
+    else:
+        prefix = 'logs'
+
+    return f's3://{bucket}/{prefix}/{instance_name}-user-data.log'
+
+
+def _prepare_script_content(
+    output_destination,
+    synthesizers,
+    s3_client,
+    job_args_list,
+    credentials,
+):
+    bucket_name, job_args_key = _store_job_args_in_s3(
+        output_destination,
+        job_args_list,
+        s3_client,
+    )
+    synthesizer_names = [{'name': s['name']} for s in synthesizers]
     return _get_s3_script_content(
-        credentials["aws"]["aws_access_key_id"],
-        credentials["aws"]["aws_secret_access_key"],
+        credentials['aws']['aws_access_key_id'],
+        credentials['aws']['aws_secret_access_key'],
         S3_REGION,
         bucket_name,
         job_args_key,
@@ -42,103 +74,164 @@ def _prepare_script_content(output_destination, synthesizers, s3_client, job_arg
     )
 
 
-def _get_user_data_script(credentials, script_content, config, instance_name, output_destination):
+def _get_user_data_script(
+    credentials,
+    script_content,
+    config,
+    instance_name,
+    output_destination,
+):
     """Single startup script template; provider-specific parts are tiny snippets."""
-    aws_key = credentials["aws"]["aws_access_key_id"]
-    aws_secret = credentials["aws"]["aws_secret_access_key"]
-    bundle_install = _bundle_install_cmd(credentials)
+    aws_key = credentials['aws']['aws_access_key_id']
+    aws_secret = credentials['aws']['aws_secret_access_key']
+    bundle_install = bundle_install_cmd(credentials)
 
-    log_uri = _logs_s3_uri(output_destination, instance_name) if config.get("upload_logs_to_s3") else ""
-    swap_gb = int(config["swap_gb"])
+    log_uri = ''
+    if config.get('upload_logs_to_s3'):
+        log_uri = _logs_s3_uri(output_destination, instance_name)
 
-    # GPU is “expected” if: GCP gpu_count > 0 OR (AWS instance type is user-chosen; assume GPU if assert_gpu True)
-    gpu_expected = bool(config.get("gpu_count", 0)) if config["service"] == "gcp" else bool(config.get("assert_gpu", True))
-    assert_gpu = bool(config.get("assert_gpu", True))
-    gpu_wait_seconds = int(config["gpu_wait_seconds"])
-    gpu_wait_interval = int(config["gpu_wait_interval_seconds"])
+    swap_gb = int(config['swap_gb'])
 
-    # Provider-specific finalize snippets only
-    if config["service"] == "aws":
-        finalize_success = textwrap.dedent("""\
+    if config['service'] == 'gcp':
+        gpu_expected = bool(config.get('gpu_count', 0))
+    else:
+        gpu_expected = bool(config.get('assert_gpu', True))
+
+    assert_gpu = bool(config.get('assert_gpu', True))
+    gpu_wait_seconds = int(config['gpu_wait_seconds'])
+    gpu_wait_interval = int(config['gpu_wait_interval_seconds'])
+
+    if config['service'] == 'aws':
+        finalize_success = textwrap.dedent(
+            """\
             finalize_success() {
               log "======== Finalize success =========="
               upload_logs || true
-              INSTANCE_ID=$(curl -sf http://169.254.169.254/latest/meta-data/instance-id || true)
+              INSTANCE_ID=$(curl -sf \
+                http://169.254.169.254/latest/meta-data/instance-id || true)
               if [ -n "$INSTANCE_ID" ]; then
                 log "Terminating EC2 instance: $INSTANCE_ID"
-                aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" >/dev/null 2>&1 || true
+                aws ec2 terminate-instances \
+                  --instance-ids "$INSTANCE_ID" >/dev/null 2>&1 || true
               fi
             }
-        """).strip()
+            """
+        ).strip()
 
-        finalize_error = textwrap.dedent("""\
+        finalize_error = textwrap.dedent(
+            """\
             finalize_error() {
               log "======== Finalize error =========="
               upload_logs || true
-              INSTANCE_ID=$(curl -sf http://169.254.169.254/latest/meta-data/instance-id || true)
+              INSTANCE_ID=$(curl -sf \
+                http://169.254.169.254/latest/meta-data/instance-id || true)
               if [ -n "$INSTANCE_ID" ]; then
                 log "Terminating EC2 instance: $INSTANCE_ID"
-                aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" >/dev/null 2>&1 || true
+                aws ec2 terminate-instances \
+                  --instance-ids "$INSTANCE_ID" >/dev/null 2>&1 || true
               fi
             }
-        """).strip()
+            """
+        ).strip()
 
-        gcp_metadata_items = ""
-        # On AWS, also push logs to console via logger (same messages, same function)
         platform_logger = 'logger -t user-data -s 2>/dev/console'
+        delete_fn = 'gcp_meta(){ :; }\ngcp_delete_self(){ :; }\n'
 
-    else:  # gcp
-        delete_on_success = bool(config.get("delete_on_success", True))
-        delete_on_error = bool(config.get("delete_on_error", True))
-        stop_fallback = bool(config.get("stop_fallback", True))
+    else:
+        delete_on_success = bool(config.get('delete_on_success', True))
+        delete_on_error = bool(config.get('delete_on_error', True))
+        stop_fallback = bool(config.get('stop_fallback', True))
 
-        delete_fn = textwrap.dedent("""\
+        delete_fn = textwrap.dedent(
+            """\
             gcp_meta() {
               curl -sf -H "Metadata-Flavor: Google" "$1" || true
             }
 
             gcp_delete_self() {
-              PROJECT_ID=$(gcp_meta "http://169.254.169.254/computeMetadata/v1/project/project-id")
-              ZONE=$(gcp_meta "http://169.254.169.254/computeMetadata/v1/instance/zone" | awk -F/ '{print $4}')
-              INSTANCE_NAME=$(gcp_meta "http://169.254.169.254/computeMetadata/v1/instance/name")
-              TOKEN=$(gcp_meta "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token" \
-                | jq -r ".access_token" 2>/dev/null || true)
+              PROJECT_ID=$(gcp_meta \
+                "http://169.254.169.254/computeMetadata/v1/project/project-id")
+              ZONE=$(gcp_meta \
+                "http://169.254.169.254/computeMetadata/v1/instance/zone" \
+                | awk -F/ '{print $4}')
+              INSTANCE_NAME=$(gcp_meta \
+                "http://169.254.169.254/computeMetadata/v1/instance/name")
+              TOKEN=$(gcp_meta \
+                "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/"\
+"default/token" | jq -r ".access_token" 2>/dev/null || true)
 
-              if [ -z "$PROJECT_ID" ] || [ -z "$ZONE" ] || [ -z "$INSTANCE_NAME" ] || [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+              if [ -z "$PROJECT_ID" ] || [ -z "$ZONE" ] || \
+                 [ -z "$INSTANCE_NAME" ] || [ -z "$TOKEN" ] || \
+                 [ "$TOKEN" = "null" ]; then
                 return 1
               fi
 
-              URL="https://compute.googleapis.com/compute/v1/projects/$PROJECT_ID/zones/$ZONE/instances/$INSTANCE_NAME"
-              curl -sf -X DELETE -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "$URL" >/dev/null 2>&1
+              URL="https://compute.googleapis.com/compute/v1/projects/"\
+"$PROJECT_ID/zones/$ZONE/instances/$INSTANCE_NAME"
+              curl -sf -X DELETE \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json" \
+                "$URL" >/dev/null 2>&1
             }
-        """).strip()
+            """
+        ).strip()
 
-        finalize_success = textwrap.dedent(f"""\
+        success_if = ''
+        if delete_on_success:
+            success_if = (
+                'if gcp_delete_self; then log "Delete request sent"; else log "Delete failed"; '
+            )
+
+        success_end = ''
+        if delete_on_success:
+            success_end = 'fi'
+
+        success_stop = ''
+        if stop_fallback:
+            success_stop = 'sudo shutdown -h now || true'
+
+        finalize_success = textwrap.dedent(
+            f"""\
             finalize_success() {{
               log "======== Finalize success =========="
               upload_logs || true
-              {"if gcp_delete_self; then log \"Delete request sent\"; else log \"Delete failed\"; " if delete_on_success else ""}
-              {"if [ " + ("1" if stop_fallback else "0") + " -eq 1 ]; then sudo shutdown -h now || true; fi" if stop_fallback else ""}
-              {"fi" if delete_on_success else ""}
+              {success_if}{success_stop}
+              {success_end}
             }}
-        """).strip()
+            """
+        ).strip()
 
-        finalize_error = textwrap.dedent(f"""\
+        error_if = ''
+        if delete_on_error:
+            error_if = (
+                'if gcp_delete_self; then log "Delete request sent"; else log "Delete failed"; '
+            )
+
+        error_end = ''
+        if delete_on_error:
+            error_end = 'fi'
+
+        error_stop = ''
+        if stop_fallback:
+            error_stop = 'sudo shutdown -h now || true'
+
+        finalize_error = textwrap.dedent(
+            f"""\
             finalize_error() {{
               log "======== Finalize error =========="
               upload_logs || true
-              {"if gcp_delete_self; then log \"Delete request sent\"; else log \"Delete failed\"; " if delete_on_error else ""}
-              {"if [ " + ("1" if stop_fallback else "0") + " -eq 1 ]; then sudo shutdown -h now || true; fi" if stop_fallback else ""}
-              {"fi" if delete_on_error else ""}
+              {error_if}{error_stop}
+              {error_end}
             }}
-        """).strip()
+            """
+        ).strip()
 
-        gcp_metadata_items = ""  # handled by python launcher
-        platform_logger = ":"  # no-op; GCP logging is via stdout + log file
+        platform_logger = ':'  # no-op; GCP logging is via stdout + log file
 
-    gpu_wait_block = ""
+    gpu_wait_block = ''
     if gpu_expected and assert_gpu:
-        gpu_wait_block = textwrap.dedent(f"""\
+        gpu_wait_block = textwrap.dedent(
+            f"""\
             wait_for_gpu() {{
               log "======== Waiting for GPU (nvidia-smi) =========="
               end=$((SECONDS+{gpu_wait_seconds}))
@@ -155,20 +248,34 @@ def _get_user_data_script(credentials, script_content, config, instance_name, ou
               log "ERROR: GPU not ready after {gpu_wait_seconds}s"
               return 1
             }}
-        """).strip()
+            """
+        ).strip()
 
-    log_upload_fn = ""
     if log_uri:
-        log_upload_fn = textwrap.dedent(f"""\
+        log_upload_fn = textwrap.dedent(
+            f"""\
             upload_logs() {{
               log "======== Uploading logs to S3 =========="
-              aws s3 cp /var/log/user-data.log "{log_uri}" >/dev/null 2>&1 || true
+              aws s3 cp /var/log/user-data.log "{log_uri}" \
+                >/dev/null 2>&1 || true
             }}
-        """).strip()
+            """
+        ).strip()
     else:
-        log_upload_fn = "upload_logs() { :; }"
+        log_upload_fn = 'upload_logs() { :; }'
 
-    return textwrap.dedent(f"""\
+    wait_for_gpu_call = ''
+    if gpu_wait_block:
+        wait_for_gpu_call = 'run wait_for_gpu'
+
+    install_s3fs = ''
+    if config.get('install_s3fs', True):
+        install_s3fs = 'run pip install s3fs'
+
+    bundle_install_line = bundle_install if bundle_install else ''
+
+    return textwrap.dedent(
+        f"""\
         #!/bin/bash
         set -o pipefail
 
@@ -191,7 +298,7 @@ def _get_user_data_script(credentials, script_content, config, instance_name, ou
 
         {log_upload_fn}
 
-        {("gcp_meta(){ :; }\ngcp_delete_self(){ :; }\n" if config["service"] == "aws" else delete_fn)}
+        {delete_fn}
 
         {finalize_success}
         {finalize_error}
@@ -209,7 +316,8 @@ def _get_user_data_script(credentials, script_content, config, instance_name, ou
         run sudo apt install -y python3-pip python3-venv awscli git jq
 
         log "======== Setting up swap ({swap_gb}G) =========="
-        run sudo fallocate -l {swap_gb}G /swapfile || run sudo dd if=/dev/zero of=/swapfile bs=1M count=$(({swap_gb}*1024))
+        run sudo fallocate -l {swap_gb}G /swapfile || \
+          run sudo dd if=/dev/zero of=/swapfile bs=1M count=$(({swap_gb}*1024))
         run sudo chmod 600 /swapfile
         run sudo mkswap /swapfile
         run sudo swapon /swapfile
@@ -227,12 +335,12 @@ def _get_user_data_script(credentials, script_content, config, instance_name, ou
 
         log "======== Install Dependencies in venv =========="
         run pip install --upgrade pip
-        {bundle_install if bundle_install else ""}
+        {bundle_install_line}
         run pip install "{config['sdgym_install']}"
-        {"run pip install s3fs" if config.get("install_s3fs", True) else ""}
+        {install_s3fs}
 
         {gpu_wait_block}
-        {"run wait_for_gpu" if gpu_wait_block else ""}
+        {wait_for_gpu_call}
 
         log "======== Write Script =========="
         cat << 'EOF' > ~/sdgym_script.py
@@ -244,30 +352,54 @@ EOF
 
         log "======== Complete =========="
         finalize_success
-    """).strip()
+        """
+    ).strip()
 
 
-def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, credentials, config_overrides=None):
-    config = resolve_compute_config("gcp", config_overrides)
+def _run_on_gcp(
+    output_destination,
+    synthesizers,
+    s3_client,
+    job_args_list,
+    credentials,
+    config_overrides=None,
+):
+    config = resolve_compute_config('gcp', config_overrides)
     validate_compute_config(credentials, config)
 
-    script_content = _prepare_script_content(output_destination, synthesizers, s3_client, job_args_list, credentials)
+    script_content = _prepare_script_content(
+        output_destination,
+        synthesizers,
+        s3_client,
+        job_args_list,
+        credentials,
+    )
 
-    gcp_zone = credentials["gcp"]["gcp_zone"]
-    gcp_project = credentials["gcp"]["gcp_project"]
-    gcp_credentials = service_account.Credentials.from_service_account_info(credentials["gcp"])
+    gcp_zone = credentials['gcp']['gcp_zone']
+    gcp_project = credentials['gcp']['gcp_project']
+    gcp_creds = service_account.Credentials.from_service_account_info(
+        credentials['gcp'],
+    )
 
-    instance_name = _make_instance_name(config["name_prefix"])
-    print(f"Launching instance: {instance_name} (service=gcp project={gcp_project} zone={gcp_zone})")  # noqa
+    instance_name = _make_instance_name(config['name_prefix'])
+    print(  # noqa: T201
+        f'Launching instance: {instance_name} (service=gcp project={gcp_project} zone={gcp_zone})'
+    )
 
-    startup_script = _get_user_data_script(credentials, script_content, config, instance_name, output_destination)
+    startup_script = _get_user_data_script(
+        credentials,
+        script_content,
+        config,
+        instance_name,
+        output_destination,
+    )
 
-    machine_type = f"zones/{gcp_zone}/machineTypes/{config['machine_type']}"
-    source_disk_image = config["source_image"]
+    machine_type = f'zones/{gcp_zone}/machineTypes/{config["machine_type"]}'
+    source_disk_image = config['source_image']
 
     gpu = compute_v1.AcceleratorConfig(
-        accelerator_type=f"zones/{gcp_zone}/acceleratorTypes/{config['gpu_type']}",
-        accelerator_count=int(config["gpu_count"]),
+        accelerator_type=(f'zones/{gcp_zone}/acceleratorTypes/{config["gpu_type"]}'),
+        accelerator_count=int(config['gpu_count']),
     )
 
     boot_disk = compute_v1.AttachedDisk(
@@ -275,21 +407,30 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         boot=True,
         initialize_params=compute_v1.AttachedDiskInitializeParams(
             source_image=source_disk_image,
-            disk_size_gb=int(config["disk_size_gb"]),
+            disk_size_gb=int(config['disk_size_gb']),
         ),
     )
 
     nic = compute_v1.NetworkInterface()
-    nic.network = "global/networks/default"
-    nic.access_configs = [compute_v1.AccessConfig(name="External NAT", type_="ONE_TO_ONE_NAT")]
+    nic.network = 'global/networks/default'
+    nic.access_configs = [
+        compute_v1.AccessConfig(
+            name='External NAT',
+            type_='ONE_TO_ONE_NAT',
+        )
+    ]
 
-    items = [compute_v1.Items(key="startup-script", value=startup_script)]
-    if config.get("install_nvidia_driver", True):
-        items.append(compute_v1.Items(key="install-nvidia-driver", value="true"))
-
+    items = [compute_v1.Items(key='startup-script', value=startup_script)]
+    if config.get('install_nvidia_driver', True):
+        items.append(
+            compute_v1.Items(key='install-nvidia-driver', value='true'),
+        )
     metadata = compute_v1.Metadata(items=items)
 
-    scheduling = compute_v1.Scheduling(on_host_maintenance="TERMINATE", automatic_restart=False)
+    scheduling = compute_v1.Scheduling(
+        on_host_maintenance='TERMINATE',
+        automatic_restart=False,
+    )
 
     instance = compute_v1.Instance(
         name=instance_name,
@@ -301,14 +442,18 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         scheduling=scheduling,
         service_accounts=[
             compute_v1.ServiceAccount(
-                email="default",
-                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                email='default',
+                scopes=['https://www.googleapis.com/auth/cloud-platform'],
             )
         ],
     )
 
-    instance_client = compute_v1.InstancesClient(credentials=gcp_credentials)
-    instance_client.insert(project=gcp_project, zone=gcp_zone, instance_resource=instance)
+    instance_client = compute_v1.InstancesClient(credentials=gcp_creds)
+    instance_client.insert(
+        project=gcp_project,
+        zone=gcp_zone,
+        instance_resource=instance,
+    )
     return instance_name
 
 
@@ -328,8 +473,9 @@ def _benchmark_compute_gcp(
     modality,
 ):
     """Run the SDGym benchmark on datasets for the given modality."""
-    compute_config = resolve_compute_config("gcp", compute_config)
+    compute_config = resolve_compute_config('gcp', compute_config)
     credentials = get_credentials(credential_filepath)
+
     s3_client = _validate_output_destination(
         output_destination,
         aws_keys={
@@ -377,7 +523,9 @@ def _benchmark_compute_gcp(
         s3_client=s3_client,
         job_args_list=job_args_list,
         credentials=credentials,
+        config_overrides=compute_config,
     )
+    return None
 
 
 def _benchmark_single_table_compute_gcp(
@@ -394,56 +542,11 @@ def _benchmark_single_table_compute_gcp(
     sdmetrics=None,
     timeout=None,
 ):
-    """Run the SDGym benchmark on single-table datasets.
-
-    Args:
-        output_destination (str):
-            An S3 bucket or filepath. The results output folder will be written here.
-            Should be structured as:
-            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
-        credential_filepath (str):
-            The path to the credential file for GCP, AWS and SDV-Enterprise.
-        synthesizers (list[string]):
-            The synthesizer(s) to evaluate. Defaults to
-            ``[GaussianCopulaSynthesizer, CTGANSynthesizer]``. The available options
-            are:
-                - ``GaussianCopulaSynthesizer``
-                - ``CTGANSynthesizer``
-                - ``CopulaGANSynthesizer``
-                - ``TVAESynthesizer``
-                - ``RealTabFormerSynthesizer``
-        sdv_datasets (list[str] or ``None``):
-            Names of the SDV demo datasets to use for the benchmark. Defaults to
-            ``[adult, alarm, census, child, expedia_hotel_logs, insurance, intrusion, news,
-            covtype]``. Use ``None`` to disable using any sdv datasets.
-        additional_datasets_folder (str or ``None``):
-            The path to an S3 bucket. Datasets found in this folder are
-            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
-        limit_dataset_size (bool):
-            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
-            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
-            columns.
-        compute_quality_score (bool):
-            Whether or not to evaluate an overall quality score. Defaults to ``True``.
-        compute_diagnostic_score (bool):
-            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
-        compute_privacy_score (bool):
-            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
-        sdmetrics (list[str]):
-            A list of the different SDMetrics to use.
-            If you'd like to input specific parameters into the metric, provide a tuple with
-            the metric name followed by a dictionary of the parameters.
-        timeout (int or ``None``):
-            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
-            timeout is enforced.
-
-    Returns:
-        pandas.DataFrame:
-            A table containing one row per synthesizer + dataset + metric.
-    """
+    """Run the SDGym benchmark on single-table datasets."""
     return _benchmark_compute_gcp(
         output_destination=output_destination,
         credential_filepath=credential_filepath,
+        compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
@@ -470,45 +573,7 @@ def _benchmark_multi_table_compute_gcp(
     sdmetrics=None,
     timeout=None,
 ):
-    """Run the SDGym benchmark on multi-table datasets.
-
-    Args:
-        output_destination (str):
-            An S3 bucket or filepath. The results output folder will be written here.
-            Should be structured as:
-            s3://{s3_bucket_name}/{path_to_file} or s3://{s3_bucket_name}.
-        credential_filepath (str):
-            The path to the credential file for GCP, AWS and SDV-Enterprise.
-        synthesizers (list[string]):
-            The synthesizer(s) to evaluate. Defaults to
-            ``[HMASynthesizer, MultiTableUniformSynthesizer]``.
-        sdv_datasets (list[str] or ``None``):
-            Names of the SDV demo datasets to use for the benchmark.
-        additional_datasets_folder (str or ``None``):
-            The path to an S3 bucket. Datasets found in this folder are
-            run in addition to the SDV datasets. If ``None``, no additional datasets are used.
-        limit_dataset_size (bool):
-            Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
-            limit the size of every table to 1,000 rows (randomly sampled) and the first 10
-            columns.
-        compute_quality_score (bool):
-            Whether or not to evaluate an overall quality score. Defaults to ``True``.
-        compute_diagnostic_score (bool):
-            Whether or not to evaluate an overall diagnostic score. Defaults to ``True``.
-        compute_privacy_score (bool):
-            Whether or not to evaluate an overall privacy score. Defaults to ``True``.
-        sdmetrics (list[str]):
-            A list of the different SDMetrics to use.
-            If you'd like to input specific parameters into the metric, provide a tuple with
-            the metric name followed by a dictionary of the parameters.
-        timeout (int or ``None``):
-            The maximum number of seconds to wait for synthetic data creation. If ``None``, no
-            timeout is enforced.
-
-    Returns:
-        pandas.DataFrame:
-            A table containing one row per synthesizer + dataset + metric.
-    """
+    """Run the SDGym benchmark on multi-table datasets."""
     return _benchmark_compute_gcp(
         output_destination=output_destination,
         credential_filepath=credential_filepath,

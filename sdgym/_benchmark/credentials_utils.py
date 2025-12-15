@@ -50,13 +50,13 @@ def get_credentials(credential_filepath):
 
 
 def bundle_install_cmd(credentials):
-    sdv_creds = credentials.get("sdv") or {}
-    username = sdv_creds.get("username")
-    license_key = sdv_creds.get("license_key")
+    sdv_creds = credentials.get('sdv') or {}
+    username = sdv_creds.get('username')
+    license_key = sdv_creds.get('license_key')
     if not (username and license_key):
-        return ""
+        return ''
 
     return (
-        "pip install bundle-xsynthesizers "
-        f"--index-url https://{username}:{license_key}@pypi.datacebo.com"
+        'pip install bundle-xsynthesizers '
+        f'--index-url https://{username}:{license_key}@pypi.datacebo.com'
     )

@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 
 from botocore.exceptions import ClientError
 
-from sdgym.benchmark import _benchmark_multi_table_compute_gcp, benchmark_single_table_aws
+from sdgym._benchmark.benchmark import _benchmark_multi_table_compute_gcp
+from sdgym.benchmark import benchmark_single_table_aws
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     OUTPUT_DESTINATION_AWS,
