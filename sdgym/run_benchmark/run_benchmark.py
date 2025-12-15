@@ -19,7 +19,9 @@ from sdgym.run_benchmark.utils import (
 from sdgym.s3 import get_s3_client, parse_s3_path
 
 
-def append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality='single_table'):
+def append_benchmark_run(
+    aws_access_key_id, aws_secret_access_key, date_str, modality='single_table'
+):
     """Append a new benchmark run to the benchmark dates file in S3."""
     s3_client = get_s3_client(
         aws_access_key_id=aws_access_key_id,
@@ -72,7 +74,9 @@ def main():
                 timeout=345600,  # 4 days
             )
 
-        append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality='single_table')
+        append_benchmark_run(
+            aws_access_key_id, aws_secret_access_key, date_str, modality='single_table'
+        )
 
     else:
         for synthesizer_group in SYNTHESIZERS_SPLIT_MULTI_TABLE:
@@ -84,7 +88,9 @@ def main():
                 compute_privacy_score=False,
                 timeout=345600,  # 4 days
             )
-        append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality='multi_table')
+        append_benchmark_run(
+            aws_access_key_id, aws_secret_access_key, date_str, modality='multi_table'
+        )
 
     post_benchmark_launch_message(date_str, compute_service='GCP')
 

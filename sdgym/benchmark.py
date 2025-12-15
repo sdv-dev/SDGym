@@ -9,7 +9,9 @@ import os
 import re
 import textwrap
 import threading
+import time
 import tracemalloc
+import uuid
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
@@ -131,6 +133,35 @@ SDV_SINGLE_TABLE_SYNTHESIZERS = [
 SDV_MULTI_TABLE_SYNTHESIZERS = ['HMASynthesizer']
 MODALITY_IDX = 10
 SDV_SYNTHESIZERS = SDV_SINGLE_TABLE_SYNTHESIZERS + SDV_MULTI_TABLE_SYNTHESIZERS
+DEFAULT_COMPUTE_CONFIG = {
+    "common": {
+        "swap_gb": 32,
+        "disk_size_gb": 100,  # used by GCP; AWS uses volume_size_gb
+        "sdgym_install": 'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain',
+        "install_s3fs": True,
+        "assert_gpu": True,  # if GPU is expected, fail if not available
+        "gpu_wait_seconds": 10 * 60,
+        "gpu_wait_interval_seconds": 10,
+        "upload_logs_to_s3": True,
+    },
+    "gcp": {
+        "name_prefix": "sdgym-run",
+        "machine_type": "g2-standard-16",
+        "source_image": "projects/debian-cloud/global/images/family/debian-12",
+        "gpu_type": "nvidia-l4",
+        "gpu_count": 1,
+        "install_nvidia_driver": True,
+        "delete_on_success": True,
+        "delete_on_error": True,   # you can make this False if you prefer
+        "stop_fallback": True,      # if delete fails, shutdown
+    },
+    "aws": {
+        "name_prefix": "sdgym-run",
+        "ami": "ami-080e1f13689e07408",
+        "instance_type": "g4dn.4xlarge",
+        "volume_size_gb": 100,
+    },
+}
 
 
 def _validate_output_filepath_and_detailed_results_folder(output_filepath, detailed_results_folder):
@@ -1631,10 +1662,42 @@ s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
 
 
-def _get_user_data_script(credentials, script_content, compute_service='aws'):
+def _prepare_script_content(output_destination, synthesizers, s3_client, job_args_list, credentials):
+    bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
+    synthesizer_names = [{"name": s["name"]} for s in synthesizers]
+
+    script_content = _get_s3_script_content(
+        credentials["aws"]["aws_access_key_id"],
+        credentials["aws"]["aws_secret_access_key"],
+        S3_REGION,
+        bucket_name,
+        job_args_key,
+        synthesizer_names,
+    )
+    return script_content
+
+
+def _bundle_install_cmd(credentials):
+    sdv_creds = credentials.get("sdv") or {}
+    username = sdv_creds.get("username")
+    license_key = sdv_creds.get("license_key")
+    if not (username and license_key):
+        return ""
+
+    return (
+        "pip install bundle-xsynthesizers "
+        f"--index-url https://{username}:{license_key}@pypi.datacebo.com"
+    )
+
+
+def _get_user_data_script(credentials, script_content, compute_service='aws', instance_name=None):
+    """Generate user-data startup script for either AWS or GCP.
+
+    - On AWS: terminates the instance on completion or error.
+    - On GCP: stops the instance on completion or error (no delete), to preserve logs/disk.
+    """
     aws_key = credentials['aws']['aws_access_key_id']
     aws_secret = credentials['aws']['aws_secret_access_key']
-
     sdv_creds = credentials.get('sdv', {})
     bundle_install = ''
     if sdv_creds.get('username') and sdv_creds.get('license_key'):
@@ -1644,89 +1707,82 @@ def _get_user_data_script(credentials, script_content, compute_service='aws'):
         )
 
     if compute_service == 'aws':
-        gcp_exports = ''
-        gpu_driver_install = ''
-        termination_body = textwrap.dedent("""\
-            echo "======== Terminating AWS EC2 instance =========="
+        # On AWS we can safely terminate at the end.
+        on_error_body = textwrap.dedent("""\
+            echo "======== ERROR occurred (AWS) =========="
             INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)
             if [ -n "$INSTANCE_ID" ]; then
-                echo "INSTANCE_ID=$INSTANCE_ID"
+                echo "Terminating AWS EC2 instance: $INSTANCE_ID"
+                aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
+            else
+                echo "Skipping AWS termination (no INSTANCE_ID found)"
+            fi
+
+            exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+        """).strip()
+
+        on_success_body = textwrap.dedent("""\
+            echo "======== Complete (AWS) =========="
+            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id || true)
+            if [ -n "$INSTANCE_ID" ]; then
+                echo "Terminating AWS EC2 instance: $INSTANCE_ID"
                 aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" || true
             else
                 echo "Skipping AWS termination (no INSTANCE_ID found)"
             fi
         """).strip()
+
+        gcp_exports = ''
+        extra_metadata_notes = ''
+
     elif compute_service == 'gcp':
+        # On GCP: stop instance (not delete) so you can inspect logs/disk if needed.
+        # instance_name is provided by the launcher to keep it consistent.
+        gcp_project = credentials['gcp']['gcp_project']
+        gcp_zone = credentials['gcp']['gcp_zone']
+        safe_instance_name = instance_name or 'sdgym-run'
+
         gcp_exports = textwrap.dedent(f"""\
             echo "======== Export GCP variables =========="
-            export GCP_PROJECT='{credentials['gcp']['gcp_project']}'
-            export GCP_ZONE='{credentials['gcp']['gcp_zone']}'
-            export INSTANCE_NAME='sdgym-run'
+            export GCP_PROJECT='{gcp_project}'
+            export GCP_ZONE='{gcp_zone}'
+            export INSTANCE_NAME='{safe_instance_name}'
+            echo "======== Instance: $INSTANCE_NAME (GCP) =========="
         """).strip()
 
-        gpu_driver_install = textwrap.dedent("""\
-            echo "======== Installing NVIDIA drivers =========="
-            # Try installing NVIDIA drivers (no reboot). If it fails, continue on CPU.
-            sudo apt-get update -y
-            sudo apt-get install -y --no-install-recommends nvidia-driver
-            echo "======== NVIDIA driver check =========="
-            if command -v nvidia-smi >/dev/null 2>&1; then
-                nvidia-smi || true
-            else
-                echo "nvidia-smi not found; continuing without GPU drivers."
-            fi
+        # Stop on error and on success; logs are preserved in /var/log/user-data.log.
+        on_error_body = textwrap.dedent("""\
+            echo "======== ERROR occurred (GCP) =========="
+            echo "Stopping instance to prevent billing. Logs remain on disk."
+            sudo shutdown -h now || true
         """).strip()
 
-        termination_body = textwrap.dedent("""\
-            echo "======== Terminating GCP instance via Compute API =========="
-            PROJECT_ID="$GCP_PROJECT"
-            ZONE="$GCP_ZONE"
-            INSTANCE="$INSTANCE_NAME"
-
-            # Token fetch can fail under memory pressure; retry a few times.
-            TOKEN=""
-            for i in 1 2 3 4 5; do
-                TOKEN=$(curl -sf -H "Metadata-Flavor: Google" \
-                    http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
-                    | jq -r ".access_token" || true)
-                if [ -n "$TOKEN" ]; then
-                    break
-                fi
-                echo "Retrying GCP access token fetch ($i/5)..."
-                sleep 2
-            done
-
-            echo "======== GCP termination parameters =========="
-            echo "PROJECT_ID=$PROJECT_ID"
-            echo "ZONE=$ZONE"
-            echo "INSTANCE=$INSTANCE"
-
-            if [ -z "$PROJECT_ID" ] || [ -z "$ZONE" ] || [ -z "$INSTANCE" ] || [ -z "$TOKEN" ]; then
-                echo "Skipping GCP termination (missing required parameters)"
-            else
-                curl -s -X DELETE \
-                    -H "Authorization: Bearer $TOKEN" \
-                    -H "Content-Type: application/json" \
-                    "https://compute.googleapis.com/compute/v1/projects/" \
-                    "$PROJECT_ID/zones/$ZONE/instances/" \
-                    "$INSTANCE" \
-                    || true
-            fi
+        on_success_body = textwrap.dedent("""\
+            echo "======== Complete (GCP) =========="
+            echo "Stopping instance to prevent billing. Logs remain on disk."
+            sudo shutdown -h now || true
         """).strip()
+
+        extra_metadata_notes = textwrap.dedent("""\
+            echo "======== Note =========="
+            echo "GPU drivers are installed asynchronously by GCP when install-nvidia-driver=true."
+        """).strip()
+
     else:
         raise ValueError("compute_service must be 'aws' or 'gcp'")
 
+    # IMPORTANT: No `set -e`. We want logs, then ERR trap handles shutdown/terminate.
+    # `set -o pipefail` ensures pipeline failures are caught by ERR trap.
     return textwrap.dedent(f"""\
         #!/bin/bash
-        set -e
 
-        # Always terminate the instance when the script exits (success or failure)
-        terminate_instance() {{
-        {termination_body}
+        set -o pipefail
+
+        on_error() {{
+        {on_error_body}
         }}
-        trap terminate_instance EXIT
 
-        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+        trap on_error ERR
 
         {gcp_exports}
 
@@ -1734,7 +1790,7 @@ def _get_user_data_script(credentials, script_content, compute_service='aws'):
         sudo apt update -y
         sudo apt install -y python3-pip python3-venv awscli git jq
 
-        {gpu_driver_install}
+        {extra_metadata_notes}
 
         echo "======== Setting up swap ============"
         sudo fallocate -l 32G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
@@ -1766,13 +1822,14 @@ EOF
         echo "======== Run Script ==========="
         python ~/sdgym_script.py
 
-        echo "======== Complete ==========="
+        {on_success_body}
     """).strip()
 
 
 def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, credentials):
     bucket_name, job_args_key = _store_job_args_in_s3(output_destination, job_args_list, s3_client)
     synthesizer_names = [{'name': synthesizer['name']} for synthesizer in synthesizers]
+
     script_content = _get_s3_script_content(
         credentials['aws']['aws_access_key_id'],
         credentials['aws']['aws_secret_access_key'],
@@ -1782,16 +1839,21 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         synthesizer_names,
     )
 
-    instance_name = 'sdgym-run'
     gcp_zone = credentials['gcp']['gcp_zone']
     gcp_project = credentials['gcp']['gcp_project']
     gcp_credentials = service_account.Credentials.from_service_account_info(credentials['gcp'])
 
+    # Unique instance name per run (so multiple launches don’t collide)
+    instance_name = f'sdgym-run-{int(time.time())}-{uuid.uuid4().hex[:6]}'
+    print(f'Launching GCP instance: {instance_name} (project={gcp_project}, zone={gcp_zone})')  # noqa
+
     source_disk_image = 'projects/debian-cloud/global/images/family/debian-12'
+
     startup_script = _get_user_data_script(
         credentials=credentials,
         script_content=script_content,
         compute_service='gcp',
+        instance_name=instance_name,
     )
 
     machine_type = f'zones/{gcp_zone}/machineTypes/g2-standard-16'
@@ -1807,7 +1869,7 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         boot=True,
         initialize_params=compute_v1.AttachedDiskInitializeParams(
             source_image=source_disk_image,
-            disk_size_gb=20,
+            disk_size_gb=100,
         ),
     )
 
@@ -1820,13 +1882,18 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         )
     ]
 
+    # GCP installs GPU drivers asynchronously (best for Debian base image).
     metadata = compute_v1.Metadata(
         items=[
-            compute_v1.Items(
-                key='startup-script',
-                value=startup_script,
-            )
+            compute_v1.Items(key='startup-script', value=startup_script),
+            compute_v1.Items(key='install-nvidia-driver', value='true'),
         ]
+    )
+
+    # Required for GPU instances
+    scheduling = compute_v1.Scheduling(
+        on_host_maintenance='TERMINATE',
+        automatic_restart=False,
     )
 
     instance = compute_v1.Instance(
@@ -1836,6 +1903,13 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         network_interfaces=[nic],
         metadata=metadata,
         guest_accelerators=[gpu],
+        scheduling=scheduling,
+        service_accounts=[
+            compute_v1.ServiceAccount(
+                email='default',
+                scopes=['https://www.googleapis.com/auth/cloud-platform'],
+            )
+        ],
     )
 
     instance_client.insert(
@@ -1843,6 +1917,9 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         zone=gcp_zone,
         instance_resource=instance,
     )
+
+    # Return the name so the caller can print/store it, or poll status, etc.
+    return instance_name
 
 
 def _run_on_aws(
