@@ -226,8 +226,6 @@ def _get_user_data_script(
             """
         ).strip()
 
-        platform_logger = ':'  # no-op; GCP logging is via stdout + log file
-
     gpu_wait_block = ''
     if gpu_expected and assert_gpu:
         gpu_wait_block = textwrap.dedent(
@@ -287,11 +285,15 @@ def _get_user_data_script(
           msg="$*"
           echo "$msg"
           echo "$msg" | sudo tee -a "$LOG_FILE" >/dev/null
-          {platform_logger} <<<"$msg" >/dev/null 2>&1 || true
         }}
 
         run() {{
           log "+ $*"
+          "$@" 2>&1 | sudo tee -a "$LOG_FILE"
+          return ${{PIPESTATUS[0]}}
+        }}
+
+        run_secret() {{
           "$@" 2>&1 | sudo tee -a "$LOG_FILE"
           return ${{PIPESTATUS[0]}}
         }}
@@ -324,8 +326,8 @@ def _get_user_data_script(
         echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
 
         log "======== Configure AWS CLI =========="
-        run aws configure set aws_access_key_id '{aws_key}'
-        run aws configure set aws_secret_access_key '{aws_secret}'
+        run_secret aws configure set aws_access_key_id '{aws_key}'
+        run_secret aws configure set aws_secret_access_key '{aws_secret}'
         run aws configure set default.region '{S3_REGION}'
 
         log "======== Create Virtual Environment =========="
@@ -383,7 +385,8 @@ def _run_on_gcp(
 
     instance_name = _make_instance_name(config['name_prefix'])
     print(  # noqa: T201
-        f'Launching instance: {instance_name} (service=gcp project={gcp_project} zone={gcp_zone})'
+        f'Launching instance: {instance_name} '
+        f'(service=gcp project={gcp_project} zone={gcp_zone})'
     )
 
     startup_script = _get_user_data_script(
@@ -398,7 +401,9 @@ def _run_on_gcp(
     source_disk_image = config['source_image']
 
     gpu = compute_v1.AcceleratorConfig(
-        accelerator_type=(f'zones/{gcp_zone}/acceleratorTypes/{config["gpu_type"]}'),
+        accelerator_type=(
+            f'zones/{gcp_zone}/acceleratorTypes/{config["gpu_type"]}'
+        ),
         accelerator_count=int(config['gpu_count']),
     )
 
@@ -449,11 +454,25 @@ def _run_on_gcp(
     )
 
     instance_client = compute_v1.InstancesClient(credentials=gcp_creds)
-    instance_client.insert(
+    operation = instance_client.insert(
         project=gcp_project,
         zone=gcp_zone,
         instance_resource=instance,
     )
+
+    op_client = compute_v1.ZoneOperationsClient(credentials=gcp_creds)
+    operation = op_client.wait(
+        project=gcp_project,
+        zone=gcp_zone,
+        operation=operation.name,
+    )
+
+    if operation.error and operation.error.errors:
+        messages = [e.message for e in operation.error.errors if e.message]
+        joined = '; '.join(messages) if messages else str(operation.error)
+        raise RuntimeError(f'GCP instance creation failed: {joined}')
+
+    print(f'Instance created: {instance_name}')  # noqa: T201
     return instance_name
 
 

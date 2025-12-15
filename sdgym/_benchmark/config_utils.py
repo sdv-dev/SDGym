@@ -2,23 +2,28 @@ DEFAULT_COMPUTE_CONFIG = {
     'common': {
         'swap_gb': 32,
         'disk_size_gb': 100,
-        'sdgym_install': 'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain',
+        'sdgym_install': (
+            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain'
+        ),
         'install_s3fs': True,
-        'assert_gpu': True,  # if GPU is expected, fail if not available
+        'assert_gpu': True,
         'gpu_wait_seconds': 10 * 60,
         'gpu_wait_interval_seconds': 10,
         'upload_logs_to_s3': True,
     },
     'gcp': {
         'name_prefix': 'sdgym-run',
-        'machine_type': 'g2-standard-16',
-        'source_image': 'projects/debian-cloud/global/images/family/debian-12',
-        'gpu_type': 'nvidia-l4',
+        'machine_type': 'n1-standard-8',
+        'source_image': (
+            'projects/deeplearning-platform-release/global/images/family/'
+            'common-cu128-ubuntu-2204-nvidia-570'
+        ),
+        'gpu_type': 'nvidia-tesla-t4',
         'gpu_count': 1,
-        'install_nvidia_driver': True,
+        'install_nvidia_driver': False,  # DLVM already has drivers/tooling
         'delete_on_success': True,
-        'delete_on_error': True,  # you can make this False if you prefer
-        'stop_fallback': True,  # if delete fails, shutdown
+        'delete_on_error': True,
+        'stop_fallback': True,
     },
     'aws': {
         'name_prefix': 'sdgym-run',
