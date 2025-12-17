@@ -41,6 +41,7 @@ def _merge_dict(base, config):
             out[k] = _merge_dict(out[k], v)
         else:
             out[k] = v
+
     return out
 
 
