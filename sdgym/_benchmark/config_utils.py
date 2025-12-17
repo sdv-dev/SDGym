@@ -20,7 +20,7 @@ DEFAULT_COMPUTE_CONFIG = {
         ),
         'gpu_type': 'nvidia-tesla-t4',
         'gpu_count': 1,
-        'install_nvidia_driver': False,  # DLVM already has drivers/tooling
+        'install_nvidia_driver': False,
         'delete_on_success': True,
         'delete_on_error': True,
         'stop_fallback': True,

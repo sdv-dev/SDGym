@@ -9,8 +9,6 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
-GCP_ZONE = 'us-central1-a'
-GCP_PROJECT = 'sdgym-337614'
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
@@ -50,15 +48,11 @@ PLOTLY_MARKERS = [
 ]
 
 # The synthesizers inside the same list will be run by the same ec2 instance
-SYNTHESIZERS_SPLIT_SINGLE_TABLE = [
+SYNTHESIZERS_SPLIT = [
     ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer', 'TVAESynthesizer'],
     ['CopulaGANSynthesizer'],
     ['CTGANSynthesizer'],
     ['RealTabFormerSynthesizer'],
-]
-SYNTHESIZERS_SPLIT_MULTI_TABLE = [
-    ['HMASynthesizer'],
-    ['HSASynthesizer', 'IndependentSynthesizer', 'MultiTableUniformSynthesizer'],
 ]
 
 
@@ -97,13 +91,13 @@ def post_slack_message(channel, text):
     client.chat_postMessage(channel=channel, text=text)
 
 
-def post_benchmark_launch_message(date_str, compute_service='AWS'):
+def post_benchmark_launch_message(date_str):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
     channel = SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/')
-    body = f'🏃 SDGym benchmark has been launched on {compute_service}! '
+    body = '🏃 SDGym benchmark has been launched! EC2 Instances are running. '
     body += f'Intermediate results can be found <{url_link}|here>.\n'
     post_slack_message(channel, body)
 

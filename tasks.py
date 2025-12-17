@@ -203,9 +203,9 @@ def rmdir(c, path):
         pass
 
 @task
-def run_sdgym_benchmark(c, modality='single_table'):
+def run_sdgym_benchmark(c):
     """Run the SDGym benchmark."""
-    c.run(f'python sdgym/run_benchmark/run_benchmark.py --modality {modality}')
+    c.run('python sdgym/run_benchmark/run_benchmark.py')
 
 @task
 def upload_benchmark_results(c):
