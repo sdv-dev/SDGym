@@ -133,8 +133,6 @@ def _get_user_data_script(
             }
             """
         ).strip()
-
-        platform_logger = 'logger -t user-data -s 2>/dev/console'
         delete_fn = 'gcp_meta(){ :; }\ngcp_delete_self(){ :; }\n'
 
     else:
@@ -385,8 +383,7 @@ def _run_on_gcp(
 
     instance_name = _make_instance_name(config['name_prefix'])
     print(  # noqa: T201
-        f'Launching instance: {instance_name} '
-        f'(service=gcp project={gcp_project} zone={gcp_zone})'
+        f'Launching instance: {instance_name} (service=gcp project={gcp_project} zone={gcp_zone})'
     )
 
     startup_script = _get_user_data_script(
@@ -401,9 +398,7 @@ def _run_on_gcp(
     source_disk_image = config['source_image']
 
     gpu = compute_v1.AcceleratorConfig(
-        accelerator_type=(
-            f'zones/{gcp_zone}/acceleratorTypes/{config["gpu_type"]}'
-        ),
+        accelerator_type=(f'zones/{gcp_zone}/acceleratorTypes/{config["gpu_type"]}'),
         accelerator_count=int(config['gpu_count']),
     )
 
