@@ -1,7 +1,12 @@
 DEFAULT_COMPUTE_CONFIG = {
     'common': {
+        'name_prefix': 'sdgym-run',
+        'root_disk_gb': 100,
+        'compute_type': None,
+        'boot_image': None,
+        'gpu_type': None,
+        'gpu_count': 0,
         'swap_gb': 32,
-        'disk_size_gb': 100,
         'sdgym_install': (
             'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain'
         ),
@@ -12,9 +17,8 @@ DEFAULT_COMPUTE_CONFIG = {
         'upload_logs_to_s3': True,
     },
     'gcp': {
-        'name_prefix': 'sdgym-run',
-        'machine_type': 'n1-standard-8',
-        'source_image': (
+        'compute_type': 'n1-standard-8',
+        'boot_image': (
             'projects/deeplearning-platform-release/global/images/family/'
             'common-cu128-ubuntu-2204-nvidia-570'
         ),
@@ -26,12 +30,30 @@ DEFAULT_COMPUTE_CONFIG = {
         'stop_fallback': True,
     },
     'aws': {
-        'name_prefix': 'sdgym-run',
-        'ami': 'ami-080e1f13689e07408',
-        'instance_type': 'g4dn.4xlarge',
-        'volume_size_gb': 100,
+        'compute_type': 'g4dn.4xlarge',
+        'boot_image': 'ami-080e1f13689e07408',
     },
 }
+
+_KEYMAP_COMPUTE_SERVICE = {
+    'root_disk_gb': {
+        'aws': 'volume_size_gb',
+        'gcp': 'disk_size_gb',
+    },
+    'compute_type': {
+        'aws': 'instance_type',
+        'gcp': 'machine_type',
+    },
+    'boot_image': {
+        'aws': 'ami',
+        'gcp': 'source_image',
+    },
+}
+_REQUIRED_CANONICAL_KEYS = (
+    'compute_type',
+    'boot_image',
+    'root_disk_gb',
+)
 
 
 def _merge_dict(base, config):
@@ -45,37 +67,51 @@ def _merge_dict(base, config):
     return out
 
 
+def _apply_compute_service_keymap(config):
+    """Expand canonical keys into provider-specific keys."""
+    compute_service = config['service']
+    out = dict(config)
+    for canonical_key, per_service in _KEYMAP_COMPUTE_SERVICE.items():
+        if canonical_key not in out:
+            continue
+
+        provider_key = per_service.get(compute_service)
+        if provider_key:
+            out[provider_key] = out[canonical_key]
+
+    return out
+
+
 def resolve_compute_config(compute_service, config=None):
     if compute_service not in ('aws', 'gcp'):
         raise ValueError("compute_service must be 'aws' or 'gcp'")
 
-    base = _merge_dict(DEFAULT_COMPUTE_CONFIG['common'], DEFAULT_COMPUTE_CONFIG[compute_service])
+    base = _merge_dict(
+        DEFAULT_COMPUTE_CONFIG['common'],
+        DEFAULT_COMPUTE_CONFIG[compute_service],
+    )
     base['service'] = compute_service
-    return _merge_dict(base, config)
+    merged = _merge_dict(base, config)
+    resolved = _apply_compute_service_keymap(merged)
+
+    return resolved
 
 
-def validate_compute_config(credentials, config):
-    # Always needed because results/logs go to S3
-    aws = credentials.get('aws') or {}
-    if not aws.get('aws_access_key_id') or not aws.get('aws_secret_access_key'):
-        raise ValueError("Missing AWS credentials in credentials['aws']")
+def validate_compute_config(config):
+    service = config.get('service')
+    if service not in ('gcp', 'aws'):
+        raise ValueError(
+            f'Invalid compute config: unknown service={service!r}. Expected one of: gcp, aws'
+        )
 
-    svc = config['service']
-    if svc == 'gcp':
-        gcp = credentials.get('gcp') or {}
-        if not gcp.get('gcp_project') or not gcp.get('gcp_zone'):
-            raise ValueError(
-                "Missing GCP fields: credentials['gcp']['gcp_project'] and ['gcp_zone']"
-            )
-        for k in ('machine_type', 'source_image', 'disk_size_gb'):
-            if not config.get(k):
-                raise ValueError(f'Missing required GCP config field: {k}')
+    missing = [key for key in _REQUIRED_CANONICAL_KEYS if not config.get(key)]
+    gpu_count = int(config.get('gpu_count') or 0)
+    if gpu_count > 0 and not config.get('gpu_type'):
+        missing.append('gpu_type')
 
-        # If you expect GPU, require gpu_type/count
-        if config.get('gpu_count', 0):
-            if not config.get('gpu_type'):
-                raise ValueError('Missing required GCP config field: gpu_type (GPU requested)')
-    elif svc == 'aws':
-        for k in ('ami', 'instance_type', 'volume_size_gb'):
-            if not config.get(k):
-                raise ValueError(f'Missing required AWS config field: {k}')
+    if missing:
+        missing = "' ,'".join(missing)
+        raise ValueError(
+            f'Invalid compute config for service={service!r}. '
+            f"Missing required field(s): '{missing}'."
+        )

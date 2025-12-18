@@ -1,6 +1,6 @@
 import textwrap
-import time
 import uuid
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from google.cloud import compute_v1
@@ -25,9 +25,9 @@ from sdgym.benchmark import (
 
 
 def _make_instance_name(prefix):
-    timestamp = int(time.time())
+    day = datetime.now(timezone.utc).strftime('%Y%m%d')
     suffix = uuid.uuid4().hex[:6]
-    return f'{prefix}-{timestamp}-{suffix}'
+    return f'{prefix}-{day}-{suffix}'
 
 
 def _logs_s3_uri(output_destination, instance_name):
@@ -357,16 +357,8 @@ EOF
 
 
 def _run_on_gcp(
-    output_destination,
-    synthesizers,
-    s3_client,
-    job_args_list,
-    credentials,
-    config_overrides=None,
+    output_destination, synthesizers, s3_client, job_args_list, credentials, compute_config
 ):
-    config = resolve_compute_config('gcp', config_overrides)
-    validate_compute_config(credentials, config)
-
     script_content = _prepare_script_content(
         output_destination,
         synthesizers,
@@ -381,25 +373,23 @@ def _run_on_gcp(
         credentials['gcp'],
     )
 
-    instance_name = _make_instance_name(config['name_prefix'])
+    instance_name = _make_instance_name(compute_config['name_prefix'])
     print(  # noqa: T201
         f'Launching instance: {instance_name} (service=gcp project={gcp_project} zone={gcp_zone})'
     )
-
     startup_script = _get_user_data_script(
         credentials,
         script_content,
-        config,
+        compute_config,
         instance_name,
         output_destination,
     )
 
-    machine_type = f'zones/{gcp_zone}/machineTypes/{config["machine_type"]}'
-    source_disk_image = config['source_image']
-
+    machine_type = f'zones/{gcp_zone}/machineTypes/{compute_config["machine_type"]}'
+    source_disk_image = compute_config['source_image']
     gpu = compute_v1.AcceleratorConfig(
-        accelerator_type=(f'zones/{gcp_zone}/acceleratorTypes/{config["gpu_type"]}'),
-        accelerator_count=int(config['gpu_count']),
+        accelerator_type=(f'zones/{gcp_zone}/acceleratorTypes/{compute_config["gpu_type"]}'),
+        accelerator_count=int(compute_config['gpu_count']),
     )
 
     boot_disk = compute_v1.AttachedDisk(
@@ -407,7 +397,7 @@ def _run_on_gcp(
         boot=True,
         initialize_params=compute_v1.AttachedDiskInitializeParams(
             source_image=source_disk_image,
-            disk_size_gb=int(config['disk_size_gb']),
+            disk_size_gb=int(compute_config['disk_size_gb']),
         ),
     )
 
@@ -421,7 +411,7 @@ def _run_on_gcp(
     ]
 
     items = [compute_v1.Items(key='startup-script', value=startup_script)]
-    if config.get('install_nvidia_driver', True):
+    if compute_config.get('install_nvidia_driver', True):
         items.append(
             compute_v1.Items(key='install-nvidia-driver', value='true'),
         )
@@ -489,6 +479,7 @@ def _benchmark_compute_gcp(
     """Run the SDGym benchmark on datasets for the given modality."""
     compute_config = resolve_compute_config('gcp', compute_config)
     credentials = get_credentials(credential_filepath)
+    validate_compute_config(compute_config)
 
     s3_client = _validate_output_destination(
         output_destination,
@@ -537,9 +528,8 @@ def _benchmark_compute_gcp(
         s3_client=s3_client,
         job_args_list=job_args_list,
         credentials=credentials,
-        config_overrides=compute_config,
+        compute_config=compute_config,
     )
-    return None
 
 
 def _benchmark_single_table_compute_gcp(
