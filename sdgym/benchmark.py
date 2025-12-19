@@ -1,6 +1,7 @@
 """Main SDGym benchmarking module."""
 
 import concurrent
+import gzip
 import logging
 import math
 import multiprocessing
@@ -1265,20 +1266,12 @@ def _ensure_uniform_included(synthesizers, modality):
     if modality == 'multi_table':
         uniform_class = MultiTableUniformSynthesizer
 
-    uniform_name = uniform_class.__name__
     uniform_not_included = bool(
         uniform_class not in synthesizers and uniform_class.__name__ not in synthesizers
     )
     if uniform_not_included:
         LOGGER.info(f'Adding {uniform_class.__name__} to the list of synthesizers.')
         synthesizers.append(uniform_class.__name__)
-
-    synthesizers[:] = [
-        synthesizer
-        for synthesizer in synthesizers
-        if synthesizer is not uniform_class and synthesizer != uniform_name
-    ]
-    synthesizers.insert(0, uniform_name)
 
 
 def _fill_adjusted_scores_with_none(scores):
@@ -1584,7 +1577,9 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = cloudpickle.dumps(job_args_list)
-    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=serialized_data)
+    compressed = gzip.compress(serialized_data, compresslevel=1)  # level 1 = fast
+    job_args_key = job_args_key + '.pkl.gz'  # make it explicit
+    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=compressed)
 
     return bucket_name, job_args_key
 
@@ -1595,6 +1590,7 @@ def _get_s3_script_content(
     return f"""
 import boto3
 import cloudpickle
+import gzip
 from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file, MODALITY_IDX
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
@@ -1606,7 +1602,11 @@ s3_client = boto3.client(
     region_name='{region_name}'
 )
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
-job_args_list = cloudpickle.loads(response['Body'].read())
+blob = response['Body'].read()
+if blob[:2] == b'\\x1f\\x8b':
+    blob = gzip.decompress(blob)
+
+job_args_list = cloudpickle.loads(blob)
 modality = job_args_list[0][MODALITY_IDX]
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_metainfo_file({synthesizers}, job_args_list, modality, result_writer)

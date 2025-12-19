@@ -260,12 +260,12 @@ def test_benchmark_single_table():
     # Assert
     expected_synthesizers = pd.Series(
         [
-            'UniformSynthesizer',
             'TVAESynthesizer',
             'CopulaGANSynthesizer',
             'GaussianCopulaSynthesizer',
             'DataIdentity',
             'ColumnSynthesizer',
+            'UniformSynthesizer',
             'CTGANSynthesizer',
             'Custom:TestSynthesizer',
             'Variant:CTGANVariant',
@@ -285,8 +285,8 @@ def test_benchmark_single_table():
 
     # The IdentitySynthesizer never returns new rows, so its score is 0
     # Every other synthesizer should only return new rows, so their score is 1
-    assert results['NewRowSynthesis'][4] == 0
-    results['NewRowSynthesis'][4] = 1
+    assert results['NewRowSynthesis'][3] == 0
+    results['NewRowSynthesis'][3] = 1
     assert (results['NewRowSynthesis'] == 1).all()
 
 
@@ -303,8 +303,8 @@ def test_benchmark_single_table_timeout():
 
     # Assert
     assert total_time < 50.0  # Buffer time for code not in timeout
-    fallback_train_time = scores.loc[0, 'Train_Time']
-    fallback_sample_time = scores.loc[0, 'Sample_Time']
+    fallback_train_time = scores.loc[1, 'Train_Time']
+    fallback_sample_time = scores.loc[1, 'Sample_Time']
     timeout_scores = pd.Series(
         {
             'Synthesizer': 'GaussianCopulaSynthesizer',
@@ -322,9 +322,9 @@ def test_benchmark_single_table_timeout():
             'Adjusted_Total_Time': 2 + fallback_train_time + fallback_sample_time,
             'Adjusted_Quality_Score': None,
         },
-        name=1,
+        name=0,
     )
-    pd.testing.assert_series_equal(scores.T[1], timeout_scores)
+    pd.testing.assert_series_equal(scores.T[0], timeout_scores)
 
 
 def test_benchmark_single_table_only_datasets():
@@ -342,9 +342,9 @@ def test_benchmark_single_table_only_datasets():
     # Assert
     assert len(scores.columns) == 14
     assert list(scores['Synthesizer']) == [
-        'UniformSynthesizer',
         'GaussianCopulaSynthesizer',
         'CTGANSynthesizer',
+        'UniformSynthesizer',
     ]
     assert list(scores['Dataset']) == ['fake_companies'] * 3
     assert [round(score, 5) for score in scores['Dataset_Size_MB']] == [0.00128] * 3
@@ -560,7 +560,7 @@ def test_benchmark_single_table_limit_dataset_size():
     )
 
     # Assert
-    results = results.iloc[1]
+    results = results.iloc[0]
     assert results['Synthesizer'] == 'GaussianCopulaSynthesizer'
     assert results['Dataset'] == 'adult'
     assert round(results['Dataset_Size_MB'], 4) <= 0.09
@@ -678,9 +678,9 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
     synth_dir = subdir / f'fake_companies_{today_date}'
     synthesizer_dirs = os.listdir(synth_dir)
     assert set(synthesizer_dirs) == {
-        'UniformSynthesizer',
         'TVAESynthesizer',
         'GaussianCopulaSynthesizer',
+        'UniformSynthesizer',
     }
 
     # Validate files in each synthesizer directory
@@ -706,7 +706,6 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
     # Assert Results
     pd.testing.assert_frame_equal(results, saved_result, check_dtype=False)
     results_no_adjusted = results.drop(columns=['Adjusted_Total_Time', 'Adjusted_Quality_Score'])
-    score_saved_separately = score_saved_separately.iloc[[2, 0, 1]].reset_index(drop=True)
     pd.testing.assert_frame_equal(results_no_adjusted, score_saved_separately, check_dtype=False)
 
 
@@ -813,11 +812,11 @@ def test_benchmark_single_table_error_during_fit(mock_fit):
 
     # Assert
     assert result['error'].to_list() == [
-        np.nan,
         'Exception: Fitting error',
         np.nan,
         np.nan,
         'Exception: Fitting error',
+        np.nan,
         np.nan,
     ]
     for dataset, data in result.groupby('Dataset'):
@@ -857,11 +856,11 @@ def test_benchmark_single_table_error_during_sample(mock_sample):
 
     # Assert
     assert result['error'].to_list() == [
-        np.nan,
         'Exception: Sampling error',
         np.nan,
         np.nan,
         'Exception: Sampling error',
+        np.nan,
         np.nan,
     ]
     for dataset, data in result.groupby('Dataset'):
@@ -1036,10 +1035,10 @@ def test_benchmark_multi_table_error_during_fit(mock_augment_tables):
 
     # Assert
     assert result['error'].to_list() == [
-        np.nan,
         'Exception: Fitting error',
         np.nan,
         'Exception: Fitting error',
+        np.nan,
     ]
     for dataset, data in result.groupby('Dataset'):
         uniform = data.loc[data['Synthesizer'] == 'MultiTableUniformSynthesizer'].iloc[0]
