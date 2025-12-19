@@ -159,7 +159,11 @@ def _get_user_data_script(
 ):
     compute_service = config['service']
     swap_gb = int(config.get('swap_gb', 32))
-    gpu = bool(config.get('gpu', False))
+    gpu = (
+        bool(config.get('gpu'))
+        or int(config.get('gpu_count', 0)) > 0
+        or bool(config.get('gpu_type'))
+    )
     upload_logs = bool(config.get('upload_logs', True))
 
     aws_key = credentials['aws']['aws_access_key_id']
