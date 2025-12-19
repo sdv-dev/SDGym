@@ -1577,8 +1577,8 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = cloudpickle.dumps(job_args_list)
-    compressed = gzip.compress(serialized_data, compresslevel=1)  # level 1 = fast
-    job_args_key = job_args_key + '.pkl.gz'  # make it explicit
+    compressed = gzip.compress(serialized_data, compresslevel=1)
+    job_args_key = job_args_key + '.pkl.gz'
     s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=compressed)
 
     return bucket_name, job_args_key

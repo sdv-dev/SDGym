@@ -98,24 +98,11 @@ def _terminate_instance(compute_service):
     return textwrap.dedent(
         """\
         cleanup() {
+          log "======== Kernel messages (OOM info) =========="
+          dmesg | tail -50 || true
           upload_logs || true
-
-          PROJECT=$(curl -sf -H "Metadata-Flavor: Google" \
-            http://169.254.169.254/computeMetadata/v1/project/project-id || true)
-          ZONE=$(curl -sf -H "Metadata-Flavor: Google" \
-            http://169.254.169.254/computeMetadata/v1/instance/zone \
-            | awk -F/ '{print $4}')
-          NAME=$(curl -sf -H "Metadata-Flavor: Google" \
-            http://169.254.169.254/computeMetadata/v1/instance/name)
-          TOKEN=$(curl -sf -H "Metadata-Flavor: Google" \
-            http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
-            | jq -r .access_token)
-
-          URL="https://compute.googleapis.com/compute/v1/projects/${PROJECT}/zones/${ZONE}/instances/${NAME}"
-          curl -sf -X DELETE \
-          -H "Authorization: Bearer ${TOKEN}" \
-          "${URL}" >/dev/null 2>&1 || true
-
+          log "Shutting down GCE instance"
+          shutdown -h now || true
         }
         """
     ).strip()

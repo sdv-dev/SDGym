@@ -52,23 +52,31 @@ def test_make_instance_name(mock_datetime, mock_uuid):
 
 
 def test_terminate_instance_aws():
-    """AWS termination script uses EC2 metadata and terminate-instances."""
+    """AWS termination script self-terminates via EC2 metadata and AWS CLI."""
+    # Run
     script = _terminate_instance('aws')
 
+    # Assert
     assert 'cleanup()' in script
+    assert 'dmesg | tail -50' in script
     assert 'latest/meta-data/instance-id' in script
     assert 'aws ec2 terminate-instances' in script
+    assert 'shutdown -h now' not in script
     assert 'compute.googleapis.com' not in script
 
 
 def test_terminate_instance_gcp():
-    """GCP termination script uses metadata server and Compute Engine API."""
+    """GCP termination script shuts down the instance locally."""
+    # Run
     script = _terminate_instance('gcp')
 
+    # Assert
     assert 'cleanup()' in script
-    assert 'Metadata-Flavor: Google' in script
-    assert 'compute.googleapis.com/compute/v1/projects' in script
-    assert 'terminate-instances' not in script
+    assert 'dmesg | tail -50' in script
+    assert 'shutdown -h now' in script
+    assert 'aws ec2 terminate-instances' not in script
+    assert 'compute.googleapis.com' not in script
+    assert 'Metadata-Flavor: Google' not in script
 
 
 def test_terminate_instance_invalid_service():
@@ -147,7 +155,6 @@ def test_get_user_data_script_gcp_gpu_wait(base_credentials):
     assert 'nvidia-smi' in script
     assert 'nvidia-smi' in script
     assert 'cleanup()' in script
-    assert 'compute.googleapis.com' in script
     assert 'Setting up swap (16G)' in script
     assert "print('hello')" in script
 
