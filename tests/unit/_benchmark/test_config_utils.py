@@ -149,7 +149,7 @@ def test_resolve_compute_config_aws():
         'volume_size_gb': 100,
         'swap_gb': 32,
         'sdgym_install': (
-            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain'
+            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp'
         ),
         'install_s3fs': True,
         'assert_gpu': True,
@@ -191,7 +191,7 @@ def test_resolve_compute_config_gcp():
         'stop_fallback': True,
         'swap_gb': 32,
         'sdgym_install': (
-            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain'
+            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp'
         ),
         'install_s3fs': True,
         'assert_gpu': True,

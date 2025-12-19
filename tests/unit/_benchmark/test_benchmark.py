@@ -8,8 +8,11 @@ from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
     _get_user_data_script,
+    _gpu_wait_block,
     _make_instance_name,
     _run_on_gcp,
+    _terminate_instance,
+    _upload_logs,
 )
 from sdgym.benchmark import (
     DEFAULT_MULTI_TABLE_DATASETS,
@@ -48,6 +51,68 @@ def test_make_instance_name(mock_datetime, mock_uuid):
     assert result == 'sdgym-run-20250115-abcdef'
 
 
+def test_terminate_instance_aws():
+    """AWS termination script uses EC2 metadata and terminate-instances."""
+    script = _terminate_instance('aws')
+
+    assert 'cleanup()' in script
+    assert 'latest/meta-data/instance-id' in script
+    assert 'aws ec2 terminate-instances' in script
+    assert 'compute.googleapis.com' not in script
+
+
+def test_terminate_instance_gcp():
+    """GCP termination script uses metadata server and Compute Engine API."""
+    script = _terminate_instance('gcp')
+
+    assert 'cleanup()' in script
+    assert 'Metadata-Flavor: Google' in script
+    assert 'compute.googleapis.com/compute/v1/projects' in script
+    assert 'terminate-instances' not in script
+
+
+def test_terminate_instance_invalid_service():
+    """Invalid compute service raises a clear error."""
+    # Run and Assert
+    with pytest.raises(ValueError, match='Unsupported compute service'):
+        _terminate_instance('azure')
+
+
+def test_gpu_wait_block_contents():
+    """GPU wait block waits for nvidia-smi to become available."""
+    # Setup
+    block = _gpu_wait_block()
+
+    # Assert
+    assert 'Waiting for GPU' in block
+    assert 'nvidia-smi' in block
+    assert 'sleep' in block
+    assert 'for i in' in block or 'while' in block
+
+
+def test_upload_logs_fn_no_uri():
+    """No log URI returns a no-op upload_logs function."""
+    # Run
+    fn = _upload_logs('')
+
+    # Assert
+    assert fn.strip() == 'upload_logs() { :; }'
+
+
+def test_upload_logs_fn_with_uri():
+    """Upload logs function uploads user-data.log to S3."""
+    # Setup
+    uri = 's3://bucket/prefix/logs/instance-user-data.log'
+
+    # Run
+    fn = _upload_logs(uri)
+
+    # Assert
+    assert 'upload_logs()' in fn
+    assert 'aws s3 cp /var/log/user-data.log' in fn
+    assert uri in fn
+
+
 def test_get_user_data_script_gcp_gpu_wait(base_credentials):
     """Test GCP user-data script includes GPU wait and delete logic."""
     # Setup
@@ -56,6 +121,7 @@ def test_get_user_data_script_gcp_gpu_wait(base_credentials):
         'swap_gb': 16,
         'gpu_count': 1,
         'gpu_type': 'nvidia-tesla-t4',
+        'gpu': True,
         'assert_gpu': True,
         'gpu_wait_seconds': 600,
         'gpu_wait_interval_seconds': 10,
@@ -77,11 +143,11 @@ def test_get_user_data_script_gcp_gpu_wait(base_credentials):
 
     # Assert
     assert '#!/bin/bash' in script
-    assert 'wait_for_gpu()' in script
+    assert 'Waiting for GPU' in script
     assert 'nvidia-smi' in script
-    assert 'gcp_delete_self' in script
-    assert 'sudo shutdown -h now' in script
-    assert 'Upload logs to S3' in script or 'upload_logs()' in script
+    assert 'nvidia-smi' in script
+    assert 'cleanup()' in script
+    assert 'compute.googleapis.com' in script
     assert 'Setting up swap (16G)' in script
     assert "print('hello')" in script
 

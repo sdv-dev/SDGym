@@ -47,12 +47,12 @@ def test_end_to_end_local(tmp_path):
     expected_results = pd.read_csv(f'{result_explorer_path}/SDGym_results_{today}/results.csv')
     pd.testing.assert_frame_equal(results, expected_results)
     assert metainfo[f'run_{today}_0']['jobs'] == [
+        ['expedia_hotel_logs', 'UniformSynthesizer'],
         ['expedia_hotel_logs', 'GaussianCopulaSynthesizer'],
         ['expedia_hotel_logs', 'TVAESynthesizer'],
-        ['expedia_hotel_logs', 'UniformSynthesizer'],
+        ['fake_companies', 'UniformSynthesizer'],
         ['fake_companies', 'GaussianCopulaSynthesizer'],
         ['fake_companies', 'TVAESynthesizer'],
-        ['fake_companies', 'UniformSynthesizer'],
     ]
     expected_run = f'SDGym_results_{today}'
     assert runs == [expected_run]

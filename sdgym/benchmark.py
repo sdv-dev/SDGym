@@ -1265,12 +1265,20 @@ def _ensure_uniform_included(synthesizers, modality):
     if modality == 'multi_table':
         uniform_class = MultiTableUniformSynthesizer
 
+    uniform_name = uniform_class.__name__
     uniform_not_included = bool(
         uniform_class not in synthesizers and uniform_class.__name__ not in synthesizers
     )
     if uniform_not_included:
         LOGGER.info(f'Adding {uniform_class.__name__} to the list of synthesizers.')
         synthesizers.append(uniform_class.__name__)
+
+    synthesizers[:] = [
+        synthesizer
+        for synthesizer in synthesizers
+        if synthesizer is not uniform_class and synthesizer != uniform_name
+    ]
+    synthesizers.insert(0, uniform_name)
 
 
 def _fill_adjusted_scores_with_none(scores):

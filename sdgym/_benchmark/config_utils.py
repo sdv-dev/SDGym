@@ -8,7 +8,7 @@ DEFAULT_COMPUTE_CONFIG = {
         'gpu_count': 0,
         'swap_gb': 32,
         'sdgym_install': (
-            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@gcp-benchmark-romain'
+            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp'
         ),
         'install_s3fs': True,
         'assert_gpu': True,
@@ -17,7 +17,7 @@ DEFAULT_COMPUTE_CONFIG = {
         'upload_logs_to_s3': True,
     },
     'gcp': {
-        'compute_type': 'n1-standard-8',
+        'compute_type': 'n1-standard-16',
         'boot_image': (
             'projects/deeplearning-platform-release/global/images/family/'
             'common-cu128-ubuntu-2204-nvidia-570'

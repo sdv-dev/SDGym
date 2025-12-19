@@ -7,7 +7,7 @@ from google.cloud import compute_v1
 from google.oauth2 import service_account
 
 from sdgym._benchmark.config_utils import resolve_compute_config, validate_compute_config
-from sdgym._benchmark.credentials_utils import bundle_install_cmd, get_credentials
+from sdgym._benchmark.credentials_utils import get_credentials
 from sdgym.benchmark import (
     DEFAULT_MULTI_TABLE_DATASETS,
     DEFAULT_MULTI_TABLE_SYNTHESIZERS,
@@ -74,6 +74,82 @@ def _prepare_script_content(
     )
 
 
+def _terminate_instance(compute_service):
+    if compute_service not in ('aws', 'gcp'):
+        raise ValueError(f'Unsupported compute service: {compute_service}')
+
+    if compute_service == 'aws':
+        return textwrap.dedent(
+            """\
+            cleanup() {
+              log "======== Kernel messages (OOM info) =========="
+              dmesg | tail -50 || true
+              upload_logs || true
+              INSTANCE_ID=$(curl -sf http://169.254.169.254/latest/meta-data/instance-id || true)
+              if [ -n "$INSTANCE_ID" ]; then
+                log "Terminating EC2 instance: $INSTANCE_ID"
+                aws ec2 terminate-instances --instance-ids "$INSTANCE_ID" >/dev/null 2>&1 || true
+              fi
+            }
+            """
+        ).strip()
+
+    # GCP
+    return textwrap.dedent(
+        """\
+        cleanup() {
+          upload_logs || true
+
+          PROJECT=$(curl -sf -H "Metadata-Flavor: Google" \
+            http://169.254.169.254/computeMetadata/v1/project/project-id || true)
+          ZONE=$(curl -sf -H "Metadata-Flavor: Google" \
+            http://169.254.169.254/computeMetadata/v1/instance/zone \
+            | awk -F/ '{print $4}')
+          NAME=$(curl -sf -H "Metadata-Flavor: Google" \
+            http://169.254.169.254/computeMetadata/v1/instance/name)
+          TOKEN=$(curl -sf -H "Metadata-Flavor: Google" \
+            http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
+            | jq -r .access_token)
+
+          URL="https://compute.googleapis.com/compute/v1/projects/${PROJECT}/zones/${ZONE}/instances/${NAME}"
+          curl -sf -X DELETE \
+          -H "Authorization: Bearer ${TOKEN}" \
+          "${URL}" >/dev/null 2>&1 || true
+
+        }
+        """
+    ).strip()
+
+
+def _gpu_wait_block():
+    return textwrap.dedent(
+        """\
+        log "======== Waiting for GPU =========="
+        for i in {1..60}; do
+          if command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null; then
+            nvidia-smi
+            break
+          fi
+          sleep 10
+        done
+        """
+    ).strip()
+
+
+def _upload_logs(log_uri):
+    if not log_uri:
+        return 'upload_logs() { :; }'
+
+    return textwrap.dedent(
+        f"""\
+        upload_logs() {{
+          log "======== Uploading logs =========="
+          aws s3 cp /var/log/user-data.log "{log_uri}" >/dev/null 2>&1 || true
+        }}
+        """
+    ).strip()
+
+
 def _get_user_data_script(
     credentials,
     script_content,
@@ -81,266 +157,65 @@ def _get_user_data_script(
     instance_name,
     output_destination,
 ):
-    """Single startup script template; provider-specific parts are tiny snippets."""
+    compute_service = config['service']
+    swap_gb = int(config.get('swap_gb', 32))
+    gpu = bool(config.get('gpu', False))
+    upload_logs = bool(config.get('upload_logs', True))
+
     aws_key = credentials['aws']['aws_access_key_id']
     aws_secret = credentials['aws']['aws_secret_access_key']
-    bundle_install = bundle_install_cmd(credentials)
 
-    log_uri = ''
-    if config.get('upload_logs_to_s3'):
-        log_uri = _logs_s3_uri(output_destination, instance_name)
+    log_uri = _logs_s3_uri(output_destination, instance_name) if upload_logs else ''
 
-    swap_gb = int(config['swap_gb'])
-
-    if config['service'] == 'gcp':
-        gpu_expected = bool(config.get('gpu_count', 0))
-    else:
-        gpu_expected = bool(config.get('assert_gpu', True))
-
-    assert_gpu = bool(config.get('assert_gpu', True))
-    gpu_wait_seconds = int(config['gpu_wait_seconds'])
-    gpu_wait_interval = int(config['gpu_wait_interval_seconds'])
-
-    if config['service'] == 'aws':
-        finalize_success = textwrap.dedent(
-            """\
-            finalize_success() {
-              log "======== Finalize success =========="
-              upload_logs || true
-              INSTANCE_ID=$(curl -sf \
-                http://169.254.169.254/latest/meta-data/instance-id || true)
-              if [ -n "$INSTANCE_ID" ]; then
-                log "Terminating EC2 instance: $INSTANCE_ID"
-                aws ec2 terminate-instances \
-                  --instance-ids "$INSTANCE_ID" >/dev/null 2>&1 || true
-              fi
-            }
-            """
-        ).strip()
-
-        finalize_error = textwrap.dedent(
-            """\
-            finalize_error() {
-              log "======== Finalize error =========="
-              upload_logs || true
-              INSTANCE_ID=$(curl -sf \
-                http://169.254.169.254/latest/meta-data/instance-id || true)
-              if [ -n "$INSTANCE_ID" ]; then
-                log "Terminating EC2 instance: $INSTANCE_ID"
-                aws ec2 terminate-instances \
-                  --instance-ids "$INSTANCE_ID" >/dev/null 2>&1 || true
-              fi
-            }
-            """
-        ).strip()
-        delete_fn = 'gcp_meta(){ :; }\ngcp_delete_self(){ :; }\n'
-
-    else:
-        delete_on_success = bool(config.get('delete_on_success', True))
-        delete_on_error = bool(config.get('delete_on_error', True))
-        stop_fallback = bool(config.get('stop_fallback', True))
-
-        delete_fn = textwrap.dedent(
-            """\
-            gcp_meta() {
-              curl -sf -H "Metadata-Flavor: Google" "$1" || true
-            }
-
-            gcp_delete_self() {
-              PROJECT_ID=$(gcp_meta \
-                "http://169.254.169.254/computeMetadata/v1/project/project-id")
-              ZONE=$(gcp_meta \
-                "http://169.254.169.254/computeMetadata/v1/instance/zone" \
-                | awk -F/ '{print $4}')
-              INSTANCE_NAME=$(gcp_meta \
-                "http://169.254.169.254/computeMetadata/v1/instance/name")
-              TOKEN=$(gcp_meta \
-                "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/"\
-"default/token" | jq -r ".access_token" 2>/dev/null || true)
-
-              if [ -z "$PROJECT_ID" ] || [ -z "$ZONE" ] || \
-                 [ -z "$INSTANCE_NAME" ] || [ -z "$TOKEN" ] || \
-                 [ "$TOKEN" = "null" ]; then
-                return 1
-              fi
-
-              URL="https://compute.googleapis.com/compute/v1/projects/"\
-"$PROJECT_ID/zones/$ZONE/instances/$INSTANCE_NAME"
-              curl -sf -X DELETE \
-                -H "Authorization: Bearer $TOKEN" \
-                -H "Content-Type: application/json" \
-                "$URL" >/dev/null 2>&1
-            }
-            """
-        ).strip()
-
-        success_if = ''
-        if delete_on_success:
-            success_if = (
-                'if gcp_delete_self; then log "Delete request sent"; else log "Delete failed"; '
-            )
-
-        success_end = ''
-        if delete_on_success:
-            success_end = 'fi'
-
-        success_stop = ''
-        if stop_fallback:
-            success_stop = 'sudo shutdown -h now || true'
-
-        finalize_success = textwrap.dedent(
-            f"""\
-            finalize_success() {{
-              log "======== Finalize success =========="
-              upload_logs || true
-              {success_if}{success_stop}
-              {success_end}
-            }}
-            """
-        ).strip()
-
-        error_if = ''
-        if delete_on_error:
-            error_if = (
-                'if gcp_delete_self; then log "Delete request sent"; else log "Delete failed"; '
-            )
-
-        error_end = ''
-        if delete_on_error:
-            error_end = 'fi'
-
-        error_stop = ''
-        if stop_fallback:
-            error_stop = 'sudo shutdown -h now || true'
-
-        finalize_error = textwrap.dedent(
-            f"""\
-            finalize_error() {{
-              log "======== Finalize error =========="
-              upload_logs || true
-              {error_if}{error_stop}
-              {error_end}
-            }}
-            """
-        ).strip()
-
-    gpu_wait_block = ''
-    if gpu_expected and assert_gpu:
-        gpu_wait_block = textwrap.dedent(
-            f"""\
-            wait_for_gpu() {{
-              log "======== Waiting for GPU (nvidia-smi) =========="
-              end=$((SECONDS+{gpu_wait_seconds}))
-              while [ $SECONDS -lt $end ]; do
-                if command -v nvidia-smi >/dev/null 2>&1; then
-                  if nvidia-smi >/dev/null 2>&1; then
-                    log "======== GPU is ready =========="
-                    nvidia-smi || true
-                    return 0
-                  fi
-                fi
-                sleep {gpu_wait_interval}
-              done
-              log "ERROR: GPU not ready after {gpu_wait_seconds}s"
-              return 1
-            }}
-            """
-        ).strip()
-
-    if log_uri:
-        log_upload_fn = textwrap.dedent(
-            f"""\
-            upload_logs() {{
-              log "======== Uploading logs to S3 =========="
-              aws s3 cp /var/log/user-data.log "{log_uri}" \
-                >/dev/null 2>&1 || true
-            }}
-            """
-        ).strip()
-    else:
-        log_upload_fn = 'upload_logs() { :; }'
-
-    wait_for_gpu_call = ''
-    if gpu_wait_block:
-        wait_for_gpu_call = 'run wait_for_gpu'
-
-    install_s3fs = ''
-    if config.get('install_s3fs', True):
-        install_s3fs = 'run pip install s3fs'
-
-    bundle_install_line = bundle_install if bundle_install else ''
+    terminate_fn = _terminate_instance(compute_service)
+    upload_logs_fn = _upload_logs(log_uri)
+    gpu_block = _gpu_wait_block() if gpu else ''
 
     return textwrap.dedent(
         f"""\
         #!/bin/bash
-        set -o pipefail
+        set -e
 
         LOG_FILE=/var/log/user-data.log
-        sudo mkdir -p /var/log
-        sudo touch "$LOG_FILE"
+        exec > >(tee -a "$LOG_FILE") 2>&1
 
         log() {{
-          msg="$*"
-          echo "$msg"
-          echo "$msg" | sudo tee -a "$LOG_FILE" >/dev/null
+          echo "$@"
         }}
 
-        run() {{
-          log "+ $*"
-          "$@" 2>&1 | sudo tee -a "$LOG_FILE"
-          return ${{PIPESTATUS[0]}}
-        }}
+        {upload_logs_fn}
+        {terminate_fn}
 
-        run_secret() {{
-          "$@" 2>&1 | sudo tee -a "$LOG_FILE"
-          return ${{PIPESTATUS[0]}}
-        }}
-
-        {log_upload_fn}
-
-        {delete_fn}
-
-        {finalize_success}
-        {finalize_error}
-
-        on_error() {{
-          log "======== ERROR occurred ========"
-          finalize_error
-        }}
-        trap on_error ERR
+        # Always cleanup on exit
+        trap cleanup EXIT
 
         log "======== Instance: {instance_name} =========="
 
         log "======== Update and Install Dependencies =========="
-        run sudo apt update -y
-        run sudo apt install -y python3-pip python3-venv awscli git jq
+        sudo apt update -y
+        sudo apt install -y python3-pip python3-venv awscli git jq
 
         log "======== Setting up swap ({swap_gb}G) =========="
-        run sudo fallocate -l {swap_gb}G /swapfile || \
-          run sudo dd if=/dev/zero of=/swapfile bs=1M count=$(({swap_gb}*1024))
-        run sudo chmod 600 /swapfile
-        run sudo mkswap /swapfile
-        run sudo swapon /swapfile
-        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+        sudo fallocate -l {swap_gb}G /swapfile || \
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=$(({swap_gb}*1024))
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
 
         log "======== Configure AWS CLI =========="
-        run_secret aws configure set aws_access_key_id '{aws_key}'
-        run_secret aws configure set aws_secret_access_key '{aws_secret}'
-        run aws configure set default.region '{S3_REGION}'
+        aws configure set aws_access_key_id '{aws_key}'
+        aws configure set aws_secret_access_key '{aws_secret}'
+        aws configure set default.region '{S3_REGION}'
 
         log "======== Create Virtual Environment =========="
-        run python3 -m venv ~/env
-        # shellcheck disable=SC1091
+        python3 -m venv ~/env
         source ~/env/bin/activate
 
-        log "======== Install Dependencies in venv =========="
-        run pip install --upgrade pip
-        {bundle_install_line}
-        run pip install "{config['sdgym_install']}"
-        {install_s3fs}
+        log "======== Install Dependencies =========="
+        pip install --upgrade pip
+        pip install "{config['sdgym_install']}"
 
-        {gpu_wait_block}
-        {wait_for_gpu_call}
+        {gpu_block}
 
         log "======== Write Script =========="
         cat << 'EOF' > ~/sdgym_script.py
@@ -348,10 +223,9 @@ def _get_user_data_script(
 EOF
 
         log "======== Run Script =========="
-        run python ~/sdgym_script.py
+        python -u ~/sdgym_script.py | tee -a /var/log/sdgym.log
 
         log "======== Complete =========="
-        finalize_success
         """
     ).strip()
 

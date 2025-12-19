@@ -402,7 +402,7 @@ def test__ensure_uniform_included_adds_uniform(modality, uniform_string, caplog)
         _ensure_uniform_included(synthesizers, modality)
 
     # Assert
-    assert synthesizers == ['GaussianCopulaSynthesizer', uniform_string]
+    assert synthesizers == [uniform_string, 'GaussianCopulaSynthesizer']
     assert any(expected_message in record.message for record in caplog.records)
 
 
@@ -411,7 +411,10 @@ def test__ensure_uniform_included_adds_uniform(modality, uniform_string, caplog)
     [('single_table', UniformSynthesizer), ('multi_table', MultiTableUniformSynthesizer)],
 )
 def test__ensure_uniform_included_detects_uniform_class(modality, uniform_class, caplog):
-    """Test that the synthesizers list is unchanged if UniformSynthesizer class present."""
+    """Test with a class.
+
+    The UniformSynthesizer should be written as a string and in first position.
+    """
     # Setup
     synthesizers = [uniform_class, 'GaussianCopulaSynthesizer']
     expected_message = f'Adding {uniform_class} to the list of synthesizers.'
@@ -421,7 +424,7 @@ def test__ensure_uniform_included_detects_uniform_class(modality, uniform_class,
         _ensure_uniform_included(synthesizers, modality)
 
     # Assert
-    assert synthesizers == [uniform_class, 'GaussianCopulaSynthesizer']
+    assert synthesizers == [uniform_class.__name__, 'GaussianCopulaSynthesizer']
     assert all(expected_message not in record.message for record in caplog.records)
 
 
@@ -1322,7 +1325,7 @@ def test_benchmark_multi_table_with_jobs(
     mock__run_jobs.return_value = fake_scores
     job_args = ('arg1', 'arg2', {'metainfo': 'meta.yaml'})
     mock__generate_job_args_list.return_value = [job_args]
-    expected_valid_synthesizers = ['HMASynthesizer', 'MultiTableUniformSynthesizer', 'CustomSynth']
+    expected_valid_synthesizers = ['MultiTableUniformSynthesizer', 'HMASynthesizer', 'CustomSynth']
 
     mock__import_and_validate_synthesizers.return_value = expected_valid_synthesizers
     # Run
@@ -1370,7 +1373,7 @@ def test_benchmark_multi_table_with_jobs(
     )
     pd.testing.assert_frame_equal(scores, fake_scores)
     mock__import_and_validate_synthesizers.assert_called_once_with(
-        ['HMASynthesizer', 'MultiTableUniformSynthesizer'], ['CustomSynth'], 'multi_table'
+        ['MultiTableUniformSynthesizer', 'HMASynthesizer'], ['CustomSynth'], 'multi_table'
     )
 
 
