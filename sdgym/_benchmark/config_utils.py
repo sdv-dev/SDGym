@@ -7,9 +7,6 @@ DEFAULT_COMPUTE_CONFIG = {
         'gpu_type': None,
         'gpu_count': 0,
         'swap_gb': 32,
-        'sdgym_install': (
-            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp'
-        ),
         'install_s3fs': True,
         'assert_gpu': True,
         'gpu_wait_seconds': 10 * 60,

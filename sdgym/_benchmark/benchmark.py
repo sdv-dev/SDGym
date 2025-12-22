@@ -7,7 +7,7 @@ from google.cloud import compute_v1
 from google.oauth2 import service_account
 
 from sdgym._benchmark.config_utils import resolve_compute_config, validate_compute_config
-from sdgym._benchmark.credentials_utils import get_credentials
+from sdgym._benchmark.credentials_utils import get_credentials, sdv_install_cmd
 from sdgym.benchmark import (
     DEFAULT_MULTI_TABLE_DATASETS,
     DEFAULT_MULTI_TABLE_SYNTHESIZERS,
@@ -158,6 +158,7 @@ def _get_user_data_script(
 
     log_uri = _logs_s3_uri(output_destination, instance_name) if upload_logs else ''
 
+    sdv_install = sdv_install_cmd(credentials)
     terminate_fn = _terminate_instance(compute_service)
     upload_logs_fn = _upload_logs(log_uri)
     gpu_block = _gpu_wait_block() if gpu else ''
@@ -204,7 +205,8 @@ def _get_user_data_script(
 
         log "======== Install Dependencies =========="
         pip install --upgrade pip
-        pip install "{config['sdgym_install']}"
+        {sdv_install}
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp"
 
         {gpu_block}
 

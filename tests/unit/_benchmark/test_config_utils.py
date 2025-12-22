@@ -148,9 +148,6 @@ def test_resolve_compute_config_aws():
         'ami': 'ami-080e1f13689e07408',
         'volume_size_gb': 100,
         'swap_gb': 32,
-        'sdgym_install': (
-            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp'
-        ),
         'install_s3fs': True,
         'assert_gpu': True,
         'gpu_wait_seconds': 10 * 60,
@@ -190,9 +187,6 @@ def test_resolve_compute_config_gcp():
         'delete_on_error': True,
         'stop_fallback': True,
         'swap_gb': 32,
-        'sdgym_install': (
-            'sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp'
-        ),
         'install_s3fs': True,
         'assert_gpu': True,
         'gpu_wait_seconds': 10 * 60,

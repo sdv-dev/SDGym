@@ -1,6 +1,6 @@
 import json
 
-from sdgym._benchmark.credentials_utils import bundle_install_cmd, get_credentials
+from sdgym._benchmark.credentials_utils import get_credentials, sdv_install_cmd
 
 
 def test_get_credentials(tmp_path):
@@ -42,8 +42,8 @@ def test_get_credentials(tmp_path):
     assert credentials == credentials_data
 
 
-def test_bundle_install_cmd():
-    """Test the `bundle_install_cmd` function."""
+def test_sdv_install_cmd():
+    """Test the `sdv_install_cmd` function."""
     # Setup
     credentials = {
         'sdv': {
@@ -57,8 +57,8 @@ def test_bundle_install_cmd():
     no_credentials = {'sdv': {}}
 
     # Run
-    cmd = bundle_install_cmd(credentials)
-    cmd_no_creds = bundle_install_cmd(no_credentials)
+    cmd = sdv_install_cmd(credentials)
+    cmd_no_creds = sdv_install_cmd(no_credentials)
 
     # Assert
     assert cmd == expected_cmd

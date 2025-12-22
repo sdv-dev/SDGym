@@ -30,15 +30,23 @@ def get_credentials(credential_filepath):
     with open(credential_filepath, 'r') as cred_file:
         credentials = json.load(cred_file)
 
-    expected_sections = set(CREDENTIAL_KEYS.keys())
+    required_sections = {'aws', 'gcp'}
+    optional_sections = {'sdv'}
+    valid_sections = required_sections | optional_sections
+
     actual_sections = set(credentials.keys())
-    if expected_sections != actual_sections:
+    missing_required = required_sections - actual_sections
+    unknown_sections = actual_sections - valid_sections
+    if missing_required or unknown_sections:
         raise ValueError(
-            f'The credentials file must contain the following sections: {expected_sections}. '
-            f'Found: {actual_sections}.'
+            f'Credentials file can only contain the following sections: {valid_sections}.'
         )
 
-    for section, expected_keys in CREDENTIAL_KEYS.items():
+    for section in valid_sections:
+        if section not in credentials:
+            continue
+
+        expected_keys = CREDENTIAL_KEYS[section]
         actual_keys = set(credentials[section].keys())
         if expected_keys != actual_keys:
             raise ValueError(
@@ -46,10 +54,12 @@ def get_credentials(credential_filepath):
                 f'Found: {actual_keys}.'
             )
 
+    credentials.setdefault('sdv', {})
+
     return credentials
 
 
-def bundle_install_cmd(credentials):
+def sdv_install_cmd(credentials):
     sdv_creds = credentials.get('sdv') or {}
     username = sdv_creds.get('username')
     license_key = sdv_creds.get('license_key')
