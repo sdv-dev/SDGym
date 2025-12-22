@@ -78,33 +78,24 @@ install_packages(username='{username}', license_key='{license_key}', package='sd
 """)
 
 
-def create_credentials_file(filepath, credentials=None):
-    """Create a credentials file.
-
-    Args:
-        filepath (str): The path to the credentials file.
-        credentials (dict):
-            The credentials to write to the file. If None, credential will be defined
-            based on environment variables. Defaults to None.
-    """
-    if credentials is None:
-        gcp_json = os.getenv('GCP_SERVICE_ACCOUNT_JSON')
-
-        credentials = {
-            'aws': {
-                'aws_access_key_id': os.getenv('AWS_ACCESS_KEY_ID'),
-                'aws_secret_access_key': os.getenv('AWS_SECRET_ACCESS_KEY'),
-            },
-            'gcp': {
-                **json.loads(gcp_json),
-                'gcp_project': 'sdgym-337614',
-                'gcp_zone': 'us-central1-a',
-            },
-            'sdv': {
-                'username': os.getenv('SDV_ENTERPRISE_USERNAME'),
-                'license_key': os.getenv('SDV_ENTERPRISE_LICENSE_KEY'),
-            },
-        }
+def create_credentials_file():
+    """Create a credentials file."""
+    gcp_json = os.getenv('GCP_SERVICE_ACCOUNT_JSON')
+    credentials = {
+        'aws': {
+            'aws_access_key_id': os.getenv('AWS_ACCESS_KEY_ID'),
+            'aws_secret_access_key': os.getenv('AWS_SECRET_ACCESS_KEY'),
+        },
+        'gcp': {
+            **json.loads(gcp_json),
+            'gcp_project': 'sdgym-337614',
+            'gcp_zone': 'us-central1-a',
+        },
+        'sdv': {
+            'username': os.getenv('SDV_ENTERPRISE_USERNAME'),
+            'license_key': os.getenv('SDV_ENTERPRISE_LICENSE_KEY'),
+        },
+    }
 
     tmp_file = NamedTemporaryFile(mode='w+', delete=False, suffix='.json')
     json.dump(credentials, tmp_file)
