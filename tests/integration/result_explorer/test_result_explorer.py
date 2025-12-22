@@ -76,7 +76,8 @@ def test_summarize():
         '04_05_2024 - # datasets: 9 - sdgym version: 0.7.0': [5, 3, 5],
     })
     expected_results = (
-        pd.read_csv(
+        pd
+        .read_csv(
             'tests/integration/result_explorer/_benchmark_results/'
             'SDGym_results_10_11_2024/results.csv',
         )

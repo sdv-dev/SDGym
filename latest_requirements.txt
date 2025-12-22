@@ -1,14 +1,14 @@
 appdirs==1.4.4
 compress-pickle==2.1.0
 humanfriendly==10.0
-numpy==2.3.5
+numpy==2.4.0
 openpyxl==3.1.5
 pandas==2.3.3
 rdt==1.18.2
-scikit-learn==1.7.2
+scikit-learn==1.8.0
 scipy==1.16.3
 sdmetrics==0.24.0
-sdv==1.29.1
+sdv==1.32.0
 tabulate==0.8.10
 torch==2.9.1
 tqdm==4.67.1
