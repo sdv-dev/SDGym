@@ -1,13 +1,16 @@
-name: Upload SDGym Benchmark results
+name: Upload SDGym Multi-Table Benchmark results
 
 on:
   workflow_run:
-    workflows: ["Run SDGym Benchmark"]
+    workflows: ["Run SDGym Benchmark Multi-Table"]
     types:
       - completed
   workflow_dispatch:
   schedule:
     - cron: '0 6 * * *'
+  push:
+    branches:
+      - issue-516-add-workflows
 
 jobs:
   upload-sdgym-benchmark:
@@ -35,7 +38,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
       run: |
-        invoke upload-benchmark-results
+        invoke upload-benchmark-results --modality multi_table
         echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
     - name: Prepare files for commit
@@ -88,4 +91,4 @@ jobs:
       run: |
         invoke notify-sdgym-benchmark-uploaded \
           --folder-name "$FOLDER_NAME" \
-          --commit-url "$COMMIT_URL" --modality single_table
+          --commit-url "$COMMIT_URL" --modality multi_table

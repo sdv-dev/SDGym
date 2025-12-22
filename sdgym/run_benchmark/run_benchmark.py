@@ -1,6 +1,5 @@
 """Script to run a benchmark and upload results to S3."""
 
-import argparse
 import json
 import os
 from datetime import datetime, timezone
@@ -16,6 +15,7 @@ from sdgym.run_benchmark.utils import (
     OUTPUT_DESTINATION_AWS,
     SYNTHESIZERS_SPLIT_MULTI_TABLE,
     SYNTHESIZERS_SPLIT_SINGLE_TABLE,
+    _parse_args,
     get_result_folder_name,
     post_benchmark_launch_message,
 )
@@ -59,17 +59,6 @@ def append_benchmark_run(
         Key=f'{prefix}{modality}/{KEY_DATE_FILE}',
         Body=json.dumps(data).encode('utf-8'),
     )
-
-
-def _parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--modality',
-        choices=['single_table', 'multi_table'],
-        default='single_table',
-        help='Benchmark modality to run.',
-    )
-    return parser.parse_args()
 
 
 def main():

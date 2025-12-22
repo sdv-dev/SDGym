@@ -22,6 +22,8 @@ CREDENTIAL_KEYS = {
     },
     'sdv': {'username', 'license_key'},
 }
+GCP_PROJECT_ID = 'sdgym-337614'
+GCP_ZONE = 'us-central1-a'
 
 
 def get_credentials(credential_filepath):
@@ -88,8 +90,8 @@ def create_credentials_file():
         },
         'gcp': {
             **json.loads(gcp_json),
-            'gcp_project': 'sdgym-337614',
-            'gcp_zone': 'us-central1-a',
+            'gcp_project': GCP_PROJECT_ID,
+            'gcp_zone': GCP_ZONE,
         },
         'sdv': {
             'username': os.getenv('SDV_ENTERPRISE_USERNAME'),
@@ -100,4 +102,5 @@ def create_credentials_file():
     tmp_file = NamedTemporaryFile(mode='w+', delete=False, suffix='.json')
     json.dump(credentials, tmp_file)
     tmp_file.flush()
+
     return tmp_file.name

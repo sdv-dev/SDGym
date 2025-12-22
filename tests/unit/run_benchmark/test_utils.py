@@ -4,9 +4,8 @@ import pandas as pd
 import pytest
 
 from sdgym.run_benchmark.utils import (
-    GDRIVE_LINK,
+    MODALITY_TO_GDRIVE_LINK,
     OUTPUT_DESTINATION_AWS,
-    SLACK_CHANNEL,
     _get_slack_client,
     get_df_to_plot,
     get_result_folder_name,
@@ -95,7 +94,7 @@ def test_post_benchmark_launch_message(
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
     expected_body = (
-        '🏃 SDGym benchmark has been launched on AWS! '
+        '🏃 SDGym single-table benchmark has been launched on AWS!\n'
         f'Intermediate results can be found <{url}|here>.\n'
     )
     # Run
@@ -125,9 +124,9 @@ def test_post_benchmark_uploaded_message(
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
     expected_body = (
-        f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
+        f'🤸🏻‍♀️ SDGym single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{GDRIVE_LINK}|link>\n'
+        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK["single_table"]}|link>\n'
         f' - On S3: <{url}|link>\n'
     )
 
@@ -135,7 +134,7 @@ def test_post_benchmark_uploaded_message(
     post_benchmark_uploaded_message(folder_name)
 
     # Assert
-    mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
+    mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Monthly+Run.xlsx'
@@ -158,9 +157,9 @@ def test_post_benchmark_uploaded_message_with_commit(
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
     expected_body = (
-        f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
+        f'🤸🏻‍♀️ SDGym single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{GDRIVE_LINK}|link>\n'
+        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK["single_table"]}|link>\n'
         f' - On S3: <{url}|link>\n'
         f' - On GitHub: <{commit_url}|link>\n'
     )
@@ -169,7 +168,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     post_benchmark_uploaded_message(folder_name, commit_url)
 
     # Assert
-    mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
+    mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Monthly+Run.xlsx'
