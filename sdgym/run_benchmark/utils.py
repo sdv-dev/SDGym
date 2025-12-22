@@ -9,7 +9,9 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
-OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
+OUTPUT_DESTINATION_AWS = (
+    's3://sdgym-benchmark/Debug/GCP_Github/'  # 's3://sdgym-benchmark/Benchmarks/'
+)
 UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
@@ -95,22 +97,22 @@ def post_slack_message(channel, text):
     client.chat_postMessage(channel=channel, text=text)
 
 
-def post_benchmark_launch_message(date_str, compute_service='AWS'):
+def post_benchmark_launch_message(date_str, compute_service='AWS', modality='single_table'):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
     channel = DEBUG_SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
-    url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/')
+    url_link = get_s3_console_link(bucket, f'{prefix}{modality}/{folder_name}/')
     body = f'🏃 SDGym benchmark has been launched on {compute_service}! '
     body += f'Intermediate results can be found <{url_link}|here>.\n'
     post_slack_message(channel, body)
 
 
-def post_benchmark_uploaded_message(folder_name, commit_url=None):
+def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
-    url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}SDGym Monthly Run.xlsx'))
+    url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}{modality}/SDGym Monthly Run.xlsx'))
     body = (
         f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'

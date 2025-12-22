@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 
 from botocore.exceptions import ClientError
 
-from sdgym._benchmark.benchmark import _benchmark_multi_table_compute_gcp
-from sdgym.benchmark import benchmark_single_table_aws
+from sdgym._benchmark.benchmark import (
+    _benchmark_multi_table_compute_gcp,
+    _benchmark_single_table_compute_gcp,
+)
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     OUTPUT_DESTINATION_AWS,
@@ -18,6 +20,17 @@ from sdgym.run_benchmark.utils import (
     post_benchmark_launch_message,
 )
 from sdgym.s3 import get_s3_client, parse_s3_path
+
+MODALITY_TO_SETUP = {
+    'single_table': {
+        'method': _benchmark_single_table_compute_gcp,
+        'synthesizers_split': SYNTHESIZERS_SPLIT_SINGLE_TABLE,
+    },
+    'multi_table': {
+        'method': _benchmark_multi_table_compute_gcp,
+        'synthesizers_split': SYNTHESIZERS_SPLIT_MULTI_TABLE,
+    },
+}
 
 
 def append_benchmark_run(
@@ -42,7 +55,9 @@ def append_benchmark_run(
     data['runs'].append({'date': date_str, 'folder_name': get_result_folder_name(date_str)})
     data['runs'] = sorted(data['runs'], key=lambda x: x['date'])
     s3_client.put_object(
-        Bucket=bucket, Key=f'{prefix}{KEY_DATE_FILE}', Body=json.dumps(data).encode('utf-8')
+        Bucket=bucket,
+        Key=f'{prefix}{modality}/{KEY_DATE_FILE}',
+        Body=json.dumps(data).encode('utf-8'),
     )
 
 
@@ -63,35 +78,17 @@ def main():
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-
-    if args.modality == 'single_table':
-        for synthesizer_group in SYNTHESIZERS_SPLIT_SINGLE_TABLE:
-            benchmark_single_table_aws(
-                output_destination=OUTPUT_DESTINATION_AWS,
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key,
-                synthesizers=synthesizer_group,
-                compute_privacy_score=False,
-                timeout=345600,  # 4 days
-            )
-
-        append_benchmark_run(
-            aws_access_key_id, aws_secret_access_key, date_str, modality='single_table'
+    modality = args.modality
+    for synthesizer_group in MODALITY_TO_SETUP[modality]['synthesizers_split']:
+        MODALITY_TO_SETUP[modality]['method'](
+            output_destination=OUTPUT_DESTINATION_AWS,
+            credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
+            synthesizers=synthesizer_group,
+            timeout=345600,  # 4 days
         )
 
-    else:
-        for synthesizer_group in SYNTHESIZERS_SPLIT_MULTI_TABLE:
-            _benchmark_multi_table_compute_gcp(
-                output_destination='s3://sdgym-benchmark/Debug/GCP_Github/',
-                credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
-                synthesizers=synthesizer_group,
-                timeout=345600,  # 4 days
-            )
-        append_benchmark_run(
-            aws_access_key_id, aws_secret_access_key, date_str, modality='multi_table'
-        )
-
-    post_benchmark_launch_message(date_str, compute_service='GCP')
+    append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality=modality)
+    post_benchmark_launch_message(date_str, compute_service='GCP', modality=modality)
 
 
 if __name__ == '__main__':
