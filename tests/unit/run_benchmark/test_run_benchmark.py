@@ -47,7 +47,7 @@ def test_append_benchmark_run(mock_get_result_folder_name, mock_parse_s3_path, m
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_result_folder_name.assert_called_once_with(date)
     mock_s3_client.get_object.assert_called_once_with(
-        Bucket='my-bucket', Key='my-prefix/_BENCHMARK_DATES.json'
+        Bucket='my-bucket', Key='my-prefix/single_table/_BENCHMARK_DATES.json'
     )
     mock_s3_client.put_object.assert_called_once_with(
         Bucket='my-bucket',

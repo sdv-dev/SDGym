@@ -30,7 +30,7 @@ def append_benchmark_run(
     )
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     try:
-        object = s3_client.get_object(Bucket=bucket, Key=f'{prefix}{modality}{KEY_DATE_FILE}')
+        object = s3_client.get_object(Bucket=bucket, Key=f'{prefix}{modality}/{KEY_DATE_FILE}')
         body = object['Body'].read().decode('utf-8')
         data = json.loads(body)
     except ClientError as e:
