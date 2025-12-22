@@ -1,4 +1,4 @@
-name: Run SDGym Benchmark
+name: Run SDGym Benchmark Multi-Table
 
 on:
   workflow_dispatch:

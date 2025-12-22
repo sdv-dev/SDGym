@@ -85,7 +85,6 @@ def main():
                 output_destination='s3://sdgym-benchmark/Debug/GCP_Github/',
                 credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
                 synthesizers=synthesizer_group,
-                compute_privacy_score=False,
                 timeout=345600,  # 4 days
             )
         append_benchmark_run(
