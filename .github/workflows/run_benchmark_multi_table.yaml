@@ -27,9 +27,15 @@ jobs:
         USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
         LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
       run: |
+        python -m venv venv
+        source venv/bin/activate
+
         python -m pip install --upgrade pip
         python -m pip install bundle-xsynthesizers --index-url "https://${USERNAME}:${LICENSE_KEY}@pypi.datacebo.com"
         python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-516-add-workflows"
+
+        echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
+        echo "$(pwd)/venv/bin" >> $GITHUB_PATH
 
     - name: Run SDGym Benchmark
       env:
