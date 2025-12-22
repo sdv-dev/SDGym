@@ -29,7 +29,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install bundle-xsynthesizers --index-url https://${username}:${license_key}@pypi.datacebo.com
-        python -m pip install --no-cache-dir -e .[dev]
+        pip install --no-cache-dir "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp"
 
     - name: Run SDGym Benchmark
       env:
