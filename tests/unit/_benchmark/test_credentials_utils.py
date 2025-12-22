@@ -1,8 +1,15 @@
 import json
 
 import pytest
+import os
+from pathlib import Path
+from unittest.mock import patch
 
-from sdgym._benchmark.credentials_utils import get_credentials, sdv_install_cmd
+from sdgym._benchmark.credentials_utils import (
+    create_credentials_file,
+    get_credentials,
+    sdv_install_cmd,
+)
 
 
 def test_get_credentials(tmp_path):
@@ -66,3 +73,45 @@ def test_sdv_install_cmd(credentials, expected_cmd):
 
     # Assert
     assert cmd == expected_cmd
+
+
+@patch.dict(
+    os.environ,
+    {
+        'GCP_SERVICE_ACCOUNT_JSON': json.dumps({
+            'type': 'service_account',
+            'project_id': 'my-project',
+        }),
+        'AWS_ACCESS_KEY_ID': 'fake-access-key',
+        'AWS_SECRET_ACCESS_KEY': 'fake-secret-key',
+        'SDV_ENTERPRISE_USERNAME': 'fake-username',
+        'SDV_ENTERPRISE_LICENSE_KEY': 'fake-license',
+    },
+)
+def test_create_credentials_file(tmp_path):
+    """Test the `create_credentials_file` method."""
+    # Run
+    filepath = create_credentials_file()
+
+    # Assert
+    assert Path(filepath).exists()
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+
+    assert data == {
+        'aws': {
+            'aws_access_key_id': 'fake-access-key',
+            'aws_secret_access_key': 'fake-secret-key',
+        },
+        'gcp': {
+            'type': 'service_account',
+            'project_id': 'my-project',
+            'gcp_project': 'sdgym-337614',
+            'gcp_zone': 'us-central1-a',
+        },
+        'sdv': {
+            'username': 'fake-username',
+            'license_key': 'fake-license',
+        },
+    }
+    os.remove(filepath)
