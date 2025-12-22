@@ -97,7 +97,7 @@ def post_slack_message(channel, text):
 
 def post_benchmark_launch_message(date_str, compute_service='AWS'):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
-    channel = SLACK_CHANNEL
+    channel = DEBUG_SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/')
