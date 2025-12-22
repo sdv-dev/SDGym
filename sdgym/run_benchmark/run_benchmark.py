@@ -82,9 +82,8 @@ def main():
     else:
         for synthesizer_group in SYNTHESIZERS_SPLIT_MULTI_TABLE:
             _benchmark_multi_table_compute_gcp(
-                output_destination='s3://sdgym-benchmark/Debug/GCP/',
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key,
+                output_destination='s3://sdgym-benchmark/Debug/GCP_Github/',
+                credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
                 synthesizers=synthesizer_group,
                 compute_privacy_score=False,
                 timeout=345600,  # 4 days
