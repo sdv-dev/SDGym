@@ -95,7 +95,7 @@ def test_post_benchmark_launch_message(
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
     expected_body = (
-        '🏃 SDGym benchmark has been launched! EC2 Instances are running. '
+        '🏃 SDGym benchmark has been launched on AWS! '
         f'Intermediate results can be found <{url}|here>.\n'
     )
     # Run
@@ -104,8 +104,10 @@ def test_post_benchmark_launch_message(
     # Assert
     mock_get_result_folder_name.assert_called_once_with(date_str)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
-    mock_get_s3_console_link.assert_called_once_with('my-bucket', f'my-prefix/{folder_name}/')
-    mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
+    mock_get_s3_console_link.assert_called_once_with(
+        'my-bucket', f'my-prefix/single_table/{folder_name}/'
+    )
+    mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
 
 
 @patch('sdgym.run_benchmark.utils.post_slack_message')
@@ -136,7 +138,7 @@ def test_post_benchmark_uploaded_message(
     mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', 'my-prefix%2FSDGym+Monthly+Run.xlsx'
+        'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Monthly+Run.xlsx'
     )
 
 
@@ -170,7 +172,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     mock_post_slack_message.assert_called_once_with(SLACK_CHANNEL, expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', 'my-prefix%2FSDGym+Monthly+Run.xlsx'
+        'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Monthly+Run.xlsx'
     )
 
 

@@ -24,12 +24,12 @@ jobs:
 
     - name: Install dependencies
       env:
-        username: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
-        license_key: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
+        USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
+        LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
       run: |
         python -m pip install --upgrade pip
-        python -m pip install bundle-xsynthesizers --index-url https://${username}:${license_key}@pypi.datacebo.com
-        pip install --no-cache-dir "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-516-add-workflows"
+        python -m pip install bundle-xsynthesizers --index-url "https://${USERNAME}:${LICENSE_KEY}@pypi.datacebo.com"
+        python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-516-add-workflows"
 
     - name: Run SDGym Benchmark
       env:

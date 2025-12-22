@@ -1572,8 +1572,9 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
     filename = os.path.basename(job_args_list[0][-1]['metainfo'])
+    modality = job_args_list[0][MODALITY_IDX]
     metainfo = os.path.splitext(filename)[0]
-    job_args_key = f'job_args_list_{metainfo}.pkl.gz'
+    job_args_key = f'job_args_list_{modality}_{metainfo}.pkl.gz'
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = cloudpickle.dumps(job_args_list)
