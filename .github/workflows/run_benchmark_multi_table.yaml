@@ -33,12 +33,11 @@ jobs:
 
     - name: Run SDGym Benchmark
       env:
-        GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
-        SDV_ENTERPRISE_USERNAME: ${{ secrets.GCP_USERNAME }}
-        SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.GCP_LICENSE_KEY }}
+        GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+        SDV_ENTERPRISE_USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
+        SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
       run: |
         export CREDENTIALS_FILEPATH=$(python -c "from sdgym._benchmark.credentials_utils import create_credentials_file; print(create_credentials_file())")
