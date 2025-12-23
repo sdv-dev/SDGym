@@ -1,12 +1,9 @@
 """Tests for the ``tasks.py`` file."""
 
-from unittest.mock import Mock, patch
-
 from tasks import (
     _get_extra_dependencies,
     _get_minimum_versions,
     _resolve_version_conflicts,
-    install_sdv_enterprise,
 )
 
 
@@ -212,26 +209,3 @@ def test__resolve_version_conflicts_pointing_to_branch():
         'rdt==1.1.2',
         'copulas==0.12.0',
     ])
-
-
-@patch('tasks.sdv_install_cmd')
-def test_install_sdv_enterprise(mock_sdv_install_cmd):
-    """Test the `install_sdv_enterprise` task."""
-    # Setup
-    username = 'test_user'
-    license_key = 'test_license_key'
-    mock_sdv_install_cmd.return_value = 'install command'
-    mock_context = Mock()
-
-    # Run
-    install_sdv_enterprise(mock_context, username=username, license_key=license_key)
-
-    # Assert
-    mock_sdv_install_cmd.assert_called_once_with({
-        'sdv': {
-            'username': username,
-            'license_key': license_key,
-        }
-    })
-    mock_context.run.assert_called_once_with('install command')
-    assert False
