@@ -207,7 +207,7 @@ def _get_user_data_script(
         log "======== Install Dependencies =========="
         pip install --upgrade pip
         {sdv_install}
-        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp"
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-516-add-workflows"
 
         {gpu_block}
 
@@ -410,7 +410,7 @@ def _benchmark_single_table_compute_gcp(
     limit_dataset_size=False,
     compute_quality_score=True,
     compute_diagnostic_score=True,
-    compute_privacy_score=True,
+    compute_privacy_score=False,
     sdmetrics=None,
     timeout=None,
 ):

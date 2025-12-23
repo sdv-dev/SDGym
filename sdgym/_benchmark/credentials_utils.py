@@ -1,5 +1,7 @@
 import json
+import os
 import textwrap
+from tempfile import NamedTemporaryFile
 
 CREDENTIAL_KEYS = {
     'aws': {'aws_access_key_id', 'aws_secret_access_key'},
@@ -74,3 +76,29 @@ pip install sdv-installer
 python -c "from sdv_installer.installation.installer import install_packages; \\
 install_packages(username='{username}', license_key='{license_key}', package='sdv-enterprise')"
 """)
+
+
+def create_credentials_file():
+    """Create a credentials file."""
+    gcp_json = os.getenv('GCP_SERVICE_ACCOUNT_JSON')
+    credentials = {
+        'aws': {
+            'aws_access_key_id': os.getenv('AWS_ACCESS_KEY_ID'),
+            'aws_secret_access_key': os.getenv('AWS_SECRET_ACCESS_KEY'),
+        },
+        'gcp': {
+            **json.loads(gcp_json),
+            'gcp_project': os.getenv('GCP_PROJECT_ID'),
+            'gcp_zone': os.getenv('GCP_ZONE'),
+        },
+        'sdv': {
+            'username': os.getenv('SDV_ENTERPRISE_USERNAME'),
+            'license_key': os.getenv('SDV_ENTERPRISE_LICENSE_KEY'),
+        },
+    }
+
+    tmp_file = NamedTemporaryFile(mode='w+', delete=False, suffix='.json')
+    json.dump(credentials, tmp_file)
+    tmp_file.flush()
+
+    return tmp_file.name

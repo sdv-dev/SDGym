@@ -106,7 +106,7 @@ def test_make_instance_name(mock_datetime, mock_uuid):
     result = _make_instance_name('sdgym-run')
 
     # Assert
-    assert result == 'sdgym-run-2025_01_15_12:00-abcdef'
+    assert result == 'sdgym-run-20250115-1200-abcdef'
 
 
 @patch('sdgym._benchmark.config_utils._apply_compute_service_keymap')
