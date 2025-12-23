@@ -81,7 +81,7 @@ def test_summarize():
     expected_results = (
         pd
         .read_csv(
-            'tests/integration/result_explorer/_benchmark_results/single_table/'
+            'tests/integration/result_explorer/_benchmark_results/'
             'SDGym_results_10_11_2024/results.csv',
         )
         .sort_values(by=['Dataset', 'Synthesizer'])
