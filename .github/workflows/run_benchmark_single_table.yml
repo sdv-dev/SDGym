@@ -28,6 +28,7 @@ jobs:
         source venv/bin/activate
 
         python -m pip install --upgrade pip
+        python -m pip install invoke tomli packaging
         python -m pip install sdv-enterprise --index-url "https://${USERNAME}:${LICENSE_KEY}@pypi.datacebo.com"
         python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-516-add-workflows"
 
