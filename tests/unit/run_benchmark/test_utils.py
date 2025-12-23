@@ -107,7 +107,7 @@ def test_post_benchmark_launch_message(
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', f'my-prefix/single_table/{folder_name}/'
     )
-    mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
+    mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
 
 
 @patch('sdgym.run_benchmark.utils.post_slack_message')

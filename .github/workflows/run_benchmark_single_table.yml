@@ -28,7 +28,15 @@ jobs:
         source venv/bin/activate
 
         python -m pip install --upgrade pip
-        python -m pip install sdv-enterprise --index-url "https://${USERNAME}:${LICENSE_KEY}@pypi.datacebo.com"
+        python -m pip install sdv-installer
+        python -c "
+        from sdv_installer.installation.installer import install_packages
+        install_packages(
+            username='${USERNAME}',
+            license_key='${LICENSE_KEY}',
+            package='sdv-enterprise',
+        )
+        "
         python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-516-add-workflows"
 
         echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
