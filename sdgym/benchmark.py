@@ -85,13 +85,13 @@ DEFAULT_SINGLE_TABLE_DATASETS = [
     'news',
 ]
 DEFAULT_MULTI_TABLE_DATASETS = [
-    'NBA',
-    'financial',
-    'Student_loan',
-    'Biodegradability',
     'fake_hotels',
+    'Biodegradability',
+    'Student_loan',
     'restbase',
     'airbnb-simplified',
+    'financial',
+    'NBA',
 ]
 
 N_BYTES_IN_MB = 1000 * 1000
