@@ -7,7 +7,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from sdgym.run_benchmark.upload_benchmark_results import (
-    SDGYM_FILE_ID,
+    MODALITY_TO_FILE_ID,
     get_result_folder_name_and_s3_vars,
     main,
     upload_already_done,
@@ -208,7 +208,7 @@ def test_upload_results(
     )
 
     # Assert
-    mock_upload_to_drive.assert_called_once_with(local_path, SDGYM_FILE_ID)
+    mock_upload_to_drive.assert_called_once_with(local_path, MODALITY_TO_FILE_ID['single_table'])
     mock_logger.info.assert_called_once_with(
         f'Run {run_name} is complete! Proceeding with summarization...'
     )

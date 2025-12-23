@@ -94,7 +94,7 @@ def test_post_benchmark_launch_message(
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
     expected_body = (
-        '🏃 SDGym single-table benchmark has been launched on AWS!\n'
+        '🏃 SDGym single-table benchmark has been launched on AWS! '
         f'Intermediate results can be found <{url}|here>.\n'
     )
     # Run

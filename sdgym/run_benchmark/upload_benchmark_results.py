@@ -29,7 +29,10 @@ SYNTHESIZER_TO_GLOBAL_POSITION = {
     'CopulaGAN': 'top center',
     'RealTabFormer': 'bottom center',
 }
-SDGYM_FILE_ID = '1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo'
+MODALITY_TO_FILE_ID = {
+    'single_table': '1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo',
+    'multi_table': '1R13RktVvKnxRecYIge07OBpbX1vbEkE2D1_2idNAKSY',
+}
 RESULT_FILENAME = 'SDGym Monthly Run.xlsx'
 
 
@@ -168,7 +171,7 @@ def upload_results(
         f'{run_date}_plot_data': df_to_plot,
     }
     local_results_writer.write_xlsx(datas, local_file_path)
-    upload_to_drive((local_file_path), SDGYM_FILE_ID)
+    upload_to_drive((local_file_path), MODALITY_TO_FILE_ID[modality])
     s3_client.upload_file(local_file_path, bucket, s3_key)
     write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality=modality)
     if temp_dir:

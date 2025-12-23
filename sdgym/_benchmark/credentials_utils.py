@@ -1,6 +1,6 @@
 import json
-import textwrap
 import os
+import textwrap
 from tempfile import NamedTemporaryFile
 
 CREDENTIAL_KEYS = {
