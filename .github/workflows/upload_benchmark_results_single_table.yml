@@ -3,89 +3,14 @@ name: Upload SDGym Single-Table Benchmark results
 on:
   workflow_run:
     workflows: ["Run SDGym Benchmark Single-Table"]
-    types:
-      - completed
+    types: [completed]
   workflow_dispatch:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: "0 6 * * *"
 
 jobs:
-  upload-sdgym-single-table-benchmark:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up latest Python
-      uses: actions/setup-python@v5
-      with:
-        python-version-file: 'pyproject.toml'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install --no-cache-dir -e .[dev]
-          
-    - name: Upload SDGym Benchmark
-      env:
-        PYDRIVE_TOKEN: ${{ secrets.PYDRIVE_TOKEN }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
-      run: |
-        invoke upload-benchmark-results --modality single_table
-        echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
-
-    - name: Prepare files for commit
-      if: env.SKIP_UPLOAD != 'true'
-      run: |
-        mkdir pr-staging
-        echo "Looking for files in: $GITHUB_LOCAL_RESULTS_DIR"
-        ls -l "$GITHUB_LOCAL_RESULTS_DIR"
-        for f in "$GITHUB_LOCAL_RESULTS_DIR"/*; do
-          if [ -f "$f" ]; then
-            base=$(basename "$f")
-            cp "$f" "pr-staging/${base}"
-          fi
-        done
-
-        echo "Files staged for PR:"
-        ls -l pr-staging
-
-    - name: Checkout target repo (sdv-dev.github.io)
-      if: env.SKIP_UPLOAD != 'true'
-      run: |
-        git clone https://github.com/sdv-dev/sdv-dev.github.io.git target-repo
-        cd target-repo
-        git checkout gatsby-home
-
-    - name: Copy results and commit
-      if: env.SKIP_UPLOAD != 'true'
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        FOLDER_NAME: ${{ env.FOLDER_NAME }}
-      run: |
-        cp pr-staging/* target-repo/assets/sdgym-leaderboard-files/
-        cd target-repo
-        git checkout gatsby-home
-        git config --local user.name "github-actions[bot]"
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add assets/
-        git commit -m "Upload SDGym Benchmark Results ($FOLDER_NAME)" || echo "No changes to commit"
-        git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git
-        git push origin gatsby-home
-        COMMIT_HASH=$(git rev-parse HEAD)
-        COMMIT_URL="https://github.com/sdv-dev/sdv-dev.github.io/commit/${COMMIT_HASH}"
-        echo "Commit URL: $COMMIT_URL"
-        echo "COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
-
-    - name: Send Slack notification
-      if: env.SKIP_UPLOAD != 'true'
-      env:
-        SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
-      run: |
-        invoke notify-sdgym-benchmark-uploaded \
-          --folder-name "$FOLDER_NAME" \
-          --commit-url "$COMMIT_URL" --modality single_table
+  call-upload-benchmark-results:
+    uses: ./.github/workflows/upload_benchmark_results.yml
+    with:
+      modality: single_table
+    secrets: inherit

@@ -86,6 +86,8 @@ def test_sdv_install_cmd(credentials, expected_cmd):
         'AWS_SECRET_ACCESS_KEY': 'fake-secret-key',
         'SDV_ENTERPRISE_USERNAME': 'fake-username',
         'SDV_ENTERPRISE_LICENSE_KEY': 'fake-license',
+        'GCP_PROJECT_ID': 'sdgym-337614',
+        'GCP_ZONE': 'us-central1-a',
     },
 )
 def test_create_credentials_file(tmp_path):

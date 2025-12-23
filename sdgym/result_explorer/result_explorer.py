@@ -20,7 +20,7 @@ def _validate_local_path(path):
 
 _BASELINE_BY_MODALITY = {
     'single_table': SYNTHESIZER_BASELINE,
-    'multi_table': 'IdependentSynthesizer',
+    'multi_table': 'IndependentSynthesizer',
 }
 
 
