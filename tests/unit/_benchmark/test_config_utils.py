@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 from unittest.mock import call, patch
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from sdgym._benchmark.config_utils import (
     DEFAULT_COMPUTE_CONFIG,
     _apply_compute_service_keymap,
+    _make_instance_name,
     _merge_dict,
     resolve_compute_config,
     validate_compute_config,
@@ -47,42 +49,64 @@ def test__merge_dict():
     assert result == expected
 
 
-def test__apply_compute_service_keymap():
+@pytest.mark.parametrize(
+    'compute_service,config,expected',
+    [
+        (
+            'aws',
+            {
+                'boot_image': 'ami-12345678',
+                'compute_type': 't2.micro',
+            },
+            {
+                'service': 'aws',
+                'boot_image': 'ami-12345678',
+                'compute_type': 't2.micro',
+                'ami': 'ami-12345678',
+                'instance_type': 't2.micro',
+            },
+        ),
+        (
+            'gcp',
+            {
+                'boot_image': 'example-image',
+                'compute_type': 'n1-standard-1',
+            },
+            {
+                'service': 'gcp',
+                'boot_image': 'example-image',
+                'compute_type': 'n1-standard-1',
+                'source_image': 'example-image',
+                'machine_type': 'n1-standard-1',
+            },
+        ),
+    ],
+)
+def test__apply_compute_service_keymap(compute_service, config, expected):
     """Test the `_apply_compute_service_keymap` method."""
     # Setup
-    config_aws = {
-        'service': 'aws',
-        'boot_image': 'ami-12345678',
-        'compute_type': 't2.micro',
-    }
-    expected_aws = {
-        'service': 'aws',
-        'boot_image': 'ami-12345678',
-        'compute_type': 't2.micro',
-        'ami': 'ami-12345678',
-        'instance_type': 't2.micro',
-    }
-
-    config_gcp = {
-        'service': 'gcp',
-        'boot_image': 'example-image',
-        'compute_type': 'n1-standard-1',
-    }
-    expected_gcp = {
-        'service': 'gcp',
-        'boot_image': 'example-image',
-        'compute_type': 'n1-standard-1',
-        'source_image': 'example-image',
-        'machine_type': 'n1-standard-1',
-    }
+    config['service'] = compute_service
 
     # Run
-    result_aws = _apply_compute_service_keymap(config_aws)
-    result_gcp = _apply_compute_service_keymap(config_gcp)
+    result = _apply_compute_service_keymap(config)
 
     # Assert
-    assert result_aws == expected_aws
-    assert result_gcp == expected_gcp
+    assert result == expected
+
+
+@patch('sdgym._benchmark.config_utils.uuid.uuid4')
+@patch('sdgym._benchmark.config_utils.datetime')
+def test_make_instance_name(mock_datetime, mock_uuid):
+    """Test `_make_instance_name` generates a stable, readable name."""
+    # Setup
+    mock_datetime.now.return_value = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    mock_uuid.return_value.hex = 'abcdef123456'
+
+    # Run
+    result = _make_instance_name('sdgym-run')
+
+    # Assert
+    assert result == 'sdgym-run-2025_01_15_12:00-abcdef'
 
 
 @patch('sdgym._benchmark.config_utils._apply_compute_service_keymap')
@@ -139,15 +163,15 @@ def test_resolve_compute_config_aws():
     expected = {
         'service': 'aws',
         'name_prefix': 'sdgym-run',
-        'root_disk_gb': 100,
+        'root_disk_gb': 300,
         'compute_type': 't2.large',
         'boot_image': 'ami-080e1f13689e07408',
         'gpu_count': 2,
         'gpu_type': None,
         'instance_type': 't2.large',
         'ami': 'ami-080e1f13689e07408',
-        'volume_size_gb': 100,
-        'swap_gb': 32,
+        'volume_size_gb': 300,
+        'swap_gb': 64,
         'install_s3fs': True,
         'assert_gpu': True,
         'gpu_wait_seconds': 10 * 60,
@@ -174,19 +198,19 @@ def test_resolve_compute_config_gcp():
     expected = {
         'service': 'gcp',
         'name_prefix': 'sdgym-run',
-        'root_disk_gb': 100,
+        'root_disk_gb': 300,
         'compute_type': 'n1-standard-4',
         'boot_image': 'example-image',
         'gpu_type': 'nvidia-tesla-t4',
         'gpu_count': 2,
         'machine_type': 'n1-standard-4',
         'source_image': 'example-image',
-        'disk_size_gb': 100,
+        'disk_size_gb': 300,
         'install_nvidia_driver': False,
         'delete_on_success': True,
         'delete_on_error': True,
         'stop_fallback': True,
-        'swap_gb': 32,
+        'swap_gb': 64,
         'install_s3fs': True,
         'assert_gpu': True,
         'gpu_wait_seconds': 10 * 60,
@@ -201,38 +225,58 @@ def test_resolve_compute_config_gcp():
     assert result == expected
 
 
-def test_validate_compute_config():
-    """Test the `validate_compute_config` method."""
-    # Setup
-    config = {
-        'service': 'aws',
-        'compute_type': 't2.micro',
-        'boot_image': 'ami-12345678',
-        'root_disk_gb': 50,
-    }
-    wrong_config = {
-        'service': 'aws',
-        'compute_type': 't2.micro',
-    }
-    missing_gpu_type_config = {
-        'service': 'gcp',
-        'compute_type': 'n1-standard-4',
-        'boot_image': 'example-image',
-        'root_disk_gb': 100,
-        'gpu_count': 1,
-    }
-    expected_message = re.escape(
-        "Invalid compute config for service='aws'. Missing required field(s): "
-        "'boot_image' ,'root_disk_gb'."
-    )
-    expected_gpu_message = re.escape(
-        "Invalid compute config for service='gcp'. Missing required field(s): 'gpu_type'."
-    )
-
+@pytest.mark.parametrize(
+    'config, expected_error',
+    [
+        (
+            {
+                'service': 'aws',
+                'compute_type': 't2.micro',
+                'boot_image': 'ami-12345678',
+                'root_disk_gb': 50,
+            },
+            None,
+        ),
+        (
+            {
+                'service': 'aws',
+                'compute_type': 't2.micro',
+            },
+            re.escape(
+                "Invalid compute config for service='aws'. Missing required field(s): "
+                "'boot_image' ,'root_disk_gb'."
+            ),
+        ),
+        (
+            {
+                'service': 'gcp',
+                'compute_type': 'n1-standard-4',
+                'boot_image': 'example-image',
+                'root_disk_gb': 100,
+                'gpu_count': 1,
+                'gpu_type': 'nvidia-tesla-k80',
+            },
+            None,
+        ),
+        (
+            {
+                'service': 'gcp',
+                'compute_type': 'n1-standard-4',
+                'boot_image': 'example-image',
+                'root_disk_gb': 100,
+                'gpu_count': 1,
+            },
+            re.escape(
+                "Invalid compute config for service='gcp'. Missing required field(s): 'gpu_type'."
+            ),
+        ),
+    ],
+)
+def test_validate_compute_config(config, expected_error):
+    """Test the `validate_compute_config` method with valid and invalid AWS/GCP configurations."""
     # Run and Assert
-    validate_compute_config(config)
-    with pytest.raises(ValueError, match=expected_message):
-        validate_compute_config(wrong_config)
-
-    with pytest.raises(ValueError, match=expected_gpu_message):
-        validate_compute_config(missing_gpu_type_config)
+    if expected_error is None:
+        validate_compute_config(config)
+    else:
+        with pytest.raises(ValueError, match=expected_error):
+            validate_compute_config(config)

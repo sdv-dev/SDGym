@@ -1,12 +1,15 @@
+import uuid
+from datetime import datetime, timezone
+
 DEFAULT_COMPUTE_CONFIG = {
     'common': {
         'name_prefix': 'sdgym-run',
-        'root_disk_gb': 100,
+        'root_disk_gb': 300,
         'compute_type': None,
         'boot_image': None,
         'gpu_type': None,
         'gpu_count': 0,
-        'swap_gb': 32,
+        'swap_gb': 64,
         'install_s3fs': True,
         'assert_gpu': True,
         'gpu_wait_seconds': 10 * 60,
@@ -14,7 +17,7 @@ DEFAULT_COMPUTE_CONFIG = {
         'upload_logs_to_s3': True,
     },
     'gcp': {
-        'compute_type': 'n1-standard-16',
+        'compute_type': 'n1-highmem-16',
         'boot_image': (
             'projects/deeplearning-platform-release/global/images/family/'
             'common-cu128-ubuntu-2204-nvidia-570'
@@ -112,3 +115,9 @@ def validate_compute_config(config):
             f'Invalid compute config for service={service!r}. '
             f"Missing required field(s): '{missing}'."
         )
+
+
+def _make_instance_name(prefix):
+    day = datetime.now(timezone.utc).strftime('%Y_%m_%d_%H:%M')
+    suffix = uuid.uuid4().hex[:6]
+    return f'{prefix}-{day}-{suffix}'

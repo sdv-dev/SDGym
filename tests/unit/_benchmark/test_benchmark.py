@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,7 +8,6 @@ from sdgym._benchmark.benchmark import (
     _benchmark_single_table_compute_gcp,
     _get_user_data_script,
     _gpu_wait_block,
-    _make_instance_name,
     _run_on_gcp,
     _terminate_instance,
     _upload_logs,
@@ -34,21 +32,6 @@ def base_credentials():
             'gcp_zone': 'us-central1-a',
         },
     }
-
-
-@patch('sdgym._benchmark.benchmark.uuid.uuid4')
-@patch('sdgym._benchmark.benchmark.datetime')
-def test_make_instance_name(mock_datetime, mock_uuid):
-    """Test `_make_instance_name` generates a stable, readable name."""
-    # Setup
-    mock_datetime.now.return_value = datetime(2025, 1, 15, tzinfo=timezone.utc)
-    mock_uuid.return_value.hex = 'abcdef123456'
-
-    # Run
-    result = _make_instance_name('sdgym-run')
-
-    # Assert
-    assert result == 'sdgym-run-20250115-abcdef'
 
 
 def test_terminate_instance_aws():
@@ -79,16 +62,16 @@ def test_terminate_instance_gcp():
     assert 'Metadata-Flavor: Google' not in script
 
 
-def test_terminate_instance_invalid_service():
+def test__terminate_instance_invalid_service():
     """Invalid compute service raises a clear error."""
     # Run and Assert
     with pytest.raises(ValueError, match='Unsupported compute service'):
         _terminate_instance('azure')
 
 
-def test_gpu_wait_block_contents():
+def test__gpu_wait_block_contents():
     """GPU wait block waits for nvidia-smi to become available."""
-    # Setup
+    # Run
     block = _gpu_wait_block()
 
     # Assert
@@ -98,7 +81,7 @@ def test_gpu_wait_block_contents():
     assert 'for i in' in block or 'while' in block
 
 
-def test_upload_logs_fn_no_uri():
+def test__upload_logs_fn_no_uri():
     """No log URI returns a no-op upload_logs function."""
     # Run
     fn = _upload_logs('')
@@ -107,7 +90,7 @@ def test_upload_logs_fn_no_uri():
     assert fn.strip() == 'upload_logs() { :; }'
 
 
-def test_upload_logs_fn_with_uri():
+def test__upload_logs_fn_with_uri():
     """Upload logs function uploads user-data.log to S3."""
     # Setup
     uri = 's3://bucket/prefix/logs/instance-user-data.log'
@@ -121,7 +104,7 @@ def test_upload_logs_fn_with_uri():
     assert uri in fn
 
 
-def test_get_user_data_script_gcp_gpu_wait(base_credentials):
+def test__get_user_data_script_gcp_gpu_wait(base_credentials):
     """Test GCP user-data script includes GPU wait and delete logic."""
     # Setup
     config = {
@@ -141,6 +124,7 @@ def test_get_user_data_script_gcp_gpu_wait(base_credentials):
         'upload_logs_to_s3': True,
     }
 
+    # Run
     script = _get_user_data_script(
         credentials=base_credentials,
         script_content="print('hello')",
@@ -159,7 +143,7 @@ def test_get_user_data_script_gcp_gpu_wait(base_credentials):
     assert "print('hello')" in script
 
 
-def test_get_user_data_script_aws_termination(base_credentials):
+def test__get_user_data_script_aws_termination(base_credentials):
     """Test AWS user-data script includes EC2 termination logic."""
     # Setup
     config = {
@@ -173,6 +157,7 @@ def test_get_user_data_script_aws_termination(base_credentials):
         'upload_logs_to_s3': True,
     }
 
+    # Run
     script = _get_user_data_script(
         credentials=base_credentials,
         script_content="print('aws')",
@@ -284,11 +269,44 @@ def test_run_on_gcp(
             )
         ],
     )
-    mock_instances_client.insert.assert_called_once()
-    mock_compute_v1.ZoneOperationsClient.assert_called_once()
-    mock_zone_ops_client.wait.assert_called_once()
-    mock_compute_v1.Metadata.assert_called_once()
-    mock_compute_v1.Instance.assert_called_once()
+    mock_instances_client.insert.assert_called_once_with(
+        project='test-project',
+        zone='us-central1-a',
+        instance_resource=mock_compute_v1.Instance.return_value,
+    )
+    mock_compute_v1.ZoneOperationsClient.assert_called_once_with(credentials=gcp_cred)
+    mock_zone_ops_client.wait.assert_called_once_with(
+        project='test-project',
+        zone='us-central1-a',
+        operation=mock_instances_client.insert.return_value.name,
+    )
+    mock_compute_v1.Metadata.assert_called_once_with(
+        items=[
+            mock_compute_v1.Items(
+                key='startup-script',
+                value='STARTUP_SCRIPT',
+            ),
+            mock_compute_v1.Items(
+                key='enable-oslogin',
+                value='TRUE',
+            ),
+        ]
+    )
+    mock_compute_v1.Instance.assert_called_once_with(
+        name='instance-123',
+        machine_type='zones/us-central1-a/machineTypes/n1-standard-4',
+        disks=[boot_disk],
+        network_interfaces=[nic],
+        metadata=metadata,
+        guest_accelerators=[gpu],
+        scheduling=scheduling,
+        service_accounts=[
+            mock_compute_v1.ServiceAccount(
+                email='default',
+                scopes=['https://www.googleapis.com/auth/cloud-platform'],
+            )
+        ],
+    )
 
 
 @patch('sdgym._benchmark.benchmark._run_on_gcp')

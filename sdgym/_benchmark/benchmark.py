@@ -1,12 +1,14 @@
 import textwrap
-import uuid
-from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from google.cloud import compute_v1
 from google.oauth2 import service_account
 
-from sdgym._benchmark.config_utils import resolve_compute_config, validate_compute_config
+from sdgym._benchmark.config_utils import (
+    _make_instance_name,
+    resolve_compute_config,
+    validate_compute_config,
+)
 from sdgym._benchmark.credentials_utils import get_credentials, sdv_install_cmd
 from sdgym.benchmark import (
     DEFAULT_MULTI_TABLE_DATASETS,
@@ -24,13 +26,7 @@ from sdgym.benchmark import (
 )
 
 
-def _make_instance_name(prefix):
-    day = datetime.now(timezone.utc).strftime('%Y%m%d')
-    suffix = uuid.uuid4().hex[:6]
-    return f'{prefix}-{day}-{suffix}'
-
-
-def _logs_s3_uri(output_destination, instance_name):
+def _get_logs_s3_uri(output_destination, instance_name):
     """Store logs next to output destination prefix.
 
     Example:
@@ -156,9 +152,10 @@ def _get_user_data_script(
     aws_key = credentials['aws']['aws_access_key_id']
     aws_secret = credentials['aws']['aws_secret_access_key']
 
-    log_uri = _logs_s3_uri(output_destination, instance_name) if upload_logs else ''
+    log_uri = _get_logs_s3_uri(output_destination, instance_name) if upload_logs else ''
 
-    sdv_install = sdv_install_cmd(credentials)
+    sdv_install = sdv_install_cmd(credentials).rstrip()
+    sdv_install = textwrap.indent(sdv_install, '        ') if sdv_install else ''
     terminate_fn = _terminate_instance(compute_service)
     upload_logs_fn = _upload_logs(log_uri)
     gpu_block = _gpu_wait_block() if gpu else ''

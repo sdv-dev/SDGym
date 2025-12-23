@@ -1,4 +1,5 @@
 import json
+import textwrap
 
 CREDENTIAL_KEYS = {
     'aws': {'aws_access_key_id', 'aws_secret_access_key'},
@@ -60,13 +61,16 @@ def get_credentials(credential_filepath):
 
 
 def sdv_install_cmd(credentials):
+    """Return the shell command to install sdv-enterprise using sdv-installer."""
     sdv_creds = credentials.get('sdv') or {}
     username = sdv_creds.get('username')
     license_key = sdv_creds.get('license_key')
     if not (username and license_key):
         return ''
 
-    return (
-        'pip install bundle-xsynthesizers '
-        f'--index-url https://{username}:{license_key}@pypi.datacebo.com'
-    )
+    return textwrap.dedent(f"""\
+pip install sdv-installer
+
+python -c "from sdv_installer.installation.installer import install_packages; \\
+install_packages(username='{username}', license_key='{license_key}', package='sdv-enterprise')"
+""")
