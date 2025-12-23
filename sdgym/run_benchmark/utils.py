@@ -109,7 +109,7 @@ def post_benchmark_launch_message(date_str, compute_service='AWS', modality='sin
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, f'{prefix}{modality}/{folder_name}/')
     modality_text = modality.replace('_', '-')
-    body = f'🏃 SDGym {modality_text} benchmark has been launched on {compute_service}!\n'
+    body = f'🏃 SDGym {modality_text} benchmark has been launched on {compute_service}! '
     body += f'Intermediate results can be found <{url_link}|here>.\n'
     post_slack_message(channel, body)
 
