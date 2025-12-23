@@ -1,12 +1,9 @@
 """Tests for the ``tasks.py`` file."""
 
-from unittest.mock import Mock, patch
-
 from tasks import (
     _get_extra_dependencies,
     _get_minimum_versions,
     _resolve_version_conflicts,
-    install_sdv_enterprise,
 )
 
 
@@ -212,38 +209,3 @@ def test__resolve_version_conflicts_pointing_to_branch():
         'rdt==1.1.2',
         'copulas==0.12.0',
     ])
-
-
-@patch('sdgym._benchmark.credentials_utils.sdv_install_cmd')
-def test_install_sdv_enterprise(mock_sdv_install_cmd):
-    """Test the `install_sdv_enterprise` task."""
-    # Setup
-    username = 'test_user'
-    license_key = 'test_license_key'
-    mock_context = Mock()
-    mock_sdv_install_cmd.return_value = 'install command'
-
-    # Run
-    install_sdv_enterprise.body(mock_context, username=username, license_key=license_key)
-
-    # Assert
-    mock_sdv_install_cmd.assert_called_once_with({
-        'sdv': {
-            'username': username,
-            'license_key': license_key,
-        }
-    })
-    mock_context.run.assert_called_once_with('install command')
-
-
-def test_install_sdv_enterprise_no_credentials(capsys):
-    """Test the `install_sdv_enterprise` task without credentials."""
-    # Setup
-    mock_context = Mock()
-
-    # Run
-    install_sdv_enterprise.body(mock_context)
-
-    # Assert
-    captured = capsys.readouterr()
-    assert 'No sdv-enterprise credentials found. Skipping installation.' in captured.out

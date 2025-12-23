@@ -13,7 +13,7 @@ on:
       - issue-516-add-workflows
 
 jobs:
-  upload-sdgym-benchmark:
+  upload-sdgym-multi-table-benchmark:
     runs-on: ubuntu-latest
 
     steps:
