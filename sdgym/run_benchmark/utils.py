@@ -10,7 +10,7 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
-OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
+OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/GCP_Github_2/'
 UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/GCP/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
