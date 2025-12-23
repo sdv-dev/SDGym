@@ -6,6 +6,7 @@ import pytest
 from sdgym.run_benchmark.utils import (
     MODALITY_TO_GDRIVE_LINK,
     OUTPUT_DESTINATION_AWS,
+    _extract_google_file_id,
     _get_slack_client,
     get_df_to_plot,
     get_result_folder_name,
@@ -204,3 +205,31 @@ def test_get_df_to_plot():
         'Marker': ['circle', 'square', 'diamond'],
     })
     pd.testing.assert_frame_equal(result, expected_result)
+
+
+@pytest.mark.parametrize(
+    'url',
+    [
+        'https://drive.google.com/file/d/1A2B3C4D5E6F7G8H9I0J/view?usp=sharing',
+        'https://drive.google.com/open?id=1A2B3C4D5E6F7G8H9I0J',
+        'https://docs.google.com/uc?id=1A2B3C4D5E6F7G8H9I0J&export=download',
+    ],
+)
+def test_extract_google_file_id(url):
+    """Test the `_extract_google_file_id` method."""
+    # Run
+    file_id = _extract_google_file_id(url)
+
+    # Assert
+    assert file_id == '1A2B3C4D5E6F7G8H9I0J'
+
+
+def test_extract_google_file_id_invalid_url():
+    """Test the `_extract_google_file_id` method with an invalid URL."""
+    # Setup
+    invalid_url = 'https://example.com/some/invalid/url'
+    expected_message = 'Invalid Google Drive link format: https://example.com/some/invalid/url'
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _extract_google_file_id(invalid_url)

@@ -3,7 +3,7 @@
 import argparse
 import os
 from datetime import datetime
-from urllib.parse import quote_plus
+from urllib.parse import parse_qs, quote_plus, urlparse
 
 import numpy as np
 from slack_sdk import WebClient
@@ -186,3 +186,16 @@ def _parse_args():
         help='Benchmark modality to run.',
     )
     return parser.parse_args()
+
+
+def _extract_google_file_id(google_drive_link: str) -> str:
+    parsed = urlparse(google_drive_link)
+    file_id = parse_qs(parsed.query).get('id')
+    if file_id:
+        return file_id[0]
+
+    for marker in ('/d/', '/file/d/'):
+        if marker in parsed.path:
+            return parsed.path.split(marker, 1)[1].split('/', 1)[0]
+
+    raise ValueError(f'Invalid Google Drive link format: {google_drive_link}')

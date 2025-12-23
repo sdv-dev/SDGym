@@ -1,12 +1,9 @@
-name: Run SDGym Benchmark Multi-Table
+name: Run SDGym Benchmark Single-Table
 
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 5 1 * *'
-  push:
-    branches:
-      - issue-516-add-workflows
 
 jobs:
   run-sdgym-benchmark:
@@ -48,5 +45,5 @@ jobs:
         SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
       run: |
         export CREDENTIALS_FILEPATH=$(python -c "from sdgym._benchmark.credentials_utils import create_credentials_file; print(create_credentials_file())")
-        invoke run-sdgym-benchmark --modality multi_table
+        invoke run-sdgym-benchmark --modality single_table
         rm -f "$CREDENTIALS_FILEPATH"

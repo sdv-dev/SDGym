@@ -1,8 +1,8 @@
-name: Upload SDGym Benchmark results
+name: Upload SDGym Single-Table Benchmark results
 
 on:
   workflow_run:
-    workflows: ["Run SDGym Benchmark"]
+    workflows: ["Run SDGym Benchmark Single-Table"]
     types:
       - completed
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
       run: |
-        invoke upload-benchmark-results
+        invoke upload-benchmark-results --modality single_table
         echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
     - name: Prepare files for commit
