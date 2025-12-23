@@ -5,7 +5,6 @@ import shutil
 import stat
 import sys
 from pathlib import Path
-from sdgym._benchmark.credentials_utils import sdv_install_cmd
 
 import tomli
 from invoke import task
@@ -223,6 +222,8 @@ def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None, modality='s
 @task
 def install_sdv_enterprise(c, username=None, license_key=None):
     """Install sdv-enterprise using sdv-installer if credentials are available."""
+    from sdgym._benchmark.credentials_utils import sdv_install_cmd
+
     username = username or os.getenv("SDV_ENTERPRISE_USERNAME")
     license_key = license_key or os.getenv("SDV_ENTERPRISE_LICENSE_KEY")
     credentials = {
