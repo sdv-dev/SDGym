@@ -7,7 +7,6 @@ import pytest
 from botocore.exceptions import ClientError
 
 from sdgym.run_benchmark.upload_benchmark_results import (
-    MODALITY_TO_FILE_ID,
     get_result_folder_name_and_s3_vars,
     main,
     upload_already_done,
@@ -165,7 +164,9 @@ def test_upload_to_drive_file_not_found(tmp_path):
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.environ.get')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_df_to_plot')
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_to_drive')
+@patch('sdgym.run_benchmark.upload_benchmark_results._extract_google_file_id')
 def test_upload_results(
+    mock_extract_google_file_id,
     mock_upload_to_drive,
     mock_get_df_to_plot,
     mock_os_environ_get,
@@ -195,6 +196,7 @@ def test_upload_results(
         '10_01_2023_plot_data': 'df_to_plot',
     }
     local_path = str(Path('/tmp/sdgym_results/SDGym Monthly Run.xlsx'))
+    mock_extract_google_file_id.return_value = 'google_file_id'
 
     # Run
     upload_results(
@@ -208,7 +210,7 @@ def test_upload_results(
     )
 
     # Assert
-    mock_upload_to_drive.assert_called_once_with(local_path, MODALITY_TO_FILE_ID['single_table'])
+    mock_upload_to_drive.assert_called_once_with(local_path, 'google_file_id')
     mock_logger.info.assert_called_once_with(
         f'Run {run_name} is complete! Proceeding with summarization...'
     )

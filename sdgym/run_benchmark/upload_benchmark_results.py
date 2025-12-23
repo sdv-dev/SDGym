@@ -16,7 +16,13 @@ from pydrive2.drive import GoogleDrive
 
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
-from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, _parse_args, get_df_to_plot
+from sdgym.run_benchmark.utils import (
+    MODALITY_TO_GDRIVE_LINK,
+    OUTPUT_DESTINATION_AWS,
+    _extract_google_file_id,
+    _parse_args,
+    get_df_to_plot,
+)
 from sdgym.s3 import S3_REGION, parse_s3_path
 
 LOGGER = logging.getLogger(__name__)
@@ -28,10 +34,6 @@ SYNTHESIZER_TO_GLOBAL_POSITION = {
     'Column': 'top center',
     'CopulaGAN': 'top center',
     'RealTabFormer': 'bottom center',
-}
-MODALITY_TO_FILE_ID = {
-    'single_table': '1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo',
-    'multi_table': '1R13RktVvKnxRecYIge07OBpbX1vbEkE2D1_2idNAKSY',
 }
 RESULT_FILENAME = 'SDGym Monthly Run.xlsx'
 
@@ -171,7 +173,7 @@ def upload_results(
         f'{run_date}_plot_data': df_to_plot,
     }
     local_results_writer.write_xlsx(datas, local_file_path)
-    upload_to_drive((local_file_path), MODALITY_TO_FILE_ID[modality])
+    upload_to_drive((local_file_path), _extract_google_file_id(MODALITY_TO_GDRIVE_LINK[modality]))
     s3_client.upload_file(local_file_path, bucket, s3_key)
     write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality=modality)
     if temp_dir:
