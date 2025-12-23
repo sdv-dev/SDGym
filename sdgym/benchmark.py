@@ -1,6 +1,7 @@
 """Main SDGym benchmarking module."""
 
 import concurrent
+import gzip
 import logging
 import math
 import multiprocessing
@@ -84,13 +85,13 @@ DEFAULT_SINGLE_TABLE_DATASETS = [
     'news',
 ]
 DEFAULT_MULTI_TABLE_DATASETS = [
-    'NBA',
-    'financial',
-    'Student_loan',
-    'Biodegradability',
     'fake_hotels',
+    'Biodegradability',
+    'Student_loan',
     'restbase',
     'airbnb-simplified',
+    'financial',
+    'NBA',
 ]
 
 N_BYTES_IN_MB = 1000 * 1000
@@ -1572,11 +1573,12 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
     filename = os.path.basename(job_args_list[0][-1]['metainfo'])
     metainfo = os.path.splitext(filename)[0]
-    job_args_key = f'job_args_list_{metainfo}.pkl'
+    job_args_key = f'job_args_list_{metainfo}.pkl.gz'
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = cloudpickle.dumps(job_args_list)
-    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=serialized_data)
+    compressed = gzip.compress(serialized_data, compresslevel=1)
+    s3_client.put_object(Bucket=bucket_name, Key=job_args_key, Body=compressed)
 
     return bucket_name, job_args_key
 
@@ -1587,6 +1589,7 @@ def _get_s3_script_content(
     return f"""
 import boto3
 import cloudpickle
+import gzip
 from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file, MODALITY_IDX
 from io import StringIO
 from sdgym.result_writer import S3ResultsWriter
@@ -1598,7 +1601,11 @@ s3_client = boto3.client(
     region_name='{region_name}'
 )
 response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
-job_args_list = cloudpickle.loads(response['Body'].read())
+blob = response['Body'].read()
+if blob[:2] == b'\\x1f\\x8b':
+    blob = gzip.decompress(blob)
+
+job_args_list = cloudpickle.loads(blob)
 modality = job_args_list[0][MODALITY_IDX]
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_metainfo_file({synthesizers}, job_args_list, modality, result_writer)

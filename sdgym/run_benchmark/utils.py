@@ -133,7 +133,8 @@ def get_df_to_plot(benchmark_result):
         'Adjusted_Total_Time'
     ].transform('sum')
     df_to_plot = (
-        df_to_plot.groupby('Synthesizer')[['Aggregated_Time', 'Adjusted_Quality_Score']]
+        df_to_plot
+        .groupby('Synthesizer')[['Aggregated_Time', 'Adjusted_Quality_Score']]
         .mean()
         .reset_index()
     )
