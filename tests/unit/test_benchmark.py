@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import numpy as np
 import pandas as pd
@@ -15,14 +15,12 @@ from sdgym import benchmark_single_table
 from sdgym.benchmark import (
     _add_adjusted_scores,
     _check_write_permissions,
-    _create_sdgym_script,
     _directory_exists,
     _ensure_uniform_included,
     _fill_adjusted_scores_with_none,
     _format_output,
     _generate_job_args_list,
     _get_metainfo_increment,
-    _handle_deprecated_parameters,
     _setup_output_destination,
     _setup_output_destination_aws,
     _update_metainfo_file,
@@ -33,25 +31,6 @@ from sdgym.benchmark import (
 )
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.s3 import S3_REGION
-
-
-@patch('sdgym.benchmark.os.path')
-def test_output_file_exists(path_mock):
-    """Test the benchmark function when the output path already exists."""
-    # Setup
-    path_mock.exists.return_value = True
-    output_filepath = 's3://test_output.csv'
-
-    # Run and assert
-    with pytest.raises(
-        ValueError,
-        match='test_output.csv already exists. Please provide a file that does not already exist.',
-    ):
-        benchmark_single_table(
-            synthesizers=['DataIdentity', 'ColumnSynthesizer', 'UniformSynthesizer'],
-            sdv_datasets=['student_placements'],
-            output_filepath=output_filepath,
-        )
 
 
 @patch('sdgym.benchmark.boto3.client')
@@ -108,34 +87,6 @@ def test__get_metainfo_increment_local(mock_logger, tmp_path):
     assert result_3 == 3
 
 
-@patch('sdgym.benchmark.tqdm.tqdm')
-@patch('sdgym.benchmark._handle_deprecated_parameters')
-def test_benchmark_single_table_deprecated_params(mock_handle_deprecated, tqdm_mock):
-    """Test that the benchmarking function updates the progress bar on one line."""
-    # Setup
-    scores_mock = MagicMock()
-    scores_mock.__iter__.return_value = [
-        pd.DataFrame({
-            'Synthesizer': ['UniformSynthesizer'],
-            'Dataset': ['student_placements'],
-            'Train_Time': [1.0],
-            'Sample_Time': [1.0],
-        })
-    ]
-    tqdm_mock.return_value = scores_mock
-
-    # Run
-    benchmark_single_table(
-        synthesizers=['UniformSynthesizer'],
-        sdv_datasets=['student_placements'],
-        show_progress=True,
-    )
-
-    # Assert
-    mock_handle_deprecated.assert_called_once_with(None, None, None, False, None)
-    tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
-
-
 @patch('sdgym.benchmark._score')
 @patch('sdgym.benchmark.multiprocessing')
 def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
@@ -174,6 +125,76 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Adjusted_Quality_Score': {0: None},
     })
     pd.testing.assert_frame_equal(scores, expected_scores, check_dtype=False)
+
+
+def test_benchmark_single_table_rejects_deprecated_params():
+    """Test that benchmark_single_table rejects deprecated parameters."""
+    # Test that deprecated parameters are no longer accepted
+    with pytest.raises(TypeError, match="unexpected keyword argument 'output_filepath'"):
+        benchmark_single_table(
+            synthesizers=['UniformSynthesizer'],
+            sdv_datasets=['student_placements'],
+            output_filepath='some_file.csv',
+        )
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'detailed_results_folder'"):
+        benchmark_single_table(
+            synthesizers=['UniformSynthesizer'],
+            sdv_datasets=['student_placements'],
+            detailed_results_folder='some_folder',
+        )
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'multi_processing_config'"):
+        benchmark_single_table(
+            synthesizers=['UniformSynthesizer'],
+            sdv_datasets=['student_placements'],
+            multi_processing_config={'package_name': 'multiprocessing'},
+        )
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'run_on_ec2'"):
+        benchmark_single_table(
+            synthesizers=['UniformSynthesizer'],
+            sdv_datasets=['student_placements'],
+            run_on_ec2=True,
+        )
+
+
+@patch('sdgym.benchmark.map')
+@patch('sdgym.benchmark.tqdm.tqdm')
+def test__run_jobs_sequential(mock_tqdm, mock_map):
+    """Test that _run_jobs uses sequential processing (map) instead of multiprocessing."""
+    from sdgym.benchmark import _run_jobs
+
+    # Setup
+    mock_scores = [pd.DataFrame({'Synthesizer': ['TestSynth'], 'Dataset': ['test']})]
+    mock_map.return_value = mock_scores
+    mock_tqdm.return_value = mock_scores
+
+    job_args_list = [
+        (
+            'synth1',
+            'data1',
+            'meta1',
+            'metrics1',
+            None,
+            60,
+            True,
+            True,
+            True,
+            'dataset1',
+            'single_table',
+            None,
+        ),
+    ]
+    result_writer = MagicMock()
+
+    # Run
+    result = _run_jobs(job_args_list, show_progress=True, result_writer=result_writer)
+
+    # Assert - should use map() for sequential processing
+    mock_map.assert_called_once()
+    mock_tqdm.assert_called_once()
+    assert len(result) == 1  # Should return concatenated dataframe
 
 
 @patch('sdgym.benchmark.boto3.client')
@@ -221,60 +242,6 @@ def test__check_write_permissions():
     assert not _check_write_permissions(mock_client, 'bucket')
 
 
-@patch('sdgym.benchmark._directory_exists')
-@patch('sdgym.benchmark._check_write_permissions')
-@patch('sdgym.benchmark.boto3.session.Session')
-@patch('sdgym.benchmark._create_instance_on_ec2')
-def test_run_ec2_flag(create_ec2_mock, session_mock, mock_write_permissions, mock_directory_exists):
-    """Test that the benchmarking function updates the progress bar on one line."""
-    # Setup
-    create_ec2_mock.return_value = MagicMock()
-    session_mock.get_credentials.return_value = MagicMock()
-    mock_write_permissions.return_value = True
-    mock_directory_exists.return_value = True
-
-    # Run
-    benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/path')
-
-    # Assert
-    create_ec2_mock.assert_called_once()
-
-    # Run
-    with pytest.raises(
-        ValueError, match=r'In order to run on EC2, please provide an S3 folder output.'
-    ):
-        benchmark_single_table(run_on_ec2=True)
-
-    # Assert
-    create_ec2_mock.assert_called_once()
-
-    # Run
-    with pytest.raises(
-        ValueError,
-        match=r"""Invalid S3 path format.
-                         Expected 's3://<bucket_name>/<path_to_file>'.""",
-    ):
-        benchmark_single_table(run_on_ec2=True, output_filepath='Wrong_Format')
-
-    # Assert
-    create_ec2_mock.assert_called_once()
-
-    # Setup for failure in permissions
-    mock_write_permissions.return_value = False
-
-    # Run
-    with pytest.raises(ValueError, match=r'No write permissions allowed for the bucket.'):
-        benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/path')
-
-    # Setup for failure in directory exists
-    mock_write_permissions.return_value = True
-    mock_directory_exists.return_value = False
-
-    # Run
-    with pytest.raises(ValueError, match=r'Directories in mock/path do not exist'):
-        benchmark_single_table(run_on_ec2=True, output_filepath='s3://BucketName/mock/path')
-
-
 def test__ensure_uniform_included_adds_uniform(caplog):
     """Test that UniformSynthesizer gets added to the synthesizers list."""
     # Setup
@@ -318,59 +285,6 @@ def test__ensure_uniform_included_detects_uniform_string(caplog):
     # Assert
     assert synthesizers == ['UniformSynthesizer', 'GaussianCopulaSynthesizer']
     assert all(expected_message not in record.message for record in caplog.records)
-
-
-@patch('sdgym.benchmark._directory_exists')
-@patch('sdgym.benchmark._check_write_permissions')
-@patch('sdgym.benchmark.boto3.session.Session')
-def test__create_sdgym_script(session_mock, mock_write_permissions, mock_directory_exists):
-    """Test that the created SDGym script contains the expected values."""
-    # Setup
-    session_mock.get_credentials.return_value = MagicMock()
-    test_params = {
-        'synthesizers': ['GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
-        'custom_synthesizers': None,
-        'sdv_datasets': [
-            'adult',
-            'alarm',
-            'census',
-            'child',
-            'expedia_hotel_logs',
-            'insurance',
-            'intrusion',
-            'news',
-            'covtype',
-        ],
-        'limit_dataset_size': True,
-        'compute_quality_score': False,
-        'compute_privacy_score': False,
-        'compute_diagnostic_score': False,
-        'sdmetrics': None,
-        'timeout': 600,
-        'output_filepath': 's3://sdgym-results/address_comments.csv',
-        'detailed_results_folder': None,
-        'additional_datasets_folder': 'Details/',
-        'show_progress': False,
-        'multi_processing_config': None,
-        'dummy': True,
-    }
-    mock_write_permissions.return_value = True
-    mock_directory_exists.return_value = True
-
-    # Run
-    result = _create_sdgym_script(test_params, 's3://Bucket/Filepath')
-
-    # Assert
-    assert 'synthesizers=["GaussianCopulaSynthesizer", "CTGANSynthesizer"]' in result
-    assert 'detailed_results_folder=None' in result
-    assert "additional_datasets_folder='Details/'" in result
-    assert 'multi_processing_config=None' in result
-    assert 'sdmetrics=None' in result
-    assert 'timeout=600' in result
-    assert 'compute_quality_score=False' in result
-    assert 'compute_diagnostic_score=False' in result
-    assert 'compute_privacy_score=False' in result
-    assert 'import boto3' in result
 
 
 def test__format_output():
@@ -429,53 +343,6 @@ def test__format_output():
         'NewMetric': [0.998],
     })
     pd.testing.assert_frame_equal(scores, expected_scores)
-
-
-def test__handle_deprecated_parameters():
-    """Test the ``_handle_deprecated_parameters`` function."""
-    # Setup
-    output_filepath = 's3://BucketName/path'
-    detailed_results_folder = 'mock/path'
-    multi_processing_config = {'num_processes': 4}
-    run_on_ec2 = True
-    base_warning = (
-        "are deprecated in the 'benchmark_single_table' function. For saving results, "
-        "please use the 'output_destination' parameter. For running SDGym remotely on AWS "
-        "please use the 'benchmark_single_table_aws' method."
-    )
-    base_error = (
-        "parameter is deprecated and cannot be used together with 'output_destination'. "
-        "Please use only 'output_destination' to specify the output path."
-    )
-
-    # Expected messages
-    expected_warning_1 = "Parameters 'detailed_results_folder', 'output_filepath' " + base_warning
-    expected_warning_2 = (
-        "Parameters 'detailed_results_folder', 'multi_processing_config', "
-        "'output_filepath', 'run_on_ec2' " + base_warning
-    )
-    expected_error_1 = f"The 'output_filepath' {base_error}"
-    expected_error_2 = f"The 'detailed_results_folder' {base_error}"
-
-    # Run and Assert
-    _handle_deprecated_parameters(None, None, None, False, None)
-    with pytest.warns(FutureWarning, match=expected_warning_1):
-        _handle_deprecated_parameters(output_filepath, detailed_results_folder, None, False, None)
-
-    with pytest.warns(FutureWarning, match=expected_warning_2):
-        _handle_deprecated_parameters(
-            output_filepath, detailed_results_folder, multi_processing_config, run_on_ec2, None
-        )
-
-    with pytest.raises(ValueError, match=expected_error_1):
-        _handle_deprecated_parameters(
-            output_filepath, None, multi_processing_config, run_on_ec2, 'output_destination'
-        )
-
-    with pytest.raises(ValueError, match=expected_error_2):
-        _handle_deprecated_parameters(
-            None, detailed_results_folder, multi_processing_config, run_on_ec2, 'output_destination'
-        )
 
 
 def test__validate_output_destination(tmp_path):
@@ -791,7 +658,6 @@ def test_benchmark_single_table_aws(
         compute_diagnostic_score=True,
         compute_privacy_score=True,
         synthesizers=synthesizers,
-        detailed_results_folder=None,
         custom_synthesizers=None,
         s3_client='s3_client_mock',
     )
@@ -849,7 +715,6 @@ def test_benchmark_single_table_aws_synthesizers_none(
         compute_diagnostic_score=True,
         compute_privacy_score=True,
         synthesizers=['UniformSynthesizer'],
-        detailed_results_folder=None,
         custom_synthesizers=None,
         s3_client='s3_client_mock',
     )
@@ -1025,7 +890,6 @@ def test__generate_job_args_list_local_root_additional_folder(get_dataset_paths_
         sdv_datasets=None,
         additional_datasets_folder=str(local_root),
         sdmetrics=None,
-        detailed_results_folder=None,
         timeout=None,
         output_destination=None,
         compute_quality_score=False,
@@ -1059,7 +923,6 @@ def test__generate_job_args_list_s3_root_additional_folder(get_dataset_paths_moc
         sdv_datasets=None,
         additional_datasets_folder=s3_root,
         sdmetrics=None,
-        detailed_results_folder=None,
         timeout=None,
         output_destination=None,
         compute_quality_score=False,
