@@ -83,7 +83,7 @@ def _run(args):
         sdmetrics=args.sdmetrics,
         timeout=args.timeout,
         show_progress=args.progress,
-        output_filepath=args.output_path,
+        output_destination=args.output_destination,
     )
 
     if args.groupby:
@@ -171,18 +171,11 @@ def _get_parser():
         help='List of datasets to benchmark.',
     )
     run.add_argument(
-        '-c',
-        '--cache-dir',
-        type=str,
-        required=False,
-        help='Directory where the intermediate results will be stored.',
-    )
-    run.add_argument(
         '-o',
-        '--output-path',
+        '--output-destination',
         type=str,
         required=False,
-        help='Path to the CSV file where the report will be dumped',
+        help='Directory where the SDGym results folder will be written.',
     )
     run.add_argument(
         '-m',
@@ -219,11 +212,6 @@ def _get_parser():
     )
     run.add_argument(
         '-p', '--progress', action='store_true', help='Print a progress bar using tqdm.'
-    )
-    run.add_argument(
-        'run_on_ec2',
-        action='store_true',
-        help='Run job on created ec2 instance with environment aws variables',
     )
     run.add_argument('-t', '--timeout', type=int, help='Maximum seconds to run for each dataset.')
     run.add_argument(
