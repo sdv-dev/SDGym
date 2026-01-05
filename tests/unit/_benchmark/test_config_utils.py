@@ -226,17 +226,33 @@ def test_resolve_compute_config_gcp():
 
 
 @pytest.mark.parametrize(
+    'config',
+    [
+        {
+            'service': 'aws',
+            'compute_type': 't2.micro',
+            'boot_image': 'ami-12345678',
+            'root_disk_gb': 50,
+        },
+        {
+            'service': 'gcp',
+            'compute_type': 'n1-standard-4',
+            'boot_image': 'example-image',
+            'root_disk_gb': 100,
+            'gpu_count': 1,
+            'gpu_type': 'nvidia-tesla-k80',
+        },
+    ],
+)
+def test_validate_compute_config_valid(config):
+    """Test that `validate_compute_config` does not raise an error for valid configurations."""
+    # Run and Assert
+    validate_compute_config(config)
+
+
+@pytest.mark.parametrize(
     'config, expected_error',
     [
-        (
-            {
-                'service': 'aws',
-                'compute_type': 't2.micro',
-                'boot_image': 'ami-12345678',
-                'root_disk_gb': 50,
-            },
-            None,
-        ),
         (
             {
                 'service': 'aws',
@@ -254,17 +270,6 @@ def test_resolve_compute_config_gcp():
                 'boot_image': 'example-image',
                 'root_disk_gb': 100,
                 'gpu_count': 1,
-                'gpu_type': 'nvidia-tesla-k80',
-            },
-            None,
-        ),
-        (
-            {
-                'service': 'gcp',
-                'compute_type': 'n1-standard-4',
-                'boot_image': 'example-image',
-                'root_disk_gb': 100,
-                'gpu_count': 1,
             },
             re.escape(
                 "Invalid compute config for service='gcp'. Missing required field(s): 'gpu_type'."
@@ -272,11 +277,8 @@ def test_resolve_compute_config_gcp():
         ),
     ],
 )
-def test_validate_compute_config(config, expected_error):
-    """Test the `validate_compute_config` method with valid and invalid AWS/GCP configurations."""
+def test_validate_compute_config_invalid(config, expected_error):
+    """Test that `validate_compute_config` raises an error for invalid configurations."""
     # Run and Assert
-    if expected_error is None:
+    with pytest.raises(ValueError, match=expected_error):
         validate_compute_config(config)
-    else:
-        with pytest.raises(ValueError, match=expected_error):
-            validate_compute_config(config)

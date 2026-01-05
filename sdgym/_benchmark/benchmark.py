@@ -39,10 +39,7 @@ def _get_logs_s3_uri(output_destination, instance_name):
     parsed = urlparse(output_destination)
     bucket = parsed.netloc
     prefix = parsed.path.lstrip('/').rstrip('/')
-    if prefix:
-        prefix = f'{prefix}/logs'
-    else:
-        prefix = 'logs'
+    prefix = f'{prefix}/logs' if prefix else 'logs'
 
     return f's3://{bucket}/{prefix}/{instance_name}-user-data.log'
 
@@ -227,6 +224,27 @@ EOF
 def _run_on_gcp(
     output_destination, synthesizers, s3_client, job_args_list, credentials, compute_config
 ):
+    """Launch a GCP Compute Engine instance to run a benchmark.
+
+    This method creates and configures a VM using the provided compute settings,
+    prepares a startup script with the benchmark configuration, and starts execution
+    automatically when the instance boots. It waits for the instance to be created
+    and raises an error if provisioning fails.
+
+    Args:
+        output_destination (str):
+            The S3 URI where results will be stored.
+        synthesizers (list of dict):
+            The synthesizers to use in the benchmark.
+        s3_client (boto3.client):
+            The S3 client to use for storing job arguments.
+        job_args_list (list of dict):
+            The list of job arguments for each dataset.
+        credentials (dict):
+            The credentials for AWS and GCP.
+        compute_config (dict):
+            The compute configuration for the GCP instance.
+    """
     script_content = _prepare_script_content(
         output_destination,
         synthesizers,
@@ -414,7 +432,34 @@ def _benchmark_single_table_compute_gcp(
     sdmetrics=None,
     timeout=None,
 ):
-    """Run the SDGym benchmark on single-table datasets."""
+    """Run the SDGym benchmark on GCP with the single-table modality.
+
+    Args:
+        output_destination (str):
+            The S3 URI where results will be stored.
+        credential_filepath (str or Path):
+            Path to the credentials file for AWS, GCP and SDV-Enterprise.
+        compute_config (dict, optional):
+            The compute configuration for the GCP instance. If None, default settings will be used.
+        synthesizers (list of dict, optional):
+            The synthesizers to use in the benchmark. Defaults to DEFAULT_SINGLE_TABLE_SYNTHESIZERS.
+        sdv_datasets (list of str, optional):
+            The SDV datasets to use in the benchmark. Defaults to DEFAULT_SINGLE_TABLE_DATASETS.
+        additional_datasets_folder (str or Path, optional):
+            Path to a folder containing additional datasets to include in the benchmark.
+        limit_dataset_size (bool, optional):
+            Whether to limit the size of datasets for faster benchmarking. Defaults to False
+        compute_quality_score (bool, optional):
+            Whether to compute the quality score. Defaults to True.
+        compute_diagnostic_score (bool, optional):
+            Whether to compute the diagnostic score. Defaults to True.
+        compute_privacy_score (bool, optional):
+            Whether to compute the privacy score. Defaults to True.
+        sdmetrics (list of str, optional):
+            The sdmetrics to use for evaluation. If None, default metrics will be used.
+        timeout (int, optional):
+            Timeout in seconds for each synthesizer-dataset run. If None, no timeout is applied
+    """
     return _benchmark_compute_gcp(
         output_destination=output_destination,
         credential_filepath=credential_filepath,
@@ -445,7 +490,32 @@ def _benchmark_multi_table_compute_gcp(
     sdmetrics=None,
     timeout=None,
 ):
-    """Run the SDGym benchmark on multi-table datasets."""
+    """Run the SDGym benchmark on GCP with the multi-table modality.
+
+    Args:
+        output_destination (str):
+            The S3 URI where results will be stored.
+        credential_filepath (str or Path):
+            Path to the credentials file for AWS, GCP and SDV-Enterprise.
+        compute_config (dict, optional):
+            The compute configuration for the GCP instance. If None, default settings will be used.
+        synthesizers (list of dict, optional):
+            The synthesizers to use in the benchmark. Defaults to DEFAULT_MULTI_TABLE_SYNTHESIZERS.
+        sdv_datasets (list of str, optional):
+            The SDV datasets to use in the benchmark. Defaults to DEFAULT_MULTI_TABLE_DATASETS.
+        additional_datasets_folder (str or Path, optional):
+            Path to a folder containing additional datasets to include in the benchmark.
+        limit_dataset_size (bool, optional):
+            Whether to limit the size of datasets for faster benchmarking. Defaults to False
+        compute_quality_score (bool, optional):
+            Whether to compute the quality score. Defaults to True.
+        compute_diagnostic_score (bool, optional):
+            Whether to compute the diagnostic score. Defaults to True.
+        sdmetrics (list of str, optional):
+            The sdmetrics to use for evaluation. If None, default metrics will be used.
+        timeout (int, optional):
+            Timeout in seconds for each synthesizer-dataset run. If None, no timeout is applied.
+    """
     return _benchmark_compute_gcp(
         output_destination=output_destination,
         credential_filepath=credential_filepath,

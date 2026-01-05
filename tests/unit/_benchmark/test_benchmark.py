@@ -34,7 +34,7 @@ def base_credentials():
     }
 
 
-def test_terminate_instance_aws():
+def test__terminate_instance_aws():
     """AWS termination script self-terminates via EC2 metadata and AWS CLI."""
     # Run
     script = _terminate_instance('aws')
@@ -48,7 +48,7 @@ def test_terminate_instance_aws():
     assert 'compute.googleapis.com' not in script
 
 
-def test_terminate_instance_gcp():
+def test__terminate_instance_gcp():
     """GCP termination script shuts down the instance locally."""
     # Run
     script = _terminate_instance('gcp')
@@ -178,7 +178,7 @@ def test__get_user_data_script_aws_termination(base_credentials):
 @patch('sdgym._benchmark.benchmark._prepare_script_content')
 @patch('sdgym._benchmark.benchmark.service_account.Credentials.from_service_account_info')
 @patch('sdgym._benchmark.benchmark._make_instance_name')
-def test_run_on_gcp(
+def test__run_on_gcp(
     mock_make_instance_name,
     mock_from_service_account,
     mock_prepare_script_content,
@@ -317,7 +317,7 @@ def test_run_on_gcp(
 @patch('sdgym._benchmark.benchmark.get_credentials')
 @patch('sdgym._benchmark.benchmark.resolve_compute_config')
 @patch('sdgym._benchmark.benchmark.validate_compute_config')
-def test_benchmark_compute_gcp(
+def test__benchmark_compute_gcp(
     mock_validate_compute_config,
     mock_resolve_compute_config,
     mock_get_credentials,
@@ -392,7 +392,7 @@ def test_benchmark_compute_gcp(
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test_benchmark_single_table_compute_gcp(mock_benchmark_compute):
+def test__benchmark_single_table_compute_gcp(mock_benchmark_compute):
     """Test `_benchmark_single_table_compute_gcp` calls the compute benchmark correctly."""
     # Setup
     synthesizers = ['SynthA', 'SynthB']
@@ -441,7 +441,7 @@ def test_benchmark_single_table_compute_gcp(mock_benchmark_compute):
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test_benchmark_single_table_compute_gcp_defaults(mock_benchmark_compute):
+def test__benchmark_single_table_compute_gcp_defaults(mock_benchmark_compute):
     """Test `_benchmark_single_table_compute_gcp` with default parameters."""
     # Setup
     output_destination = 's3://bucket/single_table_output'
@@ -472,7 +472,7 @@ def test_benchmark_single_table_compute_gcp_defaults(mock_benchmark_compute):
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test_benchmark_multi_table_compute_gcp(mock_benchmark_compute):
+def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute):
     """Test `_benchmark_multi_table_compute_gcp` calls the compute benchmark correctly."""
     # Setup
     synthesizers = ['Synth1', 'Synth2']
@@ -521,7 +521,7 @@ def test_benchmark_multi_table_compute_gcp(mock_benchmark_compute):
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test_benchmark_multi_table_compute_gcp_defaults(mock_benchmark_compute):
+def test__benchmark_multi_table_compute_gcp_defaults(mock_benchmark_compute):
     """Test `_benchmark_multi_table_compute_gcp` with default parameters."""
     # Setup
     output_destination = 's3://bucket/output'
