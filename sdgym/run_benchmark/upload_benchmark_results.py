@@ -164,9 +164,14 @@ def upload_results(
         local_export_dir = temp_dir
 
     Path(local_export_dir).mkdir(parents=True, exist_ok=True)
-    local_file_path = str(Path(local_export_dir) / RESULT_FILENAME)
+    local_file_path = str(Path(local_export_dir) / f'[{modality}] {RESULT_FILENAME}')
     s3_key = f'{prefix}{modality}/{RESULT_FILENAME}'
-    s3_client.download_file(bucket, s3_key, local_file_path)
+    try:
+        s3_client.download_file(bucket, s3_key, local_file_path)
+    except ClientError as e:
+        if not e.response['Error']['Code'] == '404':
+            raise
+
     datas = {
         'Wins': summary,
         f'{run_date}_Detailed_results': results,
