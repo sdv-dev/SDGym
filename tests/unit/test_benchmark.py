@@ -12,6 +12,7 @@ import pytest
 import yaml
 
 from sdgym.benchmark import (
+    JobArgs,
     _add_adjusted_scores,
     _check_write_permissions,
     _ensure_uniform_included,
@@ -19,7 +20,6 @@ from sdgym.benchmark import (
     _format_output,
     _generate_job_args_list,
     _get_metainfo_increment,
-    _handle_deprecated_parameters,
     _import_and_validate_synthesizers,
     _setup_output_destination,
     _setup_output_destination_aws,
@@ -526,8 +526,32 @@ def test__write_metainfo_file(mock_datetime, tmp_path):
     file_name = {'metainfo': f'{output_destination}/metainfo.yaml'}
     result_writer = LocalResultsWriter()
     jobs = [
-        ({'name': 'GaussianCopulaSynthesizer'}, 'adult', None, file_name),
-        ({'name': 'CTGANSynthesizer'}, 'census', None, None),
+        JobArgs(
+            synthesizer={'name': 'GaussianCopulaSynthesizer'},
+            data=None,
+            metadata=None,
+            metrics=None,
+            timeout=None,
+            compute_quality_score=False,
+            compute_diagnostic_score=False,
+            compute_privacy_score=False,
+            dataset_name='adult',
+            modality='single_table',
+            output_directions=file_name,
+        ),
+        JobArgs(
+            synthesizer={'name': 'CTGANSynthesizer'},
+            data=None,
+            metadata=None,
+            metrics=None,
+            timeout=None,
+            compute_quality_score=False,
+            compute_diagnostic_score=False,
+            compute_privacy_score=False,
+            dataset_name='census',
+            modality='single_table',
+            output_directions=None,
+        ),
     ]
     expected_jobs = [['adult', 'GaussianCopulaSynthesizer'], ['census', 'CTGANSynthesizer']]
     synthesizers = [
@@ -762,11 +786,7 @@ def test_benchmark_single_table_aws(
         compute_diagnostic_score=True,
         compute_privacy_score=True,
         synthesizers=synthesizers,
-<<<<<<< HEAD
-        detailed_results_folder=None,
-=======
         custom_synthesizers=None,
->>>>>>> cd17077 (Deprecated parameters)
         s3_client='s3_client_mock',
         modality='single_table',
     )
@@ -828,13 +848,8 @@ def test_benchmark_single_table_aws_synthesizers_none(
         compute_quality_score=True,
         compute_diagnostic_score=True,
         compute_privacy_score=True,
-<<<<<<< HEAD
-        detailed_results_folder=None,
-        synthesizers=['UniformSynthesizer'],
-=======
         synthesizers=['UniformSynthesizer'],
         custom_synthesizers=None,
->>>>>>> cd17077 (Deprecated parameters)
         s3_client='s3_client_mock',
         modality='single_table',
     )

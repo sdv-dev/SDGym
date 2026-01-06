@@ -1,5 +1,6 @@
 """Main SDGym benchmarking module."""
 
+import functools
 import logging
 import math
 import multiprocessing
@@ -14,6 +15,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
+from typing import Any, NamedTuple, Optional
 from urllib.parse import urlparse
 
 import boto3
@@ -104,6 +106,22 @@ SDV_SINGLE_TABLE_SYNTHESIZERS = [
 SDV_MULTI_TABLE_SYNTHESIZERS = ['HMASynthesizer']
 MODALITY_IDX = 10
 SDV_SYNTHESIZERS = SDV_SINGLE_TABLE_SYNTHESIZERS + SDV_MULTI_TABLE_SYNTHESIZERS
+
+
+class JobArgs(NamedTuple):
+    """Arguments needed to run a single synthesizer + dataset benchmark job."""
+
+    synthesizer: dict
+    data: Any
+    metadata: Any
+    metrics: Any
+    timeout: Optional[int]
+    compute_quality_score: bool
+    compute_diagnostic_score: bool
+    compute_privacy_score: bool
+    dataset_name: str
+    modality: str
+    output_directions: Optional[dict]
 
 
 def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modality):
@@ -371,20 +389,21 @@ def _generate_job_args_list(
     for synthesizer, dataset in job_tuples:
         data, metadata_dict = load_dataset(modality, dataset, limit_dataset_size=limit_dataset_size)
         path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
-        args = (
-            synthesizer,
-            data,
-            metadata_dict,
-            sdmetrics,
-            timeout,
-            compute_quality_score,
-            compute_diagnostic_score,
-            compute_privacy_score,
-            dataset.name,
-            modality,
-            path,
+        job_args_list.append(
+            JobArgs(
+                synthesizer=synthesizer,
+                data=data,
+                metadata=metadata_dict,
+                metrics=sdmetrics,
+                timeout=timeout,
+                compute_quality_score=compute_quality_score,
+                compute_diagnostic_score=compute_diagnostic_score,
+                compute_privacy_score=compute_privacy_score,
+                dataset_name=dataset.name,
+                modality='single_table',
+                output_directions=path,
+            )
         )
-        job_args_list.append(args)
 
     return job_args_list
 
@@ -807,24 +826,21 @@ def _format_output(
     return scores
 
 
-def _run_job(args):
+def _run_job(job_args, result_writer=None):
     # Reset random seed
     np.random.seed()
 
-    (
-        synthesizer,
-        data,
-        metadata,
-        metrics,
-        timeout,
-        compute_quality_score,
-        compute_diagnostic_score,
-        compute_privacy_score,
-        dataset_name,
-        modality,
-        synthesizer_path,
-        result_writer,
-    ) = args
+    synthesizer = job_args.synthesizer
+    data = job_args.data
+    metadata = job_args.metadata
+    metrics = job_args.metrics
+    timeout = job_args.timeout
+    compute_quality_score = job_args.compute_quality_score
+    compute_diagnostic_score = job_args.compute_diagnostic_score
+    compute_privacy_score = job_args.compute_privacy_score
+    dataset_name = job_args.dataset_name
+    modality = job_args.modality
+    synthesizer_path = job_args.output_directions
 
     name = synthesizer['name']
     LOGGER.info(
@@ -883,8 +899,7 @@ def _run_job(args):
 
 
 def _run_jobs(job_args_list, show_progress, result_writer=None):
-    job_args_list = [job_args + (result_writer,) for job_args in job_args_list]
-    scores = map(_run_job, job_args_list)
+    scores = map(functools.partial(_run_job, result_writer=result_writer), job_args_list)
     if show_progress:
         scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
     else:
@@ -896,9 +911,8 @@ def _run_jobs(job_args_list, show_progress, result_writer=None):
         raise SDGymError('No valid Dataset/Synthesizer combination given.')
 
     scores = pd.concat(scores, ignore_index=True)
-    _add_adjusted_scores(scores=scores, timeout=job_args_list[0][4])
-    output_directions = job_args_list[0][-2]
-    result_writer = job_args_list[0][-1]
+    _add_adjusted_scores(scores=scores, timeout=job_args_list[0].timeout)
+    output_directions = job_args_list[0].output_directions
     if output_directions and result_writer:
         path = output_directions['results']
         result_writer.write_dataframe(scores, path, append=True)
@@ -974,11 +988,11 @@ def _validate_output_destination(output_destination, aws_keys=None):
 
 
 def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=None):
-    jobs = [[job[-3], job[0]['name']] for job in job_args_list]
-    if not job_args_list or not job_args_list[0][-1]:
+    jobs = [[job.dataset_name, job.synthesizer['name']] for job in job_args_list]
+    if not job_args_list or not job_args_list[0].output_directions:
         return
 
-    output_directions = job_args_list[0][-1]
+    output_directions = job_args_list[0].output_directions
     path = output_directions['metainfo']
     stem = Path(path).stem
     match = FILE_INCREMENT_PATTERN.search(stem)
@@ -1221,7 +1235,7 @@ def benchmark_single_table(
         )
 
     if output_destination and job_args_list:
-        metainfo_filename = job_args_list[0][-1]['metainfo']
+        metainfo_filename = job_args_list[0].output_directions['metainfo']
         _update_metainfo_file(metainfo_filename, result_writer)
 
     return scores
@@ -1279,8 +1293,8 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     parsed_url = urlparse(output_destination)
     bucket_name = parsed_url.netloc
     path = parsed_url.path.lstrip('/') if parsed_url.path else ''
-    filename = os.path.basename(job_args_list[0][-1]['metainfo'])
-    modality = job_args_list[0][MODALITY_IDX]
+    filename = os.path.basename(job_args_list[0].output_directions['metainfo'])
+    modality = job_args_list[0].modality
     metainfo = os.path.splitext(filename)[0]
     job_args_key = f'job_args_list_{modality}_{metainfo}.pkl.gz'
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
@@ -1317,7 +1331,7 @@ modality = job_args_list[0][MODALITY_IDX]
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_metainfo_file({synthesizers}, job_args_list, result_writer)
 scores = _run_jobs(job_args_list, False, result_writer=result_writer)
-metainfo_filename = job_args_list[0][-1]['metainfo']
+metainfo_filename = job_args_list[0].output_directions['metainfo']
 _update_metainfo_file(metainfo_filename, result_writer)
 s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
 """
