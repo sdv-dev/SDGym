@@ -42,7 +42,7 @@ class TestRealTabFormerSynthesizer:
 
         # Assert
         mock_real_tab_former.assert_called_once_with(model_type='tabular')
-        mock_model.fit.assert_called_once_with(data)
+        mock_model.fit.assert_called_once_with(data, save_full_every_epoch=0, gen_kwargs={})
         assert result == mock_model, 'Expected the trained model to be returned.'
 
     def test__sample_from_synthesizer(self):

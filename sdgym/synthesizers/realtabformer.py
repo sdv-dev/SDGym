@@ -37,7 +37,11 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
         with prevent_tqdm_output():
             model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
             model = REaLTabFormer(model_type='tabular', **model_kwargs)
-            model.fit(data)
+
+            # RealTabFormer >=0.2.3 changed the default behavior of `fit` by introducing
+            # `save_full_every_epoch` and `gen_kwargs`. The new defaults break the SDGym
+            # end-to-end test, so we set them explicitly to preserve the previous behavior.
+            model.fit(data, save_full_every_epoch=0, gen_kwargs={})
 
         return model
 
