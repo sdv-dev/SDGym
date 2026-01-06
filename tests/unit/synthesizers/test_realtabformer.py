@@ -1,6 +1,6 @@
 """Tests for the realtabformer module."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -42,8 +42,35 @@ class TestRealTabFormerSynthesizer:
 
         # Assert
         mock_real_tab_former.assert_called_once_with(model_type='tabular')
-        mock_model.fit.assert_called_once_with(data, save_full_every_epoch=0, gen_kwargs={})
+        mock_model.fit.assert_called_once_with(data)
         assert result == mock_model, 'Expected the trained model to be returned.'
+
+    @patch('realtabformer.REaLTabFormer')
+    @patch('sdgym.synthesizers.realtabformer.inspect')
+    def test__get_trained_synthesizer_with_fit_parameters(self, mock_inspect, mock_real_tab_former):
+        """Test _get_trained_synthesizer when fit has extra parameters."""
+        # Setup
+        mock_inspect.signature.return_value.parameters = {
+            'save_full_every_epoch': None,
+            'gen_kwargs': None,
+            'other_param': None,
+        }
+        mock_model = Mock()
+        mock_real_tab_former.return_value = mock_model
+
+        data = Mock()
+        metadata = Mock()
+        synthesizer = RealTabFormerSynthesizer()
+        synthesizer._MODEL_KWARGS = {'epochs': 5}
+
+        # Run
+        result = synthesizer._get_trained_synthesizer(data, metadata)
+
+        # Assert
+        mock_real_tab_former.assert_called_once_with(model_type='tabular', epochs=5)
+        mock_model.fit.assert_called_once_with(data, save_full_every_epoch=0, gen_kwargs={})
+        mock_inspect.signature.assert_called_once_with(mock_model.fit)
+        assert result is mock_model
 
     def test__sample_from_synthesizer(self):
         """Test _sample_from_synthesizer generates data with the specified sample size."""
