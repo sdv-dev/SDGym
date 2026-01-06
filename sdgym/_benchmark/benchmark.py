@@ -204,7 +204,7 @@ def _get_user_data_script(
         log "======== Install Dependencies =========="
         pip install --upgrade pip
         {sdv_install}
-        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-515-_benchmark_multi_table_compute_gcp"
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@feature_branch/mutli_table_benchmark"
 
         {gpu_block}
 
