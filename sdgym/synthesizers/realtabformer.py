@@ -1,6 +1,7 @@
 """REaLTabFormer integration."""
 
 import contextlib
+import inspect
 import logging
 from functools import partialmethod
 
@@ -41,9 +42,13 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
             # RealTabFormer >=0.2.3 changed the default behavior of `fit` by introducing
             # `save_full_every_epoch` and `gen_kwargs`. The new defaults break the SDGym
             # end-to-end test, so we set them explicitly to preserve the previous behavior.
-            model.fit(data, save_full_every_epoch=0, gen_kwargs={})
+            fit_sig = inspect.signature(model.fit)
+            if {'save_full_every_epoch', 'gen_kwargs'} <= fit_sig.parameters.keys():
+                model.fit(data, save_full_every_epoch=0, gen_kwargs={})
+            else:
+                model.fit(data)
 
-        return model
+            return model
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
