@@ -195,7 +195,7 @@ def test_upload_results(
         '10_01_2023_Detailed_results': 'results',
         '10_01_2023_plot_data': 'df_to_plot',
     }
-    local_path = str(Path('/tmp/sdgym_results/SDGym Monthly Run.xlsx'))
+    local_path = str(Path('/tmp/sdgym_results/[single_table] SDGym Monthly Run.xlsx'))
     mock_extract_google_file_id.return_value = 'google_file_id'
 
     # Run

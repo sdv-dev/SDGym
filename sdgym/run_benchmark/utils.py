@@ -10,8 +10,7 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
-OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/GCP_Github_2/'
-UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/GCP/'
+OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
@@ -49,7 +48,7 @@ PLOTLY_MARKERS = [
 ]
 MODALITY_TO_GDRIVE_LINK = {
     'single_table': 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=sharing',
-    'multi_table': 'https://docs.google.com/spreadsheets/d/1R13RktVvKnxRecYIge07OBpbX1vbEkE2D1_2idNAKSY/edit?usp=sharing',
+    'multi_table': 'https://docs.google.com/spreadsheets/d/1srmXx2ddq025hqzAE4JRdebuoBfro_7wbgeUHUkMEMM/edit?usp=sharing',
 }
 
 # The synthesizers inside the same list will be run by the same ec2 instance
@@ -102,7 +101,7 @@ def post_slack_message(channel, text):
 
 def post_benchmark_launch_message(date_str, compute_service='AWS', modality='single_table'):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
-    channel = DEBUG_SLACK_CHANNEL
+    channel = SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     url_link = get_s3_console_link(bucket, f'{prefix}{modality}/{folder_name}/')
@@ -114,7 +113,7 @@ def post_benchmark_launch_message(date_str, compute_service='AWS', modality='sin
 
 def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
-    channel = DEBUG_SLACK_CHANNEL
+    channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     modality_text = modality.replace('_', '-')
     url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}{modality}/SDGym Monthly Run.xlsx'))

@@ -34,6 +34,8 @@ SYNTHESIZER_TO_GLOBAL_POSITION = {
     'Column': 'top center',
     'CopulaGAN': 'top center',
     'RealTabFormer': 'bottom center',
+    'HSA': 'bottom center',
+    'Independent': 'top center',
 }
 RESULT_FILENAME = 'SDGym Monthly Run.xlsx'
 

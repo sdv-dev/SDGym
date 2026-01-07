@@ -7,9 +7,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * *"
-  push:
-    branches:
-      - issue-516-add-workflows
 
 jobs:
   call-upload-benchmark-results:
