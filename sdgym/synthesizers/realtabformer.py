@@ -39,7 +39,7 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
             model = REaLTabFormer(model_type='tabular', **model_kwargs)
             model.fit(data)
 
-        return model
+            return model
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
