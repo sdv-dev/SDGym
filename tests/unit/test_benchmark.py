@@ -786,7 +786,6 @@ def test_benchmark_single_table_aws(
         compute_diagnostic_score=True,
         compute_privacy_score=True,
         synthesizers=synthesizers,
-        custom_synthesizers=None,
         s3_client='s3_client_mock',
         modality='single_table',
     )
@@ -849,7 +848,6 @@ def test_benchmark_single_table_aws_synthesizers_none(
         compute_diagnostic_score=True,
         compute_privacy_score=True,
         synthesizers=['UniformSynthesizer'],
-        custom_synthesizers=None,
         s3_client='s3_client_mock',
         modality='single_table',
     )
@@ -1158,7 +1156,6 @@ def test_benchmark_multi_table_with_jobs(
         sdv_datasets=['dataset1'],
         additional_datasets_folder='extra',
         sdmetrics=None,
-        detailed_results_folder=None,
         timeout=10,
         output_destination='output_dir',
         compute_quality_score=True,
@@ -1170,7 +1167,6 @@ def test_benchmark_multi_table_with_jobs(
     )
     mock__write_metainfo_file.assert_called_once()
     mock__run_jobs.assert_called_once_with(
-        multi_processing_config=None,
         job_args_list=[job_args],
         show_progress=True,
         result_writer=mock_LocalResultsWriter.return_value,
@@ -1283,7 +1279,6 @@ def test_benchmark_multi_table_aws(
         compute_diagnostic_score=True,
         compute_privacy_score=None,
         synthesizers=synthesizers,
-        detailed_results_folder=None,
         s3_client='s3_client_mock',
         modality='multi_table',
     )
@@ -1355,7 +1350,6 @@ def test_benchmark_multi_table_aws_no_jobs(
         compute_diagnostic_score=True,
         compute_privacy_score=None,
         synthesizers=synthesizers,
-        detailed_results_folder=None,
         s3_client='s3_client_mock',
         modality='multi_table',
     )

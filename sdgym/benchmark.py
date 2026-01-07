@@ -1,6 +1,7 @@
 """Main SDGym benchmarking module."""
 
 import functools
+import gzip
 import logging
 import math
 import multiprocessing
@@ -104,7 +105,6 @@ SDV_SINGLE_TABLE_SYNTHESIZERS = [
     'TVAESynthesizer',
 ]
 SDV_MULTI_TABLE_SYNTHESIZERS = ['HMASynthesizer']
-MODALITY_IDX = 10
 SDV_SYNTHESIZERS = SDV_SINGLE_TABLE_SYNTHESIZERS + SDV_MULTI_TABLE_SYNTHESIZERS
 
 
@@ -400,7 +400,7 @@ def _generate_job_args_list(
                 compute_diagnostic_score=compute_diagnostic_score,
                 compute_privacy_score=compute_privacy_score,
                 dataset_name=dataset.name,
-                modality='single_table',
+                modality=modality,
                 output_directions=path,
             )
         )
@@ -1197,8 +1197,12 @@ def benchmark_single_table(
     if not synthesizers:
         synthesizers = []
 
-    _ensure_uniform_included(synthesizers)
-    _validate_inputs(synthesizers, custom_synthesizers)
+    _ensure_uniform_included(synthesizers, 'single_table')
+    synthesizers = _import_and_validate_synthesizers(
+        synthesizers,
+        custom_synthesizers,
+        'single_table',
+    )
     result_writer = LocalResultsWriter()
     job_args_list = _generate_job_args_list(
         limit_dataset_size=limit_dataset_size,
@@ -1211,7 +1215,6 @@ def benchmark_single_table(
         compute_diagnostic_score=compute_diagnostic_score,
         compute_privacy_score=compute_privacy_score,
         synthesizers=synthesizers,
-        custom_synthesizers=custom_synthesizers,
         s3_client=None,
         modality='single_table',
     )
@@ -1311,7 +1314,8 @@ def _get_s3_script_content(
 ):
     return f"""
 import boto3
-import pickle
+import cloudpickle
+import gzip
 from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file
 from sdgym.result_writer import S3ResultsWriter
 
@@ -1327,9 +1331,9 @@ if blob[:2] == b'\\x1f\\x8b':
     blob = gzip.decompress(blob)
 
 job_args_list = cloudpickle.loads(blob)
-modality = job_args_list[0][MODALITY_IDX]
+modality = job_args_list[0].modality
 result_writer = S3ResultsWriter(s3_client=s3_client)
-_write_metainfo_file({synthesizers}, job_args_list, result_writer)
+_write_metainfo_file({synthesizers}, job_args_list, modality, result_writer=result_writer)
 scores = _run_jobs(job_args_list, False, result_writer=result_writer)
 metainfo_filename = job_args_list[0].output_directions['metainfo']
 _update_metainfo_file(metainfo_filename, result_writer)
@@ -1526,7 +1530,6 @@ def benchmark_single_table_aws(
         compute_diagnostic_score=compute_diagnostic_score,
         compute_privacy_score=compute_privacy_score,
         synthesizers=synthesizers,
-        custom_synthesizers=None,
         s3_client=s3_client,
         modality='single_table',
     )
@@ -1624,7 +1627,6 @@ def benchmark_multi_table(
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
         sdmetrics=None,
-        detailed_results_folder=None,
         timeout=timeout,
         output_destination=output_destination,
         compute_quality_score=compute_quality_score,
@@ -1643,7 +1645,6 @@ def benchmark_multi_table(
     )
     if job_args_list:
         scores = _run_jobs(
-            multi_processing_config=None,
             job_args_list=job_args_list,
             show_progress=show_progress,
             result_writer=result_writer,
@@ -1742,7 +1743,6 @@ def benchmark_multi_table_aws(
         compute_diagnostic_score=compute_diagnostic_score,
         compute_privacy_score=None,
         synthesizers=synthesizers,
-        detailed_results_folder=None,
         s3_client=s3_client,
         modality='multi_table',
     )
