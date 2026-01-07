@@ -79,7 +79,8 @@ def test_summarize():
         '04_05_2024 - # datasets: 9 - sdgym version: 0.7.0': [5, 3, 5],
     })
     expected_results = (
-        pd.read_csv(
+        pd
+        .read_csv(
             'tests/integration/result_explorer/_benchmark_results/single_table/'
             'SDGym_results_10_11_2024/results.csv',
         )
@@ -106,7 +107,8 @@ def test_summarize_multi_table():
         '12_02_2025 - # datasets: 1 - sdgym version: 0.11.2.dev0': [1],
     })
     expected_results = (
-        pd.read_csv(
+        pd
+        .read_csv(
             'tests/integration/result_explorer/_benchmark_results/multi_table/'
             'SDGym_results_12_02_2025/results.csv',
         )
@@ -134,7 +136,8 @@ def test_list_and_load_results_multi_table(tmp_path):
     runs = explorer.list()
     assert runs == [run_folder]
     loaded_results = (
-        explorer.load_results(runs[0])
+        explorer
+        .load_results(runs[0])
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
@@ -142,7 +145,8 @@ def test_list_and_load_results_multi_table(tmp_path):
 
     # Assert
     expected_results = (
-        pd.read_csv(dst_root / 'results.csv')
+        pd
+        .read_csv(dst_root / 'results.csv')
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
