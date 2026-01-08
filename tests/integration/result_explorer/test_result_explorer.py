@@ -103,8 +103,8 @@ def test_summarize_multi_table():
 
     # Assert
     expected_summary = pd.DataFrame({
-        'Synthesizer': ['HMASynthesizer'],
-        '12_02_2025 - # datasets: 1 - sdgym version: 0.11.2.dev0': [1],
+        'Synthesizer': ['HMASynthesizer', 'MultiTableUniformSynthesizer'],
+        '12_02_2025 - # datasets: 1 - sdgym version: 0.11.2.dev0': [0, 0],
     })
     expected_results = (
         pd
@@ -115,9 +115,7 @@ def test_summarize_multi_table():
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
-    expected_results['Win'] = (
-        expected_results['Synthesizer'] != 'MultiTableUniformSynthesizer'
-    ).astype('int64')
+    expected_results['Win'] = [0, 0]
     pd.testing.assert_frame_equal(summary, expected_summary)
     pd.testing.assert_frame_equal(results, expected_results)
 

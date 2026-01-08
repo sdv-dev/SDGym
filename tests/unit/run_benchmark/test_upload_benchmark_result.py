@@ -7,7 +7,6 @@ import pytest
 from botocore.exceptions import ClientError
 
 from sdgym.run_benchmark.upload_benchmark_results import (
-    SDGYM_FILE_ID,
     get_result_folder_name_and_s3_vars,
     main,
     upload_already_done,
@@ -25,13 +24,16 @@ def test_write_uploaded_marker():
     bucket = 'test-bucket'
     prefix = 'test-prefix/'
     run_name = 'test_run'
+    modality = 'single_table'
 
     # Run
     write_uploaded_marker(s3_client, bucket, prefix, run_name)
 
     # Assert
     s3_client.put_object.assert_called_once_with(
-        Bucket=bucket, Key=f'{prefix}{run_name}/upload_complete.marker', Body=b'Upload complete'
+        Bucket=bucket,
+        Key=f'{prefix}{modality}/{run_name}/upload_complete.marker',
+        Body=b'Upload complete',
     )
 
 
@@ -79,9 +81,9 @@ def test_get_result_folder_name_and_s3_vars(
     # Setup
     aws_access_key_id = 'my_access_key'
     aws_secret_access_key = 'my_secret_key'
-    expected_result = ('SDGym_results_10_01_2023', 's3_client', 'bucket', 'prefix')
+    expected_result = ('SDGym_results_10_01_2023', 's3_client', 'bucket', 'prefix/')
     mock_boto_client.return_value = 's3_client'
-    mock_parse_s3_path.return_value = ('bucket', 'prefix')
+    mock_parse_s3_path.return_value = ('bucket', 'prefix/')
     mock_get_latest_run_from_file.return_value = 'SDGym_results_10_01_2023'
 
     # Run
@@ -97,7 +99,7 @@ def test_get_result_folder_name_and_s3_vars(
     )
     mock_parse_s3_path.assert_called_once_with(mock_output_destination_aws)
     mock_get_latest_run_from_file.assert_called_once_with(
-        's3_client', 'bucket', 'prefix_BENCHMARK_DATES.json'
+        's3_client', 'bucket', 'prefix/single_table/_BENCHMARK_DATES.json'
     )
 
 
@@ -162,7 +164,9 @@ def test_upload_to_drive_file_not_found(tmp_path):
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.environ.get')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_df_to_plot')
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_to_drive')
+@patch('sdgym.run_benchmark.upload_benchmark_results._extract_google_file_id')
 def test_upload_results(
+    mock_extract_google_file_id,
     mock_upload_to_drive,
     mock_get_df_to_plot,
     mock_os_environ_get,
@@ -191,7 +195,8 @@ def test_upload_results(
         '10_01_2023_Detailed_results': 'results',
         '10_01_2023_plot_data': 'df_to_plot',
     }
-    local_path = str(Path('/tmp/sdgym_results/SDGym Monthly Run.xlsx'))
+    local_path = str(Path('/tmp/sdgym_results/[single_table] SDGym Monthly Run.xlsx'))
+    mock_extract_google_file_id.return_value = 'google_file_id'
 
     # Run
     upload_results(
@@ -205,7 +210,7 @@ def test_upload_results(
     )
 
     # Assert
-    mock_upload_to_drive.assert_called_once_with(local_path, SDGYM_FILE_ID)
+    mock_upload_to_drive.assert_called_once_with(local_path, 'google_file_id')
     mock_logger.info.assert_called_once_with(
         f'Run {run_name} is complete! Proceeding with summarization...'
     )
@@ -217,7 +222,9 @@ def test_upload_results(
     )
     result_explorer_instance.all_runs_complete.assert_called_once_with(run_name)
     result_explorer_instance.summarize.assert_called_once_with(run_name)
-    mock_write_uploaded_marker.assert_called_once_with(s3_client, bucket, prefix, run_name)
+    mock_write_uploaded_marker.assert_called_once_with(
+        s3_client, bucket, prefix, run_name, modality='single_table'
+    )
     mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(datas, local_path)
     mock_get_df_to_plot.assert_called_once_with('results')
 
@@ -275,7 +282,9 @@ def test_upload_results_not_all_runs_complete(
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_already_done')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.getenv')
+@patch('sdgym.run_benchmark.upload_benchmark_results._parse_args')
 def test_main_already_upload(
+    mock_parse_args,
     mock_getenv,
     mock_logger,
     mock_upload_already_done,
@@ -284,6 +293,7 @@ def test_main_already_upload(
 ):
     """Test the `method` when results are already uploaded."""
     # Setup
+    mock_parse_args.return_value = Mock(modality='single_table')
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key', None]
     folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
     mock_get_result_folder_name_and_s3_vars.return_value = (
@@ -300,8 +310,9 @@ def test_main_already_upload(
         main()
 
     # Assert
+    mock_parse_args.assert_called_once()
     mock_get_result_folder_name_and_s3_vars.assert_called_once_with(
-        'my_access_key', 'my_secret_key'
+        'my_access_key', 'my_secret_key', modality='single_table'
     )
     mock_logger.warning.assert_called_once_with(expected_log_message)
     mock_upload_results.assert_not_called()
@@ -311,7 +322,9 @@ def test_main_already_upload(
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_results')
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_already_done')
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.getenv')
+@patch('sdgym.run_benchmark.upload_benchmark_results._parse_args')
 def test_main(
+    mock_parse_args,
     mock_getenv,
     mock_upload_already_done,
     mock_upload_results,
@@ -319,6 +332,7 @@ def test_main(
 ):
     """Test the `main` method."""
     # Setup
+    mock_parse_args.return_value = Mock(modality='single_table')
     mock_getenv.side_effect = ['my_access_key', 'my_secret_key', None]
     folder_infos = {'folder_name': 'SDGym_results_10_11_2024', 'date': '10_11_2024'}
     mock_get_result_folder_name_and_s3_vars.return_value = (
@@ -334,11 +348,18 @@ def test_main(
 
     # Assert
     mock_get_result_folder_name_and_s3_vars.assert_called_once_with(
-        'my_access_key', 'my_secret_key'
+        'my_access_key', 'my_secret_key', modality='single_table'
     )
     mock_upload_already_done.assert_called_once_with(
-        's3_client', 'bucket', 'prefix', folder_infos['folder_name']
+        's3_client', 'bucket', 'prefix', folder_infos['folder_name'], 'single_table'
     )
     mock_upload_results.assert_called_once_with(
-        'my_access_key', 'my_secret_key', folder_infos, 's3_client', 'bucket', 'prefix', None
+        'my_access_key',
+        'my_secret_key',
+        folder_infos,
+        's3_client',
+        'bucket',
+        'prefix',
+        None,
+        'single_table',
     )

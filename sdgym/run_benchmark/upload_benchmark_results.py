@@ -16,7 +16,13 @@ from pydrive2.drive import GoogleDrive
 
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
-from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, get_df_to_plot
+from sdgym.run_benchmark.utils import (
+    MODALITY_TO_GDRIVE_LINK,
+    OUTPUT_DESTINATION_AWS,
+    _extract_google_file_id,
+    _parse_args,
+    get_df_to_plot,
+)
 from sdgym.s3 import S3_REGION, parse_s3_path
 
 LOGGER = logging.getLogger(__name__)
@@ -28,8 +34,9 @@ SYNTHESIZER_TO_GLOBAL_POSITION = {
     'Column': 'top center',
     'CopulaGAN': 'top center',
     'RealTabFormer': 'bottom center',
+    'HSA': 'bottom center',
+    'Independent': 'top center',
 }
-SDGYM_FILE_ID = '1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo'
 RESULT_FILENAME = 'SDGym Monthly Run.xlsx'
 
 
@@ -45,17 +52,21 @@ def get_latest_run_from_file(s3_client, bucket, key):
         raise RuntimeError(f'Failed to read {key} from S3: {e}')
 
 
-def write_uploaded_marker(s3_client, bucket, prefix, folder_name):
+def write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality='single_table'):
     """Write a marker file to indicate that the upload is complete."""
     s3_client.put_object(
-        Bucket=bucket, Key=f'{prefix}{folder_name}/upload_complete.marker', Body=b'Upload complete'
+        Bucket=bucket,
+        Key=f'{prefix}{modality}/{folder_name}/upload_complete.marker',
+        Body=b'Upload complete',
     )
 
 
-def upload_already_done(s3_client, bucket, prefix, folder_name):
+def upload_already_done(s3_client, bucket, prefix, folder_name, modality='single_table'):
     """Check if the upload has already been done by looking for the marker file."""
     try:
-        s3_client.head_object(Bucket=bucket, Key=f'{prefix}{folder_name}/upload_complete.marker')
+        s3_client.head_object(
+            Bucket=bucket, Key=f'{prefix}{modality}/{folder_name}/upload_complete.marker'
+        )
         return True
     except ClientError as e:
         if e.response['Error']['Code'] == '404':
@@ -64,7 +75,9 @@ def upload_already_done(s3_client, bucket, prefix, folder_name):
         raise
 
 
-def get_result_folder_name_and_s3_vars(aws_access_key_id, aws_secret_access_key):
+def get_result_folder_name_and_s3_vars(
+    aws_access_key_id, aws_secret_access_key, modality='single_table'
+):
     """Get the result folder name and S3 client variables."""
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     s3_client = boto3.client(
@@ -73,7 +86,9 @@ def get_result_folder_name_and_s3_vars(aws_access_key_id, aws_secret_access_key)
         aws_secret_access_key=aws_secret_access_key,
         region_name=S3_REGION,
     )
-    folder_infos = get_latest_run_from_file(s3_client, bucket, f'{prefix}_BENCHMARK_DATES.json')
+    folder_infos = get_latest_run_from_file(
+        s3_client, bucket, f'{prefix}{modality}/_BENCHMARK_DATES.json'
+    )
 
     return folder_infos, s3_client, bucket, prefix
 
@@ -109,14 +124,21 @@ def upload_to_drive(file_path, file_id):
 
 
 def upload_results(
-    aws_access_key_id, aws_secret_access_key, folder_infos, s3_client, bucket, prefix, github_env
+    aws_access_key_id,
+    aws_secret_access_key,
+    folder_infos,
+    s3_client,
+    bucket,
+    prefix,
+    github_env,
+    modality='single_table',
 ):
     """Upload benchmark results to S3, GDrive, and save locally."""
     folder_name = folder_infos['folder_name']
     run_date = folder_infos['date']
     result_explorer = ResultsExplorer(
         OUTPUT_DESTINATION_AWS,
-        modality='single_table',
+        modality=modality,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
     )
@@ -144,31 +166,38 @@ def upload_results(
         local_export_dir = temp_dir
 
     Path(local_export_dir).mkdir(parents=True, exist_ok=True)
-    local_file_path = str(Path(local_export_dir) / RESULT_FILENAME)
-    s3_key = f'{prefix}{RESULT_FILENAME}'
-    s3_client.download_file(bucket, s3_key, local_file_path)
+    local_file_path = str(Path(local_export_dir) / f'[{modality}] {RESULT_FILENAME}')
+    s3_key = f'{prefix}{modality}/{RESULT_FILENAME}'
+    try:
+        s3_client.download_file(bucket, s3_key, local_file_path)
+    except ClientError as e:
+        if not e.response['Error']['Code'] == '404':
+            raise
+
     datas = {
         'Wins': summary,
         f'{run_date}_Detailed_results': results,
         f'{run_date}_plot_data': df_to_plot,
     }
     local_results_writer.write_xlsx(datas, local_file_path)
-    upload_to_drive((local_file_path), SDGYM_FILE_ID)
+    upload_to_drive((local_file_path), _extract_google_file_id(MODALITY_TO_GDRIVE_LINK[modality]))
     s3_client.upload_file(local_file_path, bucket, s3_key)
-    write_uploaded_marker(s3_client, bucket, prefix, folder_name)
+    write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality=modality)
     if temp_dir:
         shutil.rmtree(temp_dir)
 
 
 def main():
     """Main function to upload benchmark results."""
+    args = _parse_args()
+    modality = args.modality
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     folder_infos, s3_client, bucket, prefix = get_result_folder_name_and_s3_vars(
-        aws_access_key_id, aws_secret_access_key
+        aws_access_key_id, aws_secret_access_key, modality=modality
     )
     github_env = os.getenv('GITHUB_ENV')
-    if upload_already_done(s3_client, bucket, prefix, folder_infos['folder_name']):
+    if upload_already_done(s3_client, bucket, prefix, folder_infos['folder_name'], modality):
         LOGGER.warning('Benchmark results have already been uploaded. Exiting.')
         if github_env:
             with open(github_env, 'a') as env_file:
@@ -184,6 +213,7 @@ def main():
         bucket,
         prefix,
         github_env,
+        modality,
     )
 
 
