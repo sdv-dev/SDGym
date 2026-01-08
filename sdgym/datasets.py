@@ -73,8 +73,7 @@ def _download_dataset(
     dataset_name,
     datasets_path=None,
     bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
+    s3_client=None,
 ):
     """Download a dataset into the given ``datasets_path`` / ``modality``."""
     datasets_path = datasets_path or DATASETS_PATH / modality / dataset_name
@@ -82,13 +81,17 @@ def _download_dataset(
     bucket_name = _get_bucket_name(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
-    s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
+    s3_client = s3_client or get_s3_client()
     prefix = f'{modality.lower()}/{dataset_name}/'
-
     contents = _list_s3_bucket_contents(s3_client, bucket_name, prefix)
     if not contents:
         _raise_dataset_not_found_error(
-            s3_client, bucket_name, dataset_name, modality, bucket, modality
+            s3_client,
+            bucket_name,
+            dataset_name,
+            modality,
+            bucket,
+            modality,
         )
 
     for obj in contents:
@@ -118,28 +121,31 @@ def _get_dataset_path_and_download(
     dataset,
     datasets_path,
     bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
+    s3_client=None,
 ):
     dataset = Path(dataset)
     if dataset.exists() and _path_contains_data_and_metadata(dataset):
         return dataset
 
-    datasets_path = datasets_path or DATASETS_PATH / modality
     dataset_path = datasets_path / dataset
     if dataset_path.exists() and _path_contains_data_and_metadata(dataset_path):
         return dataset_path
 
     bucket = bucket or BUCKET
     if not bucket.startswith(S3_PREFIX):
-        local_path = Path(bucket) / modality / dataset if bucket else Path(dataset)
+        local_path = Path(bucket) / modality / dataset
         if local_path.exists() and _path_contains_data_and_metadata(local_path):
             return local_path
 
-    dataset_path = _download_dataset(
-        modality, dataset, dataset_path, bucket, aws_access_key_id, aws_secret_access_key
+    s3_client = s3_client or get_s3_client()
+
+    return _download_dataset(
+        modality,
+        dataset,
+        dataset_path,
+        bucket,
+        s3_client=s3_client,
     )
-    return dataset_path
 
 
 def _validate_modality(modality):
@@ -226,13 +232,19 @@ def _genereate_dataset_info(s3_client, bucket_name, contents):
 
 
 def _get_available_datasets(
-    modality, bucket=None, aws_access_key_id=None, aws_secret_access_key=None
+    modality,
+    bucket=None,
+    s3_client=None,
 ):
     _validate_modality(modality)
-    s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
+    s3_client = s3_client or get_s3_client()
     bucket = bucket or BUCKET
     bucket_name = _get_bucket_name(bucket)
-    contents = _list_s3_bucket_contents(s3_client, bucket_name, f'{modality}/')
+    contents = _list_s3_bucket_contents(
+        s3_client,
+        bucket_name,
+        f'{modality}/',
+    )
     datasets_info = _genereate_dataset_info(s3_client, bucket_name, contents)
     return pd.DataFrame(datasets_info)
 
@@ -242,8 +254,7 @@ def load_dataset(
     dataset,
     datasets_path=None,
     bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
+    s3_client=None,
     limit_dataset_size=False,
 ):
     """Get the data and metadata of a dataset.
@@ -274,7 +285,7 @@ def load_dataset(
     """
     _validate_modality(modality)
     dataset_path = _get_dataset_path_and_download(
-        modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+        modality, dataset, datasets_path, bucket, s3_client=s3_client
     )
 
     data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
@@ -289,8 +300,7 @@ def get_dataset_paths(
     datasets=None,
     datasets_path=None,
     bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
+    s3_client=None,
 ):
     """Build the full path to datasets and ensure they exist.
 
@@ -321,25 +331,29 @@ def get_dataset_paths(
 
     if datasets is None:
         if not is_remote and Path(bucket).exists():
-            datasets = []
-            folder_items = list(Path(bucket).iterdir())
-            for dataset in folder_items:
-                if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
-                    datasets.append(dataset)
+            datasets = [
+                dataset
+                for dataset in Path(bucket).iterdir()
+                if _path_contains_data_and_metadata(dataset)
+            ]
         else:
             datasets = _get_available_datasets(
                 modality,
                 bucket=bucket,
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key,
+                s3_client=s3_client,
             )
             datasets = datasets['dataset_name'].tolist()
 
     dataset_paths = []
     for dataset in datasets:
-        available_dataset = _get_dataset_path_and_download(
-            modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+        dataset_paths.append(
+            _get_dataset_path_and_download(
+                modality,
+                dataset,
+                datasets_path,
+                bucket=bucket,
+                s3_client=s3_client,
+            )
         )
-        dataset_paths.append(available_dataset)
 
     return dataset_paths
