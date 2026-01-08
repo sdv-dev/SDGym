@@ -271,10 +271,9 @@ def load_dataset(
         bucket (str):
             The AWS bucket where to get the dataset. This will only be used if both ``dataset``
             and ``dataset_path`` don't exist.
-        aws_access_key_id (str or None):
-            The access key id that will be used to communicate with s3, if provided.
-        aws_secret_access_key (str or None):
-            The secret access key that will be used to communicate with s3, if provided.
+        s3_client (boto3.client):
+            The s3 client that will be used to communicate with s3, if provided.
+            Defaults to ``None``.
         limit_dataset_size (bool):
             Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
             limit the size of every table to 1,000 rows (randomly sampled) and the first 10
@@ -312,10 +311,9 @@ def get_dataset_paths(
             The path of the datasets.
         bucket (str):
             The AWS bucket where to get the dataset or folder.
-        aws_access_key_id (str):
-            The access key id that will be used to communicate with s3, if provided.
-        aws_secret_access_key (str):
-            The secret access key that will be used to communicate with s3, if provided.
+        s3_client (boto3.client):
+            The s3 client that will be used to communicate with s3, if provided.
+            Defaults to ``None``.
 
     Returns:
         list:

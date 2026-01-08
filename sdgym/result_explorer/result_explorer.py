@@ -42,7 +42,7 @@ class ResultsExplorer:
     def _create_results_handler(self, original_path, effective_path):
         """Create the appropriate results handler for local or S3 storage."""
         baseline_synthesizer = _BASELINE_BY_MODALITY.get(self.modality, SYNTHESIZER_BASELINE)
-        if is_s3_path(original_path):
+        if is_s3_path(original_path) and self.s3_client is None:
             self.s3_client = _get_s3_client(
                 original_path, self.aws_access_key_id, self.aws_secret_access_key
             )
