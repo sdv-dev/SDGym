@@ -1238,7 +1238,9 @@ def test__generate_job_args_list_local_root_additional_folder(
 
 @patch('sdgym.benchmark.get_dataset_paths')
 @patch('sdgym.benchmark._setup_output_destination')
+@patch('sdgym.benchmark.load_dataset')
 def test__generate_job_args_list_s3_root_additional_folder(
+    mock_load_dataset,
     mock__setup_output_destination,
     get_dataset_paths_mock,
 ):
@@ -1248,7 +1250,8 @@ def test__generate_job_args_list_s3_root_additional_folder(
     dataset_path = Path('/dummy/single_table/datasetA')
     get_dataset_paths_mock.return_value = [dataset_path]
     s3_client = Mock()
-    mock__setup_output_destination.return_value = []
+    mock__setup_output_destination.return_value = {}
+    mock_load_dataset.return_value = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
 
     # Run
     _generate_job_args_list(
@@ -1262,7 +1265,7 @@ def test__generate_job_args_list_s3_root_additional_folder(
         compute_quality_score=False,
         compute_diagnostic_score=False,
         compute_privacy_score=False,
-        synthesizers=[],
+        synthesizers=[{'name': 'GaussianCopulaSynthesizer'}],
         s3_client=s3_client,
         modality='single_table',
     )
@@ -1274,7 +1277,14 @@ def test__generate_job_args_list_s3_root_additional_folder(
         s3_client=s3_client,
     )
     mock__setup_output_destination.assert_called_once_with(
-        None, [], ['datasetA'], modality='single_table', s3_client=s3_client
+        None,
+        ['GaussianCopulaSynthesizer'],
+        ['datasetA'],
+        modality='single_table',
+        s3_client=s3_client,
+    )
+    mock_load_dataset.assert_called_once_with(
+        'single_table', dataset_path, limit_dataset_size=False, s3_client=s3_client
     )
 
 

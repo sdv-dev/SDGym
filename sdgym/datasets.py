@@ -332,11 +332,11 @@ def get_dataset_paths(
 
     if datasets is None:
         if not is_remote and Path(bucket).exists():
-            datasets = [
-                dataset
-                for dataset in Path(bucket).iterdir()
-                if _path_contains_data_and_metadata(dataset)
-            ]
+            datasets = []
+            folder_items = list(Path(bucket).iterdir())
+            for dataset in folder_items:
+                if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
+                    datasets.append(dataset)
         else:
             datasets = _get_available_datasets(
                 modality,
