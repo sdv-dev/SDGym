@@ -204,7 +204,7 @@ def _get_user_data_script(
         log "======== Install Dependencies =========="
         pip install --upgrade pip
         {sdv_install}
-        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-516-add-workflows"
+        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@feature_branch/mutli_table_benchmark"
 
         {gpu_block}
 

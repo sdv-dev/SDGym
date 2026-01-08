@@ -43,11 +43,11 @@ class ResultsExplorer:
         """Create the appropriate results handler for local or S3 storage."""
         baseline_synthesizer = _BASELINE_BY_MODALITY.get(self.modality, SYNTHESIZER_BASELINE)
         if is_s3_path(original_path):
-            s3_client = _get_s3_client(
+            self.s3_client = _get_s3_client(
                 original_path, self.aws_access_key_id, self.aws_secret_access_key
             )
             return S3ResultsHandler(
-                effective_path, s3_client, baseline_synthesizer=baseline_synthesizer
+                effective_path, self.s3_client, baseline_synthesizer=baseline_synthesizer
             )
 
         _validate_local_path(effective_path)
@@ -61,6 +61,7 @@ class ResultsExplorer:
         self.modality = modality.lower()
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
+        self.s3_client = None
         effective_path = _resolve_effective_path(path, self.modality)
         self._handler = self._create_results_handler(path, effective_path)
 
@@ -104,8 +105,7 @@ class ResultsExplorer:
         data, _ = load_dataset(
             modality=self.modality,
             dataset=dataset_name,
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
+            s3_client=self.s3_client,
         )
         return data
 

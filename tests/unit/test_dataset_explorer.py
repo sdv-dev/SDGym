@@ -20,8 +20,12 @@ class TestDatasetExplorer:
         assert explorer.aws_access_key_id is None
         assert explorer.aws_secret_access_key is None
 
-    def test___init__with_parameters(self):
+    @patch('sdgym.dataset_explorer._get_s3_client')
+    def test___init__with_parameters(self, mock_s3_client):
         """Test the ``__init__`` method with custom parameters."""
+        # Setup
+        mock_s3_client.return_value = 's3_client'
+
         # Run
         explorer = DatasetExplorer(
             s3_url='s3://custom-bucket',
@@ -33,6 +37,8 @@ class TestDatasetExplorer:
         assert explorer.s3_url == 's3://custom-bucket'
         assert explorer.aws_access_key_id == 'key123'
         assert explorer.aws_secret_access_key == 'secret456'
+        assert explorer.s3_client == 's3_client'
+        mock_s3_client.assert_called_once_with('s3://custom-bucket', 'key123', 'secret456')
 
     def test__get_max_schema_branch_factor(self):
         """Test the ``_get_max_schema_branch_factor`` method."""
@@ -260,15 +266,13 @@ class TestDatasetExplorer:
         mock_get_datasets.assert_called_once_with(
             modality='single_table',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         mock_load_dataset.assert_called_once_with(
             'single_table',
             dataset='test',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         assert isinstance(result, list)
         assert 'Dataset' in result[0]
@@ -333,8 +337,7 @@ class TestDatasetExplorer:
         mock_get_available.assert_called_once_with(
             modality='single_table',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         pd.testing.assert_frame_equal(result, expected_df)
 
@@ -359,8 +362,7 @@ class TestDatasetExplorer:
         mock_get_available.assert_called_once_with(
             modality='multi_table',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         assert output_filepath.exists()
         loaded = pd.read_csv(output_filepath)

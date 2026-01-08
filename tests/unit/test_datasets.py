@@ -44,7 +44,7 @@ def test__download_dataset(makedirs_mock, list_mock, bucket_name_mock, s3_client
 
     # Assert
     assert result == datasets_path
-    s3_client_mock.assert_called_once_with(None, None)
+    s3_client_mock.assert_called_once_with()
     bucket_name_mock.assert_called_once_with(bucket)
     list_mock.assert_called_once_with(s3_mock, 'fake-bucket', f'{modality}/{dataset_name}/')
 
@@ -99,8 +99,6 @@ def test__download_dataset_with_credentials(list_mock, bucket_name_mock, s3_clie
     dataset_name = 'secure_dataset'
     datasets_path = Path('/tmp/datasets')
     bucket = 's3://secure-bucket'
-    aws_access_key_id = 'AKIAFAKE'
-    aws_secret_access_key = 'SECRETFAKE'
 
     s3_mock = Mock()
     s3_client_mock.return_value = s3_mock
@@ -108,12 +106,9 @@ def test__download_dataset_with_credentials(list_mock, bucket_name_mock, s3_clie
     list_mock.return_value = [{'Key': f'{modality}/{dataset_name}/file.csv'}]
 
     # Run
-    _download_dataset(
-        modality, dataset_name, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
-    )
+    _download_dataset(modality, dataset_name, datasets_path, bucket, s3_mock)
 
     # Assert
-    s3_client_mock.assert_called_once_with(aws_access_key_id, aws_secret_access_key)
     bucket_name_mock.assert_called_once_with(bucket)
     list_mock.assert_called_once_with(s3_mock, 'secure-bucket', f'{modality}/{dataset_name}/')
     s3_mock.download_file.assert_called_once()
@@ -205,14 +200,18 @@ def test__get_dataset_path_and_download_local_exists(path_mock, contains_mock, d
 
 
 @patch('sdgym.datasets._download_dataset')
+@patch('sdgym.datasets.get_s3_client')
 @patch('sdgym.datasets._path_contains_data_and_metadata', return_value=False)
-def test__get_dataset_path_and_download_triggers_download(contains_mock, download_mock):
+def test__get_dataset_path_and_download_triggers_download(
+    contains_mock, s3_client_mock, download_mock
+):
     """Test that `_get_dataset_path_and_download` triggers dataset download if not found locally."""
     # Setup
     modality = 'single_table'
     dataset = 'remote_dataset'
     datasets_path = Path('/tmp/datasets')
     bucket = 's3://remote-bucket'
+    s3_client_mock.return_value = 's3_client'
     download_mock.return_value = Path('/tmp/datasets/single_table/remote_dataset')
 
     # Run
@@ -220,7 +219,7 @@ def test__get_dataset_path_and_download_triggers_download(contains_mock, downloa
 
     # Assert
     download_mock.assert_called_once_with(
-        modality, Path(dataset), datasets_path / Path(dataset), bucket, None, None
+        modality, Path(dataset), datasets_path / Path(dataset), bucket, s3_client='s3_client'
     )
     assert result == download_mock.return_value
 
@@ -391,8 +390,8 @@ def test_get_dataset_paths_local_bucket(path_mock, contains_mock, download_mock)
 
     # Assert
     download_mock.assert_has_calls([
-        call(modality, dataset1, DATASETS_PATH / 'single_table', bucket, None, None),
-        call(modality, dataset2, DATASETS_PATH / 'single_table', bucket, None, None),
+        call(modality, dataset1, DATASETS_PATH / 'single_table', bucket=bucket, s3_client=None),
+        call(modality, dataset2, DATASETS_PATH / 'single_table', bucket=bucket, s3_client=None),
     ])
 
 
@@ -460,7 +459,7 @@ def test_load_dataset(validate_mock, path_or_download_mock, get_data_mock, subse
 
     # Assert
     validate_mock.assert_called_once_with(modality)
-    path_or_download_mock.assert_called_once_with(modality, dataset, None, None, None, None)
+    path_or_download_mock.assert_called_once_with(modality, dataset, None, None, s3_client=None)
     get_data_mock.assert_called_once_with(fake_path, modality)
     subset_mock.assert_not_called()
     assert data == fake_data

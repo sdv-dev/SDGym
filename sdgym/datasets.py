@@ -127,6 +127,7 @@ def _get_dataset_path_and_download(
     if dataset.exists() and _path_contains_data_and_metadata(dataset):
         return dataset
 
+    datasets_path = datasets_path or DATASETS_PATH / modality
     dataset_path = datasets_path / dataset
     if dataset_path.exists() and _path_contains_data_and_metadata(dataset_path):
         return dataset_path
