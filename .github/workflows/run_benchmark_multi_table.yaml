@@ -1,0 +1,13 @@
+name: Run SDGym Benchmark Multi-Table
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 1 * *"
+
+jobs:
+  call-run-sdgym-benchmark:
+    uses: ./.github/workflows/run_benchmark.yml
+    with:
+      modality: multi_table
+    secrets: inherit

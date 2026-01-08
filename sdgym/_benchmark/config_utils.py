@@ -118,6 +118,6 @@ def validate_compute_config(config):
 
 
 def _make_instance_name(prefix):
-    day = datetime.now(timezone.utc).strftime('%Y_%m_%d_%H:%M')
+    day = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')
     suffix = uuid.uuid4().hex[:6]
     return f'{prefix}-{day}-{suffix}'
