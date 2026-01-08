@@ -1,91 +1,107 @@
-name: Upload SDGym Benchmark results
+name: Upload SDGym Benchmark Results
 
 on:
-  workflow_run:
-    workflows: ["Run SDGym Benchmark"]
-    types:
-      - completed
-  workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * *'
+  workflow_call:
+    inputs:
+      modality:
+        description: "Benchmark modality to upload"
+        required: true
+        type: string
+    secrets:
+      PYDRIVE_TOKEN:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      GH_TOKEN:
+        required: true
+      SLACK_TOKEN:
+        required: true
 
 jobs:
   upload-sdgym-benchmark:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Set up latest Python
-      uses: actions/setup-python@v5
-      with:
-        python-version-file: 'pyproject.toml'
+      - name: Set up latest Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install --no-cache-dir -e .[dev]
-          
-    - name: Upload SDGym Benchmark
-      env:
-        PYDRIVE_TOKEN: ${{ secrets.PYDRIVE_TOKEN }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
-      run: |
-        invoke upload-benchmark-results
-        echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir -e .[dev]
 
-    - name: Prepare files for commit
-      if: env.SKIP_UPLOAD != 'true'
-      run: |
-        mkdir pr-staging
-        echo "Looking for files in: $GITHUB_LOCAL_RESULTS_DIR"
-        ls -l "$GITHUB_LOCAL_RESULTS_DIR"
-        for f in "$GITHUB_LOCAL_RESULTS_DIR"/*; do
-          if [ -f "$f" ]; then
-            base=$(basename "$f")
-            cp "$f" "pr-staging/${base}"
-          fi
-        done
+      - name: Upload SDGym Benchmark
+        env:
+          PYDRIVE_TOKEN: ${{ secrets.PYDRIVE_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
+        run: |
+          invoke upload-benchmark-results --modality "${{ inputs.modality }}"
+          echo "GITHUB_LOCAL_RESULTS_DIR=$GITHUB_LOCAL_RESULTS_DIR" >> $GITHUB_ENV
 
-        echo "Files staged for PR:"
-        ls -l pr-staging
+      - name: Prepare files for commit
+        if: env.SKIP_UPLOAD != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p pr-staging
 
-    - name: Checkout target repo (sdv-dev.github.io)
-      if: env.SKIP_UPLOAD != 'true'
-      run: |
-        git clone https://github.com/sdv-dev/sdv-dev.github.io.git target-repo
-        cd target-repo
-        git checkout gatsby-home
+          echo "Looking for files in: $GITHUB_LOCAL_RESULTS_DIR"
+          ls -l "$GITHUB_LOCAL_RESULTS_DIR" || true
 
-    - name: Copy results and commit
-      if: env.SKIP_UPLOAD != 'true'
-      env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        FOLDER_NAME: ${{ env.FOLDER_NAME }}
-      run: |
-        cp pr-staging/* target-repo/assets/sdgym-leaderboard-files/
-        cd target-repo
-        git checkout gatsby-home
-        git config --local user.name "github-actions[bot]"
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add assets/
-        git commit -m "Upload SDGym Benchmark Results ($FOLDER_NAME)" || echo "No changes to commit"
-        git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git
-        git push origin gatsby-home
-        COMMIT_HASH=$(git rev-parse HEAD)
-        COMMIT_URL="https://github.com/sdv-dev/sdv-dev.github.io/commit/${COMMIT_HASH}"
-        echo "Commit URL: $COMMIT_URL"
-        echo "COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
+          shopt -s nullglob
+          for f in "$GITHUB_LOCAL_RESULTS_DIR"/*; do
+            [ -f "$f" ] && cp "$f" "pr-staging/$(basename "$f")"
+          done
 
-    - name: Send Slack notification
-      if: env.SKIP_UPLOAD != 'true'
-      env:
-        SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
-      run: |
-        invoke notify-sdgym-benchmark-uploaded \
-          --folder-name "$FOLDER_NAME" \
-          --commit-url "$COMMIT_URL"
+          echo "Files staged for PR:"
+          ls -l pr-staging || true
+
+      - name: Checkout target repo (sdv-dev.github.io)
+        if: env.SKIP_UPLOAD != 'true'
+        run: |
+          git clone https://github.com/sdv-dev/sdv-dev.github.io.git target-repo
+          cd target-repo
+          git checkout gatsby-home
+
+      - name: Copy results and commit
+        if: env.SKIP_UPLOAD != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          FOLDER_NAME: ${{ env.FOLDER_NAME }}
+        run: |
+          set -euo pipefail
+
+          cp -f pr-staging/* target-repo/assets/sdgym-leaderboard-files/ || true
+          cd target-repo
+
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add assets/
+          git commit -m "Upload SDGym Benchmark Results ($FOLDER_NAME) - Modality: ${{ inputs.modality }}" || echo "No changes to commit"
+
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/sdv-dev/sdv-dev.github.io.git"
+          git push origin gatsby-home
+
+          COMMIT_HASH=$(git rev-parse HEAD)
+          COMMIT_URL="https://github.com/sdv-dev/sdv-dev.github.io/commit/${COMMIT_HASH}"
+          echo "COMMIT_URL=$COMMIT_URL" >> $GITHUB_ENV
+
+      - name: Send Slack notification
+        if: env.SKIP_UPLOAD != 'true'
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+        run: |
+          invoke notify-sdgym-benchmark-uploaded \
+            --folder-name "$FOLDER_NAME" \
+            --commit-url "$COMMIT_URL" \
+            --modality "${{ inputs.modality }}"

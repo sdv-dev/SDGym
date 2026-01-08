@@ -179,7 +179,7 @@ def _get_user_data_script(
 
         log "======== Configure kernel OOM behavior =========="
         sudo sysctl -w vm.panic_on_oom=1
-        sudo sysctl -w kernel.panic=10
+        sudo sysctl -w kernel.panic=0
 
         log "======== Update and Install Dependencies =========="
         sudo apt update -y
@@ -428,7 +428,7 @@ def _benchmark_single_table_compute_gcp(
     limit_dataset_size=False,
     compute_quality_score=True,
     compute_diagnostic_score=True,
-    compute_privacy_score=True,
+    compute_privacy_score=False,
     sdmetrics=None,
     timeout=None,
 ):
