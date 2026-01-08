@@ -179,7 +179,7 @@ def _get_user_data_script(
 
         log "======== Configure kernel OOM behavior =========="
         sudo sysctl -w vm.panic_on_oom=1
-        sudo sysctl -w kernel.panic=10
+        sudo sysctl -w kernel.panic=0
 
         log "======== Update and Install Dependencies =========="
         sudo apt update -y
