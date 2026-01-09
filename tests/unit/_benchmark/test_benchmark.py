@@ -377,7 +377,6 @@ def test__benchmark_compute_gcp(
         compute_diagnostic_score=True,
         compute_privacy_score=True,
         synthesizers=[{'name': 'Synth'}],
-        detailed_results_folder=None,
         s3_client=s3_client,
         modality='single_table',
     )
