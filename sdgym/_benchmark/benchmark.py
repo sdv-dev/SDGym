@@ -396,7 +396,6 @@ def _benchmark_compute_gcp(
         compute_diagnostic_score=compute_diagnostic_score,
         compute_privacy_score=compute_privacy_score,
         synthesizers=synthesizers,
-        detailed_results_folder=None,
         s3_client=s3_client,
         modality=modality,
     )
