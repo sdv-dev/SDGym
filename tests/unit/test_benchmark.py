@@ -1238,7 +1238,7 @@ def test__generate_job_args_list_local_root_additional_folder(
 
 @patch('sdgym.benchmark.get_dataset_paths')
 @patch('sdgym.benchmark._setup_output_destination')
-@patch('sdgym.benchmark.load_dataset')
+@patch('sdgym.benchmark._load_dataset_with_client')
 def test__generate_job_args_list_s3_root_additional_folder(
     mock_load_dataset,
     mock__setup_output_destination,

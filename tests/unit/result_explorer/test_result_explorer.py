@@ -225,7 +225,7 @@ class TestResultsExplorer:
         explorer._handler.load_synthetic_data.assert_called_once_with('path/to/synthetic_data.csv')
         pd.testing.assert_frame_equal(synthetic_data, data)
 
-    @patch('sdgym.result_explorer.result_explorer.load_dataset')
+    @patch('sdgym.result_explorer.result_explorer._load_dataset_with_client')
     def test_load_real_data(self, mock_load_dataset, tmp_path):
         """Test `load_real_data` method."""
         # Setup
@@ -245,7 +245,7 @@ class TestResultsExplorer:
         )
         pd.testing.assert_frame_equal(real_data, expected_data)
 
-    @patch('sdgym.result_explorer.result_explorer.load_dataset')
+    @patch('sdgym.result_explorer.result_explorer._load_dataset_with_client')
     def test_load_real_data_multi_table(self, mock_load_dataset, tmp_path):
         """Test `load_real_data` for multi_table modality calls load_dataset correctly."""
         dataset_name = 'synthea'

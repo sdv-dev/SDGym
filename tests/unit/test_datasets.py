@@ -10,6 +10,7 @@ from sdgym.datasets import (
     _genereate_dataset_info,
     _get_bucket_name,
     _get_dataset_path_and_download,
+    _load_dataset_with_client,
     _path_contains_data_and_metadata,
     _validate_modality,
     get_data_and_metadata_from_path,
@@ -395,6 +396,39 @@ def test_get_dataset_paths_local_bucket(path_mock, contains_mock, download_mock)
     ])
 
 
+@patch('sdgym.datasets.get_s3_client')
+@patch('sdgym.datasets._load_dataset_with_client')
+def test_load_dataset_mock(mock_load_dataset_with_client, mock_get_s3_client):
+    """Test `load_dataset` uses `_load_dataset_with_client` correctly."""
+    # Setup
+    modality = 'single_table'
+    dataset_name = 'test_dataset'
+    fake_data = 'dataframe'
+    fake_metadata = {'meta': 'data'}
+    mock_get_s3_client.return_value = 's3_client'
+    mock_load_dataset_with_client.return_value = (fake_data, fake_metadata)
+
+    # Run
+    data, metadata = load_dataset(
+        modality, dataset_name, aws_access_key_id='access_key', aws_secret_access_key='secret_key'
+    )
+
+    # Assert
+    mock_get_s3_client.assert_called_once_with(
+        aws_access_key_id='access_key', aws_secret_access_key='secret_key'
+    )
+    mock_load_dataset_with_client.assert_called_once_with(
+        modality=modality,
+        dataset=dataset_name,
+        datasets_path=None,
+        bucket=None,
+        s3_client='s3_client',
+        limit_dataset_size=False,
+    )
+    assert data == fake_data
+    assert metadata == fake_metadata
+
+
 def test_load_dataset_limit_dataset_size():
     """Test ``limit_dataset_size`` selects a slice of the metadata and data."""
     # Run
@@ -442,8 +476,10 @@ def test_load_dataset_limit_dataset_size():
 @patch('sdgym.datasets.get_data_and_metadata_from_path')
 @patch('sdgym.datasets._get_dataset_path_and_download')
 @patch('sdgym.datasets._validate_modality')
-def test_load_dataset(validate_mock, path_or_download_mock, get_data_mock, subset_mock):
-    """Test that `load_dataset` returns data and metadata without limiting size."""
+def test__load_dataset_with_client(
+    validate_mock, path_or_download_mock, get_data_mock, subset_mock
+):
+    """Test that `_load_dataset_with_client` returns data and metadata without limiting size."""
     # Setup
     modality = 'single_table'
     dataset = 'test_dataset'
@@ -455,7 +491,7 @@ def test_load_dataset(validate_mock, path_or_download_mock, get_data_mock, subse
     get_data_mock.return_value = (fake_data, fake_metadata)
 
     # Run
-    data, metadata = load_dataset(modality, dataset)
+    data, metadata = _load_dataset_with_client(modality, dataset)
 
     # Assert
     validate_mock.assert_called_once_with(modality)
@@ -470,8 +506,8 @@ def test_load_dataset(validate_mock, path_or_download_mock, get_data_mock, subse
 @patch('sdgym.datasets.get_data_and_metadata_from_path')
 @patch('sdgym.datasets._get_dataset_path_and_download')
 @patch('sdgym.datasets._validate_modality')
-def test_load_dataset_with_limit(validate_mock, path_or_download_mock, get_data_mock, subset_mock):
-    """Test `load_dataset` applies dataset size limit when flag is True."""
+def test__load_dataset_with_limit(validate_mock, path_or_download_mock, get_data_mock, subset_mock):
+    """Test `_load_dataset_with_client` applies dataset size limit when flag is True."""
     # Setup
     modality = 'sequential'
     dataset = 'tiny_dataset'
@@ -486,7 +522,7 @@ def test_load_dataset_with_limit(validate_mock, path_or_download_mock, get_data_
     subset_mock.return_value = (limited_data, limited_metadata)
 
     # Run
-    data, metadata = load_dataset(modality, dataset, limit_dataset_size=True)
+    data, metadata = _load_dataset_with_client(modality, dataset, limit_dataset_size=True)
 
     # Assert
     validate_mock.assert_called_once_with(modality)

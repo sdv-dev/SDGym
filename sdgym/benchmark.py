@@ -39,7 +39,7 @@ from sdmetrics.reports.single_table import (
 )
 from sdmetrics.single_table import DCRBaselineProtection
 
-from sdgym.datasets import get_dataset_paths, load_dataset
+from sdgym.datasets import _load_dataset_with_client, get_dataset_paths
 from sdgym.errors import BenchmarkError, SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger, progress
@@ -390,7 +390,7 @@ def _generate_job_args_list(
 
     job_args_list = []
     for synthesizer, dataset in job_tuples:
-        data, metadata_dict = load_dataset(
+        data, metadata_dict = _load_dataset_with_client(
             modality, dataset, limit_dataset_size=limit_dataset_size, s3_client=s3_client
         )
         path = paths.get(dataset.name, {}).get(synthesizer['name'], None)

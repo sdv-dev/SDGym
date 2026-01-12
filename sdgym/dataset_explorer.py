@@ -7,7 +7,12 @@ from pathlib import Path
 import pandas as pd
 from sdv.metadata import Metadata
 
-from sdgym.datasets import BUCKET, _get_available_datasets, _validate_modality, load_dataset
+from sdgym.datasets import (
+    BUCKET,
+    _get_available_datasets,
+    _load_dataset_with_client,
+    _validate_modality,
+)
 from sdgym.s3 import _get_s3_client, _validate_s3_url
 
 SUMMARY_OUTPUT_COLUMNS = [
@@ -51,7 +56,7 @@ class DatasetExplorer:
         self.aws_secret_access_key = aws_secret_access_key
         self._bucket_name = _validate_s3_url(self.s3_url)
         self.s3_client = (
-            _get_s3_client(s3_url, aws_access_key_id, aws_secret_access_key)
+            _get_s3_client(s3_url, self.aws_access_key_id, self.aws_secret_access_key)
             if self.aws_access_key_id and self.aws_secret_access_key
             else None
         )
@@ -228,7 +233,7 @@ class DatasetExplorer:
             dataset_name = dataset_row['dataset_name']
             dataset_size_mb = dataset_row['size_MB']
             dataset_num_table = dataset_row['num_tables']
-            data, metadata_dict = load_dataset(
+            data, metadata_dict = _load_dataset_with_client(
                 modality, dataset=dataset_name, bucket=self._bucket_name, s3_client=self.s3_client
             )
 

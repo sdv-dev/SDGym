@@ -255,7 +255,8 @@ def load_dataset(
     dataset,
     datasets_path=None,
     bucket=None,
-    s3_client=None,
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
     limit_dataset_size=False,
 ):
     """Get the data and metadata of a dataset.
@@ -271,8 +272,11 @@ def load_dataset(
         bucket (str):
             The AWS bucket where to get the dataset. This will only be used if both ``dataset``
             and ``dataset_path`` don't exist.
-        s3_client (boto3.client):
-            The s3 client that will be used to communicate with s3, if provided.
+        aws_access_key_id (str or None):
+            The access key id that will be used to communicate with s3, if provided.
+            Defaults to ``None``.
+        aws_secret_access_key (str or None):
+            The secret access key that will be used to communicate with s3, if provided.
             Defaults to ``None``.
         limit_dataset_size (bool):
             Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
@@ -283,6 +287,28 @@ def load_dataset(
         pd.DataFrame | dict, dict:
             The data and medatata for a dataset.
     """
+    s3_client = get_s3_client(
+        aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+    )
+    return _load_dataset_with_client(
+        modality=modality,
+        dataset=dataset,
+        datasets_path=datasets_path,
+        bucket=bucket,
+        s3_client=s3_client,
+        limit_dataset_size=limit_dataset_size,
+    )
+
+
+def _load_dataset_with_client(
+    modality,
+    dataset,
+    datasets_path=None,
+    bucket=None,
+    s3_client=None,
+    limit_dataset_size=False,
+):
+    """Get the data and metadata of a dataset using a given s3 client."""
     _validate_modality(modality)
     dataset_path = _get_dataset_path_and_download(
         modality, dataset, datasets_path, bucket, s3_client=s3_client

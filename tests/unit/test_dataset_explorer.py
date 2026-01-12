@@ -246,7 +246,7 @@ class TestDatasetExplorer:
             DatasetExplorer(s3_url=value)
 
     @patch('sdgym.dataset_explorer._get_available_datasets')
-    @patch('sdgym.dataset_explorer.load_dataset')
+    @patch('sdgym.dataset_explorer._load_dataset_with_client')
     def test__load_and_summarize_datasets(self, mock_load_dataset, mock_get_datasets):
         """Test the ``_load_and_summarize_datasets`` method."""
         # Setup

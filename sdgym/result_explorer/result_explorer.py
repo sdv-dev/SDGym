@@ -2,7 +2,7 @@
 
 import os
 
-from sdgym.datasets import load_dataset
+from sdgym.datasets import _load_dataset_with_client
 from sdgym.result_explorer.result_handler import (
     SYNTHESIZER_BASELINE,
     LocalResultsHandler,
@@ -102,7 +102,7 @@ class ResultsExplorer:
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset."""
-        data, _ = load_dataset(
+        data, _ = _load_dataset_with_client(
             modality=self.modality,
             dataset=dataset_name,
             s3_client=self.s3_client,
