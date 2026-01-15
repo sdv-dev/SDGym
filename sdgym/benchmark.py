@@ -39,7 +39,7 @@ from sdmetrics.reports.single_table import (
 )
 from sdmetrics.single_table import DCRBaselineProtection
 
-from sdgym.datasets import get_dataset_paths, load_dataset
+from sdgym.datasets import _load_dataset_with_client, get_dataset_paths
 from sdgym.errors import BenchmarkError, SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger
@@ -338,17 +338,13 @@ def _generate_job_args_list(
     s3_client,
     modality,
 ):
-    # Get list of dataset paths
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     sdv_datasets = (
         []
         if sdv_datasets is None
         else get_dataset_paths(
             modality=modality,
             datasets=sdv_datasets,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key_key,
+            s3_client=s3_client,
         )
     )
     additional_datasets = (
@@ -361,8 +357,7 @@ def _generate_job_args_list(
                 if is_s3_path(additional_datasets_folder)
                 else os.path.join(additional_datasets_folder, modality)
             ),
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key_key,
+            s3_client=s3_client,
         )
     )
     datasets = sdv_datasets + additional_datasets
@@ -387,7 +382,9 @@ def _generate_job_args_list(
 
     job_args_list = []
     for synthesizer, dataset in job_tuples:
-        data, metadata_dict = load_dataset(modality, dataset, limit_dataset_size=limit_dataset_size)
+        data, metadata_dict = _load_dataset_with_client(
+            modality, dataset, limit_dataset_size=limit_dataset_size, s3_client=s3_client
+        )
         path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
         job_args_list.append(
             JobArgs(
