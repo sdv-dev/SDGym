@@ -93,7 +93,11 @@ fix-lint:
 # TEST TARGETS
 .PHONY: test-unit
 test-unit: ## run tests quickly with the default Python
-	python -m pytest --cov=sdgym
+	invoke unit
+
+.PHONY: test-integration
+test-integration: ## run tests quickly with the default Python
+	invoke integration
 
 .PHONY: test-readme
 test-readme: ## run the readme snippets
@@ -102,7 +106,7 @@ test-readme: ## run the readme snippets
 	rm -rf tests/readme_test
 
 .PHONY: test
-test: test-unit test-readme ## test everything that needs test dependencies
+test: test-unit test-integration ## test everything that needs test dependencies
 
 .PHONY: test-devel
 test-devel: lint ## test everything that needs development dependencies

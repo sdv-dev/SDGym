@@ -2,10 +2,14 @@
 
 import os
 
-from sdgym.benchmark import DEFAULT_DATASETS
-from sdgym.datasets import load_dataset
-from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
+from sdgym.datasets import _load_dataset_with_client
+from sdgym.result_explorer.result_handler import (
+    SYNTHESIZER_BASELINE,
+    LocalResultsHandler,
+    S3ResultsHandler,
+)
 from sdgym.s3 import _get_s3_client, is_s3_path
+from sdgym.synthesizers.base import _validate_modality
 
 
 def _validate_local_path(path):
@@ -14,20 +18,52 @@ def _validate_local_path(path):
         raise ValueError(f"The provided path '{path}' is not a valid local directory.")
 
 
+_BASELINE_BY_MODALITY = {
+    'single_table': SYNTHESIZER_BASELINE,
+    'multi_table': 'IndependentSynthesizer',
+}
+
+
+def _resolve_effective_path(path, modality):
+    """Append the modality folder to the given base path if provided."""
+    # Avoid double-appending if already included
+    if str(path).rstrip('/').endswith(('/' + modality, modality)):
+        return path
+
+    if is_s3_path(path):
+        return path.rstrip('/') + '/' + modality
+
+    return os.path.join(path, modality)
+
+
 class ResultsExplorer:
     """Explorer for SDGym benchmark results, supporting both local and S3 storage."""
 
-    def __init__(self, path, aws_access_key_id=None, aws_secret_access_key=None):
+    def _create_results_handler(self, original_path, effective_path):
+        """Create the appropriate results handler for local or S3 storage."""
+        baseline_synthesizer = _BASELINE_BY_MODALITY.get(self.modality, SYNTHESIZER_BASELINE)
+        if is_s3_path(original_path) and self.s3_client is None:
+            self.s3_client = _get_s3_client(
+                original_path, self.aws_access_key_id, self.aws_secret_access_key
+            )
+            return S3ResultsHandler(
+                effective_path, self.s3_client, baseline_synthesizer=baseline_synthesizer
+            )
+
+        _validate_local_path(effective_path)
+        return LocalResultsHandler(effective_path, baseline_synthesizer=baseline_synthesizer)
+
+    def __init__(
+        self, path, modality='single_table', aws_access_key_id=None, aws_secret_access_key=None
+    ):
         self.path = path
+        _validate_modality(modality)
+        self.modality = modality.lower()
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-
-        if is_s3_path(path):
-            s3_client = _get_s3_client(path, aws_access_key_id, aws_secret_access_key)
-            self._handler = S3ResultsHandler(path, s3_client)
-        else:
-            _validate_local_path(path)
-            self._handler = LocalResultsHandler(path)
+        self.s3_client = None
+        effective_path = _resolve_effective_path(path, self.modality)
+        self._handler = self._create_results_handler(path, effective_path)
 
     def list(self):
         """List all runs available in the results directory."""
@@ -37,7 +73,11 @@ class ResultsExplorer:
         """Validate access to the synthesizer or synthetic data file."""
         end_filename = f'{synthesizer_name}'
         if file_type == 'synthetic_data':
-            end_filename += '_synthetic_data.csv'
+            # Multi-table synthetic data is zipped (multiple CSVs), single table is CSV
+            if self.modality == 'multi_table':
+                end_filename += '_synthetic_data.zip'
+            else:
+                end_filename += '_synthetic_data.csv'
         elif file_type == 'synthesizer':
             end_filename += '.pkl'
 
@@ -62,17 +102,10 @@ class ResultsExplorer:
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset."""
-        if dataset_name not in DEFAULT_DATASETS:
-            raise ValueError(
-                f"Dataset '{dataset_name}' is not a SDGym dataset. "
-                'Please provide a valid dataset name.'
-            )
-
-        data, _ = load_dataset(
-            modality='single_table',
+        data, _ = _load_dataset_with_client(
+            modality=self.modality,
             dataset=dataset_name,
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
+            s3_client=self.s3_client,
         )
         return data
 

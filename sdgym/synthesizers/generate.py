@@ -1,6 +1,10 @@
 """Helpers to create SDGym synthesizer variants."""
 
-from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.base import (
+    BaselineSynthesizer,
+    MultiTableBaselineSynthesizer,
+    _validate_modality,
+)
 from sdgym.synthesizers.utils import _get_supported_synthesizers
 
 
@@ -36,7 +40,7 @@ def create_synthesizer_variant(display_name, synthesizer_class, synthesizer_para
     return NewSynthesizer
 
 
-def _create_synthesizer_class(display_name, get_trained_fn, sample_fn, sample_arg_name):
+def _create_synthesizer_class(display_name, get_trained_fn, sample_fn, modality):
     """Create a synthesizer class.
 
     Args:
@@ -47,36 +51,39 @@ def _create_synthesizer_class(display_name, get_trained_fn, sample_fn, sample_ar
             A function to generate and train a synthesizer, given the real data and metadata.
         sample_from_synthesizer (callable):
             A function to sample from the given synthesizer.
-        sample_arg_name (str):
-            The name of the argument used to specify the number of samples to generate.
-            Either 'num_samples' for single-table synthesizers, or 'scale' for multi-table
-            synthesizers.
+        modality (str):
+            The modality of the synthesizer. Either 'single_table' or 'multi_table'.
 
     Returns:
         class:
             The synthesizer class.
     """
+    _validate_modality(modality)
     class_name = f'Custom:{display_name}'
 
     def get_trained_synthesizer(self, data, metadata):
         return get_trained_fn(data, metadata)
 
-    if sample_arg_name == 'num_samples':
+    if modality == 'multi_table':
 
-        def sample_from_synthesizer(self, synthesizer, num_samples):
-            return sample_fn(synthesizer, num_samples)
+        def sample_from_synthesizer(self, synthesizer, scale=1.0):
+            return sample_fn(synthesizer, scale)
 
+        base_class = MultiTableBaselineSynthesizer
     else:
 
-        def sample_from_synthesizer(self, synthesizer, scale):
-            return sample_fn(synthesizer, scale)
+        def sample_from_synthesizer(self, synthesizer, n_samples):
+            return sample_fn(synthesizer, n_samples)
+
+        base_class = BaselineSynthesizer
 
     CustomSynthesizer = type(
         class_name,
-        (BaselineSynthesizer,),
+        (base_class,),
         {
             '__module__': __name__,
             '_NATIVELY_SUPPORTED': False,
+            '_MODALITY_FLAG': modality,
             'get_trained_synthesizer': get_trained_synthesizer,
             'sample_from_synthesizer': sample_from_synthesizer,
         },
@@ -94,7 +101,7 @@ def create_single_table_synthesizer(
         display_name,
         get_trained_synthesizer_fn,
         sample_from_synthesizer_fn,
-        sample_arg_name='num_samples',
+        modality='single_table',
     )
 
 
@@ -106,5 +113,5 @@ def create_multi_table_synthesizer(
         display_name,
         get_trained_synthesizer_fn,
         sample_from_synthesizer_fn,
-        sample_arg_name='scale',
+        modality='multi_table',
     )

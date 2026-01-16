@@ -1,8 +1,9 @@
 """Utils file for the run_benchmark module."""
 
+import argparse
 import os
 from datetime import datetime
-from urllib.parse import quote_plus
+from urllib.parse import parse_qs, quote_plus, urlparse
 
 import numpy as np
 from slack_sdk import WebClient
@@ -10,7 +11,6 @@ from slack_sdk import WebClient
 from sdgym.s3 import parse_s3_path
 
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
-UPLOAD_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
@@ -46,13 +46,21 @@ PLOTLY_MARKERS = [
     'diamond-cross',
     'diamond-x',
 ]
+MODALITY_TO_GDRIVE_LINK = {
+    'single_table': 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=sharing',
+    'multi_table': 'https://docs.google.com/spreadsheets/d/1srmXx2ddq025hqzAE4JRdebuoBfro_7wbgeUHUkMEMM/edit?usp=sharing',
+}
 
 # The synthesizers inside the same list will be run by the same ec2 instance
-SYNTHESIZERS_SPLIT = [
+SYNTHESIZERS_SPLIT_SINGLE_TABLE = [
     ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer', 'TVAESynthesizer'],
     ['CopulaGANSynthesizer'],
     ['CTGANSynthesizer'],
     ['RealTabFormerSynthesizer'],
+]
+SYNTHESIZERS_SPLIT_MULTI_TABLE = [
+    ['HMASynthesizer'],
+    ['HSASynthesizer', 'IndependentSynthesizer', 'MultiTableUniformSynthesizer'],
 ]
 
 
@@ -91,26 +99,28 @@ def post_slack_message(channel, text):
     client.chat_postMessage(channel=channel, text=text)
 
 
-def post_benchmark_launch_message(date_str):
+def post_benchmark_launch_message(date_str, compute_service='AWS', modality='single_table'):
     """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
     channel = SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
-    url_link = get_s3_console_link(bucket, f'{prefix}{folder_name}/')
-    body = '🏃 SDGym benchmark has been launched! EC2 Instances are running. '
+    url_link = get_s3_console_link(bucket, f'{prefix}{modality}/{folder_name}/')
+    modality_text = modality.replace('_', '-')
+    body = f'🏃 SDGym {modality_text} benchmark has been launched on {compute_service}! '
     body += f'Intermediate results can be found <{url_link}|here>.\n'
     post_slack_message(channel, body)
 
 
-def post_benchmark_uploaded_message(folder_name, commit_url=None):
+def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
-    url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}SDGym Monthly Run.xlsx'))
+    modality_text = modality.replace('_', '-')
+    url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}{modality}/SDGym Monthly Run.xlsx'))
     body = (
-        f'🤸🏻‍♀️ SDGym benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
+        f'🤸🏻‍♀️ SDGym {modality_text} benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{GDRIVE_LINK}|link>\n'
+        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK[modality]}|link>\n'
         f' - On S3: <{url_link}|link>\n'
     )
     if commit_url:
@@ -162,3 +172,27 @@ def get_df_to_plot(benchmark_result):
     df_to_plot = df_to_plot.rename(columns={'Adjusted_Quality_Score': 'Quality_Score'})
 
     return df_to_plot.drop(columns=['Cumulative Quality Score']).reset_index(drop=True)
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--modality',
+        choices=['single_table', 'multi_table'],
+        default='single_table',
+        help='Benchmark modality to run.',
+    )
+    return parser.parse_args()
+
+
+def _extract_google_file_id(google_drive_link: str) -> str:
+    parsed = urlparse(google_drive_link)
+    file_id = parse_qs(parsed.query).get('id')
+    if file_id:
+        return file_id[0]
+
+    for marker in ('/d/', '/file/d/'):
+        if marker in parsed.path:
+            return parsed.path.split(marker, 1)[1].split('/', 1)[0]
+
+    raise ValueError(f'Invalid Google Drive link format: {google_drive_link}')

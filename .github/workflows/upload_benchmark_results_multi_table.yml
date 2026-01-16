@@ -1,0 +1,16 @@
+name: Upload SDGym Multi-Table Benchmark results
+
+on:
+  workflow_run:
+    workflows: ["Run SDGym Benchmark Multi-Table"]
+    types: [completed]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  call-upload-benchmark-results:
+    uses: ./.github/workflows/upload_benchmark_results.yml
+    with:
+      modality: multi_table
+    secrets: inherit

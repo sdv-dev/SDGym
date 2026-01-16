@@ -203,18 +203,18 @@ def rmdir(c, path):
         pass
 
 @task
-def run_sdgym_benchmark(c):
+def run_sdgym_benchmark(c, modality='single_table'):
     """Run the SDGym benchmark."""
-    c.run('python sdgym/run_benchmark/run_benchmark.py')
+    c.run(f'python sdgym/run_benchmark/run_benchmark.py --modality {modality}')
 
 @task
-def upload_benchmark_results(c):
+def upload_benchmark_results(c, modality='single_table'):
     """Upload the benchmark results to S3."""
-    c.run(f'python sdgym/run_benchmark/upload_benchmark_results.py')
+    c.run(f'python sdgym/run_benchmark/upload_benchmark_results.py --modality {modality}')
 
 @task
-def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None):
+def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None, modality='single_table'):
     """Notify Slack about the SDGym benchmark upload."""
     from sdgym.run_benchmark.utils import post_benchmark_uploaded_message
 
-    post_benchmark_uploaded_message(folder_name, commit_url)
+    post_benchmark_uploaded_message(folder_name, commit_url, modality)
