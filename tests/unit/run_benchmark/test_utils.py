@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from sdgym.run_benchmark.utils import (
-    MODALITY_TO_GDRIVE_LINK,
+    FILE_TO_GDRIVE_LINK,
     OUTPUT_DESTINATION_AWS,
     _extract_google_file_id,
     _get_slack_client,
@@ -127,7 +127,7 @@ def test_post_benchmark_uploaded_message(
     expected_body = (
         f'🤸🏻‍♀️ SDGym single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK["single_table"]}|link>\n'
+        f' - On GDrive: <{FILE_TO_GDRIVE_LINK["[Single-table] SDGym Runs"]}|link>\n'
         f' - On S3: <{url}|link>\n'
     )
 
@@ -160,7 +160,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     expected_body = (
         f'🤸🏻‍♀️ SDGym single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK["single_table"]}|link>\n'
+        f' - On GDrive: <{FILE_TO_GDRIVE_LINK["[Single-table] SDGym Runs"]}|link>\n'
         f' - On S3: <{url}|link>\n'
         f' - On GitHub: <{commit_url}|link>\n'
     )
