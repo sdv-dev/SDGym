@@ -53,7 +53,7 @@ dependencies = [
     'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
     'rdt>=1.17.0',
-    'sdmetrics>=0.20.1',
+    'sdmetrics @ git+https://github.com/sdv-dev/SDMetrics.git@feature/column_pair_trends_threshold',
     'sdv>=1.21.0',
 ]
 

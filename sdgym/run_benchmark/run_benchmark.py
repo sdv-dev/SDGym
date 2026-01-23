@@ -2,7 +2,6 @@
 
 import json
 import os
-from datetime import datetime, timezone
 
 from botocore.exceptions import ClientError
 
@@ -17,7 +16,6 @@ from sdgym.run_benchmark.utils import (
     SYNTHESIZERS_SPLIT_SINGLE_TABLE,
     _parse_args,
     get_result_folder_name,
-    post_benchmark_launch_message,
 )
 from sdgym.s3 import get_s3_client, parse_s3_path
 
@@ -64,20 +62,16 @@ def append_benchmark_run(
 def main():
     """Main function to run the benchmark and upload results."""
     args = _parse_args()
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     modality = args.modality
+    dataset = 'expedia_hotel_logs' if modality == 'single_table' else 'fake_hotels'
     for synthesizer_group in MODALITY_TO_SETUP[modality]['synthesizers_split']:
         MODALITY_TO_SETUP[modality]['method'](
             output_destination=OUTPUT_DESTINATION_AWS,
+            sdv_datasets=[dataset],
             credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
             synthesizers=synthesizer_group,
             timeout=345600,  # 4 days
         )
-
-    append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality=modality)
-    post_benchmark_launch_message(date_str, compute_service='GCP', modality=modality)
 
 
 if __name__ == '__main__':
