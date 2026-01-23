@@ -63,11 +63,9 @@ def main():
     """Main function to run the benchmark and upload results."""
     args = _parse_args()
     modality = args.modality
-    dataset = 'expedia_hotel_logs' if modality == 'single_table' else 'fake_hotels'
     for synthesizer_group in MODALITY_TO_SETUP[modality]['synthesizers_split']:
         MODALITY_TO_SETUP[modality]['method'](
             output_destination=OUTPUT_DESTINATION_AWS,
-            sdv_datasets=[dataset],
             credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
             synthesizers=synthesizer_group,
             timeout=345600,  # 4 days
