@@ -258,7 +258,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
             aws_secret_access_key=aws_secret_access_key,
         ),
         'Private': DatasetExplorer(
-            s3_url=SDV_DATASETS_PRIVATE_BUCKET,
+            s3_url=SDV_DATASETS_PUBLIC_BUCKET,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
         ),
@@ -622,8 +622,6 @@ def main():
     """Main function to upload benchmark results."""
     args = _parse_args()
     modality = args.modality
-    print(f'Modality selected: {modality}')
-    modality='multi_table'
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     folder_infos, s3_client, bucket, prefix = get_result_folder_name_and_s3_vars(
