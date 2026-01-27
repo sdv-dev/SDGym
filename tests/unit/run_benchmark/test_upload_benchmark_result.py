@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 from botocore.exceptions import ClientError
@@ -165,7 +165,15 @@ def test_upload_to_drive_file_not_found(tmp_path):
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_df_to_plot')
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_to_drive')
 @patch('sdgym.run_benchmark.upload_benchmark_results._extract_google_file_id')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_dataset_details')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_model_details')
+@patch('sdgym.run_benchmark.upload_benchmark_results.update_details_files')
+@patch('sdgym.run_benchmark.upload_benchmark_results.SYNTHESIZER_DESCRIPTION')
 def test_upload_results(
+    mock_synthesizer_description,
+    mock_update_details_files,
+    mock_get_model_details,
+    mock_get_dataset_details,
     mock_extract_google_file_id,
     mock_upload_to_drive,
     mock_get_df_to_plot,
@@ -195,8 +203,18 @@ def test_upload_results(
         '10_01_2023_Detailed_results': 'results',
         '10_01_2023_plot_data': 'df_to_plot',
     }
-    local_path = str(Path('/tmp/sdgym_results/[single_table] SDGym Runs.xlsx'))
-    mock_extract_google_file_id.return_value = 'google_file_id'
+    local_path = str(Path('/tmp/sdgym_results/[Single-table] SDGym Runs.xlsx'))
+    dataset_path = str(Path('/tmp/sdgym_results/Dataset Details.xlsx'))
+    model_path = str(Path('/tmp/sdgym_results/Model Details.xlsx'))
+    mock_extract_google_file_id.side_effect = ['Result_file_id', 'Dataset_file_id', 'Model_file_id']
+    dataset_details = Mock()
+    model_details = Mock()
+    mock_get_dataset_details.return_value = dataset_details
+    mock_get_model_details.return_value = model_details
+    details = [
+        (dataset_details, 'Dataset Details.xlsx', 'Dataset'),
+        (model_details, 'Model Details.xlsx', 'Synthesizer'),
+    ]
 
     # Run
     upload_results(
@@ -210,7 +228,24 @@ def test_upload_results(
     )
 
     # Assert
-    mock_upload_to_drive.assert_called_once_with(local_path, 'google_file_id')
+    mock_update_details_files.assert_called_once_with(
+        s3_client, bucket, prefix, '/tmp/sdgym_results', details
+    )
+    mock_get_dataset_details.assert_called_once_with(
+        'results', 'single_table', aws_access_key_id, aws_secret_access_key
+    )
+    mock_get_model_details.assert_called_once_with(
+        'summary',
+        'results',
+        'df_to_plot',
+        'single_table',
+        mock_synthesizer_description,
+    )
+    mock_upload_to_drive.assert_has_calls([
+        call(local_path, 'Result_file_id'),
+        call(dataset_path, 'Dataset_file_id'),
+        call(model_path, 'Model_file_id'),
+    ])
     mock_logger.info.assert_called_once_with(
         f'Run {run_name} is complete! Proceeding with summarization...'
     )
