@@ -526,6 +526,7 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         ],
     )
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)
+    '''
     for filename, link in FILE_TO_GDRIVE_LINK.items():
         other_modality = '[Multi-table]' if modality == 'single_table' else '[Single-table]'
         if filename == f'{other_modality} SDGym Runs.xlsx':
@@ -534,6 +535,7 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         filename = Path(filename)
         upload_to_drive(str(Path(local_export_dir) / filename), _extract_google_file_id(link))
 
+    '''
     return temp_dir
 
 
