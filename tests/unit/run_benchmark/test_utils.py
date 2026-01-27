@@ -135,7 +135,7 @@ def test_post_benchmark_uploaded_message(
     post_benchmark_uploaded_message(folder_name)
 
     # Assert
-    mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
+    mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Runs.xlsx'
@@ -169,7 +169,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     post_benchmark_uploaded_message(folder_name, commit_url)
 
     # Assert
-    mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
+    mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Runs.xlsx'

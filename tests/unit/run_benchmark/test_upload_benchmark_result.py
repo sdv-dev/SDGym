@@ -27,7 +27,7 @@ def test_write_uploaded_marker():
     modality = 'single_table'
 
     # Run
-    write_uploaded_marker(s3_client, bucket, prefix, run_name)
+    write_uploaded_marker(s3_client, bucket, prefix, run_name, modality)
 
     # Assert
     s3_client.put_object.assert_called_once_with(
@@ -44,6 +44,7 @@ def test_upload_already_done():
     bucket = 'test-bucket'
     prefix = 'test-prefix/'
     run_name = 'test_run'
+    modality = 'single_table'
     s3_client.head_object.side_effect = [
         '',
         ClientError(
@@ -57,10 +58,10 @@ def test_upload_already_done():
     ]
 
     # Run
-    result = upload_already_done(s3_client, bucket, prefix, run_name)
-    result_false = upload_already_done(s3_client, bucket, prefix, run_name)
+    result = upload_already_done(s3_client, bucket, prefix, run_name, modality)
+    result_false = upload_already_done(s3_client, bucket, prefix, run_name, modality)
     with pytest.raises(ClientError):
-        upload_already_done(s3_client, bucket, prefix, run_name)
+        upload_already_done(s3_client, bucket, prefix, run_name, modality)
 
     # Assert
     assert result is True
@@ -193,21 +194,24 @@ def test_upload_results(
     s3_client = Mock()
     bucket = 'bucket'
     prefix = 'prefix'
+    summary = Mock()
+    result_details = Mock()
+    df_to_plot = Mock()
+    dataset_details = Mock()
     result_explorer_instance = mock_sdgym_results_explorer.return_value
     result_explorer_instance.all_runs_complete.return_value = True
-    result_explorer_instance.summarize.return_value = ('summary', 'results')
+    result_explorer_instance.summarize.return_value = (summary, result_details)
     mock_os_environ_get.return_value = '/tmp/sdgym_results'
-    mock_get_df_to_plot.return_value = 'df_to_plot'
+    mock_get_df_to_plot.return_value = df_to_plot
     datas = {
-        'Wins': 'summary',
-        '10_01_2023_Detailed_results': 'results',
-        '10_01_2023_plot_data': 'df_to_plot',
+        'Wins': summary,
+        '10_01_2023_Detailed_results': result_details,
+        '10_01_2023_plot_data': df_to_plot,
     }
     local_path = str(Path('/tmp/sdgym_results/[Single-table] SDGym Runs.xlsx'))
     dataset_path = str(Path('/tmp/sdgym_results/Dataset Details.xlsx'))
     model_path = str(Path('/tmp/sdgym_results/Model Details.xlsx'))
     mock_extract_google_file_id.side_effect = ['Result_file_id', 'Dataset_file_id', 'Model_file_id']
-    dataset_details = Mock()
     model_details = Mock()
     mock_get_dataset_details.return_value = dataset_details
     mock_get_model_details.return_value = model_details
@@ -232,12 +236,12 @@ def test_upload_results(
         s3_client, bucket, prefix, '/tmp/sdgym_results', details
     )
     mock_get_dataset_details.assert_called_once_with(
-        'results', 'single_table', aws_access_key_id, aws_secret_access_key
+        result_details, 'single_table', aws_access_key_id, aws_secret_access_key
     )
     mock_get_model_details.assert_called_once_with(
-        'summary',
-        'results',
-        'df_to_plot',
+        summary,
+        result_details,
+        df_to_plot,
         'single_table',
         mock_synthesizer_description,
     )
@@ -260,8 +264,10 @@ def test_upload_results(
     mock_write_uploaded_marker.assert_called_once_with(
         s3_client, bucket, prefix, run_name, modality='single_table'
     )
-    mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(datas, local_path)
-    mock_get_df_to_plot.assert_called_once_with('results')
+    mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(
+        datas, local_path.replace(' ', '_')
+    )
+    mock_get_df_to_plot.assert_called_once_with(result_details)
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
@@ -310,6 +316,75 @@ def test_upload_results_not_all_runs_complete(
     result_explorer_instance.all_runs_complete.assert_called_once_with(run_name)
     result_explorer_instance.summarize.assert_not_called()
     mock_write_uploaded_marker.assert_not_called()
+
+
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_upload_status')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_all_results')
+@patch('sdgym.run_benchmark.upload_benchmark_results.upload_all_results')
+@patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
+def test_upload_results_mock(
+    mock_write_uploaded_marker,
+    mock_upload_all_results,
+    mock_get_all_results,
+    mock_get_upload_status,
+):
+    """Test the `upload_results` method with mocks for internal functions."""
+    # Setup
+    aws_access_key_id = 'my_access_key'
+    aws_secret_access_key = 'my_secret_key'
+    folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
+    s3_client = Mock()
+    bucket = 'bucket'
+    prefix = 'prefix'
+    summary_data = Mock()
+    detailed_data = Mock()
+    plot_data = Mock()
+    dataset_details = Mock()
+    model_details = Mock()
+    result_explorer_instance = Mock()
+    mock_get_all_results.return_value = (
+        summary_data,
+        detailed_data,
+        plot_data,
+        dataset_details,
+        model_details,
+    )
+    mock_get_upload_status.return_value = result_explorer_instance
+    mock_upload_all_results.return_value = None
+    expected_datas = {
+        'Wins': summary_data,
+        '10_01_2023_Detailed_results': detailed_data,
+        '10_01_2023_plot_data': plot_data,
+    }
+
+    # Run
+    upload_results(
+        aws_access_key_id,
+        aws_secret_access_key,
+        folder_infos,
+        s3_client,
+        bucket,
+        prefix,
+        github_env=None,
+    )
+
+    # Assert
+    mock_get_upload_status.assert_called_once_with(
+        'SDGym_results_10_01_2023', 'single_table', aws_access_key_id, aws_secret_access_key, None
+    )
+    mock_get_all_results.assert_called_once_with(
+        result_explorer_instance,
+        'SDGym_results_10_01_2023',
+        'single_table',
+        aws_access_key_id,
+        aws_secret_access_key,
+    )
+    mock_upload_all_results.assert_called_once_with(
+        expected_datas, dataset_details, model_details, 'single_table', s3_client, bucket, prefix
+    )
+    mock_write_uploaded_marker.assert_called_once_with(
+        s3_client, bucket, prefix, folder_infos['folder_name'], modality='single_table'
+    )
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_result_folder_name_and_s3_vars')

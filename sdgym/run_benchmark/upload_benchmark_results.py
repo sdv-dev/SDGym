@@ -42,7 +42,7 @@ SYNTHESIZER_TO_GLOBAL_POSITION = {
     'HSA': 'bottom center',
     'Independent': 'top center',
 }
-RESULT_FILENAME = 'SDGym Runs.xlsx'
+SDGYM_RUNS_FILENAME = 'SDGym Runs.xlsx'
 MODEL_DETAILS_FILENAME = 'Model Details.xlsx'
 DATASET_DETAILS_FILENAME = 'Dataset Details.xlsx'
 DATASET_DETAILS_COLUMNS = [
@@ -400,7 +400,6 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         updated_table.to_excel(writer, index=False)
 
-    output.seek(0)
     s3_client.upload_fileobj(output, bucket, filename)
 
     return updated_table
@@ -425,7 +424,7 @@ def update_details_files(s3_client, bucket, prefix, local_export_dir, details_li
         key = f'{prefix}/{filename}'
         updated_data = update_table_aws(s3_client, bucket, key, data, reference_column)
         if local_export_dir:
-            local_path = Path(local_export_dir) / filename
+            local_path = Path(local_export_dir) / filename.replace(' ', '_')
             updated_data.to_excel(local_path, index=False)
 
 
@@ -505,9 +504,9 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         local_export_dir = temp_dir
 
     Path(local_export_dir).mkdir(parents=True, exist_ok=True)
-    result_filename = Path(f'[{modality.replace("_", "-").capitalize()}] {RESULT_FILENAME}')
-    local_filepath_result = str(Path(local_export_dir) / result_filename)
-    s3_key_result = f'{prefix}{modality}/{result_filename}'
+    sdgym_runs_filename = Path(f'[{modality.replace("_", "-").capitalize()}] {SDGYM_RUNS_FILENAME}')
+    local_filepath_result = str(Path(local_export_dir) / sdgym_runs_filename).replace(' ', '_')
+    s3_key_result = f'{prefix}{modality}/{sdgym_runs_filename}'
     try:
         s3_client.download_file(bucket, s3_key_result, local_filepath_result)
     except ClientError as e:
@@ -526,7 +525,6 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         ],
     )
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)
-    '''
     for filename, link in FILE_TO_GDRIVE_LINK.items():
         other_modality = '[Multi-table]' if modality == 'single_table' else '[Single-table]'
         if filename == f'{other_modality} SDGym Runs.xlsx':
@@ -535,7 +533,6 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         filename = Path(filename)
         upload_to_drive(str(Path(local_export_dir) / filename), _extract_google_file_id(link))
 
-    '''
     return temp_dir
 
 

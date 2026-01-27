@@ -46,10 +46,10 @@ PLOTLY_MARKERS = [
     'diamond-x',
 ]
 FILE_TO_GDRIVE_LINK = {
-    '[Single-table] SDGym Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=sharing',
-    '[Multi-table] SDGym Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1srmXx2ddq025hqzAE4JRdebuoBfro_7wbgeUHUkMEMM/edit?usp=sharing',
-    'Dataset Details.xlsx': 'https://docs.google.com/spreadsheets/d/14AQG2P-Z15eH61H4qiIE1tUv8CtB6ds0NQeiGBd5Bu4/edit?usp=sharing',
-    'Model Details.xlsx': 'https://docs.google.com/spreadsheets/d/1ynzfSVtzKCSaHx7OLvLlw0MLZGfIzaFlqpW0bXrc0zk/edit?usp=sharing',
+    '[Single-table] SDGym Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=drive_link',
+    '[Multi-table] SDGym Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1srmXx2ddq025hqzAE4JRdebuoBfro_7wbgeUHUkMEMM/edit?usp=drive_link',
+    'Dataset Details.xlsx': 'https://docs.google.com/spreadsheets/d/14AQG2P-Z15eH61H4qiIE1tUv8CtB6ds0NQeiGBd5Bu4/edit?usp=drive_link',
+    'Model Details.xlsx': 'https://docs.google.com/spreadsheets/d/1ynzfSVtzKCSaHx7OLvLlw0MLZGfIzaFlqpW0bXrc0zk/edit?usp=drive_link',
 }
 
 # The synthesizers inside the same list will be run by the same ec2 instance
@@ -186,7 +186,7 @@ def _parse_args():
     return parser.parse_args()
 
 
-def _extract_google_file_id(google_drive_link: str) -> str:
+def _extract_google_file_id(google_drive_link):
     parsed = urlparse(google_drive_link)
     file_id = parse_qs(parsed.query).get('id')
     if file_id:
