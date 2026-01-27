@@ -159,7 +159,7 @@ def get_latest_run_from_file(s3_client, bucket, key):
         raise RuntimeError(f'Failed to read {key} from S3: {e}')
 
 
-def write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality='single_table'):
+def write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality):
     """Write a marker file to indicate that the upload is complete."""
     s3_client.put_object(
         Bucket=bucket,
@@ -168,7 +168,7 @@ def write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality='sing
     )
 
 
-def upload_already_done(s3_client, bucket, prefix, folder_name, modality='single_table'):
+def upload_already_done(s3_client, bucket, prefix, folder_name, modality):
     """Check if the upload has already been done by looking for the marker file."""
     try:
         s3_client.head_object(
@@ -622,6 +622,8 @@ def main():
     """Main function to upload benchmark results."""
     args = _parse_args()
     modality = args.modality
+    print(f'Modality selected: {modality}')
+    modality='multi_table'
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     folder_infos, s3_client, bucket, prefix = get_result_folder_name_and_s3_vars(
