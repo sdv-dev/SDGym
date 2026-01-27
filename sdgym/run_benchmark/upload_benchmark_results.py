@@ -18,7 +18,7 @@ from pydrive2.drive import GoogleDrive
 
 from sdgym import DatasetExplorer
 from sdgym.benchmark import EXTERNAL_SYNTHESIZER_TO_LIBRARY
-from sdgym.datasets import SDV_DATASETS_PRIVATE_BUCKET, SDV_DATASETS_PUBLIC_BUCKET
+from sdgym.datasets import SDV_DATASETS_PUBLIC_BUCKET
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import (
@@ -387,7 +387,7 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     """
     try:
         existing_obj = s3_client.get_object(Bucket=bucket, Key=filename)
-        existing_table = pd.read_excel(existing_obj['Body'], sheet_name=table.split('.')[0])
+        existing_table = pd.read_excel(existing_obj['Body'])
     except ClientError as e:
         if e.response['Error']['Code'] != 'NoSuchKey':
             raise
@@ -398,7 +398,7 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     updated_table = pd.concat([existing_table, table], ignore_index=True)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        updated_table.to_excel(writer, sheet_name=table.split('.')[0], index=False)
+        updated_table.to_excel(writer, index=False)
 
     output.seek(0)
     s3_client.upload_fileobj(output, bucket, filename)
