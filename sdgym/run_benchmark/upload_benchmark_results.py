@@ -113,7 +113,7 @@ SYNTHESIZER_DESCRIPTION = {
         'type': 'Statistical',
         'description': (
             'Statistical baseline synthesizer that models and samples each column '
-            'independently, without learning relationships between columns.'
+            'independently, without learning relationships between columns and tables.'
         ),
     },
     'UniformSynthesizer': {
@@ -429,40 +429,33 @@ def update_details_files(s3_client, bucket, prefix, local_export_dir, details_li
             updated_data.to_excel(local_path, index=False)
 
 
-def upload_results(
-    aws_access_key_id,
-    aws_secret_access_key,
-    folder_infos,
-    s3_client,
-    bucket,
-    prefix,
-    github_env,
-    modality='single_table',
+def get_all_results(
+    result_explorer, folder_name, modality, aws_access_key_id, aws_secret_access_key
 ):
-    """Upload benchmark results to S3, GDrive, and save locally."""
-    folder_name = folder_infos['folder_name']
-    run_date = folder_infos['date']
-    result_explorer = ResultsExplorer(
-        OUTPUT_DESTINATION_AWS,
-        modality=modality,
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-    )
-    local_results_writer = LocalResultsWriter()
-    if not result_explorer.all_runs_complete(folder_name):
-        LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
-        if github_env:
-            with open(github_env, 'a') as env_file:
-                env_file.write('SKIP_UPLOAD=true\n')
+    """Get all the benchmark results that will be saved.
 
-        sys.exit(0)
+    Compute and return all the benchmark results including:
+    - Win Summary,
+    - Detailed results,
+    - Data for plotting the Pareto plot,
+    - Dataset details,
+    - Model details.
 
-    LOGGER.info(f'Run {folder_name} is complete! Proceeding with summarization...')
-    if github_env:
-        with open(github_env, 'a') as env_file:
-            env_file.write('SKIP_UPLOAD=false\n')
-            env_file.write(f'FOLDER_NAME={folder_name}\n')
+    The three first table will be saved in the same Excel file, while the last two
+    will be saved in their own Excel files.
 
+    Args:
+        result_explorer (ResultsExplorer):
+            The ResultsExplorer instance to use.
+        folder_name (str):
+            The folder name of the benchmark run.
+        modality (str):
+            The benchmark modality.
+        aws_access_key_id (str):
+            AWS access key ID.
+        aws_secret_access_key (str):
+            AWS secret access key.
+    """
     summary, results = result_explorer.summarize(folder_name)
     dataset_details = get_dataset_details(
         results, modality, aws_access_key_id, aws_secret_access_key
@@ -475,6 +468,36 @@ def upload_results(
         modality,
         SYNTHESIZER_DESCRIPTION,
     )
+
+    return summary, results, df_to_plot, dataset_details, model_details
+
+
+def upload_all_results(datas, dataset_details, model_details, modality, s3_client, bucket, prefix):
+    """Upload all benchmark results to S3 and GDrive.
+
+    Args:
+        datas (dict[str, DataFrame]):
+            Dictionary of DataFrames to save in the main results Excel file.
+        dataset_details (DataFrame):
+            Dataset details DataFrame.
+        model_details (DataFrame):
+            Model details DataFrame.
+        modality (str):
+            Benchmark modality.
+        s3_client:
+            Boto3 S3 client.
+        bucket:
+            S3 bucket name.
+        prefix:
+            S3 prefix path.
+        run_date (str):
+            Date string of the benchmark run.
+
+    Returns:
+        str or None:
+            Path to the temporary directory used for local storage, if any.
+    """
+    local_results_writer = LocalResultsWriter()
     local_export_dir = os.environ.get('GITHUB_LOCAL_RESULTS_DIR')
     temp_dir = None
     if not local_export_dir:
@@ -491,11 +514,6 @@ def upload_results(
         if not e.response['Error']['Code'] == '404':
             raise
 
-    datas = {
-        'Wins': summary,
-        f'{run_date}_Detailed_results': results,
-        f'{run_date}_plot_data': df_to_plot,
-    }
     local_results_writer.write_xlsx(datas, local_filepath_result)
     update_details_files(
         s3_client,
@@ -515,6 +533,85 @@ def upload_results(
 
         filename = Path(filename)
         upload_to_drive(str(Path(local_export_dir) / filename), _extract_google_file_id(link))
+
+    return temp_dir
+
+
+def get_upload_status(folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env):
+    """Check if benchmark results are ready to be uploaded.
+
+    The function checks if all runs for the given benchmark `folder_name` and `modality`
+    are complete. If they are not complete, it logs a warning and sets the `SKIP_UPLOAD` flag
+    in the GitHub environment file (if provided) to `true`, then exits the program.
+
+    If all runs are complete, it logs an info message and sets the `SKIP_UPLOAD` flag to `false`
+    along with the `FOLDER_NAME` in the GitHub environment file (if provided).
+    """
+    result_explorer = ResultsExplorer(
+        OUTPUT_DESTINATION_AWS,
+        modality=modality,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
+    if not result_explorer.all_runs_complete(folder_name):
+        LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
+        if github_env:
+            with open(github_env, 'a') as env_file:
+                env_file.write('SKIP_UPLOAD=true\n')
+
+        sys.exit(0)
+
+    LOGGER.info(f'Run {folder_name} is complete! Proceeding with summarization...')
+    if github_env:
+        with open(github_env, 'a') as env_file:
+            env_file.write('SKIP_UPLOAD=false\n')
+            env_file.write(f'FOLDER_NAME={folder_name}\n')
+
+    return result_explorer
+
+
+def upload_results(
+    aws_access_key_id,
+    aws_secret_access_key,
+    folder_infos,
+    s3_client,
+    bucket,
+    prefix,
+    github_env,
+    modality='single_table',
+):
+    """Upload benchmark results to S3, GDrive, and save locally."""
+    folder_name = folder_infos['folder_name']
+    run_date = folder_infos['date']
+    result_explorer = get_upload_status(
+        folder_name,
+        modality,
+        aws_access_key_id,
+        aws_secret_access_key,
+        github_env,
+    )
+
+    summary, detailed_results, df_to_plot, dataset_details, model_details = get_all_results(
+        result_explorer,
+        folder_name,
+        modality,
+        aws_access_key_id,
+        aws_secret_access_key,
+    )
+    datas = {
+        'Wins': summary,
+        f'{run_date}_Detailed_results': detailed_results,
+        f'{run_date}_plot_data': df_to_plot,
+    }
+    temp_dir = upload_all_results(
+        datas,
+        dataset_details,
+        model_details,
+        modality,
+        s3_client,
+        bucket,
+        prefix,
+    )
 
     write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality=modality)
     if temp_dir:

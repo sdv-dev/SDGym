@@ -10,11 +10,10 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
-OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
+OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/Benchmark/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
-GDRIVE_LINK = 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=sharing'
 PLOTLY_MARKERS = [
     'circle',
     'square',
@@ -115,7 +114,7 @@ def post_benchmark_launch_message(date_str, compute_service='AWS', modality='sin
 
 def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
-    channel = SLACK_CHANNEL
+    channel = DEBUG_SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     modality_text = modality.replace('_', '-').capitalize()
     url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}{modality}/SDGym Runs.xlsx'))
