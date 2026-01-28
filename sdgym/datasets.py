@@ -23,7 +23,8 @@ from sdgym.s3 import (
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 's3://sdv-datasets-public'
+SDV_DATASETS_PUBLIC_BUCKET = 's3://sdv-datasets-public'
+SDV_DATASETS_PRIVATE_BUCKET = 's3://sdv-datasets-private'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
 MODALITIES = ['single_table', 'multi_table', 'sequential']
@@ -77,7 +78,7 @@ def _download_dataset(
 ):
     """Download a dataset into the given ``datasets_path`` / ``modality``."""
     datasets_path = datasets_path or DATASETS_PATH / modality / dataset_name
-    bucket = bucket or BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     bucket_name = _get_bucket_name(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
@@ -132,7 +133,7 @@ def _get_dataset_path_and_download(
     if dataset_path.exists() and _path_contains_data_and_metadata(dataset_path):
         return dataset_path
 
-    bucket = bucket or BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     if not bucket.startswith(S3_PREFIX):
         local_path = Path(bucket) / modality / dataset
         if local_path.exists() and _path_contains_data_and_metadata(local_path):
@@ -239,7 +240,7 @@ def _get_available_datasets(
 ):
     _validate_modality(modality)
     s3_client = s3_client or get_s3_client()
-    bucket = bucket or BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     bucket_name = _get_bucket_name(bucket)
     contents = _list_s3_bucket_contents(
         s3_client,
@@ -346,7 +347,7 @@ def get_dataset_paths(
             List of the full path of the datasets.
     """
     _validate_modality(modality)
-    bucket = bucket or BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     is_remote = bucket.startswith(S3_PREFIX)
 
     if datasets_path is None:

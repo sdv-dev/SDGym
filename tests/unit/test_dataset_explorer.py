@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from sdgym.dataset_explorer import SUMMARY_OUTPUT_COLUMNS, DatasetExplorer
-from sdgym.datasets import BUCKET
+from sdgym.datasets import SDV_DATASETS_PUBLIC_BUCKET
 
 
 class TestDatasetExplorer:
@@ -16,7 +16,7 @@ class TestDatasetExplorer:
         explorer = DatasetExplorer()
 
         # Assert
-        assert explorer.s3_url == BUCKET
+        assert explorer.s3_url == SDV_DATASETS_PUBLIC_BUCKET
         assert explorer.aws_access_key_id is None
         assert explorer.aws_secret_access_key is None
 

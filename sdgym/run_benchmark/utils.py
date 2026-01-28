@@ -14,7 +14,6 @@ OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
-GDRIVE_LINK = 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=sharing'
 PLOTLY_MARKERS = [
     'circle',
     'square',
@@ -46,9 +45,11 @@ PLOTLY_MARKERS = [
     'diamond-cross',
     'diamond-x',
 ]
-MODALITY_TO_GDRIVE_LINK = {
-    'single_table': 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=sharing',
-    'multi_table': 'https://docs.google.com/spreadsheets/d/1srmXx2ddq025hqzAE4JRdebuoBfro_7wbgeUHUkMEMM/edit?usp=sharing',
+FILE_TO_GDRIVE_LINK = {
+    '[Single-table]_SDGym_Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=drive_link',
+    '[Multi-table]_SDGym_Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1srmXx2ddq025hqzAE4JRdebuoBfro_7wbgeUHUkMEMM/edit?usp=drive_link',
+    'Dataset_Details.xlsx': 'https://docs.google.com/spreadsheets/d/14AQG2P-Z15eH61H4qiIE1tUv8CtB6ds0NQeiGBd5Bu4/edit?usp=drive_link',
+    'Model_Details.xlsx': 'https://docs.google.com/spreadsheets/d/1ynzfSVtzKCSaHx7OLvLlw0MLZGfIzaFlqpW0bXrc0zk/edit?usp=drive_link',
 }
 
 # The synthesizers inside the same list will be run by the same ec2 instance
@@ -115,12 +116,13 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='sing
     """Post benchmark uploaded message to sdv-alerts slack channel."""
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
-    modality_text = modality.replace('_', '-')
-    url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}{modality}/SDGym Monthly Run.xlsx'))
+    modality_text = modality.replace('_', '-').capitalize()
+    result_filename = f'[{modality_text}]_SDGym_Runs.xlsx'
+    url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}{result_filename}'))
     body = (
         f'🤸🏻‍♀️ SDGym {modality_text} benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK[modality]}|link>\n'
+        f' - On GDrive: <{FILE_TO_GDRIVE_LINK[result_filename]}|link>\n'
         f' - On S3: <{url_link}|link>\n'
     )
     if commit_url:
@@ -185,7 +187,7 @@ def _parse_args():
     return parser.parse_args()
 
 
-def _extract_google_file_id(google_drive_link: str) -> str:
+def _extract_google_file_id(google_drive_link):
     parsed = urlparse(google_drive_link)
     file_id = parse_qs(parsed.query).get('id')
     if file_id:
