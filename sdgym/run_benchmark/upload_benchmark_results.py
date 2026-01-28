@@ -302,7 +302,7 @@ def get_model_details(summary, results, df_to_plot, modality, synthesizer_descri
 
     Args:
         summary (DataFrame):
-            Summary DataFrame.
+            Summary Wins DataFrame.
         results (DataFrame):
             Detailed results DataFrame.
         df_to_plot (DataFrame):
