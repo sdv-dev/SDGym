@@ -127,7 +127,7 @@ def test_post_benchmark_uploaded_message(
     expected_body = (
         f'🤸🏻‍♀️ SDGym Single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{FILE_TO_GDRIVE_LINK["[Single-table] SDGym Runs.xlsx"]}|link>\n'
+        f' - On GDrive: <{FILE_TO_GDRIVE_LINK["[Single-table]_SDGym_Runs.xlsx"]}|link>\n'
         f' - On S3: <{url}|link>\n'
     )
 
@@ -138,7 +138,7 @@ def test_post_benchmark_uploaded_message(
     mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Runs.xlsx'
+        'my-bucket', 'my-prefix%2F%5BSingle-table%5D_SDGym_Runs.xlsx'
     )
 
 
@@ -160,7 +160,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     expected_body = (
         f'🤸🏻‍♀️ SDGym Single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{FILE_TO_GDRIVE_LINK["[Single-table] SDGym Runs.xlsx"]}|link>\n'
+        f' - On GDrive: <{FILE_TO_GDRIVE_LINK["[Single-table]_SDGym_Runs.xlsx"]}|link>\n'
         f' - On S3: <{url}|link>\n'
         f' - On GitHub: <{commit_url}|link>\n'
     )
@@ -172,7 +172,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     mock_post_slack_message.assert_called_once_with('sdv-alerts-debug', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Runs.xlsx'
+        'my-bucket', 'my-prefix%2F%5BSingle-table%5D_SDGym_Runs.xlsx'
     )
 
 

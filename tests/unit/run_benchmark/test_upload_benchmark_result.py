@@ -208,16 +208,16 @@ def test_upload_results(
         '10_01_2023_Detailed_results': result_details,
         '10_01_2023_plot_data': df_to_plot,
     }
-    local_path = str(Path('/tmp/sdgym_results/[Single-table] SDGym Runs.xlsx'))
-    dataset_path = str(Path('/tmp/sdgym_results/Dataset Details.xlsx'))
-    model_path = str(Path('/tmp/sdgym_results/Model Details.xlsx'))
+    local_path = str(Path('/tmp/sdgym_results/[Single-table]_SDGym_Runs.xlsx'))
+    dataset_path = str(Path('/tmp/sdgym_results/Dataset_Details.xlsx'))
+    model_path = str(Path('/tmp/sdgym_results/Model_Details.xlsx'))
     mock_extract_google_file_id.side_effect = ['Result_file_id', 'Dataset_file_id', 'Model_file_id']
     model_details = Mock()
     mock_get_dataset_details.return_value = dataset_details
     mock_get_model_details.return_value = model_details
     details = [
-        (dataset_details, 'Dataset Details.xlsx', 'Dataset'),
-        (model_details, 'Model Details.xlsx', 'Synthesizer'),
+        (dataset_details, 'Dataset_Details.xlsx', 'Dataset'),
+        (model_details, 'Model_Details.xlsx', 'Synthesizer'),
     ]
 
     # Run
@@ -264,9 +264,7 @@ def test_upload_results(
     mock_write_uploaded_marker.assert_called_once_with(
         s3_client, bucket, prefix, run_name, modality='single_table'
     )
-    mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(
-        datas, local_path.replace(' ', '_')
-    )
+    mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(datas, local_path)
     mock_get_df_to_plot.assert_called_once_with(result_details)
 
 

@@ -42,9 +42,9 @@ SYNTHESIZER_TO_GLOBAL_POSITION = {
     'HSA': 'bottom center',
     'Independent': 'top center',
 }
-SDGYM_RUNS_FILENAME = 'SDGym Runs.xlsx'
-MODEL_DETAILS_FILENAME = 'Model Details.xlsx'
-DATASET_DETAILS_FILENAME = 'Dataset Details.xlsx'
+SDGYM_RUNS_FILENAME = 'SDGym_Runs.xlsx'
+MODEL_DETAILS_FILENAME = 'Model_Details.xlsx'
+DATASET_DETAILS_FILENAME = 'Dataset_Details.xlsx'
 DATASET_DETAILS_COLUMNS = [
     'Dataset',
     'Type',
@@ -323,13 +323,21 @@ def get_model_details(summary, results, df_to_plot, modality, synthesizer_descri
     wins_col = next(c for c in summary.columns if c != 'Synthesizer')
     model_details = results[['Synthesizer']].drop_duplicates().copy()
 
+    # Filter dictionaries to only include synthesizers in results
+    filtered_external = {
+        k: v
+        for k, v in EXTERNAL_SYNTHESIZER_TO_LIBRARY.items()
+        if k in results['Synthesizer'].unique()
+    }
+    filtered_desc = {
+        k: v for k, v in synthesizer_description.items() if k in results['Synthesizer'].unique()
+    }
+
     model_details['Data Type'] = modality
-    model_details['Source'] = (
-        model_details['Synthesizer'].map(EXTERNAL_SYNTHESIZER_TO_LIBRARY).fillna('sdv')
-    )
+    model_details['Source'] = model_details['Synthesizer'].map(filtered_external).fillna('sdv')
     desc_df = (
         pd.DataFrame
-        .from_dict(synthesizer_description, orient='index')
+        .from_dict(filtered_desc, orient='index')
         .rename_axis('Synthesizer')
         .reset_index()
         .rename(columns={'type': 'Type', 'description': 'Description'})
@@ -387,7 +395,8 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     """
     try:
         existing_obj = s3_client.get_object(Bucket=bucket, Key=filename)
-        existing_table = pd.read_excel(existing_obj['Body'])
+        existing_content = existing_obj['Body'].read()
+        existing_table = pd.read_excel(io.BytesIO(existing_content), engine='openpyxl')
     except ClientError as e:
         if e.response['Error']['Code'] != 'NoSuchKey':
             raise
@@ -397,9 +406,10 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     existing_table = existing_table[~existing_table[reference_column].isin(table[reference_column])]
     updated_table = pd.concat([existing_table, table], ignore_index=True)
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         updated_table.to_excel(writer, index=False)
 
+    output.seek(0)
     s3_client.upload_fileobj(output, bucket, filename)
 
     return updated_table
@@ -421,10 +431,10 @@ def update_details_files(s3_client, bucket, prefix, local_export_dir, details_li
             List of tuples (data, filename, reference_column)
     """
     for data, filename, reference_column in details_list:
-        key = f'{prefix}/{filename}'
+        key = f'{prefix}{filename}'
         updated_data = update_table_aws(s3_client, bucket, key, data, reference_column)
         if local_export_dir:
-            local_path = Path(local_export_dir) / filename.replace(' ', '_')
+            local_path = Path(local_export_dir) / filename
             updated_data.to_excel(local_path, index=False)
 
 
@@ -497,16 +507,11 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
             Path to the temporary directory used for local storage, if any.
     """
     local_results_writer = LocalResultsWriter()
-    local_export_dir = os.environ.get('GITHUB_LOCAL_RESULTS_DIR')
-    temp_dir = None
-    if not local_export_dir:
-        temp_dir = tempfile.mkdtemp()
-        local_export_dir = temp_dir
-
+    local_export_dir = os.environ.get('GITHUB_LOCAL_RESULTS_DIR', tempfile.mkdtemp())
     Path(local_export_dir).mkdir(parents=True, exist_ok=True)
-    sdgym_runs_filename = Path(f'[{modality.replace("_", "-").capitalize()}] {SDGYM_RUNS_FILENAME}')
-    local_filepath_result = str(Path(local_export_dir) / sdgym_runs_filename).replace(' ', '_')
-    s3_key_result = f'{prefix}{modality}/{sdgym_runs_filename}'
+    sdgym_runs_filename = f'[{modality.replace("_", "-").capitalize()}]_{SDGYM_RUNS_FILENAME}'
+    local_filepath_result = str(Path(local_export_dir) / sdgym_runs_filename)
+    s3_key_result = f'{prefix}{sdgym_runs_filename}'
     try:
         s3_client.download_file(bucket, s3_key_result, local_filepath_result)
     except ClientError as e:
@@ -527,13 +532,13 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)
     for filename, link in FILE_TO_GDRIVE_LINK.items():
         other_modality = '[Multi-table]' if modality == 'single_table' else '[Single-table]'
-        if filename == f'{other_modality} SDGym Runs.xlsx':
+        if filename == f'{other_modality}_{SDGYM_RUNS_FILENAME}':
             continue
 
-        filename = Path(filename)
-        upload_to_drive(str(Path(local_export_dir) / filename), _extract_google_file_id(link))
+        local_gdrive_path = str(Path(local_export_dir) / Path(filename))
+        upload_to_drive(local_gdrive_path, _extract_google_file_id(link))
 
-    return temp_dir
+    return local_export_dir
 
 
 def get_upload_status(folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env):
