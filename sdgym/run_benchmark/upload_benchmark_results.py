@@ -18,7 +18,7 @@ from pydrive2.drive import GoogleDrive
 
 from sdgym import DatasetExplorer
 from sdgym.benchmark import EXTERNAL_SYNTHESIZER_TO_LIBRARY
-from sdgym.datasets import SDV_DATASETS_PUBLIC_BUCKET
+from sdgym.datasets import SDV_DATASETS_PRIVATE_BUCKET, SDV_DATASETS_PUBLIC_BUCKET
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import (
@@ -258,7 +258,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
             aws_secret_access_key=aws_secret_access_key,
         ),
         'Private': DatasetExplorer(
-            s3_url=SDV_DATASETS_PUBLIC_BUCKET,
+            s3_url=SDV_DATASETS_PRIVATE_BUCKET,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
         ),
@@ -284,7 +284,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
     dataset_infos = pd.concat(dataset_infos, ignore_index=True)
     best_model_map = (
         results
-        .sort_values('Quality_Score', ascending=False)
+        .sort_values('Adjusted_Quality_Score', ascending=False)
         .groupby('Dataset')['Synthesizer']
         .first()
     )
