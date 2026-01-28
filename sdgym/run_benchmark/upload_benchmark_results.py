@@ -323,7 +323,6 @@ def get_model_details(summary, results, df_to_plot, modality, synthesizer_descri
     wins_col = next(c for c in summary.columns if c != 'Synthesizer')
     model_details = results[['Synthesizer']].drop_duplicates().copy()
 
-    # Filter dictionaries to only include synthesizers in results
     filtered_external = {
         k: v
         for k, v in EXTERNAL_SYNTHESIZER_TO_LIBRARY.items()
