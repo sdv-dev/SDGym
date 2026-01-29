@@ -446,8 +446,10 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
     return local_export_dir
 
 
-def get_upload_status(folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env):
-    """Check if benchmark results are ready to be uploaded.
+def get_result_explorer(
+    folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env
+):
+    """Get the ResultsExplorer instance after checking if all runs are complete.
 
     The function checks if all runs for the given benchmark `folder_name` and `modality`
     are complete. If they are not complete, it logs a warning and sets the `SKIP_UPLOAD` flag
@@ -455,6 +457,20 @@ def get_upload_status(folder_name, modality, aws_access_key_id, aws_secret_acces
 
     If all runs are complete, it logs an info message and sets the `SKIP_UPLOAD` flag to `false`
     along with the `FOLDER_NAME` in the GitHub environment file (if provided).
+
+    This method returns a `ResultsExplorer` instance for further processing (summarization and upload).
+
+    Args:
+        folder_name (str):
+            The folder name of the benchmark run.
+        modality (str):
+            The benchmark modality.
+        aws_access_key_id (str):
+            AWS access key ID.
+        aws_secret_access_key (str):
+            AWS secret access key.
+        github_env (str or None):
+            Path to the GitHub environment file, or None if not running in GitHub Actions.
     """
     result_explorer = ResultsExplorer(
         OUTPUT_DESTINATION_AWS,
@@ -489,10 +505,30 @@ def upload_results(
     github_env,
     modality='single_table',
 ):
-    """Upload benchmark results to S3, GDrive, and save locally."""
+    """Upload benchmark results to S3, GDrive, and save locally.
+
+    Args:
+        aws_access_key_id (str):
+            AWS access key ID.
+        aws_secret_access_key (str):
+            AWS secret access key.
+        folder_infos (dict):
+            Dictionary containing folder information such as 'folder_name' and 'date'.
+        s3_client:
+            Boto3 S3 client.
+        bucket (str):
+            S3 bucket name.
+        prefix (str):
+            S3 prefix path.
+        github_env (str or None):
+            Path to the GitHub environment file, or None if not running in GitHub Actions.
+        modality (str):
+            Benchmark modality.
+            Default to 'single_table'.
+    """
     folder_name = folder_infos['folder_name']
     run_date = folder_infos['date']
-    result_explorer = get_upload_status(
+    result_explorer = get_result_explorer(
         folder_name,
         modality,
         aws_access_key_id,

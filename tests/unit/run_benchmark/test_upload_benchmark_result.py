@@ -14,8 +14,8 @@ from sdgym.run_benchmark.upload_benchmark_results import (
     get_all_results,
     get_dataset_details,
     get_model_details,
+    get_result_explorer,
     get_result_folder_name_and_s3_vars,
-    get_upload_status,
     main,
     update_details_files,
     update_table_aws,
@@ -618,13 +618,13 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
 @patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
-def test_get_upload_status_exits_and_sets_skip_upload_true(
+def test_get_result_explorer_exits_and_sets_skip_upload_true(
     mock_output_destination_aws,
     mock_logger,
     mock_results_explorer,
     tmp_path,
 ):
-    """Test the `get_upload_status` method exits when runs are not complete and writes env file."""
+    """Test the `get_result_explorer` exits when runs are not complete and writes env file."""
     # Setup
     folder_name = 'SDGym_results_10_01_2023'
     modality = 'single_table'
@@ -637,7 +637,7 @@ def test_get_upload_status_exits_and_sets_skip_upload_true(
 
     # Run and Assert
     with pytest.raises(SystemExit, match='0'):
-        get_upload_status(
+        get_result_explorer(
             folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env
         )
 
@@ -651,13 +651,13 @@ def test_get_upload_status_exits_and_sets_skip_upload_true(
 @patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
-def test_get_upload_status_returns_explorer_and_writes_env(
+def test_get_result_explorer_returns_explorer_and_writes_env(
     mock_output_destination_aws,
     mock_logger,
     mock_results_explorer,
     tmp_path,
 ):
-    """Test the `get_upload_status` method returns explorer and writes env vars when complete."""
+    """Test the `get_result_explorer` method returns explorer and writes env vars when complete."""
     # Setup
     folder_name = 'SDGym_results_10_01_2023'
     modality = 'single_table'
@@ -669,7 +669,7 @@ def test_get_upload_status_returns_explorer_and_writes_env(
     explorer_instance.all_runs_complete.return_value = True
 
     # Run
-    out = get_upload_status(
+    out = get_result_explorer(
         folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env
     )
 
@@ -857,7 +857,7 @@ def test_upload_results_not_all_runs_complete(
     mock_write_uploaded_marker.assert_not_called()
 
 
-@patch('sdgym.run_benchmark.upload_benchmark_results.get_upload_status')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_result_explorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_all_results')
 @patch('sdgym.run_benchmark.upload_benchmark_results.upload_all_results')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
@@ -865,7 +865,7 @@ def test_upload_results_mock(
     mock_write_uploaded_marker,
     mock_upload_all_results,
     mock_get_all_results,
-    mock_get_upload_status,
+    mock_get_result_explorer,
 ):
     """Test the `upload_results` method with mocks for internal functions."""
     # Setup
@@ -888,7 +888,7 @@ def test_upload_results_mock(
         dataset_details,
         model_details,
     )
-    mock_get_upload_status.return_value = result_explorer_instance
+    mock_get_result_explorer.return_value = result_explorer_instance
     mock_upload_all_results.return_value = None
     expected_datas = {
         'Wins': summary_data,
@@ -908,7 +908,7 @@ def test_upload_results_mock(
     )
 
     # Assert
-    mock_get_upload_status.assert_called_once_with(
+    mock_get_result_explorer.assert_called_once_with(
         'SDGym_results_10_01_2023', 'single_table', aws_access_key_id, aws_secret_access_key, None
     )
     mock_get_all_results.assert_called_once_with(
