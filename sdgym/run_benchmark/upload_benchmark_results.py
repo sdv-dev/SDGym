@@ -151,7 +151,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
     used in the benchmark.
 
     Args:
-        results (DataFrame):
+        results (`pd.DataFrame`):
             Detailed results DataFrame.
         modality (str):
             Benchmark modality.
@@ -161,7 +161,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
             AWS secret access key.
 
     Returns:
-        DataFrame:
+        `pd.DataFrame`:
             Dataset details DataFrame.
     """
     dataset_list = results['Dataset'].unique().tolist()
@@ -215,11 +215,11 @@ def get_model_details(summary, results, df_to_plot, modality):
     containing details about each synthesizer used in the benchmark.
 
     Args:
-        summary (DataFrame):
+        summary (`pd.DataFrame`):
             Summary Wins DataFrame.
-        results (DataFrame):
+        results (`pd.DataFrame`):
             Detailed results DataFrame.
-        df_to_plot (DataFrame):
+        df_to_plot (`pd.DataFrame`):
             DataFrame used for plotting.
         modality (str):
             Benchmark modality.
@@ -350,7 +350,7 @@ def get_all_results(
     - Dataset details,
     - Model details.
 
-    The three first table will be saved in the same Excel file, while the last two
+    The three first tables will be saved in the same Excel file, while the last two
     will be saved in their own Excel files.
 
     Args:
@@ -386,9 +386,9 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
     Args:
         datas (dict[str, DataFrame]):
             Dictionary of DataFrames to save in the main results Excel file.
-        dataset_details (DataFrame):
+        dataset_details (`pd.DataFrame`):
             Dataset details DataFrame.
-        model_details (DataFrame):
+        model_details (`pd.DataFrame`):
             Model details DataFrame.
         modality (str):
             Benchmark modality.
@@ -424,8 +424,8 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         prefix,
         local_export_dir,
         [
-            (dataset_details, DATASET_DETAILS_FILENAME, 'Dataset'),
-            (model_details, MODEL_DETAILS_FILENAME, 'Synthesizer'),
+            (dataset_details, DATASET_DETAILS_FILENAME, 'Type'),
+            (model_details, MODEL_DETAILS_FILENAME, 'Data Type'),
         ],
     )
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)

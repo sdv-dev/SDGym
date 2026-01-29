@@ -11,7 +11,7 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
-OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
+OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
@@ -131,7 +131,7 @@ def get_df_to_plot(benchmark_result):
     """Get the data to plot from the benchmark result.
 
     Args:
-        benchmark_result (DataFrame): The benchmark result DataFrame.
+        benchmark_result (`pd.DataFrame`): The benchmark result DataFrame.
 
     Returns:
         DataFrame: The data to plot.

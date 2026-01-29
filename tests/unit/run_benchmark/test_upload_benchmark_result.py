@@ -598,8 +598,8 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
         prefix,
         str(tmp_path),
         [
-            (dataset_details, 'Dataset_Details.xlsx', 'Dataset'),
-            (model_details, 'Model_Details.xlsx', 'Synthesizer'),
+            (dataset_details, 'Dataset_Details.xlsx', 'Type'),
+            (model_details, 'Model_Details.xlsx', 'Data Type'),
         ],
     )
     s3_client.upload_file.assert_called_once_with(
@@ -757,8 +757,8 @@ def test_upload_results(
     mock_get_dataset_details.return_value = dataset_details
     mock_get_model_details.return_value = model_details
     details = [
-        (dataset_details, 'Dataset_Details.xlsx', 'Dataset'),
-        (model_details, 'Model_Details.xlsx', 'Synthesizer'),
+        (dataset_details, 'Dataset_Details.xlsx', 'Type'),
+        (model_details, 'Model_Details.xlsx', 'Data Type'),
     ]
 
     # Run
