@@ -2,7 +2,7 @@ import io
 import json
 import re
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, call, mock_open, patch
 
 import pandas as pd
 import pytest
@@ -270,18 +270,25 @@ def test_get_dataset_details_returns_empty_when_no_datasets_found(mock_dataset_e
     assert out.empty is True
 
 
-@patch(
-    'sdgym.run_benchmark.upload_benchmark_results.EXTERNAL_SYNTHESIZER_TO_LIBRARY',
-    {'GaussianCopulaSynthesizer': 'external_lib'},
-)
-def test_get_model_details():
+@patch('sdgym.run_benchmark.upload_benchmark_results.yaml.safe_load')
+@patch('builtins.open', new_callable=mock_open)
+def test_get_model_details(mock_open, mock_yaml_load):
     """Test the `get_model_details` method."""
     # Setup
     modality = 'single_table'
-    synthesizer_description = {
-        'GaussianCopulaSynthesizer': {'type': 'GAN', 'description': 'A model A'},
+    mock_open.read_data = 'TVAESynthesizer:\n  type: Deep Learning\n  description: Test\n'
+    expected_path = 'sdgym/synthesizer_descriptions.yaml'
+    mock_yaml_load.return_value = {
+        'GaussianCopulaSynthesizer': {
+            'type': 'GAN',
+            'library': 'external_lib',
+            'description': 'A model A',
+        },
+        'CTGANSynthesizer': {
+            'type': 'Unknown',
+            'library': 'sdv',
+        },
     }
-
     summary = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
         'Wins': [2, 0],
@@ -311,13 +318,14 @@ def test_get_model_details():
     })
 
     # Run
-    model_details = get_model_details(
-        summary, results, df_to_plot, modality, synthesizer_description
-    )
+    model_details = get_model_details(summary, results, df_to_plot, modality)
 
     # Assert
-    model_idx = model_details.set_index('Synthesizer')
+    mock_open.assert_called_once_with(expected_path, 'r', encoding='utf-8')
+    handle = mock_open.return_value.__enter__.return_value
+    mock_yaml_load.assert_called_once_with(handle)
 
+    model_idx = model_details.set_index('Synthesizer')
     assert model_idx.loc['GaussianCopulaSynthesizer', 'Data Type'] == modality
     assert model_idx.loc['CTGANSynthesizer', 'Data Type'] == modality
     assert model_idx.loc['GaussianCopulaSynthesizer', 'Source'] == 'external_lib'
@@ -326,12 +334,12 @@ def test_get_model_details():
     assert model_idx.loc['GaussianCopulaSynthesizer', 'Description'] == 'A model A'
     assert model_idx.loc['CTGANSynthesizer', 'Type'] == 'Unknown'
     assert model_idx.loc['CTGANSynthesizer', 'Description'] == 'No description available.'
-    assert model_idx.loc['GaussianCopulaSynthesizer', 'Number of dataset - Wins'] == 2
-    assert model_idx.loc['CTGANSynthesizer', 'Number of dataset - Wins'] == 0
-    assert model_idx.loc['GaussianCopulaSynthesizer', 'Number of dataset - Timeout'] == 1
-    assert model_idx.loc['GaussianCopulaSynthesizer', 'Number of dataset - Errors'] == 1
-    assert model_idx.loc['CTGANSynthesizer', 'Number of dataset - Timeout'] == 0
-    assert model_idx.loc['CTGANSynthesizer', 'Number of dataset - Errors'] == 0
+    assert model_idx.loc['GaussianCopulaSynthesizer', 'Number of datasets - Wins'] == 2
+    assert model_idx.loc['CTGANSynthesizer', 'Number of datasets - Wins'] == 0
+    assert model_idx.loc['GaussianCopulaSynthesizer', 'Number of datasets - Timeout'] == 1
+    assert model_idx.loc['GaussianCopulaSynthesizer', 'Number of datasets - Errors'] == 1
+    assert model_idx.loc['CTGANSynthesizer', 'Number of datasets - Timeout'] == 0
+    assert model_idx.loc['CTGANSynthesizer', 'Number of datasets - Errors'] == 0
     assert model_idx.loc['GaussianCopulaSynthesizer', 'On the Pareto Curve']
     assert not model_idx.loc['CTGANSynthesizer', 'On the Pareto Curve']
 
@@ -481,7 +489,6 @@ def test_update_details_files_updates_s3_without_local_export(mock_update_table_
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_model_details')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_df_to_plot')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_dataset_details')
-@patch('sdgym.run_benchmark.upload_benchmark_results.SYNTHESIZER_DESCRIPTION', {'X': {}})
 def test_get_all_results_mock(
     mock_get_dataset_details,
     mock_get_df_to_plot,
@@ -517,9 +524,7 @@ def test_get_all_results_mock(
         results, modality, aws_access_key_id, aws_secret_access_key
     )
     mock_get_df_to_plot.assert_called_once_with(results)
-    mock_get_model_details.assert_called_once_with(
-        summary, results, df_to_plot, modality, {'X': {}}
-    )
+    mock_get_model_details.assert_called_once_with(summary, results, df_to_plot, modality)
     assert output == (summary, results, df_to_plot, dataset_details, model_details)
 
 
@@ -551,26 +556,30 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
     datas = {'Wins': Mock()}
     dataset_details = Mock()
     model_details = Mock()
-    mock_environ_get.return_value = str(tmp_path)
+    file_to_gdrive_link = {
+        '[Multi-table]_SDGym_Runs.xlsx': 'skip_link',
+        'Dataset_Details.xlsx': 'dataset_link',
+        'Model_Details.xlsx': 'model_link',
+    }
+    mock_extract_google_file_id.side_effect = ['dataset_id', 'model_id']
+
+    def _mock_get(key, default=None):
+        if key == 'GITHUB_LOCAL_RESULTS_DIR':
+            return str(tmp_path)
+        if key == 'FILE_TO_GDRIVE_LINK':
+            return json.dumps(file_to_gdrive_link)
+        return default
+
+    mock_environ_get.side_effect = _mock_get
     s3_client.download_file.side_effect = ClientError(
         error_response={'Error': {'Code': '404', 'Message': 'Not Found'}},
         operation_name='DownloadFile',
     )
 
-    with patch(
-        'sdgym.run_benchmark.upload_benchmark_results.FILE_TO_GDRIVE_LINK',
-        {
-            '[Multi-table]_SDGym_Runs.xlsx': 'skip_link',
-            'Dataset_Details.xlsx': 'dataset_link',
-            'Model_Details.xlsx': 'model_link',
-        },
-    ):
-        mock_extract_google_file_id.side_effect = ['dataset_id', 'model_id']
-
-        # Run
-        out_dir = upload_all_results(
-            datas, dataset_details, model_details, modality, s3_client, bucket, prefix
-        )
+    # Run
+    out_dir = upload_all_results(
+        datas, dataset_details, model_details, modality, s3_client, bucket, prefix
+    )
 
     # Assert
     assert out_dir == str(tmp_path)
@@ -687,9 +696,9 @@ def test_get_upload_status_returns_explorer_and_writes_env(
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_dataset_details')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_model_details')
 @patch('sdgym.run_benchmark.upload_benchmark_results.update_details_files')
-@patch('sdgym.run_benchmark.upload_benchmark_results.SYNTHESIZER_DESCRIPTION')
+@patch('sdgym.run_benchmark.upload_benchmark_results.json.loads')
 def test_upload_results(
-    mock_synthesizer_description,
+    mock_json_loads,
     mock_update_details_files,
     mock_get_model_details,
     mock_get_dataset_details,
@@ -719,8 +728,22 @@ def test_upload_results(
     result_explorer_instance = mock_sdgym_results_explorer.return_value
     result_explorer_instance.all_runs_complete.return_value = True
     result_explorer_instance.summarize.return_value = (summary, result_details)
-    mock_os_environ_get.return_value = '/tmp/sdgym_results'
     mock_get_df_to_plot.return_value = df_to_plot
+
+    def _get_env(key, default=None):
+        if key == 'GITHUB_LOCAL_RESULTS_DIR':
+            return '/tmp/sdgym_results'
+        elif key == 'FILE_TO_GDRIVE_LINK':
+            return 'file_to_gdrive_link'
+
+        return default
+
+    mock_os_environ_get.side_effect = _get_env
+    mock_json_loads.return_value = {
+        '[Single-table]_SDGym_Runs.xlsx': 'result_link',
+        'Dataset_Details.xlsx': 'dataset_link',
+        'Model_Details.xlsx': 'model_link',
+    }
     datas = {
         'Wins': summary,
         '10_01_2023_Detailed_results': result_details,
@@ -761,7 +784,6 @@ def test_upload_results(
         result_details,
         df_to_plot,
         'single_table',
-        mock_synthesizer_description,
     )
     mock_upload_to_drive.assert_has_calls([
         call(local_path, 'Result_file_id'),
@@ -782,6 +804,7 @@ def test_upload_results(
     mock_write_uploaded_marker.assert_called_once_with(
         s3_client, bucket, prefix, run_name, modality='single_table'
     )
+    mock_json_loads.assert_called_once_with('file_to_gdrive_link')
     mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(datas, local_path)
     mock_get_df_to_plot.assert_called_once_with(result_details)
 

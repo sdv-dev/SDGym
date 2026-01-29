@@ -11,18 +11,17 @@ from pathlib import Path
 
 import boto3
 import pandas as pd
+import yaml
 from botocore.exceptions import ClientError
 from oauth2client.client import OAuth2Credentials
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
 from sdgym import DatasetExplorer
-from sdgym.benchmark import EXTERNAL_SYNTHESIZER_TO_LIBRARY
 from sdgym.datasets import SDV_DATASETS_PRIVATE_BUCKET, SDV_DATASETS_PUBLIC_BUCKET
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import (
-    FILE_TO_GDRIVE_LINK,
     OUTPUT_DESTINATION_AWS,
     _extract_google_file_id,
     _parse_args,
@@ -45,6 +44,7 @@ SYNTHESIZER_TO_GLOBAL_POSITION = {
 SDGYM_RUNS_FILENAME = 'SDGym_Runs.xlsx'
 MODEL_DETAILS_FILENAME = 'Model_Details.xlsx'
 DATASET_DETAILS_FILENAME = 'Dataset_Details.xlsx'
+SYNTHESIZER_DESCRIPTION_PATH = 'sdgym/synthesizer_descriptions.yaml'
 DATASET_DETAILS_COLUMNS = [
     'Dataset',
     'Type',
@@ -59,92 +59,6 @@ DATASET_DETAILS_COLUMNS = [
     'Availability',
     'Datasize_Size_MB',
 ]
-SYNTHESIZER_DESCRIPTION = {
-    'TVAESynthesizer': {
-        'type': 'Deep Learning',
-        'description': (
-            'Deep learning synthesizer based on a Variational Autoencoder (TVAE), '
-            'capable of modeling complex continuous and mixed-type tabular data.'
-        ),
-    },
-    'CTGANSynthesizer': {
-        'type': 'Deep Learning',
-        'description': (
-            'Deep learning synthesizer based on Conditional GANs (CTGAN), '
-            'designed to handle imbalanced categorical distributions in tabular data.'
-        ),
-    },
-    'CopulaGANSynthesizer': {
-        'type': 'Deep Learning',
-        'description': (
-            'GAN-based synthesizer that combines copula modeling with deep learning '
-            'to better capture dependencies between tabular columns.'
-        ),
-    },
-    'GaussianCopulaSynthesizer': {
-        'type': 'Statistical',
-        'description': (
-            "Statistical synthesizer that models each column's marginal distribution "
-            'and captures inter-column dependencies using a Gaussian copula.'
-        ),
-    },
-    'RealTabFormerSynthesizer': {
-        'type': 'Deep Learning',
-        'description': (
-            'Transformer-based deep learning synthesizer that treats tabular data as '
-            'a sequence modeling problem, inspired by large language models.'
-        ),
-    },
-    'HMASynthesizer': {
-        'type': 'Hierarchical Modeling',
-        'description': (
-            'Hierarchical Modeling Algorithm synthesizer for multi-table data that '
-            'learns table-level relationships and generates data while preserving them.'
-        ),
-    },
-    'HSASynthesizer': {
-        'type': 'Hierarchical Sampling',
-        'description': (
-            'Hierarchical Sampling Algorithm synthesizer that generates multi-table data '
-            'by sequentially sampling tables while maintaining relational consistency.'
-        ),
-    },
-    'IndependentSynthesizer': {
-        'type': 'Statistical',
-        'description': (
-            'Statistical baseline synthesizer that models and samples each column '
-            'independently, without learning relationships between columns and tables.'
-        ),
-    },
-    'UniformSynthesizer': {
-        'type': 'Statistical',
-        'description': (
-            'Statistical baseline synthesizer that generates values uniformly at random '
-            'within the observed bounds of each column.'
-        ),
-    },
-    'MultiTableUniformSynthesizer': {
-        'type': 'Statistical',
-        'description': (
-            'Multi-table baseline synthesizer that generates data uniformly at random '
-            'for each table while preserving table schemas.'
-        ),
-    },
-    'ColumnSynthesizer': {
-        'type': 'Statistical',
-        'description': (
-            'Lightweight statistical synthesizer that applies simple, column-wise models '
-            'without learning inter-column dependencies.'
-        ),
-    },
-    'DataIdentity': {
-        'type': 'Data-copying',
-        'description': (
-            'Degenerate synthesizer that returns the original training data unchanged, '
-            'primarily useful for debugging and benchmarking.'
-        ),
-    },
-}
 
 
 def get_latest_run_from_file(s3_client, bucket, key):
@@ -294,7 +208,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
     return dataset_infos[DATASET_DETAILS_COLUMNS]
 
 
-def get_model_details(summary, results, df_to_plot, modality, synthesizer_description):
+def get_model_details(summary, results, df_to_plot, modality):
     """Get model details DataFrame.
 
     Based on the generated `results`, `summary` and `df_to_plot`, create a DataFrame
@@ -309,46 +223,33 @@ def get_model_details(summary, results, df_to_plot, modality, synthesizer_descri
             DataFrame used for plotting.
         modality (str):
             Benchmark modality.
-        synthesizer_description (dict):
-            Mapping of synthesizer to description.
 
     Returns:
         DataFrame: Model details DataFrame.
     """
+    with open(SYNTHESIZER_DESCRIPTION_PATH, 'r', encoding='utf-8') as f:
+        synthesizer_info = yaml.safe_load(f) or {}
+
     err_column = 'error' if 'error' in results.columns else 'Error'
     paretos_synthesizers = (
         df_to_plot.loc[df_to_plot['Pareto'].eq(True), 'Synthesizer'].astype(str).add('Synthesizer')
     )
-
     wins_col = next(c for c in summary.columns if c != 'Synthesizer')
     model_details = results[['Synthesizer']].drop_duplicates().copy()
-
-    filtered_external = {
-        k: v
-        for k, v in EXTERNAL_SYNTHESIZER_TO_LIBRARY.items()
-        if k in results['Synthesizer'].unique()
-    }
-    filtered_desc = {
-        k: v for k, v in synthesizer_description.items() if k in results['Synthesizer'].unique()
-    }
-
     model_details['Data Type'] = modality
-    model_details['Source'] = model_details['Synthesizer'].map(filtered_external).fillna('sdv')
-    desc_df = (
-        pd.DataFrame
-        .from_dict(filtered_desc, orient='index')
-        .rename_axis('Synthesizer')
-        .reset_index()
-        .rename(columns={'type': 'Type', 'description': 'Description'})
-    )
-    model_details = pd.concat(
-        [model_details.set_index('Synthesizer'), desc_df.set_index('Synthesizer')],
-        axis=1,
-    ).reset_index()
-    model_details['Type'] = model_details['Type'].fillna('Unknown')
-    model_details['Description'] = model_details['Description'].fillna('No description available.')
+    synthesizers = model_details['Synthesizer'].unique().tolist()
+    filtered_desc = {k: v for k, v in (synthesizer_info or {}).items() if k in synthesizers}
+    metadata_spec = {
+        'Source': ('library', 'sdv'),
+        'Type': ('type', 'Unknown'),
+        'Description': ('description', 'No description available.'),
+    }
+    for column, (yaml_key, default) in metadata_spec.items():
+        mapping = {k: (v or {}).get(yaml_key) for k, v in filtered_desc.items()}
+        model_details[column] = model_details['Synthesizer'].map(mapping).fillna(default)
+
     wins = summary.set_index('Synthesizer')[wins_col]
-    model_details['Number of dataset - Wins'] = (
+    model_details['Number of datasets - Wins'] = (
         model_details['Synthesizer'].map(wins).fillna(0).astype(int)
     )
     timeout_counts = (
@@ -363,10 +264,10 @@ def get_model_details(summary, results, df_to_plot, modality, synthesizer_descri
         .groupby('Synthesizer')['Dataset']
         .nunique()
     )
-    model_details['Number of dataset - Timeout'] = (
+    model_details['Number of datasets - Timeout'] = (
         model_details['Synthesizer'].map(timeout_counts).fillna(0).astype(int)
     )
-    model_details['Number of dataset - Errors'] = (
+    model_details['Number of datasets - Errors'] = (
         model_details['Synthesizer'].map(error_counts).fillna(0).astype(int)
     )
     model_details['On the Pareto Curve'] = model_details['Synthesizer'].isin(paretos_synthesizers)
@@ -474,7 +375,6 @@ def get_all_results(
         results,
         df_to_plot,
         modality,
-        SYNTHESIZER_DESCRIPTION,
     )
 
     return summary, results, df_to_plot, dataset_details, model_details
@@ -529,7 +429,13 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         ],
     )
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)
-    for filename, link in FILE_TO_GDRIVE_LINK.items():
+    file_to_gdrive_link = os.environ.get('FILE_TO_GDRIVE_LINK')
+    if not file_to_gdrive_link:
+        LOGGER.warning('No FILE_TO_GDRIVE_LINK found in environment variables.')
+        return local_export_dir
+
+    file_to_gdrive_link = json.loads(file_to_gdrive_link)
+    for filename, link in file_to_gdrive_link.items():
         other_modality = '[Multi-table]' if modality == 'single_table' else '[Single-table]'
         if filename == f'{other_modality}_{SDGYM_RUNS_FILENAME}':
             continue

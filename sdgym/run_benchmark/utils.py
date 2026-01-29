@@ -1,6 +1,7 @@
 """Utils file for the run_benchmark module."""
 
 import argparse
+import json
 import os
 from datetime import datetime
 from urllib.parse import parse_qs, quote_plus, urlparse
@@ -45,12 +46,6 @@ PLOTLY_MARKERS = [
     'diamond-cross',
     'diamond-x',
 ]
-FILE_TO_GDRIVE_LINK = {
-    '[Single-table]_SDGym_Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1W3tsGOOtbtTw3g0EVE0irLgY_TN_cy2W4ONiZQ57OPo/edit?usp=drive_link',
-    '[Multi-table]_SDGym_Runs.xlsx': 'https://docs.google.com/spreadsheets/d/1srmXx2ddq025hqzAE4JRdebuoBfro_7wbgeUHUkMEMM/edit?usp=drive_link',
-    'Dataset_Details.xlsx': 'https://docs.google.com/spreadsheets/d/14AQG2P-Z15eH61H4qiIE1tUv8CtB6ds0NQeiGBd5Bu4/edit?usp=drive_link',
-    'Model_Details.xlsx': 'https://docs.google.com/spreadsheets/d/1ynzfSVtzKCSaHx7OLvLlw0MLZGfIzaFlqpW0bXrc0zk/edit?usp=drive_link',
-}
 
 # The synthesizers inside the same list will be run by the same ec2 instance
 SYNTHESIZERS_SPLIT_SINGLE_TABLE = [
@@ -114,6 +109,7 @@ def post_benchmark_launch_message(date_str, compute_service='AWS', modality='sin
 
 def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
+    file_to_gdrive_link = json.loads(os.getenv('FILE_TO_GDRIVE_LINK', '{}'))
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     modality_text = modality.replace('_', '-').capitalize()
@@ -122,7 +118,7 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='sing
     body = (
         f'🤸🏻‍♀️ SDGym {modality_text} benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{FILE_TO_GDRIVE_LINK[result_filename]}|link>\n'
+        f' - On GDrive: <{file_to_gdrive_link[result_filename]}|link>\n'
         f' - On S3: <{url_link}|link>\n'
     )
     if commit_url:

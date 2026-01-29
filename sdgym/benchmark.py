@@ -24,6 +24,7 @@ import cloudpickle
 import numpy as np
 import pandas as pd
 import tqdm
+import yaml
 from botocore.config import Config
 from sdmetrics.reports.multi_table import (
     DiagnosticReport as MultiTableDiagnosticReport,
@@ -92,9 +93,6 @@ DEFAULT_MULTI_TABLE_DATASETS = [
 ]
 
 N_BYTES_IN_MB = 1000 * 1000
-EXTERNAL_SYNTHESIZER_TO_LIBRARY = {
-    'RealTabFormerSynthesizer': 'realtabformer',
-}
 FILE_INCREMENT_PATTERN = re.compile(r'\((\d+)\)$')
 RESULTS_DATE_PATTERN = re.compile(r'SDGym_results_(\d{2}_\d{2}_\d{4})')
 METAINFO_FILE_PATTERN = re.compile(r'metainfo(?:\((\d+)\))?\.yaml$')
@@ -989,6 +987,9 @@ def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=No
     if not job_args_list or not job_args_list[0].output_directions:
         return
 
+    with open('sdgym/synthesizer_descriptions.yaml', 'r') as file:
+        synthesizer_descriptions = yaml.safe_load(file)
+
     output_directions = job_args_list[0].output_directions
     path = output_directions['metainfo']
     stem = Path(path).stem
@@ -1010,7 +1011,7 @@ def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=No
 
     for synthesizer in synthesizers:
         if synthesizer['name'] not in SDV_SYNTHESIZERS:
-            ext_lib = EXTERNAL_SYNTHESIZER_TO_LIBRARY.get(synthesizer['name'])
+            ext_lib = synthesizer_descriptions.get(synthesizer['name'], {}).get('library')
             if ext_lib:
                 library_version = version(ext_lib)
                 metadata[f'{ext_lib}_version'] = library_version
