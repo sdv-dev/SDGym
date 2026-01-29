@@ -43,6 +43,7 @@ jobs:
           PYDRIVE_TOKEN: ${{ secrets.PYDRIVE_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          FILE_TO_GDRIVE_LINK: ${{ secrets.FILE_TO_GDRIVE_LINK }}
           GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
         run: |
           invoke upload-benchmark-results --modality "${{ inputs.modality }}"
@@ -100,6 +101,7 @@ jobs:
         if: env.SKIP_UPLOAD != 'true'
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          FILE_TO_GDRIVE_LINK: ${{ secrets.FILE_TO_GDRIVE_LINK }}
         run: |
           invoke notify-sdgym-benchmark-uploaded \
             --folder-name "$FOLDER_NAME" \
