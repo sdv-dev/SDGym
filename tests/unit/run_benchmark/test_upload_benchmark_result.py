@@ -533,12 +533,14 @@ def test_get_all_results_mock(
 @patch('sdgym.run_benchmark.upload_benchmark_results.update_details_files')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LocalResultsWriter')
 @patch('sdgym.run_benchmark.upload_benchmark_results.os.environ.get')
+@patch('sdgym.run_benchmark.upload_benchmark_results._get_filename_to_gdrive_link')
 @patch('sdgym.run_benchmark.upload_benchmark_results.SDGYM_RUNS_FILENAME', 'SDGym_Runs.xlsx')
 @patch(
     'sdgym.run_benchmark.upload_benchmark_results.DATASET_DETAILS_FILENAME', 'Dataset_Details.xlsx'
 )
 @patch('sdgym.run_benchmark.upload_benchmark_results.MODEL_DETAILS_FILENAME', 'Model_Details.xlsx')
 def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
+    mock__get_filename_to_gdrive_link,
     mock_environ_get,
     mock_local_results_writer,
     mock_update_details_files,
@@ -557,20 +559,14 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
     dataset_details = Mock()
     model_details = Mock()
     file_to_gdrive_link = {
-        '[Multi-table]_SDGym_Runs.xlsx': 'skip_link',
+        '[Single-table]_SDGym_Runs.xlsx': 'skip_link',
+        '[Multi-table]_SDGym_Runs.xlsx': None,
         'Dataset_Details.xlsx': 'dataset_link',
         'Model_Details.xlsx': 'model_link',
     }
-    mock_extract_google_file_id.side_effect = ['dataset_id', 'model_id']
-
-    def _mock_get(key, default=None):
-        if key == 'GITHUB_LOCAL_RESULTS_DIR':
-            return str(tmp_path)
-        if key == 'FILE_TO_GDRIVE_LINK':
-            return json.dumps(file_to_gdrive_link)
-        return default
-
-    mock_environ_get.side_effect = _mock_get
+    mock_extract_google_file_id.side_effect = ['skip_id', 'dataset_id', 'model_id']
+    mock_environ_get.return_value = str(tmp_path)
+    mock__get_filename_to_gdrive_link.return_value = file_to_gdrive_link
     s3_client.download_file.side_effect = ClientError(
         error_response={'Error': {'Code': '404', 'Message': 'Not Found'}},
         operation_name='DownloadFile',
@@ -587,7 +583,7 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
     expected_runs_filename = '[Single-table]_SDGym_Runs.xlsx'
     expected_local_result = str(Path(tmp_path) / expected_runs_filename)
     expected_s3_key_result = f'{prefix}{expected_runs_filename}'
-
+    mock__get_filename_to_gdrive_link.assert_called_once()
     s3_client.download_file.assert_called_once_with(
         bucket, expected_s3_key_result, expected_local_result
     )
@@ -610,6 +606,7 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
         [
             call(str(Path(tmp_path) / 'Dataset_Details.xlsx'), 'dataset_id'),
             call(str(Path(tmp_path) / 'Model_Details.xlsx'), 'model_id'),
+            call(str(Path(tmp_path) / expected_runs_filename), 'skip_id'),
         ],
         any_order=True,
     )
@@ -696,9 +693,9 @@ def test_get_result_explorer_returns_explorer_and_writes_env(
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_dataset_details')
 @patch('sdgym.run_benchmark.upload_benchmark_results.get_model_details')
 @patch('sdgym.run_benchmark.upload_benchmark_results.update_details_files')
-@patch('sdgym.run_benchmark.upload_benchmark_results.json.loads')
+@patch('sdgym.run_benchmark.upload_benchmark_results._get_filename_to_gdrive_link')
 def test_upload_results(
-    mock_json_loads,
+    mock__get_filename_to_gdrive_link,
     mock_update_details_files,
     mock_get_model_details,
     mock_get_dataset_details,
@@ -729,17 +726,8 @@ def test_upload_results(
     result_explorer_instance.all_runs_complete.return_value = True
     result_explorer_instance.summarize.return_value = (summary, result_details)
     mock_get_df_to_plot.return_value = df_to_plot
-
-    def _get_env(key, default=None):
-        if key == 'GITHUB_LOCAL_RESULTS_DIR':
-            return '/tmp/sdgym_results'
-        elif key == 'FILE_TO_GDRIVE_LINK':
-            return 'file_to_gdrive_link'
-
-        return default
-
-    mock_os_environ_get.side_effect = _get_env
-    mock_json_loads.return_value = {
+    mock_os_environ_get.return_value = '/tmp/sdgym_results'
+    mock__get_filename_to_gdrive_link.return_value = {
         '[Single-table]_SDGym_Runs.xlsx': 'result_link',
         'Dataset_Details.xlsx': 'dataset_link',
         'Model_Details.xlsx': 'model_link',
@@ -804,7 +792,7 @@ def test_upload_results(
     mock_write_uploaded_marker.assert_called_once_with(
         s3_client, bucket, prefix, run_name, modality='single_table'
     )
-    mock_json_loads.assert_called_once_with('file_to_gdrive_link')
+    mock__get_filename_to_gdrive_link.assert_called_once()
     mock_local_results_writer.return_value.write_xlsx.assert_called_once_with(datas, local_path)
     mock_get_df_to_plot.assert_called_once_with(result_details)
 

@@ -112,9 +112,9 @@ def test_post_benchmark_launch_message(
 @patch('sdgym.run_benchmark.utils.post_slack_message')
 @patch('sdgym.run_benchmark.utils.get_s3_console_link')
 @patch('sdgym.run_benchmark.utils.parse_s3_path')
-@patch('sdgym.run_benchmark.utils.os.getenv')
+@patch('sdgym.run_benchmark.utils._get_filename_to_gdrive_link')
 def test_post_benchmark_uploaded_message(
-    mock_getenv,
+    mock__get_filename_to_gdrive_link,
     mock_parse_s3_path,
     mock_get_s3_console_link,
     mock_post_slack_message,
@@ -125,7 +125,9 @@ def test_post_benchmark_uploaded_message(
     mock_parse_s3_path.return_value = ('my-bucket', 'my-prefix/')
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
-    mock_getenv.return_value = '{"[Single-table]_SDGym_Runs.xlsx": "https://drive.google.com/file/d/example/view?usp=sharing"}'
+    mock__get_filename_to_gdrive_link.return_value = {
+        '[Single-table]_SDGym_Runs.xlsx': 'https://drive.google.com/file/d/example/view?usp=sharing'
+    }
     expected_body = (
         f'🤸🏻‍♀️ SDGym Single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
@@ -138,7 +140,7 @@ def test_post_benchmark_uploaded_message(
 
     # Assert
     mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
-    mock_getenv.assert_called_once_with('FILE_TO_GDRIVE_LINK', '{}')
+    mock__get_filename_to_gdrive_link.assert_called_once()
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix%2F%5BSingle-table%5D_SDGym_Runs.xlsx'
@@ -148,9 +150,9 @@ def test_post_benchmark_uploaded_message(
 @patch('sdgym.run_benchmark.utils.post_slack_message')
 @patch('sdgym.run_benchmark.utils.get_s3_console_link')
 @patch('sdgym.run_benchmark.utils.parse_s3_path')
-@patch('sdgym.run_benchmark.utils.os.getenv')
+@patch('sdgym.run_benchmark.utils._get_filename_to_gdrive_link')
 def test_post_benchmark_uploaded_message_with_commit(
-    mock_getenv,
+    mock__get_filename_to_gdrive_link,
     mock_parse_s3_path,
     mock_get_s3_console_link,
     mock_post_slack_message,
@@ -162,7 +164,9 @@ def test_post_benchmark_uploaded_message_with_commit(
     mock_parse_s3_path.return_value = ('my-bucket', 'my-prefix/')
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
-    mock_getenv.return_value = '{"[Single-table]_SDGym_Runs.xlsx": "https://drive.google.com/file/d/example/view?usp=sharing"}'
+    mock__get_filename_to_gdrive_link.return_value = {
+        '[Single-table]_SDGym_Runs.xlsx': 'https://drive.google.com/file/d/example/view?usp=sharing'
+    }
     expected_body = (
         f'🤸🏻‍♀️ SDGym Single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
@@ -175,7 +179,7 @@ def test_post_benchmark_uploaded_message_with_commit(
     post_benchmark_uploaded_message(folder_name, commit_url)
 
     # Assert
-    mock_getenv.assert_called_once_with('FILE_TO_GDRIVE_LINK', '{}')
+    mock__get_filename_to_gdrive_link.assert_called_once()
     mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(

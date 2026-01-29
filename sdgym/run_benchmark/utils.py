@@ -1,7 +1,6 @@
 """Utils file for the run_benchmark module."""
 
 import argparse
-import json
 import os
 from datetime import datetime
 from urllib.parse import parse_qs, quote_plus, urlparse
@@ -60,6 +59,15 @@ SYNTHESIZERS_SPLIT_MULTI_TABLE = [
 ]
 
 
+def _get_filename_to_gdrive_link():
+    return {
+        '[Single-table]_SDGym_Runs.xlsx': os.getenv('GDRIVE_LINK_SINGLE_TABLE_RESULTS'),
+        '[Multi-table]_SDGym_Runs.xlsx': os.getenv('GDRIVE_LINK_MULTI_TABLE_RESULTS'),
+        'Dataset_Details.xlsx': os.getenv('GDRIVE_LINK_DATASET_DETAILS'),
+        'Model_Details.xlsx': os.getenv('GDRIVE_LINK_MODEL_DETAILS'),
+    }
+
+
 def get_result_folder_name(date_str):
     """Get the result folder name based on the date string."""
     try:
@@ -109,7 +117,7 @@ def post_benchmark_launch_message(date_str, compute_service='AWS', modality='sin
 
 def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
     """Post benchmark uploaded message to sdv-alerts slack channel."""
-    file_to_gdrive_link = json.loads(os.getenv('FILE_TO_GDRIVE_LINK', '{}'))
+    file_to_gdrive_link = _get_filename_to_gdrive_link()
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     modality_text = modality.replace('_', '-').capitalize()

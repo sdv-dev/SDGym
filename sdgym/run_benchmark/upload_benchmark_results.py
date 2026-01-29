@@ -24,6 +24,7 @@ from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import (
     OUTPUT_DESTINATION_AWS,
     _extract_google_file_id,
+    _get_filename_to_gdrive_link,
     _parse_args,
     get_df_to_plot,
 )
@@ -350,7 +351,7 @@ def get_all_results(
     - Dataset details,
     - Model details.
 
-    The three first tables will be saved in the same Excel file, while the last two
+    The first three tables will be saved in the same Excel file, while the last two
     will be saved in their own Excel files.
 
     Args:
@@ -429,13 +430,11 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         local_export_dir,
     )
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)
-    file_to_gdrive_link = os.environ.get('FILE_TO_GDRIVE_LINK')
-    if not file_to_gdrive_link:
-        LOGGER.warning('No FILE_TO_GDRIVE_LINK found in environment variables.')
-        return local_export_dir
-
-    file_to_gdrive_link = json.loads(file_to_gdrive_link)
+    file_to_gdrive_link = _get_filename_to_gdrive_link()
     for filename, link in file_to_gdrive_link.items():
+        if link is None:
+            continue
+
         other_modality = '[Multi-table]' if modality == 'single_table' else '[Single-table]'
         if filename == f'{other_modality}_{SDGYM_RUNS_FILENAME}':
             continue
