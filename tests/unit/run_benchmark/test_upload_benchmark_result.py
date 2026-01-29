@@ -442,7 +442,7 @@ def test_update_details_file(mock_update_table_aws, tmp_path):
     ]
 
     # Run
-    update_details_files(s3_client, bucket, prefix, str(tmp_path), details_list)
+    update_details_files(s3_client, bucket, prefix, details_list, str(tmp_path))
 
     # Assert
     mock_update_table_aws.assert_has_calls([
@@ -477,7 +477,7 @@ def test_update_details_files_updates_s3_without_local_export(mock_update_table_
     details_list = [(pd.DataFrame({'Dataset': ['A']}), 'Dataset_Details.xlsx', 'Dataset')]
 
     # Run
-    update_details_files(s3_client, bucket, prefix, None, details_list)
+    update_details_files(s3_client, bucket, prefix, details_list, None)
 
     # Assert
     mock_update_table_aws.assert_called_once_with(
@@ -596,11 +596,11 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
         s3_client,
         bucket,
         prefix,
-        str(tmp_path),
         [
             (dataset_details, 'Dataset_Details.xlsx', 'Type'),
             (model_details, 'Model_Details.xlsx', 'Data Type'),
         ],
+        str(tmp_path),
     )
     s3_client.upload_file.assert_called_once_with(
         expected_local_result, bucket, expected_s3_key_result
@@ -774,7 +774,7 @@ def test_upload_results(
 
     # Assert
     mock_update_details_files.assert_called_once_with(
-        s3_client, bucket, prefix, '/tmp/sdgym_results', details
+        s3_client, bucket, prefix, details, '/tmp/sdgym_results'
     )
     mock_get_dataset_details.assert_called_once_with(
         result_details, 'single_table', aws_access_key_id, aws_secret_access_key

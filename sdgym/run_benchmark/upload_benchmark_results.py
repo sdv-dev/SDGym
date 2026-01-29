@@ -285,13 +285,13 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
             S3 bucket name.
         filename:
             S3 key of the table file.
-        table:
+        table (`pd.DataFrame`):
             DataFrame with new data to merge.
         reference_column:
             Column name to use as reference for merging.
 
     Returns:
-        DataFrame: The updated table.
+        `pd.DataFrame`: The updated table.
     """
     try:
         existing_obj = s3_client.get_object(Bucket=bucket, Key=filename)
@@ -315,7 +315,7 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     return updated_table
 
 
-def update_details_files(s3_client, bucket, prefix, local_export_dir, details_list):
+def update_details_files(s3_client, bucket, prefix, details_list, local_export_dir=None):
     """Update details files on S3 and optionally save them locally.
 
     Args:
@@ -325,10 +325,10 @@ def update_details_files(s3_client, bucket, prefix, local_export_dir, details_li
             S3 bucket name.
         prefix:
             S3 prefix path.
-        local_export_dir:
-            Local directory to save updated files (optional).
         details_list:
             List of tuples (data, filename, reference_column)
+        local_export_dir (`str`, optional):
+            Local directory to save updated files. Default to None.
     """
     for data, filename, reference_column in details_list:
         key = f'{prefix}{filename}'
@@ -422,11 +422,11 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         s3_client,
         bucket,
         prefix,
-        local_export_dir,
         [
             (dataset_details, DATASET_DETAILS_FILENAME, 'Type'),
             (model_details, MODEL_DETAILS_FILENAME, 'Data Type'),
         ],
+        local_export_dir,
     )
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)
     file_to_gdrive_link = os.environ.get('FILE_TO_GDRIVE_LINK')
@@ -458,7 +458,7 @@ def get_result_explorer(
     If all runs are complete, it logs an info message and sets the `SKIP_UPLOAD` flag to `false`
     along with the `FOLDER_NAME` in the GitHub environment file (if provided).
 
-    This method returns a `ResultsExplorer` instance for further processing (summarization and upload).
+    This method returns a `ResultsExplorer` instance for further processing (summarization etc.).
 
     Args:
         folder_name (str):
