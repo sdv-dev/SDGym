@@ -987,7 +987,8 @@ def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=No
     if not job_args_list or not job_args_list[0].output_directions:
         return
 
-    with open('sdgym/synthesizer_descriptions.yaml', 'r') as file:
+    descriptions_path = Path(__file__).parent / 'synthesizer_descriptions.yaml'
+    with open(descriptions_path, 'r') as file:
         synthesizer_descriptions = yaml.safe_load(file)
 
     output_directions = job_args_list[0].output_directions
@@ -1297,7 +1298,7 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
     filename = os.path.basename(job_args_list[0].output_directions['metainfo'])
     modality = job_args_list[0].modality
     metainfo = os.path.splitext(filename)[0]
-    job_args_key = f'job_args_list_{modality}_{metainfo}.pkl.gz'
+    job_args_key = f'{modality}/job_args_list_{metainfo}.pkl.gz'
     job_args_key = f'{path}{job_args_key}' if path else job_args_key
 
     serialized_data = cloudpickle.dumps(job_args_list)

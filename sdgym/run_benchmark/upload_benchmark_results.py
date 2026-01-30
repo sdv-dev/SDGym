@@ -48,7 +48,7 @@ DATASET_DETAILS_FILENAME = 'Dataset_Details.xlsx'
 SYNTHESIZER_DESCRIPTION_PATH = 'sdgym/synthesizer_descriptions.yaml'
 DATASET_DETAILS_COLUMNS = [
     'Dataset',
-    'Type',
+    'Data Modality',
     'Best Model',
     'Total_Num_Columns',
     'Total_Num_Rows',
@@ -204,7 +204,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
         .first()
     )
     dataset_infos['Best Model'] = dataset_infos['Dataset'].map(best_model_map)
-    dataset_infos['Type'] = modality
+    dataset_infos['Data Modality'] = modality
 
     return dataset_infos[DATASET_DETAILS_COLUMNS]
 
@@ -237,11 +237,16 @@ def get_model_details(summary, results, df_to_plot, modality):
     )
     wins_col = next(c for c in summary.columns if c != 'Synthesizer')
     model_details = results[['Synthesizer']].drop_duplicates().copy()
-    model_details['Data Type'] = modality
+    model_details['Model Name'] = model_details['Synthesizer'].str.replace(
+        'Synthesizer', '', regex=False
+    )
+    model_details['Data Modality'] = modality
     synthesizers = model_details['Synthesizer'].unique().tolist()
     filtered_desc = {k: v for k, v in (synthesizer_info or {}).items() if k in synthesizers}
     metadata_spec = {
         'Source': ('library', 'sdv'),
+        'Organization': ('organization', 'Unknown'),
+        'Data Modality': ('modality', 'Unknown'),
         'Type': ('type', 'Unknown'),
         'Description': ('description', 'No description available.'),
     }
@@ -424,8 +429,8 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
         bucket,
         prefix,
         [
-            (dataset_details, DATASET_DETAILS_FILENAME, 'Type'),
-            (model_details, MODEL_DETAILS_FILENAME, 'Data Type'),
+            (dataset_details, DATASET_DETAILS_FILENAME, 'Data Modality'),
+            (model_details, MODEL_DETAILS_FILENAME, 'Data Modality'),
         ],
         local_export_dir,
     )

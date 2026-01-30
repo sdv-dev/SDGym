@@ -204,7 +204,7 @@ def _get_user_data_script(
         log "======== Install Dependencies =========="
         pip install --upgrade pip
         {sdv_install}
-        pip install sdgym[all]
+        pip install "sdgym[all]"
 
         {gpu_block}
 

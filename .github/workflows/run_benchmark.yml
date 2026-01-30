@@ -51,7 +51,8 @@ jobs:
               license_key='${LICENSE_KEY}',
               package='sdv-enterprise',
           )
-          python -m pip install sdgym[all]
+          "
+          python -m pip install "sdgym[all]"
 
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH

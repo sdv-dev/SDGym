@@ -23,6 +23,7 @@ from sdgym.benchmark import (
     _import_and_validate_synthesizers,
     _setup_output_destination,
     _setup_output_destination_aws,
+    _store_job_args_in_s3,
     _update_metainfo_file,
     _validate_aws_inputs,
     _validate_output_destination,
@@ -35,6 +36,8 @@ from sdgym.benchmark import (
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.s3 import S3_REGION
 from sdgym.synthesizers import MultiTableUniformSynthesizer, UniformSynthesizer
+
+_REAL_SAFE_LOAD = yaml.safe_load
 
 
 class FakeSynth:
@@ -516,11 +519,18 @@ def test__setup_output_destination_multi_table(tmp_path):
     assert json.loads(json.dumps(result)) == expected
 
 
+@patch('sdgym.benchmark.yaml.safe_load')
+@patch('sdgym.benchmark.open')
 @patch('sdgym.benchmark.datetime')
-def test__write_metainfo_file(mock_datetime, tmp_path):
+def test__write_metainfo_file(mock_datetime, mock_open, mock_safe_load, tmp_path):
     """Test the `_write_metainfo_file` method."""
     # Setup
     output_destination = tmp_path / 'SDGym_results_06_26_2025'
+    mock_safe_load.return_value = {
+        'GaussianCopulaSynthesizer': {'library': 'sdv'},
+        'CTGANSynthesizer': {'library': 'sdv'},
+        'RealTabFormerSynthesizer': {'library': 'realtabformer'},
+    }
     output_destination.mkdir()
     mock_datetime.today.return_value.strftime.return_value = '06_26_2025'
     file_name = {'metainfo': f'{output_destination}/metainfo.yaml'}
@@ -564,8 +574,10 @@ def test__write_metainfo_file(mock_datetime, tmp_path):
     _write_metainfo_file(synthesizers, jobs, 'single_table', result_writer)
 
     # Assert
+    expected_path = Path(__file__).parent.parent.parent / 'sdgym/synthesizer_descriptions.yaml'
+    mock_open.assert_any_call(expected_path, 'r')
     with open(file_name['metainfo'], 'r') as file:
-        metainfo_data = yaml.safe_load(file)
+        metainfo_data = _REAL_SAFE_LOAD(file)
 
     assert Path(file_name['metainfo']).exists()
     assert metainfo_data['run_id'] == 'run_06_26_2025_0'
@@ -721,11 +733,13 @@ def test_validate_aws_inputs_invalid():
 @patch('sdgym.benchmark._check_write_permissions')
 def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock_boto3_client):
     """Test `_validate_aws_inputs` raises PermissionError when write permission is missing."""
+    # Setup
     valid_url = 's3://my-bucket/some/path'
     s3_client_mock = Mock()
     mock_boto3_client.return_value = s3_client_mock
     mock_check_write_permissions.return_value = False
 
+    # Run and Assert
     with pytest.raises(
         PermissionError,
         match=re.escape(
@@ -734,6 +748,43 @@ def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock
         ),
     ):
         _validate_aws_inputs(valid_url, None, None)
+
+
+@patch('sdgym.benchmark.gzip.compress')
+@patch('sdgym.benchmark.cloudpickle.dumps')
+def test_store_job_args_in_s3_stores_compressed_job_args(mock_dumps, mock_compress):
+    """Test the `_store_job_args_in_s3` method."""
+    # Setup
+    output_destination = 's3://my-bucket/some/path/'
+    s3_client_mock = Mock()
+
+    job_args = Mock()
+    job_args.modality = 'single_table'
+    job_args.output_directions = {'metainfo': '/tmp/metainfo.yaml'}
+
+    job_args_list = [job_args]
+
+    serialized = b'serialized-bytes'
+    compressed = b'compressed-bytes'
+    mock_dumps.return_value = serialized
+    mock_compress.return_value = compressed
+
+    # Run
+    bucket_name, job_args_key = _store_job_args_in_s3(
+        output_destination, job_args_list, s3_client_mock
+    )
+
+    # Assert
+    mock_dumps.assert_called_once_with(job_args_list)
+    mock_compress.assert_called_once_with(serialized, compresslevel=1)
+    s3_client_mock.put_object.assert_called_once_with(
+        Bucket='my-bucket',
+        Key='some/path/single_table/job_args_list_metainfo.pkl.gz',
+        Body=compressed,
+    )
+
+    assert bucket_name == 'my-bucket'
+    assert job_args_key == 'some/path/single_table/job_args_list_metainfo.pkl.gz'
 
 
 @patch('sdgym.benchmark._import_and_validate_synthesizers')

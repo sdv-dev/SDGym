@@ -171,7 +171,7 @@ def test_upload_to_drive_file_not_found(tmp_path):
 @patch('sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer')
 @patch(
     'sdgym.run_benchmark.upload_benchmark_results.DATASET_DETAILS_COLUMNS',
-    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Type'],
+    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality'],
 )
 def test_get_dataset_details(mock_dataset_explorer):
     """Test the `get_dataset_details` method"""
@@ -226,7 +226,7 @@ def test_get_dataset_details(mock_dataset_explorer):
         'Rows': [10, 20, 30],
         'Availability': ['Public', 'Public', 'Private'],
         'Best Model': ['TVAESynthesizer', 'GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
-        'Type': [modality, modality, modality],
+        'Data Modality': [modality, modality, modality],
     })
     assert_frame_equal(
         dataset_details.sort_values('Dataset').reset_index(drop=True),
@@ -238,7 +238,7 @@ def test_get_dataset_details(mock_dataset_explorer):
 @patch('sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer')
 @patch(
     'sdgym.run_benchmark.upload_benchmark_results.DATASET_DETAILS_COLUMNS',
-    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Type'],
+    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality'],
 )
 def test_get_dataset_details_returns_empty_when_no_datasets_found(mock_dataset_explorer):
     """Test the `get_dataset_details` method returns empty DataFrame when no datasets are found."""
@@ -266,7 +266,7 @@ def test_get_dataset_details_returns_empty_when_no_datasets_found(mock_dataset_e
     out = get_dataset_details(results, modality, 'access', 'secret')
 
     # Assert
-    assert list(out.columns) == ['Dataset', 'Rows', 'Availability', 'Best Model', 'Type']
+    assert list(out.columns) == ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality']
     assert out.empty is True
 
 
@@ -281,11 +281,15 @@ def test_get_model_details(mock_open, mock_yaml_load):
     mock_yaml_load.return_value = {
         'GaussianCopulaSynthesizer': {
             'type': 'GAN',
+            'organization': 'False_organization',
+            'modality': 'single_table',
             'library': 'external_lib',
             'description': 'A model A',
         },
         'CTGANSynthesizer': {
             'type': 'Unknown',
+            'modality': 'single_table',
+            'organization': 'Datacebo',
             'library': 'sdv',
         },
     }
@@ -326,10 +330,14 @@ def test_get_model_details(mock_open, mock_yaml_load):
     mock_yaml_load.assert_called_once_with(handle)
 
     model_idx = model_details.set_index('Synthesizer')
-    assert model_idx.loc['GaussianCopulaSynthesizer', 'Data Type'] == modality
-    assert model_idx.loc['CTGANSynthesizer', 'Data Type'] == modality
+    assert model_idx.loc['GaussianCopulaSynthesizer', 'Data Modality'] == modality
+    assert model_idx.loc['CTGANSynthesizer', 'Data Modality'] == modality
     assert model_idx.loc['GaussianCopulaSynthesizer', 'Source'] == 'external_lib'
     assert model_idx.loc['CTGANSynthesizer', 'Source'] == 'sdv'
+    assert model_idx.loc['GaussianCopulaSynthesizer', 'Model Name'] == 'GaussianCopula'
+    assert model_idx.loc['CTGANSynthesizer', 'Model Name'] == 'CTGAN'
+    assert model_idx.loc['GaussianCopulaSynthesizer', 'Organization'] == 'False_organization'
+    assert model_idx.loc['CTGANSynthesizer', 'Organization'] == 'Datacebo'
     assert model_idx.loc['GaussianCopulaSynthesizer', 'Type'] == 'GAN'
     assert model_idx.loc['GaussianCopulaSynthesizer', 'Description'] == 'A model A'
     assert model_idx.loc['CTGANSynthesizer', 'Type'] == 'Unknown'
@@ -593,8 +601,8 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
         bucket,
         prefix,
         [
-            (dataset_details, 'Dataset_Details.xlsx', 'Type'),
-            (model_details, 'Model_Details.xlsx', 'Data Type'),
+            (dataset_details, 'Dataset_Details.xlsx', 'Data Modality'),
+            (model_details, 'Model_Details.xlsx', 'Data Modality'),
         ],
         str(tmp_path),
     )
@@ -745,8 +753,8 @@ def test_upload_results(
     mock_get_dataset_details.return_value = dataset_details
     mock_get_model_details.return_value = model_details
     details = [
-        (dataset_details, 'Dataset_Details.xlsx', 'Type'),
-        (model_details, 'Model_Details.xlsx', 'Data Type'),
+        (dataset_details, 'Dataset_Details.xlsx', 'Data Modality'),
+        (model_details, 'Model_Details.xlsx', 'Data Modality'),
     ]
 
     # Run

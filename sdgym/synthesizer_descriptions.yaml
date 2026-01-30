@@ -1,5 +1,6 @@
 TVAESynthesizer:
   library: sdv
+  organization: Datacebo
   modality: single_table
   type: Deep Learning
   description: >
@@ -8,6 +9,7 @@ TVAESynthesizer:
 
 CTGANSynthesizer:
   library: sdv
+  organization: Datacebo
   modality: single_table
   type: Deep Learning
   description: >
@@ -15,6 +17,7 @@ CTGANSynthesizer:
 
 CopulaGANSynthesizer:
   library: sdv
+  organization: Datacebo
   modality: single_table
   type: Deep Learning
   description: >
@@ -23,6 +26,7 @@ CopulaGANSynthesizer:
 
 GaussianCopulaSynthesizer:
   library: sdv
+  organization: Datacebo
   modality: single_table
   type: Statistical
   description: >
@@ -30,6 +34,7 @@ GaussianCopulaSynthesizer:
 
 RealTabFormerSynthesizer:
   library: realtabformer
+  organization: World Bank
   modality: single_table
   type: Deep Learning
   description: >
@@ -38,6 +43,7 @@ RealTabFormerSynthesizer:
 
 HMASynthesizer:
   library: sdv
+  organization: Datacebo
   modality: multi_table
   type: Hierarchical Modeling
   description: >
@@ -46,6 +52,7 @@ HMASynthesizer:
 
 HSASynthesizer:
   library: sdv
+  organization: Datacebo
   modality: multi_table
   type: Hierarchical Sampling
   description: >
@@ -54,6 +61,7 @@ HSASynthesizer:
 
 IndependentSynthesizer:
   library: sdv
+  organization: Datacebo
   modality: multi_table
   type: Statistical
   description: >
@@ -62,6 +70,7 @@ IndependentSynthesizer:
 
 UniformSynthesizer:
   library: sdgym
+  organization: Datacebo
   modality: single_table
   type: Statistical
   description: >
@@ -70,6 +79,7 @@ UniformSynthesizer:
 
 MultiTableUniformSynthesizer:
   library: sdgym
+  organization: Datacebo
   modality: multi_table
   type: Statistical
   description: >
@@ -78,6 +88,7 @@ MultiTableUniformSynthesizer:
 
 ColumnSynthesizer:
   library: sdgym
+  organization: Datacebo
   modality: single_table
   type: Statistical
   description: >
@@ -86,6 +97,7 @@ ColumnSynthesizer:
 
 DataIdentity:
   library: sdgym
+  organization: Datacebo
   modality: single_table
   type: Data-copying
   description: >
