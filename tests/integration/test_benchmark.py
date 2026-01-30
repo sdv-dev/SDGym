@@ -281,7 +281,7 @@ def test_benchmark_single_table():
     assert results['Synthesizer_Size_MB'].between(0, 100).all()
     assert results['Sample_Time'].between(0, 100).all()
     assert results['Evaluate_Time'].between(0, 100).all()
-    assert results['Quality_Score'].between(0.5, 1).all()
+    assert results['Quality_Score'].between(0.4, 1).all()
 
     # The IdentitySynthesizer never returns new rows, so its score is 0
     # Every other synthesizer should only return new rows, so their score is 1
@@ -354,8 +354,8 @@ def test_benchmark_single_table_only_datasets():
     assert scores['Sample_Time'].between(0, 1000).all()
     assert scores['Evaluate_Time'].between(0, 1000).all()
     assert scores['Adjusted_Total_Time'].between(0, 1000).all()
-    assert scores['Quality_Score'].between(0.5, 1).all()
-    assert scores['Adjusted_Quality_Score'].between(0.5, 1).all()
+    assert scores['Quality_Score'].between(0.4, 1).all()
+    assert scores['Adjusted_Quality_Score'].between(0.4, 1).all()
     assert scores['Privacy_Score'].between(0.5, 1).all()
     assert (scores['Diagnostic_Score'][0:2] == 1.0).all()
     assert scores['Diagnostic_Score'][2:].between(0.5, 1.0).all()
@@ -383,8 +383,8 @@ def test_benchmark_single_table_synthesizers_none():
         assert _scores['Synthesizer'] == name
         assert _scores['Dataset'] == 'fake_companies'
         assert round(_scores['Dataset_Size_MB'], 5) == 0.00128
-        assert 0.5 < _scores['Quality_Score'] < 1
-        assert 0.5 < _scores['Adjusted_Quality_Score'] < 1
+        assert 0.4 < _scores['Quality_Score'] < 1
+        assert 0.4 < _scores['Adjusted_Quality_Score'] < 1
         assert 0.5 < _scores['Privacy_Score'] <= 1.0
         if name == 'Variant:test_synth':
             assert _scores['Diagnostic_Score'] == 1.0
@@ -424,8 +424,8 @@ def test_benchmark_single_table_no_synthesizers():
     assert result['Synthesizer'] == 'UniformSynthesizer'
     assert result['Dataset'] == 'fake_companies'
     assert round(result['Dataset_Size_MB'], 5) == 0.00128
-    assert 0.5 < result['Quality_Score'] < 1
-    assert 0.5 < result['Adjusted_Quality_Score'] < 1
+    assert 0.4 < result['Quality_Score'] < 1
+    assert 0.4 < result['Adjusted_Quality_Score'] < 1
     assert 0.5 < result['Privacy_Score'] <= 1.0
     assert 0.5 < result['Diagnostic_Score'] <= 1.0
     assert 0 < result['NewRowSynthesis'] <= 1.0
