@@ -125,12 +125,12 @@ def test_append_benchmark_run_new_file(
         'single_table': {
             'method': Mock(name='mock_single_method'),
             'synthesizers_split': [],
-            'datasets': ['single_table_1', 'single_table_2']
+            'datasets': ['single_table_1', 'single_table_2'],
         },
         'multi_table': {
             'method': Mock(name='mock_multi_method'),
             'synthesizers_split': [],
-            'datasets': ['multi_table_1', 'multi_table_2']
+            'datasets': ['multi_table_1', 'multi_table_2'],
         },
     },
     clear=True,
