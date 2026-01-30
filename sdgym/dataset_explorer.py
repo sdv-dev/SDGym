@@ -8,7 +8,7 @@ import pandas as pd
 from sdv.metadata import Metadata
 
 from sdgym.datasets import (
-    BUCKET,
+    SDV_DATASETS_PUBLIC_BUCKET,
     _get_available_datasets,
     _load_dataset_with_client,
     _validate_modality,
@@ -50,7 +50,9 @@ class DatasetExplorer:
             AWS secret access key for authentication. Defaults to ``None``.
     """
 
-    def __init__(self, s3_url=BUCKET, aws_access_key_id=None, aws_secret_access_key=None):
+    def __init__(
+        self, s3_url=SDV_DATASETS_PUBLIC_BUCKET, aws_access_key_id=None, aws_secret_access_key=None
+    ):
         self.s3_url = s3_url
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key

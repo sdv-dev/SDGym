@@ -4,7 +4,6 @@ import pandas as pd
 import pytest
 
 from sdgym.run_benchmark.utils import (
-    MODALITY_TO_GDRIVE_LINK,
     OUTPUT_DESTINATION_AWS,
     _extract_google_file_id,
     _get_slack_client,
@@ -113,7 +112,9 @@ def test_post_benchmark_launch_message(
 @patch('sdgym.run_benchmark.utils.post_slack_message')
 @patch('sdgym.run_benchmark.utils.get_s3_console_link')
 @patch('sdgym.run_benchmark.utils.parse_s3_path')
+@patch('sdgym.run_benchmark.utils._get_filename_to_gdrive_link')
 def test_post_benchmark_uploaded_message(
+    mock__get_filename_to_gdrive_link,
     mock_parse_s3_path,
     mock_get_s3_console_link,
     mock_post_slack_message,
@@ -124,10 +125,13 @@ def test_post_benchmark_uploaded_message(
     mock_parse_s3_path.return_value = ('my-bucket', 'my-prefix/')
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
+    mock__get_filename_to_gdrive_link.return_value = {
+        '[Single-table]_SDGym_Runs.xlsx': 'https://drive.google.com/file/d/example/view?usp=sharing'
+    }
     expected_body = (
-        f'🤸🏻‍♀️ SDGym single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
+        f'🤸🏻‍♀️ SDGym Single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK["single_table"]}|link>\n'
+        f' - On GDrive: <https://drive.google.com/file/d/example/view?usp=sharing|link>\n'
         f' - On S3: <{url}|link>\n'
     )
 
@@ -136,16 +140,19 @@ def test_post_benchmark_uploaded_message(
 
     # Assert
     mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
+    mock__get_filename_to_gdrive_link.assert_called_once()
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Monthly+Run.xlsx'
+        'my-bucket', 'my-prefix%2F%5BSingle-table%5D_SDGym_Runs.xlsx'
     )
 
 
 @patch('sdgym.run_benchmark.utils.post_slack_message')
 @patch('sdgym.run_benchmark.utils.get_s3_console_link')
 @patch('sdgym.run_benchmark.utils.parse_s3_path')
+@patch('sdgym.run_benchmark.utils._get_filename_to_gdrive_link')
 def test_post_benchmark_uploaded_message_with_commit(
+    mock__get_filename_to_gdrive_link,
     mock_parse_s3_path,
     mock_get_s3_console_link,
     mock_post_slack_message,
@@ -157,10 +164,13 @@ def test_post_benchmark_uploaded_message_with_commit(
     mock_parse_s3_path.return_value = ('my-bucket', 'my-prefix/')
     url = 'https://s3.console.aws.amazon.com/'
     mock_get_s3_console_link.return_value = url
+    mock__get_filename_to_gdrive_link.return_value = {
+        '[Single-table]_SDGym_Runs.xlsx': 'https://drive.google.com/file/d/example/view?usp=sharing'
+    }
     expected_body = (
-        f'🤸🏻‍♀️ SDGym single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
+        f'🤸🏻‍♀️ SDGym Single-table benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{MODALITY_TO_GDRIVE_LINK["single_table"]}|link>\n'
+        f' - On GDrive: <https://drive.google.com/file/d/example/view?usp=sharing|link>\n'
         f' - On S3: <{url}|link>\n'
         f' - On GitHub: <{commit_url}|link>\n'
     )
@@ -169,10 +179,11 @@ def test_post_benchmark_uploaded_message_with_commit(
     post_benchmark_uploaded_message(folder_name, commit_url)
 
     # Assert
+    mock__get_filename_to_gdrive_link.assert_called_once()
     mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
-        'my-bucket', 'my-prefix%2Fsingle_table%2FSDGym+Monthly+Run.xlsx'
+        'my-bucket', 'my-prefix%2F%5BSingle-table%5D_SDGym_Runs.xlsx'
     )
 
 
