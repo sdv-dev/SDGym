@@ -166,7 +166,7 @@ def test_main(
             output_destination=OUTPUT_DESTINATION_AWS,
             credential_filepath='/path/to/creds.json',
             synthesizers=group,
-            dataset_list=MODALITY_TO_SETUP[modality]['datasets'],
+            sdv_datasets=MODALITY_TO_SETUP[modality]['datasets'],
             timeout=345600,
         )
         for group in synthesizer_split

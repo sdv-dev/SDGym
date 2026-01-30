@@ -140,7 +140,7 @@ def main():
             output_destination=OUTPUT_DESTINATION_AWS,
             credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
             synthesizers=synthesizer_group,
-            dataset_list=MODALITY_TO_SETUP[modality]['datasets'],
+            sdv_datasets=MODALITY_TO_SETUP[modality]['datasets'],
             timeout=345600,  # 4 days
         )
 
