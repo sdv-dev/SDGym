@@ -12,7 +12,7 @@ from sdgym.s3 import parse_s3_path
 
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
-SLACK_CHANNEL = 'sdv-alerts-debug' #'sdv-alerts'
+SLACK_CHANNEL = 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
 PLOTLY_MARKERS = [
     'circle',
@@ -122,11 +122,12 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='sing
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
     modality_text = modality.replace('_', '-').capitalize()
     result_filename = f'[{modality_text}]_SDGym_Runs.xlsx'
+    gdrive_url = file_to_gdrive_link[result_filename].strip('\'"')
     url_link = get_s3_console_link(bucket, quote_plus(f'{prefix}{result_filename}'))
     body = (
         f'🤸🏻‍♀️ SDGym {modality_text} benchmark results for *{folder_name}* are available! 🏋️‍♀️\n'
         f'Check the results:\n'
-        f' - On GDrive: <{file_to_gdrive_link[result_filename]}|link>\n'
+        f' - On GDrive: <{gdrive_url}|link>\n'
         f' - On S3: <{url_link}|link>\n'
     )
     if commit_url:
