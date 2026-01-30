@@ -12,7 +12,7 @@ from sdgym.s3 import parse_s3_path
 
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Debug/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
-SLACK_CHANNEL = 'sdv_alerts-debug'  # 'sdv-alerts'
+SLACK_CHANNEL = 'sdv-alert-debug'  # 'sdv-alerts'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
 PLOTLY_MARKERS = [
     'circle',

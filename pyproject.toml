@@ -133,7 +133,10 @@ namespaces = false
     '*.png',
     '*.gif'
 ]
-'sdgym' = ['leaderboard.csv']
+'sdgym' = [
+    'leaderboard.csv',
+    'synthesizer_descriptions.yaml'
+]
 
 [tool.setuptools.exclude-package-data]
 '*' = [
