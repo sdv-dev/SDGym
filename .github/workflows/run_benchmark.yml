@@ -52,7 +52,7 @@ jobs:
               package='sdv-enterprise',
           )
           "
-          python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@update-multi-table-dataset-list"
+          python -m pip install "sdgym[all]"
 
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
