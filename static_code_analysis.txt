@@ -1,188 +1,175 @@
-Run started:2025-12-05 16:10:24.881223
+Run started:2026-01-30 23:51:24.376616
 
 Test results:
->> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
-   Severity: Low   Confidence: High
-   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
-   Location: ./sdgym/benchmark.py:8:0
-7	import os
-8	import pickle
-9	import re
+>> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+   Severity: Medium   Confidence: Low
+   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
+   Location: ./sdgym/_benchmark/benchmark.py:161:12
+160	    return textwrap.dedent(
+161	        f"""\
+162	        #!/bin/bash
+163	        set -e
+164	
+165	        LOG_FILE=/var/log/user-data.log
+166	        exec >> "$LOG_FILE" 2>&1
+167	
+168	        log() {{
+169	          echo "$@"
+170	        }}
+171	
+172	        {upload_logs_fn}
+173	        {terminate_fn}
+174	
+175	        # Always cleanup on exit
+176	        trap cleanup EXIT
+177	
+178	        log "======== Instance: {instance_name} =========="
+179	
+180	        log "======== Configure kernel OOM behavior =========="
+181	        sudo sysctl -w vm.panic_on_oom=1
+182	        sudo sysctl -w kernel.panic=0
+183	
+184	        log "======== Update and Install Dependencies =========="
+185	        sudo apt update -y
+186	        sudo apt install -y python3-pip python3-venv awscli git jq
+187	
+188	        log "======== Setting up swap ({swap_gb}G) =========="
+189	        sudo fallocate -l {swap_gb}G /swapfile || \
+190	          sudo dd if=/dev/zero of=/swapfile bs=1M count=$(({swap_gb}*1024))
+191	        sudo chmod 600 /swapfile
+192	        sudo mkswap /swapfile
+193	        sudo swapon /swapfile
+194	
+195	        log "======== Configure AWS CLI =========="
+196	        aws configure set aws_access_key_id '{aws_key}'
+197	        aws configure set aws_secret_access_key '{aws_secret}'
+198	        aws configure set default.region '{S3_REGION}'
+199	
+200	        log "======== Create Virtual Environment =========="
+201	        python3 -m venv ~/env
+202	        source ~/env/bin/activate
+203	
+204	        log "======== Install Dependencies =========="
+205	        pip install --upgrade pip
+206	        {sdv_install}
+207	        pip install "sdgym[all]"
+208	
+209	        {gpu_block}
+210	
+211	        log "======== Write Script =========="
+212	        cat << 'EOF' > ~/sdgym_script.py
+213	{script_content}
+214	EOF
+215	
+216	        log "======== Run Script =========="
+217	        python -u ~/sdgym_script.py | tee -a /var/log/sdgym.log
+218	
+219	        log "======== Complete =========="
+220	        """
+221	    ).strip()
 
 --------------------------------------------------
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:331:8
-330	    if isinstance(synthesizer, type):
-331	        assert issubclass(synthesizer, BaselineSynthesizer), (
-332	            '`synthesizer` must be a synthesizer class'
-333	        )
-334	        synthesizer = synthesizer()
+   Location: ./sdgym/benchmark.py:416:8
+415	    if isinstance(synthesizer, type):
+416	        assert issubclass(synthesizer, BaselineSynthesizer), (
+417	            '`synthesizer` must be a synthesizer class'
+418	        )
+419	        synthesizer = synthesizer()
 
 --------------------------------------------------
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:336:8
-335	    else:
-336	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
-337	            '`synthesizer` must be an instance of a synthesizer class.'
-338	        )
-339	
+   Location: ./sdgym/benchmark.py:421:8
+420	    else:
+421	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
+422	            '`synthesizer` must be an instance of a synthesizer class.'
+423	        )
+424	
 
 --------------------------------------------------
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:992:27
-991	    # User data script to install the library
-992	    user_data_script = f"""#!/bin/bash
-993	    sudo apt update -y
-994	    sudo apt install -y python3-pip python3-venv awscli
-995	    echo "======== Create Virtual Environment ============"
-996	    python3 -m venv ~/env
-997	    source ~/env/bin/activate
-998	    echo "======== Install Dependencies in venv ============"
-999	    pip install --upgrade pip
-1000	    pip install sdgym[all]
-1001	    pip install anyio
-1002	    echo "======== Configure AWS CLI ============"
-1003	    aws configure set aws_access_key_id {credentials.access_key}
-1004	    aws configure set aws_secret_access_key {credentials.secret_key}
-1005	    aws configure set region {session.region_name}
-1006	    echo "======== Write Script ==========="
-1007	    printf '%s\\n' "{escaped_script}" > ~/sdgym_script.py
-1008	    echo "======== Run Script ==========="
-1009	    python ~/sdgym_script.py
-1010	
-1011	    echo "======== Complete ==========="
-1012	    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-1013	    aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-1014	    """
-1015	
-
---------------------------------------------------
->> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
-   Severity: Medium   Confidence: Low
-   CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:1475:31
-1474	def _get_user_data_script(access_key, secret_key, region_name, script_content):
-1475	    return textwrap.dedent(f"""\
-1476	        #!/bin/bash
-1477	        set -e
-1478	
-1479	        # Always terminate the instance when the script exits (success or failure)
-1480	        trap '
-1481	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
-1482	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
-1483	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
-1484	        ' EXIT
-1485	
-1486	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-1487	        echo "======== Update and Install Dependencies ============"
-1488	        sudo apt update -y
-1489	        sudo apt install -y python3-pip python3-venv awscli
-1490	        echo "======== Configure AWS CLI ============"
-1491	        aws configure set aws_access_key_id '{access_key}'
-1492	        aws configure set aws_secret_access_key '{secret_key}'
-1493	        aws configure set default.region '{region_name}'
-1494	
-1495	        echo "======== Create Virtual Environment ============"
-1496	        python3 -m venv ~/env
-1497	        source ~/env/bin/activate
-1498	
-1499	        echo "======== Install Dependencies in venv ============"
-1500	        pip install --upgrade pip
-1501	        pip install sdgym[all]
-1502	        pip install s3fs
-1503	
-1504	        echo "======== Write Script ==========="
-1505	        cat << 'EOF' > ~/sdgym_script.py
-1506	{script_content}
-1507	EOF
-1508	
-1509	        echo "======== Run Script ==========="
-1510	        python ~/sdgym_script.py
-1511	        echo "======== Complete ==========="
-1512	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-1513	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-1514	    """).strip()
-1515	
-
---------------------------------------------------
->> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
-   Severity: Low   Confidence: High
-   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
-   Location: ./sdgym/result_explorer/result_handler.py:6:0
-5	import os
-6	import pickle
-7	from abc import ABC, abstractmethod
-
---------------------------------------------------
->> Issue: [B301:blacklist] Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.
-   Severity: Medium   Confidence: High
-   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_calls.html#b301-pickle
-   Location: ./sdgym/result_explorer/result_handler.py:262:19
-261	        with open(os.path.join(self.base_path, file_path), 'rb') as f:
-262	            return pickle.load(f)
-263	
-
---------------------------------------------------
->> Issue: [B301:blacklist] Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.
-   Severity: Medium   Confidence: High
-   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_calls.html#b301-pickle
-   Location: ./sdgym/result_explorer/result_handler.py:373:15
-372	        )
-373	        return pickle.loads(response['Body'].read())
-374	
-
---------------------------------------------------
->> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
-   Severity: Low   Confidence: High
-   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
-   Location: ./sdgym/result_writer.py:4:0
-3	import io
-4	import pickle
-5	from abc import ABC, abstractmethod
+   Location: ./sdgym/benchmark.py:1344:31
+1343	def _get_user_data_script(access_key, secret_key, region_name, script_content):
+1344	    return textwrap.dedent(f"""\
+1345	        #!/bin/bash
+1346	        set -e
+1347	
+1348	        # Always terminate the instance when the script exits (success or failure)
+1349	        trap '
+1350	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
+1351	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
+1352	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
+1353	        ' EXIT
+1354	
+1355	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+1356	        echo "======== Update and Install Dependencies ============"
+1357	        sudo apt update -y
+1358	        sudo apt install -y python3-pip python3-venv awscli
+1359	        echo "======== Configure AWS CLI ============"
+1360	        aws configure set aws_access_key_id '{access_key}'
+1361	        aws configure set aws_secret_access_key '{secret_key}'
+1362	        aws configure set default.region '{region_name}'
+1363	
+1364	        echo "======== Create Virtual Environment ============"
+1365	        python3 -m venv ~/env
+1366	        source ~/env/bin/activate
+1367	
+1368	        echo "======== Install Dependencies in venv ============"
+1369	        pip install --upgrade pip
+1370	        pip install sdgym[all]
+1371	        pip install s3fs
+1372	
+1373	        echo "======== Write Script ==========="
+1374	        cat << 'EOF' > ~/sdgym_script.py
+1375	{script_content}
+1376	EOF
+1377	
+1378	        echo "======== Run Script ==========="
+1379	        python ~/sdgym_script.py
+1380	        echo "======== Complete ==========="
+1381	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+1382	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+1383	    """).strip()
+1384	
 
 --------------------------------------------------
 >> Issue: [B110:try_except_pass] Try, Except, Pass detected.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b110_try_except_pass.html
-   Location: ./sdgym/result_writer.py:119:12
-118	
-119	            except Exception:
-120	                pass  # If the file does not exist, we will create it
-121	
+   Location: ./sdgym/result_writer.py:128:12
+127	
+128	            except Exception:
+129	                pass  # If the file does not exist, we will create it
+130	
 
 --------------------------------------------------
 >> Issue: [B106:hardcoded_password_funcarg] Possible hardcoded password: 'https://oauth2.googleapis.com/token'
    Severity: Low   Confidence: Medium
    CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b106_hardcoded_password_funcarg.html
-   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:93:12
-92	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
-93	    creds = OAuth2Credentials(
-94	        access_token=creds_dict['access_token'],
-95	        client_id=creds_dict.get('client_id'),
-96	        client_secret=creds_dict.get('client_secret'),
-97	        refresh_token=creds_dict.get('refresh_token'),
-98	        token_expiry=None,
-99	        token_uri='https://oauth2.googleapis.com/token',
-100	        user_agent=None,
-101	    )
-102	    gauth = GoogleAuth()
+   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:130:12
+129	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
+130	    creds = OAuth2Credentials(
+131	        access_token=creds_dict['access_token'],
+132	        client_id=creds_dict.get('client_id'),
+133	        client_secret=creds_dict.get('client_secret'),
+134	        refresh_token=creds_dict.get('refresh_token'),
+135	        token_expiry=None,
+136	        token_uri='https://oauth2.googleapis.com/token',
+137	        user_agent=None,
+138	    )
+139	    gauth = GoogleAuth()
 
 --------------------------------------------------
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
@@ -209,20 +196,20 @@ Test results:
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:143:17
-142	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-143	        output = subprocess.run(command, stdout=subprocess.PIPE)
-144	        return len(output.stdout.decode().split())
+   Location: ./sdgym/utils.py:144:17
+143	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+144	        output = subprocess.run(command, stdout=subprocess.PIPE)
+145	        return len(output.stdout.decode().split())
 
 --------------------------------------------------
 >> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
    More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:159:17
-158	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-159	        output = subprocess.run(command, stdout=subprocess.PIPE)
-160	        loads = np.array(output.stdout.decode().split()).astype(float)
+   Location: ./sdgym/utils.py:160:17
+159	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+160	        output = subprocess.run(command, stdout=subprocess.PIPE)
+161	        loads = np.array(output.stdout.decode().split()).astype(float)
 
 --------------------------------------------------
 >> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'sdgym['
@@ -237,19 +224,19 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 4978
+	Total lines of code: 6468
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
 Run metrics:
 	Total issues (by severity):
 		Undefined: 0
-		Low: 12
-		Medium: 4
+		Low: 9
+		Medium: 2
 		High: 0
 	Total issues (by confidence):
 		Undefined: 0
 		Low: 2
 		Medium: 2
-		High: 12
+		High: 7
 Files skipped (0):

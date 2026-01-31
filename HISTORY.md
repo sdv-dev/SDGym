@@ -1,5 +1,30 @@
 # History
 
+## v0.13.0 - 2026-01-30
+
+### New Features
+
+* Add a Dataset Details and a Model Details excel sheets when uploading benchmark results - Issue [#532](https://github.com/sdv-dev/SDGym/issues/532) by @R-Palazzo
+* Add workflow to run SDGym multi-table benchmark monthly and publish results - Issue [#516](https://github.com/sdv-dev/SDGym/issues/516) by @R-Palazzo
+* Define internal single and multi table methods to run on GCP - Issue [#515](https://github.com/sdv-dev/SDGym/issues/515) by @R-Palazzo
+* Add multi table support to ResultsExplorer - Issue [#488](https://github.com/sdv-dev/SDGym/issues/488) by @fealho
+* Add benchmark_multi_table_aws - Issue [#487](https://github.com/sdv-dev/SDGym/issues/487) by @R-Palazzo
+* Add benchmark_multi_table function - Issue [#486](https://github.com/sdv-dev/SDGym/issues/486) by @pvk-developer
+* Add multi-table UniformSynthesizer - Issue [#485](https://github.com/sdv-dev/SDGym/issues/485) by @R-Palazzo
+
+### Bugs Fixed
+
+* Private S3 bucket access fails in benchmark_multi_table_aws despite valid credentials - Issue [#525](https://github.com/sdv-dev/SDGym/issues/525) by @R-Palazzo
+* RealTabFormer 0.2.4 causes integration to fail - Issue [#523](https://github.com/sdv-dev/SDGym/issues/523) by @R-Palazzo
+
+### Internal
+
+* Remove deprecated parameters - Issue [#519](https://github.com/sdv-dev/SDGym/issues/519) by @fealho
+
+### Miscellaneous
+
+* Update multi-table dataset list - Issue [#535](https://github.com/sdv-dev/SDGym/issues/535) by @R-Palazzo
+
 ## v0.12.1 - 2025-12-05
 
 ### New Features
