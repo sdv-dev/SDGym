@@ -1,10 +1,11 @@
 """Results writer for SDGym benchmark."""
 
 import io
-import pickle
+import zipfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+import cloudpickle
 import pandas as pd
 import plotly.graph_objects as go
 import yaml
@@ -34,6 +35,14 @@ class ResultsWriter(ABC):
 
 class LocalResultsWriter:
     """Local results writer for saving results to the local filesystem."""
+
+    def write_zipped_dataframes(self, data, file_path, index=False):
+        """Write a dictoinary of dataframes to a ZIP file."""
+        with zipfile.ZipFile(file_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for table_name, table in data.items():
+                buf = io.StringIO()
+                table.to_csv(buf, index=index)
+                zf.writestr(f'{table_name}.csv', buf.getvalue())
 
     def write_dataframe(self, data, file_path, append=False, index=False):
         """Write a DataFrame to a CSV file."""
@@ -82,7 +91,7 @@ class LocalResultsWriter:
     def write_pickle(self, obj, file_path):
         """Write a Python object to a pickle file."""
         with open(file_path, 'wb') as f:
-            pickle.dump(obj, f)
+            cloudpickle.dump(obj, f)
 
     def write_yaml(self, data, file_path, append=False):
         """Write data to a YAML file."""
@@ -126,7 +135,7 @@ class S3ResultsWriter(ResultsWriter):
         """Write a Python object to S3 as a pickle file."""
         bucket, key = parse_s3_path(file_path)
         buffer = io.BytesIO()
-        pickle.dump(obj, buffer)
+        cloudpickle.dump(obj, buffer)
         buffer.seek(0)
         self.s3_client.put_object(Body=buffer.read(), Bucket=bucket, Key=key)
 
@@ -145,3 +154,16 @@ class S3ResultsWriter(ResultsWriter):
         run_data.update(data)
         new_content = yaml.dump(run_data)
         self.s3_client.put_object(Body=new_content.encode(), Bucket=bucket, Key=key)
+
+    def write_zipped_dataframes(self, data, file_path, index=False):
+        """Write a dictionary of DataFrames to a ZIP file in S3."""
+        bucket, key = parse_s3_path(file_path)
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for table_name, table in data.items():
+                csv_buf = io.StringIO()
+                table.to_csv(csv_buf, index=index)
+                zf.writestr(f'{table_name}.csv', csv_buf.getvalue())
+
+        zip_buffer.seek(0)
+        self.s3_client.upload_fileobj(zip_buffer, bucket, key)

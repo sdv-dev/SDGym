@@ -1,6 +1,10 @@
 """Tests for the ``tasks.py`` file."""
 
-from tasks import _get_extra_dependencies, _get_minimum_versions, _resolve_version_conflicts
+from tasks import (
+    _get_extra_dependencies,
+    _get_minimum_versions,
+    _resolve_version_conflicts,
+)
 
 
 def test_get_minimum_versions():

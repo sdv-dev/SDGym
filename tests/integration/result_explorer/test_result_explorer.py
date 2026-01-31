@@ -1,3 +1,4 @@
+import shutil
 import time
 
 import pandas as pd
@@ -10,16 +11,17 @@ from sdgym.benchmark import benchmark_single_table
 def test_end_to_end_local(tmp_path):
     """Test the ResultsExplorer end-to-end with local paths."""
     # Setup
-    output_destination = str(tmp_path / 'benchmark_output')
+    output_destination = tmp_path / 'benchmark_output'
+    result_explorer_path = output_destination / 'single_table'
     benchmark_single_table(
-        output_destination=output_destination,
+        output_destination=str(output_destination),
         synthesizers=['GaussianCopulaSynthesizer', 'TVAESynthesizer'],
         sdv_datasets=['expedia_hotel_logs', 'fake_companies'],
     )
     today = time.strftime('%m_%d_%Y')
 
     # Run
-    result_explorer = ResultsExplorer(output_destination)
+    result_explorer = ResultsExplorer(str(result_explorer_path), modality='single_table')
     runs = result_explorer.list()
     results = result_explorer.load_results(runs[0])
     metainfo = result_explorer.load_metainfo(runs[0])
@@ -38,10 +40,11 @@ def test_end_to_end_local(tmp_path):
         dataset_name='fake_companies',
         synthesizer_name='TVAESynthesizer',
     )
+    assert isinstance(synthesizer, TVAESynthesizer)
     new_synthetic_data = synthesizer.sample(num_rows=10)
 
     # Assert
-    expected_results = pd.read_csv(f'{output_destination}/SDGym_results_{today}/results.csv')
+    expected_results = pd.read_csv(f'{result_explorer_path}/SDGym_results_{today}/results.csv')
     pd.testing.assert_frame_equal(results, expected_results)
     assert metainfo[f'run_{today}_0']['jobs'] == [
         ['expedia_hotel_logs', 'GaussianCopulaSynthesizer'],
@@ -62,8 +65,8 @@ def test_end_to_end_local(tmp_path):
 def test_summarize():
     """Test the `summarize` method."""
     # Setup
-    output_destination = 'tests/integration/result_explorer/_benchmark_results'
-    result_explorer = ResultsExplorer(output_destination)
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
+    result_explorer = ResultsExplorer(output_destination, modality='single_table')
 
     # Run
     summary, results = result_explorer.summarize('SDGym_results_10_11_2024')
@@ -76,8 +79,9 @@ def test_summarize():
         '04_05_2024 - # datasets: 9 - sdgym version: 0.7.0': [5, 3, 5],
     })
     expected_results = (
-        pd.read_csv(
-            'tests/integration/result_explorer/_benchmark_results/'
+        pd
+        .read_csv(
+            'tests/integration/result_explorer/_benchmark_results/single_table/'
             'SDGym_results_10_11_2024/results.csv',
         )
         .sort_values(by=['Dataset', 'Synthesizer'])
@@ -86,3 +90,63 @@ def test_summarize():
     expected_results['Win'] = expected_results['Win'].astype('int64')
     pd.testing.assert_frame_equal(summary, expected_summary)
     pd.testing.assert_frame_equal(results, expected_results)
+
+
+def test_summarize_multi_table():
+    """Test summarize works under the multi_table subfolder."""
+    # Setup
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
+    result_explorer = ResultsExplorer(output_destination, modality='multi_table')
+
+    # Run
+    summary, results = result_explorer.summarize('SDGym_results_12_02_2025')
+
+    # Assert
+    expected_summary = pd.DataFrame({
+        'Synthesizer': ['HMASynthesizer', 'MultiTableUniformSynthesizer'],
+        '12_02_2025 - # datasets: 1 - sdgym version: 0.11.2.dev0': [0, 0],
+    })
+    expected_results = (
+        pd
+        .read_csv(
+            'tests/integration/result_explorer/_benchmark_results/multi_table/'
+            'SDGym_results_12_02_2025/results.csv',
+        )
+        .sort_values(by=['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
+    expected_results['Win'] = [0, 0]
+    pd.testing.assert_frame_equal(summary, expected_summary)
+    pd.testing.assert_frame_equal(results, expected_results)
+
+
+def test_list_and_load_results_multi_table(tmp_path):
+    """Test listing and loading results under multi_table subfolder."""
+    # Setup
+    run_folder = 'SDGym_results_12_02_2025'
+    src_root = 'tests/integration/result_explorer/_benchmark_results/multi_table/' + run_folder
+    dst_root = tmp_path / 'benchmark_output' / 'multi_table' / run_folder
+    shutil.copytree(src_root, dst_root)
+
+    explorer = ResultsExplorer(str(tmp_path / 'benchmark_output'), modality='multi_table')
+
+    # Run
+    runs = explorer.list()
+    assert runs == [run_folder]
+    loaded_results = (
+        explorer
+        .load_results(runs[0])
+        .sort_values(by=['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
+    metainfo = explorer.load_metainfo(runs[0])
+
+    # Assert
+    expected_results = (
+        pd
+        .read_csv(dst_root / 'results.csv')
+        .sort_values(by=['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
+    pd.testing.assert_frame_equal(loaded_results, expected_results)
+    assert isinstance(metainfo, dict) and len(metainfo) >= 1

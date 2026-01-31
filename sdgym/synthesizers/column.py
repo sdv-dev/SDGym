@@ -19,9 +19,11 @@ class ColumnSynthesizer(BaselineSynthesizer):
     Continuous columns are learned and sampled using a GMM.
     """
 
-    def _get_trained_synthesizer(self, real_data, metadata):
+    _MODALITY_FLAG = 'single_table'
+
+    def _fit(self, data, metadata):
         hyper_transformer = HyperTransformer()
-        hyper_transformer.detect_initial_config(real_data)
+        hyper_transformer.detect_initial_config(data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
         if isinstance(metadata, Metadata):
@@ -46,14 +48,14 @@ class ColumnSynthesizer(BaselineSynthesizer):
 
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
-            column_name for column_name, data in real_data.items() if data.dtype.kind in {'O', 'i'}
+            column_name for column_name, data in data.items() if data.dtype.kind in {'O', 'i'}
         ]
         hyper_transformer.remove_transformers(columns_to_remove)
 
-        hyper_transformer.fit(real_data)
-        transformed = hyper_transformer.transform(real_data)
+        hyper_transformer.fit(data)
+        transformed = hyper_transformer.transform(data)
 
-        self.length = len(real_data)
+        self.length = len(data)
         gm_models = {}
         for name, column in transformed.items():
             kind = column.dtype.kind
@@ -63,18 +65,22 @@ class ColumnSynthesizer(BaselineSynthesizer):
                 model.fit(column.to_numpy().reshape(-1, 1))
                 gm_models[name] = model
 
-        return (hyper_transformer, transformed, gm_models)
+        self.hyper_transformer = hyper_transformer
+        self.transformed_data = transformed
+        self.gm_models = gm_models
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
-        hyper_transformer, transformed, gm_models = synthesizer
+        hyper_transformer = synthesizer.hyper_transformer
+        transformed = synthesizer.transformed_data
+        gm_models = synthesizer.gm_models
         sampled = pd.DataFrame()
         for name, column in transformed.items():
             kind = column.dtype.kind
             if kind == 'O':
-                values = column.sample(self.length, replace=True).to_numpy()
+                values = column.sample(n_samples, replace=True).to_numpy()
             else:
                 model = gm_models.get(name)
-                values = model.sample(self.length)[0].ravel().clip(column.min(), column.max())
+                values = model.sample(n_samples)[0].ravel().clip(column.min(), column.max())
 
             sampled[name] = values
 

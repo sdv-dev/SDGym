@@ -7,8 +7,13 @@ from pathlib import Path
 import pandas as pd
 from sdv.metadata import Metadata
 
-from sdgym.datasets import BUCKET, _get_available_datasets, _validate_modality, load_dataset
-from sdgym.s3 import _validate_s3_url
+from sdgym.datasets import (
+    SDV_DATASETS_PUBLIC_BUCKET,
+    _get_available_datasets,
+    _load_dataset_with_client,
+    _validate_modality,
+)
+from sdgym.s3 import _get_s3_client, _validate_s3_url
 
 SUMMARY_OUTPUT_COLUMNS = [
     'Dataset',
@@ -45,11 +50,18 @@ class DatasetExplorer:
             AWS secret access key for authentication. Defaults to ``None``.
     """
 
-    def __init__(self, s3_url=BUCKET, aws_access_key_id=None, aws_secret_access_key=None):
+    def __init__(
+        self, s3_url=SDV_DATASETS_PUBLIC_BUCKET, aws_access_key_id=None, aws_secret_access_key=None
+    ):
         self.s3_url = s3_url
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self._bucket_name = _validate_s3_url(self.s3_url)
+        self.s3_client = (
+            _get_s3_client(s3_url, self.aws_access_key_id, self.aws_secret_access_key)
+            if self.aws_access_key_id and self.aws_secret_access_key
+            else None
+        )
 
     @staticmethod
     def _get_max_schema_branch_factor(relationships):
@@ -205,7 +217,7 @@ class DatasetExplorer:
 
         Args:
             modality (str):
-                The dataset modality to load (e.g., 'single-table' or 'multi-table').
+                The dataset modality to load (e.g., 'single_table' or 'multi_table').
 
         Returns:
             list[dict]:
@@ -217,19 +229,14 @@ class DatasetExplorer:
         datasets = _get_available_datasets(
             modality=modality,
             bucket=self._bucket_name,
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
+            s3_client=self.s3_client,
         )
         for _, dataset_row in datasets.iterrows():
             dataset_name = dataset_row['dataset_name']
             dataset_size_mb = dataset_row['size_MB']
             dataset_num_table = dataset_row['num_tables']
-            data, metadata_dict = load_dataset(
-                modality,
-                dataset=dataset_name,
-                bucket=self._bucket_name,
-                aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
+            data, metadata_dict = _load_dataset_with_client(
+                modality, dataset=dataset_name, bucket=self._bucket_name, s3_client=self.s3_client
             )
 
             metadata_stats = DatasetExplorer.get_metadata_summary(metadata_dict)
@@ -337,8 +344,7 @@ class DatasetExplorer:
         dataframe = _get_available_datasets(
             modality=modality,
             bucket=self._bucket_name,
-            aws_access_key_id=self.aws_access_key_id,
-            aws_secret_access_key=self.aws_secret_access_key,
+            s3_client=self.s3_client,
         )
         if output_filepath:
             dataframe.to_csv(output_filepath, index=False)

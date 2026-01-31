@@ -1,0 +1,105 @@
+TVAESynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: single_table
+  type: Deep Learning
+  description: >
+    The TVAE Synthesizer uses a variational autoencoder (VAE)-based, neural network
+    techniques to train a model and generate synthetic data.
+
+CTGANSynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: single_table
+  type: Deep Learning
+  description: >
+    The CTGAN Synthesizer uses GAN-based, deep learning methods to train a model and generate synthetic data.
+
+CopulaGANSynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: single_table
+  type: Deep Learning
+  description: >
+    The Copula GAN Synthesizer uses a mix classic, statistical methods and
+    GAN-based deep learning methods to train a model and generate synthetic data.
+
+GaussianCopulaSynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: single_table
+  type: Statistical
+  description: >
+    The Gaussian Copula Synthesizer uses classic, statistical methods to train a model and generate synthetic data.
+
+RealTabFormerSynthesizer:
+  library: realtabformer
+  organization: World Bank
+  modality: single_table
+  type: Deep Learning
+  description: >
+    Transformer-based deep learning synthesizer that treats tabular data as
+    a sequence modeling problem, inspired by large language models.
+
+HMASynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: multi_table
+  type: Hierarchical Modeling
+  description: >
+    The HMA Synthesizer uses hierarchical ML algorithm to learn from real data
+    and generate synthetic data.  The algorithm uses classical statistics.
+
+HSASynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: multi_table
+  type: Hierarchical Sampling
+  description: >
+    The HSA Synthesizer uses a segment-based algorithm to learn from your real data
+    and generate synthetic data. This synthesizer offers fast performance for unlimited tables.
+
+IndependentSynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: multi_table
+  type: Statistical
+  description: >
+    The Independent Synthesizer learns each table's patterns independently.
+    This synthesizer offers fast performance for unlimited tables.
+
+UniformSynthesizer:
+  library: sdgym
+  organization: Datacebo
+  modality: single_table
+  type: Statistical
+  description: >
+    Statistical baseline synthesizer that generates values uniformly at random
+    within the observed bounds of each column.
+
+MultiTableUniformSynthesizer:
+  library: sdgym
+  organization: Datacebo
+  modality: multi_table
+  type: Statistical
+  description: >
+    Multi-table baseline synthesizer that generates data uniformly at random
+    for each table while preserving table schemas.
+
+ColumnSynthesizer:
+  library: sdgym
+  organization: Datacebo
+  modality: single_table
+  type: Statistical
+  description: >
+    Lightweight statistical synthesizer that applies simple, column-wise models
+    without learning inter-column dependencies.
+
+DataIdentity:
+  library: sdgym
+  organization: Datacebo
+  modality: single_table
+  type: Data-copying
+  description: >
+    Degenerate synthesizer that returns the original training data unchanged,
+    primarily useful for debugging and benchmarking.

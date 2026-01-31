@@ -23,7 +23,8 @@ from sdgym.s3 import (
 LOGGER = logging.getLogger(__name__)
 
 DATASETS_PATH = Path(appdirs.user_data_dir()) / 'SDGym' / 'datasets'
-BUCKET = 's3://sdv-datasets-public'
+SDV_DATASETS_PUBLIC_BUCKET = 's3://sdv-datasets-public'
+SDV_DATASETS_PRIVATE_BUCKET = 's3://sdv-datasets-private'
 BUCKET_URL = 'https://{}.s3.amazonaws.com/'
 TIMESERIES_FIELDS = ['sequence_index', 'entity_columns', 'context_columns', 'deepecho_version']
 MODALITIES = ['single_table', 'multi_table', 'sequential']
@@ -34,31 +35,64 @@ def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX) :] if bucket.startswith(S3_PREFIX) else bucket
 
 
+def _raise_dataset_not_found_error(
+    s3_client,
+    bucket_name,
+    dataset_name,
+    current_modality,
+    bucket,
+    modality,
+):
+    display_name = dataset_name
+    if isinstance(dataset_name, Path):
+        display_name = dataset_name.name
+
+    available_modalities = []
+    for other_modality in MODALITIES:
+        if other_modality == current_modality:
+            continue
+
+        other_prefix = f'{other_modality.lower()}/{dataset_name}/'
+        other_contents = _list_s3_bucket_contents(s3_client, bucket_name, other_prefix)
+        if other_contents:
+            available_modalities.append(other_modality)
+
+    if available_modalities:
+        available_list = ', '.join(sorted(available_modalities))
+        raise ValueError(
+            f"Dataset '{display_name}' not found in bucket '{bucket}' "
+            f"for modality '{modality}'. It is available under modality: '{available_list}'."
+        )
+    else:
+        raise ValueError(
+            f"Dataset '{display_name}' not found in bucket '{bucket}' for modality '{modality}'."
+        )
+
+
 def _download_dataset(
     modality,
     dataset_name,
     datasets_path=None,
     bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
+    s3_client=None,
 ):
     """Download a dataset into the given ``datasets_path`` / ``modality``."""
     datasets_path = datasets_path or DATASETS_PATH / modality / dataset_name
-    bucket = bucket or BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     bucket_name = _get_bucket_name(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
-    s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
+    s3_client = s3_client or get_s3_client()
     prefix = f'{modality.lower()}/{dataset_name}/'
-
     contents = _list_s3_bucket_contents(s3_client, bucket_name, prefix)
     if not contents:
-        display_name = dataset_name
-        if isinstance(dataset_name, Path):
-            display_name = dataset_name.name
-
-        raise ValueError(
-            f"Dataset '{display_name}' not found in bucket '{bucket}' for modality '{modality}'."
+        _raise_dataset_not_found_error(
+            s3_client,
+            bucket_name,
+            dataset_name,
+            modality,
+            bucket,
+            modality,
         )
 
     for obj in contents:
@@ -88,8 +122,7 @@ def _get_dataset_path_and_download(
     dataset,
     datasets_path,
     bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
+    s3_client=None,
 ):
     dataset = Path(dataset)
     if dataset.exists() and _path_contains_data_and_metadata(dataset):
@@ -100,16 +133,21 @@ def _get_dataset_path_and_download(
     if dataset_path.exists() and _path_contains_data_and_metadata(dataset_path):
         return dataset_path
 
-    bucket = bucket or BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     if not bucket.startswith(S3_PREFIX):
-        local_path = Path(bucket) / modality / dataset if bucket else Path(dataset)
+        local_path = Path(bucket) / modality / dataset
         if local_path.exists() and _path_contains_data_and_metadata(local_path):
             return local_path
 
-    dataset_path = _download_dataset(
-        modality, dataset, dataset_path, bucket, aws_access_key_id, aws_secret_access_key
+    s3_client = s3_client or get_s3_client()
+
+    return _download_dataset(
+        modality,
+        dataset,
+        dataset_path,
+        bucket,
+        s3_client=s3_client,
     )
-    return dataset_path
 
 
 def _validate_modality(modality):
@@ -196,13 +234,19 @@ def _genereate_dataset_info(s3_client, bucket_name, contents):
 
 
 def _get_available_datasets(
-    modality, bucket=None, aws_access_key_id=None, aws_secret_access_key=None
+    modality,
+    bucket=None,
+    s3_client=None,
 ):
     _validate_modality(modality)
-    s3_client = get_s3_client(aws_access_key_id, aws_secret_access_key)
-    bucket = bucket or BUCKET
+    s3_client = s3_client or get_s3_client()
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     bucket_name = _get_bucket_name(bucket)
-    contents = _list_s3_bucket_contents(s3_client, bucket_name, f'{modality}/')
+    contents = _list_s3_bucket_contents(
+        s3_client,
+        bucket_name,
+        f'{modality}/',
+    )
     datasets_info = _genereate_dataset_info(s3_client, bucket_name, contents)
     return pd.DataFrame(datasets_info)
 
@@ -231,8 +275,10 @@ def load_dataset(
             and ``dataset_path`` don't exist.
         aws_access_key_id (str or None):
             The access key id that will be used to communicate with s3, if provided.
+            Defaults to ``None``.
         aws_secret_access_key (str or None):
             The secret access key that will be used to communicate with s3, if provided.
+            Defaults to ``None``.
         limit_dataset_size (bool):
             Use this flag to limit the size of the datasets for faster evaluation. If ``True``,
             limit the size of every table to 1,000 rows (randomly sampled) and the first 10
@@ -242,9 +288,31 @@ def load_dataset(
         pd.DataFrame | dict, dict:
             The data and medatata for a dataset.
     """
+    s3_client = get_s3_client(
+        aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+    )
+    return _load_dataset_with_client(
+        modality=modality,
+        dataset=dataset,
+        datasets_path=datasets_path,
+        bucket=bucket,
+        s3_client=s3_client,
+        limit_dataset_size=limit_dataset_size,
+    )
+
+
+def _load_dataset_with_client(
+    modality,
+    dataset,
+    datasets_path=None,
+    bucket=None,
+    s3_client=None,
+    limit_dataset_size=False,
+):
+    """Get the data and metadata of a dataset using a given s3 client."""
     _validate_modality(modality)
     dataset_path = _get_dataset_path_and_download(
-        modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+        modality, dataset, datasets_path, bucket, s3_client=s3_client
     )
 
     data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
@@ -259,8 +327,7 @@ def get_dataset_paths(
     datasets=None,
     datasets_path=None,
     bucket=None,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
+    s3_client=None,
 ):
     """Build the full path to datasets and ensure they exist.
 
@@ -271,17 +338,16 @@ def get_dataset_paths(
             The path of the datasets.
         bucket (str):
             The AWS bucket where to get the dataset or folder.
-        aws_access_key_id (str):
-            The access key id that will be used to communicate with s3, if provided.
-        aws_secret_access_key (str):
-            The secret access key that will be used to communicate with s3, if provided.
+        s3_client (boto3.client):
+            The s3 client that will be used to communicate with s3, if provided.
+            Defaults to ``None``.
 
     Returns:
         list:
             List of the full path of the datasets.
     """
     _validate_modality(modality)
-    bucket = bucket or BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
     is_remote = bucket.startswith(S3_PREFIX)
 
     if datasets_path is None:
@@ -300,16 +366,20 @@ def get_dataset_paths(
             datasets = _get_available_datasets(
                 modality,
                 bucket=bucket,
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key,
+                s3_client=s3_client,
             )
             datasets = datasets['dataset_name'].tolist()
 
     dataset_paths = []
     for dataset in datasets:
-        available_dataset = _get_dataset_path_and_download(
-            modality, dataset, datasets_path, bucket, aws_access_key_id, aws_secret_access_key
+        dataset_paths.append(
+            _get_dataset_path_and_download(
+                modality,
+                dataset,
+                datasets_path,
+                bucket=bucket,
+                s3_client=s3_client,
+            )
         )
-        dataset_paths.append(available_dataset)
 
     return dataset_paths

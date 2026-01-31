@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from sdgym.dataset_explorer import SUMMARY_OUTPUT_COLUMNS, DatasetExplorer
-from sdgym.datasets import BUCKET
+from sdgym.datasets import SDV_DATASETS_PUBLIC_BUCKET
 
 
 class TestDatasetExplorer:
@@ -16,12 +16,16 @@ class TestDatasetExplorer:
         explorer = DatasetExplorer()
 
         # Assert
-        assert explorer.s3_url == BUCKET
+        assert explorer.s3_url == SDV_DATASETS_PUBLIC_BUCKET
         assert explorer.aws_access_key_id is None
         assert explorer.aws_secret_access_key is None
 
-    def test___init__with_parameters(self):
+    @patch('sdgym.dataset_explorer._get_s3_client')
+    def test___init__with_parameters(self, mock_s3_client):
         """Test the ``__init__`` method with custom parameters."""
+        # Setup
+        mock_s3_client.return_value = 's3_client'
+
         # Run
         explorer = DatasetExplorer(
             s3_url='s3://custom-bucket',
@@ -33,6 +37,8 @@ class TestDatasetExplorer:
         assert explorer.s3_url == 's3://custom-bucket'
         assert explorer.aws_access_key_id == 'key123'
         assert explorer.aws_secret_access_key == 'secret456'
+        assert explorer.s3_client == 's3_client'
+        mock_s3_client.assert_called_once_with('s3://custom-bucket', 'key123', 'secret456')
 
     def test__get_max_schema_branch_factor(self):
         """Test the ``_get_max_schema_branch_factor`` method."""
@@ -169,13 +175,13 @@ class TestDatasetExplorer:
         assert result['Total_Num_Rows'] == 5
         assert result['Max_Num_Rows_Per_Table'] == 3
 
-    def test__validate_output_filepath_valid(self):
+    def test__validate_output_filepath_valid(self, tmp_path):
         """Test the ``_validate_output_filepath`` method with valid CSV path."""
         # Setup
         explorer = DatasetExplorer()
 
         # Run and Assert
-        explorer._validate_output_filepath('output.csv')
+        explorer._validate_output_filepath(tmp_path / 'output.csv')
 
     def test__validate_output_filepath_invalid(self):
         """Test the ``_validate_output_filepath`` method with invalid file path."""
@@ -240,7 +246,7 @@ class TestDatasetExplorer:
             DatasetExplorer(s3_url=value)
 
     @patch('sdgym.dataset_explorer._get_available_datasets')
-    @patch('sdgym.dataset_explorer.load_dataset')
+    @patch('sdgym.dataset_explorer._load_dataset_with_client')
     def test__load_and_summarize_datasets(self, mock_load_dataset, mock_get_datasets):
         """Test the ``_load_and_summarize_datasets`` method."""
         # Setup
@@ -260,15 +266,13 @@ class TestDatasetExplorer:
         mock_get_datasets.assert_called_once_with(
             modality='single_table',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         mock_load_dataset.assert_called_once_with(
             'single_table',
             dataset='test',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         assert isinstance(result, list)
         assert 'Dataset' in result[0]
@@ -333,8 +337,7 @@ class TestDatasetExplorer:
         mock_get_available.assert_called_once_with(
             modality='single_table',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         pd.testing.assert_frame_equal(result, expected_df)
 
@@ -359,8 +362,7 @@ class TestDatasetExplorer:
         mock_get_available.assert_called_once_with(
             modality='multi_table',
             bucket='sdv-datasets-public',
-            aws_access_key_id=None,
-            aws_secret_access_key=None,
+            s3_client=None,
         )
         assert output_filepath.exists()
         loaded = pd.read_csv(output_filepath)
