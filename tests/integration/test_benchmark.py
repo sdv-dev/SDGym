@@ -297,7 +297,7 @@ def test_benchmark_single_table_timeout():
 
     # Run
     scores = sdgym.benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['insurance'], timeout=2
+        synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['insurance'], timeout=1
     )
     total_time = time.time() - start_time
 
@@ -319,7 +319,7 @@ def test_benchmark_single_table_timeout():
             'Quality_Score': None,
             'Privacy_Score': None,
             'error': 'Synthesizer Timeout',
-            'Adjusted_Total_Time': 2 + fallback_train_time + fallback_sample_time,
+            'Adjusted_Total_Time': 1 + fallback_train_time + fallback_sample_time,
             'Adjusted_Quality_Score': None,
         },
         name=0,
