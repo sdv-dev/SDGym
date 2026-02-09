@@ -353,7 +353,7 @@ def test_get_model_details(mock_open, mock_yaml_load):
 
 
 def test_get_model_details_no_error_column():
-    """Test the `get_model_details` when there is no error column inside the result."""
+    """Test `get_model_details` when there is no error column inside the result."""
     # Setup
     modality = 'single_table'
     summary = pd.DataFrame({
