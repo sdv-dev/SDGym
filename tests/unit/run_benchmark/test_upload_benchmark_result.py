@@ -352,6 +352,37 @@ def test_get_model_details(mock_open, mock_yaml_load):
     assert not model_idx.loc['CTGANSynthesizer', 'On the Pareto Curve']
 
 
+def test_get_model_details_no_error_column():
+    """Test the `get_model_details` when there is no error column inside the result."""
+    # Setup
+    modality = 'single_table'
+    summary = pd.DataFrame({
+        'Synthesizer': ['GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
+        'Wins': [1, 0],
+    })
+    results = pd.DataFrame({
+        'Dataset': ['census', 'fake_hotels'] * 2,
+        'Synthesizer': [
+            'GaussianCopulaSynthesizer',
+            'GaussianCopulaSynthesizer',
+            'CTGANSynthesizer',
+            'CTGANSynthesizer',
+        ],
+        'Quality_Score': [0.1, 0.2, 0.15, 0.25],
+    })
+    df_to_plot = pd.DataFrame({
+        'Synthesizer': ['GaussianCopula', 'CTGAN'],
+        'Pareto': [True, False],
+    })
+
+    # Run
+    model_details = get_model_details(summary, results, df_to_plot, modality)
+
+    # Assert
+    assert (model_details['Number of datasets - Timeout'] == 0).all()
+    assert (model_details['Number of datasets - Errors'] == 0).all()
+
+
 def test_update_table_aws_merges_with_existing_table():
     """Test the `update_table_aws` method."""
     # Setup

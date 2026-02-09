@@ -233,7 +233,6 @@ def get_model_details(summary, results, df_to_plot, modality):
 
     err_column = next((c for c in ('error', 'Error') if c in results.columns), None)
     err_column_flag = err_column is not None
-
     paretos_synthesizers = (
         df_to_plot.loc[df_to_plot['Pareto'].eq(True), 'Synthesizer'].astype(str).add('Synthesizer')
     )
