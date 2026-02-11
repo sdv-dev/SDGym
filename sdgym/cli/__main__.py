@@ -39,13 +39,13 @@ def _print_table(data, sort=None, reverse=False, format=None):
         for field, formatter in format.items():
             data[field] = data[field].apply(formatter)
 
-    if 'error' in data:
-        error = data['error']
+    if 'Error' in data:
+        error = data['Error']
         if pd.isna(error).all():
-            del data['error']
+            del data['Error']
         else:
             long_error = error.str.len() > 30
-            data.loc[long_error, 'error'] = error[long_error].str[:30] + '...'
+            data.loc[long_error, 'Error'] = error[long_error].str[:30] + '...'
 
     print(tabulate.tabulate(data, tablefmt='github', headers=data.columns, showindex=False))  # noqa: T201
 
