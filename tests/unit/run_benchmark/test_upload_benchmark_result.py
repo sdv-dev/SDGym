@@ -308,7 +308,7 @@ def test_get_model_details(mock_open, mock_yaml_load):
             'CTGANSynthesizer',
         ],
         'Quality_Score': [0.1, 0.2, 0.3, 0.15, 0.25],
-        'error': [
+        'Error': [
             'Synthesizer Timeout',  # timeout on D1 for GaussianCopulaSynthesizer
             'Other Error',  # error on D2 for GaussianCopulaSynthesizer
             None,  # no error on D3 for GaussianCopulaSynthesizer

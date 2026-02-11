@@ -231,8 +231,6 @@ def get_model_details(summary, results, df_to_plot, modality):
     with open(SYNTHESIZER_DESCRIPTION_PATH, 'r', encoding='utf-8') as f:
         synthesizer_info = yaml.safe_load(f) or {}
 
-    err_column = next((c for c in ('error', 'Error') if c in results.columns), None)
-    err_column_flag = err_column is not None
     paretos_synthesizers = (
         df_to_plot.loc[df_to_plot['Pareto'].eq(True), 'Synthesizer'].astype(str).add('Synthesizer')
     )
@@ -259,16 +257,16 @@ def get_model_details(summary, results, df_to_plot, modality):
     model_details['Number of datasets - Wins'] = (
         model_details['Synthesizer'].map(wins).fillna(0).astype(int)
     )
-    if err_column_flag:
+    if 'Error' in results.columns:
         timeout_counts = (
             results
-            .loc[results[err_column].eq('Synthesizer Timeout')]
+            .loc[results['Error'].eq('Synthesizer Timeout')]
             .groupby('Synthesizer')['Dataset']
             .nunique()
         )
         error_counts = (
             results
-            .loc[results[err_column].notna() & ~results[err_column].eq('Synthesizer Timeout')]
+            .loc[results['Error'].notna() & ~results['Error'].eq('Synthesizer Timeout')]
             .groupby('Synthesizer')['Dataset']
             .nunique()
         )
