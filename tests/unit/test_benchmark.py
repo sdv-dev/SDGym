@@ -235,7 +235,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
     # Setup
     mocked_process = mock_multiprocessing.Process.return_value
     manager = mock_multiprocessing.Manager.return_value
-    manager_dict = {'timeout': True, 'error': 'Synthesizer Timeout'}
+    manager_dict = {'timeout': True, 'Error': 'Synthesizer Timeout'}
     manager.__enter__.return_value.dict.return_value = manager_dict
 
     # Run
@@ -261,7 +261,7 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
         'Diagnostic_Score': {0: None},
         'Quality_Score': {0: None},
         'Privacy_Score': {0: None},
-        'error': {0: 'Synthesizer Timeout'},
+        'Error': {0: 'Synthesizer Timeout'},
         'Adjusted_Total_Time': {0: None},
         'Adjusted_Quality_Score': {0: None},
     })
@@ -357,14 +357,14 @@ def test__format_output():
         'scores': [
             {
                 'metric': 'NewRowSynthesis',
-                'error': None,
+                'Error': None,
                 'score': 0.998,
                 'normalized_score': 0.998,
                 'metric_time': 6.0,
             },
             {
                 'metric': 'NewMetric',
-                'error': None,
+                'Error': None,
                 'score': 0.998,
                 'normalized_score': 0.998,
                 'metric_time': 5.0,
@@ -985,7 +985,7 @@ def test__add_adjusted_scores_timeout():
         'Train_Time': [np.nan, 0.5],
         'Sample_Time': [np.nan, 0.25],
         'Quality_Score': [np.nan, 0.5],
-        'error': ['Synthesizer Timeout', np.nan],
+        'Error': ['Synthesizer Timeout', np.nan],
     })
     expected = pd.DataFrame({
         'Synthesizer': ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
@@ -993,7 +993,7 @@ def test__add_adjusted_scores_timeout():
         'Train_Time': [np.nan, 0.5],
         'Sample_Time': [np.nan, 0.25],
         'Quality_Score': [np.nan, 0.5],
-        'error': ['Synthesizer Timeout', np.nan],
+        'Error': ['Synthesizer Timeout', np.nan],
         'Adjusted_Total_Time': [10.75, 1.25],
         'Adjusted_Quality_Score': [0.5, 0.5],
     })
@@ -1014,7 +1014,7 @@ def test__add_adjusted_scores_errors():
         'Train_Time': [np.nan, 1.0, 1.0, 0.5],
         'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
         'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
-        'error': ['ValueError', 'RuntimeError', 'KeyError', np.nan],
+        'Error': ['ValueError', 'RuntimeError', 'KeyError', np.nan],
     })
     expected = pd.DataFrame({
         'Synthesizer': ['ErrorOnTrain', 'ErrorOnSample', 'ErrorAfterSample', 'UniformSynthesizer'],
@@ -1022,7 +1022,7 @@ def test__add_adjusted_scores_errors():
         'Train_Time': [np.nan, 1.0, 1.0, 0.5],
         'Sample_Time': [np.nan, np.nan, 2.0, 0.25],
         'Quality_Score': [np.nan, np.nan, np.nan, 0.5],
-        'error': ['ValueError', 'RuntimeError', 'KeyError', np.nan],
+        'Error': ['ValueError', 'RuntimeError', 'KeyError', np.nan],
         'Adjusted_Total_Time': [0.75, 1.75, 3.75, 1.25],
         'Adjusted_Quality_Score': [0.5, 0.5, 0.5, 0.5],
     })
