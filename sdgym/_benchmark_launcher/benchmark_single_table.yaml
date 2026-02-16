@@ -1,0 +1,28 @@
+modality: single_table
+datasets_single_table: &datasets_single_table
+  - adult
+  - alarm
+  - census
+  - child
+  - covtype
+  - expedia_hotel_logs
+  - insurance
+  - intrusion
+  - news
+
+instance_jobs:
+  - datasets: *datasets_single_table
+    synthesizers:
+      - UniformSynthesizer
+      - ColumnSynthesizer
+      - GaussianCopulaSynthesizer
+      - TVAESynthesizer
+
+  - datasets: *datasets_single_table
+    synthesizers: [CTGANSynthesizer]
+
+  - datasets: *datasets_single_table
+    synthesizers: [CopulaGANSynthesizer]
+
+  - datasets: *datasets_single_table
+    synthesizers: [RealTabFormerSynthesizer]

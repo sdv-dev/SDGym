@@ -1,0 +1,16 @@
+method_params:
+  timeout: 345600
+  output_destination: 's3://my-bucket/sdgym-results/Debug/Benchmark_Launcher/'
+  compute_quality: true
+  compute_diagnostic: true
+  compute_privacy: false
+
+compute:
+  service: 'gcp'
+
+credentials:
+  credential_filepath_env: 'CREDENTIALS_FILEPATH'
+  aws_access_key_id_env: 'AWS_ACCESS_KEY_ID'
+  aws_secret_access_key_env: 'AWS_SECRET_ACCESS_KEY'
+
+

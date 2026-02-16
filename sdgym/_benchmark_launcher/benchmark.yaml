@@ -1,0 +1,45 @@
+version: 1
+
+run:
+  modality: single_table              # single_table | multi_table
+  compute: gcp                        # gcp | aws
+  timeout_seconds: 345600
+  run_id: "${date:%Y-%m-%d}"          # default if omitted
+  output:
+    store: s3
+    uri: "s3://sdgym-benchmarks/Debug/v0.1_user_interface/"
+
+datasets:
+  preset: single_table_default        # or list: [adult, alarm, ...]
+
+synthesizers:
+  preset: single_table_default
+  split:
+    preset: single_table_default      # maps to your SYNTHESIZERS_SPLIT_*
+
+credentials:
+  sdv_enterprise:
+    username: "${env:SDV_ENTERPRISE_USERNAME}"
+    license_key: "${env:SDV_ENTERPRISE_LICENSE_KEY}"
+
+  aws:
+    access_key_id: "${env:AWS_ACCESS_KEY_ID}"
+    secret_access_key: "${env:AWS_SECRET_ACCESS_KEY}"
+
+  gcp:
+    service_account_json: "${env:GCP_SERVICE_ACCOUNT_JSON}"
+    project_id: "${env:GCP_PROJECT_ID}"
+    zone: "${env:GCP_ZONE}"
+
+notifications:
+  slack:
+    token: "${env:SLACK_TOKEN}"
+    compute_label: "GCP"
+    channel: "sdv_alerts_debug"
+
+extends: configs/presets/single_table.yaml
+run:
+  timeout_seconds: 86400
+synthesizers:
+  include: ["CTGAN", "GaussianCopula"]
+
