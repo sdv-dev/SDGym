@@ -22,6 +22,22 @@ _BASELINE_BY_MODALITY = {
     'single_table': SYNTHESIZER_BASELINE,
     'multi_table': 'IndependentSynthesizer',
 }
+GET_RESULTS_COLUMS = {
+    'dataset': [
+        'Synthesizer',
+        'Adjusted_Total_Time',
+        'Adjusted_Quality_Score',
+        'Diagnostic_Score',
+        'Win',
+    ],
+    'synthesizer': [
+        'Dataset',
+        'Adjusted_Total_Time',
+        'Adjusted_Quality_Score',
+        'Diagnostic_Score',
+        'Win',
+    ],
+}
 
 
 def _resolve_effective_path(path, modality):
@@ -122,6 +138,46 @@ class ResultsExplorer:
                 - A DataFrame with the results of the benchmark for the specified folder.
         """
         return self._handler.summarize(folder_name)
+
+    def get_dataset_results(self, result_folder_name, dataset_name):
+        """Get the results for a specific dataset across all synthesizers in the results folder.
+
+        Args:
+            result_folder_name (str):
+                The name of the results folder to get results from.
+            dataset_name (str):
+                The name of the dataset to filter results for.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame containing the results for the given dataset across all synthesizers.
+        """
+        _, detailed_results = self._handler.summarize(result_folder_name)
+        filtered_results = detailed_results.loc[
+            detailed_results['Dataset'] == dataset_name, GET_RESULTS_COLUMS['dataset']
+        ]
+
+        return filtered_results.reset_index(drop=True)
+
+    def get_synthesizer_results(self, result_folder_name, synthesizer_name):
+        """Get the results for a specific synthesizer across all datasets in the results folder.
+
+        Args:
+            result_folder_name (str):
+                The name of the results folder to get results from.
+            synthesizer_name (str):
+                The name of the synthesizer to filter results for.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame containing the results for the given synthesizer across all datasets.
+        """
+        _, detailed_results = self._handler.summarize(result_folder_name)
+        filtered_results = detailed_results.loc[
+            detailed_results['Synthesizer'] == synthesizer_name, GET_RESULTS_COLUMS['synthesizer']
+        ]
+
+        return filtered_results.reset_index(drop=True)
 
     def all_runs_complete(self, folder_name):
         """Check if all runs in the specified folder are complete."""
