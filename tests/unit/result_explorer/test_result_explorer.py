@@ -8,7 +8,10 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.result_explorer.result_explorer import ResultsExplorer, _validate_local_path
+from sdgym.result_explorer.result_explorer import (
+    ResultsExplorer,
+    _validate_local_path,
+)
 from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 
 
@@ -306,6 +309,78 @@ class TestResultsExplorer:
         # Assert
         result_explorer._handler.summarize.assert_called_once_with('SDGym_results_07_07_2025')
         pd.testing.assert_frame_equal(summary, results)
+
+    def test_get_dataset_results(self, tmp_path):
+        """Test the `get_dataset_results` method."""
+        # Setup
+        output_dir = tmp_path / 'benchmark_output' / 'single_table'
+        output_dir.mkdir(parents=True)
+        (output_dir / 'SDGym_results_07_07_2025').mkdir(parents=True)
+        result_explorer = ResultsExplorer(str(output_dir), modality='single_table')
+        result_explorer._handler = Mock()
+        detailed_table = pd.DataFrame({
+            'Dataset': ['dataset1', 'dataset1', 'dataset2'],
+            'Synthesizer': ['Synth1', 'Synth2', 'Synth1'],
+            'Train_Time': [5, 10, 7],
+            'Sample_Time': [5, 10, 8],
+            'Adjusted_Total_Time': [10, 20, 15],
+            'Adjusted_Quality_Score': [0.9, 0.8, 0.85],
+            'Diagnostic_Score': [0.95, 0.9, 0.92],
+            'Win': [1, 0, 1],
+        })
+        result_explorer._handler.summarize = Mock(return_value=(None, detailed_table))
+
+        # Run
+        dataset_results = result_explorer.get_dataset_results(
+            'SDGym_results_07_07_2025', 'dataset1'
+        )
+
+        # Assert
+        result_explorer._handler.summarize.assert_called_once_with('SDGym_results_07_07_2025')
+        expected_results = pd.DataFrame({
+            'Synthesizer': ['Synth1', 'Synth2'],
+            'Adjusted_Total_Time': [10, 20],
+            'Adjusted_Quality_Score': [0.9, 0.8],
+            'Diagnostic_Score': [0.95, 0.9],
+            'Win': [1, 0],
+        })
+        pd.testing.assert_frame_equal(dataset_results, expected_results)
+
+    def test_get_synthesizer_results(self, tmp_path):
+        """Test the `get_synthesizer_results` method."""
+        # Setup
+        output_dir = tmp_path / 'benchmark_output' / 'single_table'
+        output_dir.mkdir(parents=True)
+        (output_dir / 'SDGym_results_07_07_2025').mkdir(parents=True)
+        result_explorer = ResultsExplorer(str(output_dir), modality='single_table')
+        result_explorer._handler = Mock()
+        detailed_table = pd.DataFrame({
+            'Dataset': ['dataset1', 'dataset1', 'dataset2'],
+            'Synthesizer': ['Synth1', 'Synth2', 'Synth1'],
+            'Train_Time': [5, 10, 7],
+            'Sample_Time': [5, 10, 8],
+            'Adjusted_Total_Time': [10, 20, 15],
+            'Adjusted_Quality_Score': [0.9, 0.8, 0.85],
+            'Diagnostic_Score': [0.95, 0.9, 0.92],
+            'Win': [1, 0, 1],
+        })
+        result_explorer._handler.summarize = Mock(return_value=(None, detailed_table))
+
+        # Run
+        synthesizer_results = result_explorer.get_synthesizer_results(
+            'SDGym_results_07_07_2025', 'Synth1'
+        )
+
+        # Assert
+        result_explorer._handler.summarize.assert_called_once_with('SDGym_results_07_07_2025')
+        expected_results = pd.DataFrame({
+            'Dataset': ['dataset1', 'dataset2'],
+            'Adjusted_Total_Time': [10, 15],
+            'Adjusted_Quality_Score': [0.9, 0.85],
+            'Diagnostic_Score': [0.95, 0.92],
+            'Win': [1, 1],
+        })
+        pd.testing.assert_frame_equal(synthesizer_results, expected_results)
 
     def test_load_results(self, tmp_path):
         """Test the `load_results` method."""
