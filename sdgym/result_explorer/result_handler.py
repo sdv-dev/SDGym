@@ -20,6 +20,13 @@ metainfo_PREFIX = 'metainfo'
 RESULTS_FILE_PREFIX = 'results'
 NUM_DIGITS_DATE = 10
 REGEX_SYNTHESIZER_NAME = r'\s*\(\d+\)\s*$'
+SUMMARY_COLUMNS = [
+    'Dataset',
+    'Synthesizer',
+    'Adjusted_Total_Time',
+    'Adjusted_Quality_Score',
+    'Diagnostic_Score',
+]
 
 
 class ResultsHandler(ABC):
@@ -257,17 +264,7 @@ class ResultsHandler(ABC):
             warnings.warn(warning_message)
             return pd.DataFrame()
 
-        if summary:
-            result = result[
-                [
-                    'Dataset',
-                    'Synthesizer',
-                    'Adjusted_Total_Time',
-                    'Adjusted_Quality_Score',
-                    'Diagnostic_Score',
-                ]
-            ]
-
+        result = result[SUMMARY_COLUMNS] if summary else result
         return result.reset_index(drop=True)
 
     def load_metainfo(self, results_folder_name):
