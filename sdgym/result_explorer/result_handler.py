@@ -3,6 +3,7 @@
 import io
 import operator
 import os
+import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -183,26 +184,91 @@ class ResultsHandler(ABC):
 
         return summarized_table, folder_to_results[folder_name]
 
-    def load_results(self, results_folder_name):
+    def _validate_load_results_filters(self, dataset_names, synthesizer_names, summary):
+        if dataset_names is not None and not isinstance(dataset_names, list):
+            raise ValueError('`dataset_names` must be a list of strings or None.')
+
+        if synthesizer_names is not None and not isinstance(synthesizer_names, list):
+            raise ValueError('`synthesizer_names` must be a list of strings or None.')
+
+        if not isinstance(summary, bool):
+            raise ValueError('`summary` must be a boolean.')
+
+    def load_results(
+        self, results_folder_name, dataset_names=None, synthesizer_names=None, summary=False
+    ):
         """Load and aggregate all the results CSV files from the specified results folder.
 
         Args:
             results_folder_name (str):
                 The name of the results folder to load results from.
+            dataset_names (list of str, optional):
+                A list of dataset names to filter results for. If None, results for all
+                datasets will be loaded. Defaults to None.
+            synthesizer_names (list of str, optional):
+                A list of synthesizer names to filter results for. If None, results for all
+                synthesizers will be loaded. Defaults to None.
+            summary (bool, optional):
+                If True, only return the summary results which include the following columns:
+                - 'Dataset'
+                - 'Synthesizer'
+                - 'Adjusted_Total_Time'
+                - 'Adjusted_Quality_Score'
+                - 'Diagnostic_Score'
+                Defaults to False.
 
         Returns:
             pd.DataFrame:
                 A DataFrame containing the results of the specified folder.
         """
         self._validate_folder_name(results_folder_name)
+        self._validate_load_results_filters(dataset_names, synthesizer_names, summary)
         result_filenames = self._get_results_files(
             results_folder_name, prefix=RESULTS_FILE_PREFIX, suffix='.csv'
         )
 
-        return pd.concat(
+        result = pd.concat(
             self._get_results(results_folder_name, result_filenames),
             ignore_index=True,
         )
+        if dataset_names is not None:
+            result = result[result['Dataset'].isin(dataset_names)]
+
+        if synthesizer_names is not None:
+            result = result[result['Synthesizer'].isin(synthesizer_names)]
+
+        if result.empty:
+            filters = []
+            if dataset_names is not None:
+                filters.append(f'- Datasets: {", ".join(dataset_names)}')
+            if synthesizer_names is not None:
+                filters.append(f'- Synthesizers: {", ".join(synthesizer_names)}')
+
+            if filters:
+                filters_text = '\n'.join(filters)
+                warning_message = (
+                    f'No results found in folder "{results_folder_name}" '
+                    f'matching the specified filters:\n'
+                    f'{filters_text}'
+                )
+            else:
+                warning_message = f'No results found in folder "{results_folder_name}".'
+
+            warnings.warn(warning_message)
+            return pd.DataFrame()
+
+        if summary:
+            result = result[
+                [
+                    'Dataset',
+                    'Synthesizer',
+                    'Adjusted_Total_Time',
+                    'Adjusted_Quality_Score',
+                    'Diagnostic_Score',
+                ]
+            ]
+
+        return result.reset_index(drop=True)
 
     def load_metainfo(self, results_folder_name):
         """Load and aggregate all the metainfo YAML files from the specified results folder.

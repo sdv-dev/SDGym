@@ -139,62 +139,40 @@ class ResultsExplorer:
         """
         return self._handler.summarize(folder_name)
 
-    def get_dataset_results(self, result_folder_name, dataset_name):
-        """Get the results for a specific dataset across all synthesizers in the results folder.
-
-        Args:
-            result_folder_name (str):
-                The name of the results folder to get results from.
-            dataset_name (str):
-                The name of the dataset to filter results for.
-
-        Returns:
-            pd.DataFrame:
-                A DataFrame containing the results for the given dataset across all synthesizers.
-        """
-        _, detailed_results = self._handler.summarize(result_folder_name)
-        filtered_results = detailed_results.loc[
-            detailed_results['Dataset'] == dataset_name, GET_RESULTS_COLUMS['dataset']
-        ]
-
-        return filtered_results.reset_index(drop=True)
-
-    def get_synthesizer_results(self, result_folder_name, synthesizer_name):
-        """Get the results for a specific synthesizer across all datasets in the results folder.
-
-        Args:
-            result_folder_name (str):
-                The name of the results folder to get results from.
-            synthesizer_name (str):
-                The name of the synthesizer to filter results for.
-
-        Returns:
-            pd.DataFrame:
-                A DataFrame containing the results for the given synthesizer across all datasets.
-        """
-        _, detailed_results = self._handler.summarize(result_folder_name)
-        filtered_results = detailed_results.loc[
-            detailed_results['Synthesizer'] == synthesizer_name, GET_RESULTS_COLUMS['synthesizer']
-        ]
-
-        return filtered_results.reset_index(drop=True)
-
     def all_runs_complete(self, folder_name):
         """Check if all runs in the specified folder are complete."""
         return self._handler.all_runs_complete(folder_name)
 
-    def load_results(self, results_folder_name):
+    def load_results(
+        self, results_folder_name, dataset_names=None, synthesizer_names=None, summary=False
+    ):
         """Load and aggregate all the results CSV files from the specified results folder.
 
         Args:
             results_folder_name (str):
                 The name of the results folder to load results from.
+            dataset_names (list[str], optional):
+                A list of dataset names to filter results for. If None, results for all
+                datasets will be loaded. Defaults to None.
+            synthesizer_names (list[str], optional):
+                A list of synthesizer names to filter results for. If None, results for all
+                synthesizers will be loaded. Defaults to None.
+            summary (bool, optional):
+                If True, only return the summary results which include the following columns:
+                - 'Dataset'
+                - 'Synthesizer'
+                - 'Adjusted_Total_Time'
+                - 'Adjusted_Quality_Score'
+                - 'Diagnostic_Score'
+                Defaults to False.
 
         Returns:
             pd.DataFrame:
                 A DataFrame containing the results of the specified folder.
         """
-        return self._handler.load_results(results_folder_name)
+        return self._handler.load_results(
+            results_folder_name, dataset_names, synthesizer_names, summary
+        )
 
     def load_metainfo(self, results_folder_name):
         """Load and aggregate all the metainfo YAML files from the specified results folder.
