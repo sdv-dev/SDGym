@@ -22,22 +22,6 @@ _BASELINE_BY_MODALITY = {
     'single_table': SYNTHESIZER_BASELINE,
     'multi_table': 'IndependentSynthesizer',
 }
-GET_RESULTS_COLUMS = {
-    'dataset': [
-        'Synthesizer',
-        'Adjusted_Total_Time',
-        'Adjusted_Quality_Score',
-        'Diagnostic_Score',
-        'Win',
-    ],
-    'synthesizer': [
-        'Dataset',
-        'Adjusted_Total_Time',
-        'Adjusted_Quality_Score',
-        'Diagnostic_Score',
-        'Win',
-    ],
-}
 
 
 def _resolve_effective_path(path, modality):
