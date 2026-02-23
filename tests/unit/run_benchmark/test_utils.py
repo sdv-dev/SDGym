@@ -106,7 +106,7 @@ def test_post_benchmark_launch_message(
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', f'my-prefix/single_table/{folder_name}/'
     )
-    mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
+    mock_post_slack_message.assert_called_once_with('sdgym', expected_body)
 
 
 @patch('sdgym.run_benchmark.utils.post_slack_message')
@@ -139,7 +139,7 @@ def test_post_benchmark_uploaded_message(
     post_benchmark_uploaded_message(folder_name)
 
     # Assert
-    mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
+    mock_post_slack_message.assert_called_once_with('sdgym', expected_body)
     mock__get_filename_to_gdrive_link.assert_called_once()
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
@@ -180,7 +180,7 @@ def test_post_benchmark_uploaded_message_with_commit(
 
     # Assert
     mock__get_filename_to_gdrive_link.assert_called_once()
-    mock_post_slack_message.assert_called_once_with('sdv-alerts', expected_body)
+    mock_post_slack_message.assert_called_once_with('sdgym', expected_body)
     mock_parse_s3_path.assert_called_once_with(OUTPUT_DESTINATION_AWS)
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket', 'my-prefix%2F%5BSingle-table%5D_SDGym_Runs.xlsx'
