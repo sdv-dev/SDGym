@@ -6,6 +6,8 @@ from datetime import datetime
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
 from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
@@ -45,6 +47,7 @@ PLOTLY_MARKERS = [
     'diamond-cross',
     'diamond-x',
 ]
+PLOT_PADDING = 0.25
 
 # The synthesizers inside the same list will be run by the same ec2 instance
 SYNTHESIZERS_SPLIT_SINGLE_TABLE = [
@@ -136,6 +139,34 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='sing
     post_slack_message(channel, body)
 
 
+def _add_pareto_curve_extremity_points(df_to_plot):
+    """Add extremity points to the Pareto curve for better visualization."""
+    pareto = df_to_plot.loc[df_to_plot['Pareto']].sort_values('Aggregated_Time')
+    if len(pareto) < 2:
+        return df_to_plot  # Not enough points to define a curve
+
+    interp = interp1d(
+        pareto['Log10 Aggregated_Time'],
+        pareto['Quality_Score'],
+        kind='linear',
+        fill_value='extrapolate',
+    )
+
+    min_log = np.log10(df_to_plot['Aggregated_Time'].min()) - PLOT_PADDING
+    max_log = np.log10(df_to_plot['Aggregated_Time'].max()) + PLOT_PADDING
+    extremities = pd.DataFrame({
+        'Synthesizer': np.nan,
+        'Aggregated_Time': 10 ** np.array([min_log, max_log]),
+        'Quality_Score': interp([min_log, max_log]),
+        'Log10 Aggregated_Time': [min_log, max_log],
+        'Pareto': True,
+        'Color': '#01E0C9',
+        'Marker': np.nan,
+    })
+
+    return pd.concat([df_to_plot, extremities], ignore_index=True).reset_index(drop=True)
+
+
 def get_df_to_plot(benchmark_result):
     """Get the data to plot from the benchmark result.
 
@@ -177,8 +208,9 @@ def get_df_to_plot(benchmark_result):
     }
     df_to_plot['Marker'] = df_to_plot['Synthesizer'].map(marker_map)
     df_to_plot = df_to_plot.rename(columns={'Adjusted_Quality_Score': 'Quality_Score'})
+    df_to_plot = df_to_plot.drop(columns=['Cumulative Quality Score'])
 
-    return df_to_plot.drop(columns=['Cumulative Quality Score']).reset_index(drop=True)
+    return _add_pareto_curve_extremity_points(df_to_plot)
 
 
 def _parse_args():
@@ -203,3 +235,4 @@ def _extract_google_file_id(google_drive_link):
             return parsed.path.split(marker, 1)[1].split('/', 1)[0]
 
     raise ValueError(f'Invalid Google Drive link format: {google_drive_link}')
+

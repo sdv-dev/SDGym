@@ -1,10 +1,12 @@
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from sdgym.run_benchmark.utils import (
     OUTPUT_DESTINATION_AWS,
+    _add_pareto_curve_extremity_points,
     _extract_google_file_id,
     _get_slack_client,
     get_df_to_plot,
@@ -187,6 +189,62 @@ def test_post_benchmark_uploaded_message_with_commit(
     )
 
 
+def test_add_pareto_curve_extremity_points():
+    """Test `_add_pareto_curve_extremity_points` adds two extremity points."""
+    # Setup
+    df_to_plot = pd.DataFrame({
+        'Synthesizer': ['GaussianCopula', 'CTGAN', 'TVAE'],
+        'Aggregated_Time': [3.3, 7.7, 12.1],
+        'Quality_Score': [0.82, 0.9, 0.475],
+        'Log10 Aggregated_Time': np.log10([3.3, 7.7, 12.1]),
+        'Pareto': [True, True, False],
+        'Color': ['#01E0C9', '#01E0C9', '#03AFF1'],
+        'Marker': ['circle', 'square', 'diamond'],
+    })
+    expected_results = pd.DataFrame({
+        'Synthesizer': ['GaussianCopula', 'CTGAN', 'TVAE', np.nan, np.nan],
+        'Aggregated_Time': [3.3, 7.7, 12.1, 1.8557263731281517, 21.517180861470965],
+        'Quality_Score': [0.82, 0.9, 0.475, 0.7656487452490014, 0.9970266958089053],
+        'Log10 Aggregated_Time': [
+            0.5185139398778874,
+            0.8864907251724818,
+            1.08278537031645,
+            0.2685139398778874,
+            1.33278537031645,
+        ],
+        'Pareto': [True, True, False, True, True],
+        'Color': ['#01E0C9', '#01E0C9', '#03AFF1', '#01E0C9', '#01E0C9'],
+        'Marker': ['circle', 'square', 'diamond', np.nan, np.nan],
+    })
+
+    # Run
+    result = _add_pareto_curve_extremity_points(df_to_plot)
+
+    # Assert
+    assert len(result) == len(df_to_plot) + 2
+    pd.testing.assert_frame_equal(result, expected_results)
+
+
+def test_add_pareto_curve_extremity_points_single_pareto():
+    """Test `_add_pareto_curve_extremity_points` does nothing with <2 Pareto points."""
+    # Setup
+    df_to_plot = pd.DataFrame({
+        'Synthesizer': ['GaussianCopula', 'CTGAN', 'TVAE'],
+        'Aggregated_Time': [3.3, 7.7, 12.1],
+        'Quality_Score': [0.9, 0.8, 0.7],
+        'Log10 Aggregated_Time': np.log10([3.3, 7.7, 12.1]),
+        'Pareto': [True, False, False],
+        'Color': ['#01E0C9', '#03AFF1', '#03AFF1'],
+        'Marker': ['circle', 'square', 'diamond'],
+    })
+
+    # Run
+    result = _add_pareto_curve_extremity_points(df_to_plot)
+
+    # Assert
+    pd.testing.assert_frame_equal(result, df_to_plot)
+
+
 def test_get_df_to_plot():
     """Test the `get_df_to_plot` method."""
     # Setup
@@ -197,8 +255,8 @@ def test_get_df_to_plot():
         'Dataset': ['Dataset1', 'Dataset2'] * 3,
         'Train_Time': [0.9, 2.0, 3.0, 4.0, 5.0, 6.0],
         'Sample_Time': [0.1, 0.2, 0.3, 0.2, 0.5, 0.6],
-        'Quality_Score': [0.8, 0.9, 0.7, 0.6, 0.5, 0.4],
-        'Adjusted_Quality_Score': [0.85, 0.9, 0.6, 0.55, 0.45, 0.55],
+        'Quality_Score': [0.80, 0.82, 0.92, 0.90, 0.50, 0.55],
+        'Adjusted_Quality_Score': [0.81, 0.83, 0.91, 0.89, 0.45, 0.50],
         'Adjusted_Total_Time': [1.1, 2.2, 3.3, 4.4, 5.5, 6.6],
     })
 
@@ -207,13 +265,19 @@ def test_get_df_to_plot():
 
     # Assert
     expected_result = pd.DataFrame({
-        'Synthesizer': ['GaussianCopula', 'CTGAN', 'TVAE'],
-        'Aggregated_Time': [3.3, 7.7, 12.1],
-        'Quality_Score': [0.875, 0.575, 0.5],
-        'Log10 Aggregated_Time': [0.5185139398778875, 0.8864907251724818, 1.08278537031645],
-        'Pareto': [True, False, False],
-        'Color': ['#01E0C9', '#03AFF1', '#03AFF1'],
-        'Marker': ['circle', 'square', 'diamond'],
+        'Synthesizer': ['GaussianCopula', 'CTGAN', 'TVAE', np.nan, np.nan],
+        'Aggregated_Time': [3.3000000000000003, 7.7, 12.1, 1.8557263731281521, 21.517180861470965],
+        'Quality_Score': [0.8200000000000001, 0.9, 0.475, 0.7656487452490015, 0.9970266958089052],
+        'Log10 Aggregated_Time': [
+            0.5185139398778875,
+            0.8864907251724818,
+            1.08278537031645,
+            0.2685139398778875,
+            1.33278537031645,
+        ],
+        'Pareto': [True, True, False, True, True],
+        'Color': ['#01E0C9', '#01E0C9', '#03AFF1', '#01E0C9', '#01E0C9'],
+        'Marker': ['circle', 'square', 'diamond', np.nan, np.nan],
     })
     pd.testing.assert_frame_equal(result, expected_result)
 

@@ -29,6 +29,7 @@ from sdgym.run_benchmark.utils import (
     get_df_to_plot,
 )
 from sdgym.s3 import S3_REGION, parse_s3_path
+from sdgym.utils import _set_column_width
 
 LOGGER = logging.getLogger(__name__)
 SYNTHESIZER_TO_GLOBAL_POSITION = {
@@ -317,7 +318,8 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     updated_table = pd.concat([existing_table, table], ignore_index=True)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        updated_table.to_excel(writer, index=False)
+        updated_table.to_excel(writer, index=False, sheet_name='Sheet1')
+        _set_column_width(writer, updated_table, 'Sheet1')
 
     output.seek(0)
     s3_client.upload_fileobj(output, bucket, filename)
