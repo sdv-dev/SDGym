@@ -235,4 +235,3 @@ def _extract_google_file_id(google_drive_link):
             return parsed.path.split(marker, 1)[1].split('/', 1)[0]
 
     raise ValueError(f'Invalid Google Drive link format: {google_drive_link}')
-
