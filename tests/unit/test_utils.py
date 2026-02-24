@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pandas as pd
 
 from sdgym.utils import (
+    _is_list_of_type,
     _set_column_width,
     calculate_score_time,
     get_duplicates,
@@ -90,3 +91,12 @@ def test_set_column_width_sets_expected_width(mock_get_column_letter):
     # Assert
     assert worksheet.column_dimensions['A'].width == 6
     assert worksheet.column_dimensions['B'].width == 9
+
+
+def test__is_list_of_type():
+    """Test `_is_list_of_type` method"""
+    assert _is_list_of_type(['a', 'b'])
+    assert not _is_list_of_type(['a', 1])
+    assert not _is_list_of_type([1, 2])
+    assert not _is_list_of_type(1)
+    assert not _is_list_of_type('a')

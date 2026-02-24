@@ -13,6 +13,7 @@ import yaml
 from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
+from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
@@ -192,11 +193,13 @@ class ResultsHandler(ABC):
         return summarized_table, folder_to_results[folder_name]
 
     def _validate_load_results_filters(self, dataset_names, synthesizer_names, summary):
-        if dataset_names is not None and not isinstance(dataset_names, list):
-            raise ValueError('`dataset_names` must be a list of strings or None.')
+        if dataset_names is not None:
+            if not _is_list_of_type(dataset_names, str):
+                raise ValueError('`dataset_names` must be a list of strings or None.')
 
-        if synthesizer_names is not None and not isinstance(synthesizer_names, list):
-            raise ValueError('`synthesizer_names` must be a list of strings or None.')
+        if synthesizer_names is not None:
+            if not _is_list_of_type(synthesizer_names, str):
+                raise ValueError('`synthesizer_names` must be a list of strings or None.')
 
         if not isinstance(summary, bool):
             raise ValueError('`summary` must be a boolean.')
@@ -262,7 +265,6 @@ class ResultsHandler(ABC):
                 warning_message = f'No results found in folder "{results_folder_name}".'
 
             warnings.warn(warning_message)
-            return pd.DataFrame()
 
         result = result[SUMMARY_COLUMNS] if summary else result
         return result.reset_index(drop=True)
