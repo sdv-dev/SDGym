@@ -90,7 +90,12 @@ MULTI_TABLE_DATASETS = [
 
 
 def _get_benchmark_setup(modality):
-    """Get the setup dict for a given modality ('single_table' or 'multi_table')."""
+    """Get the benchmark setup for a given modality.
+    
+    The setup includes the method to run the benchmark and the job split,
+    which is a list of tuples where each tuple contains a list of synthesizers and a list of datasets
+    to run those synthesizers on.
+    """
     if modality == 'single_table':
         real_tab_former_to_exclude = ['covtype', 'intrusion', 'expedia_hotel_logs', 'census']
         gan_to_exclude = ['covtype', 'intrusion']
