@@ -103,6 +103,9 @@ def _get_modality_setup(modality):
             (['ColumnSynthesizer', 'GaussianCopulaSynthesizer'], SINGLE_TABLE_DATASETS),
             (['TVAESynthesizer'], SINGLE_TABLE_DATASETS),
             (['CTGANSynthesizer'], _exclude_datasets(SINGLE_TABLE_DATASETS, gan_to_exclude)),
+            (['SegmentSynthesizer'], SINGLE_TABLE_DATASETS, gan_to_exclude),
+            (['XGCSynthesizer'], SINGLE_TABLE_DATASETS, gan_to_exclude),
+            (['BootstrapSynthesizer'], SINGLE_TABLE_DATASETS, gan_to_exclude),
             (['CopulaGANSynthesizer'], _exclude_datasets(SINGLE_TABLE_DATASETS, gan_to_exclude)),
             (
                 ['RealTabFormerSynthesizer'],

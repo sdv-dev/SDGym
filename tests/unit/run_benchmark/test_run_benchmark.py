@@ -11,8 +11,6 @@ from sdgym.run_benchmark.run_benchmark import (
 )
 from sdgym.run_benchmark.utils import (
     OUTPUT_DESTINATION_AWS,
-    SYNTHESIZERS_SPLIT_MULTI_TABLE,
-    SYNTHESIZERS_SPLIT_SINGLE_TABLE,
 )
 
 
@@ -109,52 +107,53 @@ def test_append_benchmark_run_new_file(
 
 
 @pytest.mark.parametrize(
-    'modality,synthesizer_split',
+    'modality, benchmark_setup',
     [
-        ('single_table', SYNTHESIZERS_SPLIT_SINGLE_TABLE),
-        ('multi_table', SYNTHESIZERS_SPLIT_MULTI_TABLE),
+        (
+            'single_table',
+            {
+                'method': Mock(name='mock_single_method'),
+                'job_split': [
+                    (['GaussianCopulaSynthesizer', 'ColumnSynthesizer'], ['dataset1', 'dataset2']),
+                    (['TVAESynthesizer'], ['dataset3', 'dataset2']),
+                ],
+            },
+        ),
+        (
+            'multi_table',
+            {
+                'method': Mock(name='mock_multi_method'),
+                'job_split': [
+                    (['HSASynthesizer', 'IndependentSynthesizer'], ['datasetA', 'datasetB']),
+                    (['HMASynthesizer'], ['datasetC', 'datasetD']),
+                ],
+            },
+        ),
     ],
 )
 @patch('sdgym.run_benchmark.run_benchmark.post_benchmark_launch_message')
 @patch('sdgym.run_benchmark.run_benchmark.append_benchmark_run')
 @patch('sdgym.run_benchmark.run_benchmark.os.getenv')
 @patch('sdgym.run_benchmark.run_benchmark._parse_args')
-@patch.dict(
-    'sdgym.run_benchmark.run_benchmark.MODALITY_TO_SETUP',
-    values={
-        'single_table': {
-            'method': Mock(name='mock_single_method'),
-            'synthesizers_split': [],
-            'datasets': ['single_table_1', 'single_table_2'],
-        },
-        'multi_table': {
-            'method': Mock(name='mock_multi_method'),
-            'synthesizers_split': [],
-            'datasets': ['multi_table_1', 'multi_table_2'],
-        },
-    },
-    clear=True,
-)
+@patch('sdgym.run_benchmark.run_benchmark._get_modality_setup')
 def test_main(
+    mock_get_modality_setup,
     mock_parse_args,
     mock_getenv,
     mock_append_benchmark_run,
     mock_post_benchmark_launch_message,
     modality,
-    synthesizer_split,
+    benchmark_setup,
 ):
     """Test the `main` function with both single_table and multi_table modalities."""
     # Setup
-    from sdgym.run_benchmark.run_benchmark import MODALITY_TO_SETUP
-
+    mock_get_modality_setup.return_value = benchmark_setup
     mock_parse_args.return_value = Mock(modality=modality)
     mock_getenv.side_effect = lambda key: {
         'AWS_ACCESS_KEY_ID': 'my_access_key',
         'AWS_SECRET_ACCESS_KEY': 'my_secret_key',
         'CREDENTIALS_FILEPATH': '/path/to/creds.json',
     }.get(key)
-    MODALITY_TO_SETUP[modality]['synthesizers_split'] = synthesizer_split
-    mock_method = MODALITY_TO_SETUP[modality]['method']
     date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
     # Run
@@ -165,13 +164,14 @@ def test_main(
         call(
             output_destination=OUTPUT_DESTINATION_AWS,
             credential_filepath='/path/to/creds.json',
-            synthesizers=group,
-            sdv_datasets=MODALITY_TO_SETUP[modality]['datasets'],
+            synthesizers=group[0],
+            sdv_datasets=group[1],
             timeout=345600,
         )
-        for group in synthesizer_split
+        for group in benchmark_setup['job_split']
     ]
-    mock_method.assert_has_calls(expected_calls)
+    benchmark_setup['method'].assert_has_calls(expected_calls)
+    mock_get_modality_setup.assert_called_once_with(modality)
     mock_append_benchmark_run.assert_called_once_with(
         'my_access_key',
         'my_secret_key',
