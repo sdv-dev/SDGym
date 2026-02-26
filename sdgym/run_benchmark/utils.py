@@ -107,7 +107,7 @@ def post_slack_message(channel, text):
 
 
 def post_benchmark_launch_message(date_str, compute_service='AWS', modality='single_table'):
-    """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
+    """Post a message to the sdgym Slack channel when the benchmark is launched."""
     channel = SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
@@ -119,7 +119,7 @@ def post_benchmark_launch_message(date_str, compute_service='AWS', modality='sin
 
 
 def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
-    """Post benchmark uploaded message to sdv-alerts slack channel."""
+    """Post benchmark uploaded message to the sdgym Slack channel."""
     file_to_gdrive_link = _get_filename_to_gdrive_link()
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
@@ -143,7 +143,7 @@ def _add_pareto_curve_extremity_points(df_to_plot):
     """Add extremity points to the Pareto curve for better visualization."""
     pareto = df_to_plot.loc[df_to_plot['Pareto']].sort_values('Aggregated_Time')
     if len(pareto) < 2:
-        return df_to_plot  # Not enough points to define a curve
+        return df_to_plot.reset_index(drop=True)  # Not enough points to define a curve
 
     interp = interp1d(
         pareto['Log10 Aggregated_Time'],
