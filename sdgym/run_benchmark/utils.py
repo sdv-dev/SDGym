@@ -235,3 +235,8 @@ def _extract_google_file_id(google_drive_link):
             return parsed.path.split(marker, 1)[1].split('/', 1)[0]
 
     raise ValueError(f'Invalid Google Drive link format: {google_drive_link}')
+
+
+def _exclude_datasets(datasets, dataset_to_exclude):
+    """Exclude datasets that are in the dataset_to_exclude list."""
+    return [dataset for dataset in datasets if dataset not in dataset_to_exclude]

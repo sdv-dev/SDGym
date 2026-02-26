@@ -7,6 +7,7 @@ import pytest
 from sdgym.run_benchmark.utils import (
     OUTPUT_DESTINATION_AWS,
     _add_pareto_curve_extremity_points,
+    _exclude_datasets,
     _extract_google_file_id,
     _get_slack_client,
     get_df_to_plot,
@@ -308,3 +309,17 @@ def test_extract_google_file_id_invalid_url():
     # Run and Assert
     with pytest.raises(ValueError, match=expected_message):
         _extract_google_file_id(invalid_url)
+
+
+def test__exclude_datasets():
+    """Test the `_exclude_datasets` method."""
+    # Setup
+    datasets = ['dataset1', 'dataset2', 'dataset3', 'dataset4']
+    dataset_to_exclude = ['dataset2', 'dataset4']
+
+    # Run
+    result = _exclude_datasets(datasets, dataset_to_exclude)
+
+    # Assert
+    expected_result = ['dataset1', 'dataset3']
+    assert result == expected_result

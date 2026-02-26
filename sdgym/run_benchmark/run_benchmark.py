@@ -13,6 +13,7 @@ from sdgym._benchmark.benchmark import (
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     OUTPUT_DESTINATION_AWS,
+    _exclude_datasets,
     _parse_args,
     get_result_folder_name,
     post_benchmark_launch_message,
@@ -88,13 +89,7 @@ MULTI_TABLE_DATASETS = [
 ]
 
 
-def _exclude_datasets(datasets, *excluded_lists):
-    """Exclude datasets that are in any of the excluded_lists."""
-    excluded = set().union(*map(set, excluded_lists))
-    return [dataset for dataset in datasets if dataset not in excluded]
-
-
-def _get_modality_setup(modality):
+def _get_benchmark_setup(modality):
     """Get the setup dict for a given modality ('single_table' or 'multi_table')."""
     if modality == 'single_table':
         real_tab_former_to_exclude = ['covtype', 'intrusion', 'expedia_hotel_logs', 'census']
@@ -102,10 +97,10 @@ def _get_modality_setup(modality):
         job_split = [
             (['ColumnSynthesizer', 'GaussianCopulaSynthesizer'], SINGLE_TABLE_DATASETS),
             (['TVAESynthesizer'], SINGLE_TABLE_DATASETS),
+            (['SegmentSynthesizer'], SINGLE_TABLE_DATASETS),
+            (['XGCSynthesizer'], SINGLE_TABLE_DATASETS),
+            (['BootstrapSynthesizer'], SINGLE_TABLE_DATASETS),
             (['CTGANSynthesizer'], _exclude_datasets(SINGLE_TABLE_DATASETS, gan_to_exclude)),
-            (['SegmentSynthesizer'], SINGLE_TABLE_DATASETS, gan_to_exclude),
-            (['XGCSynthesizer'], SINGLE_TABLE_DATASETS, gan_to_exclude),
-            (['BootstrapSynthesizer'], SINGLE_TABLE_DATASETS, gan_to_exclude),
             (['CopulaGANSynthesizer'], _exclude_datasets(SINGLE_TABLE_DATASETS, gan_to_exclude)),
             (
                 ['RealTabFormerSynthesizer'],
@@ -188,7 +183,7 @@ def main():
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     modality = args.modality
-    benchmark_setup = _get_modality_setup(modality)
+    benchmark_setup = _get_benchmark_setup(modality)
     for job in benchmark_setup['job_split']:
         benchmark_setup['method'](
             output_destination=OUTPUT_DESTINATION_AWS,
