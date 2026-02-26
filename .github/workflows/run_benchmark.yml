@@ -49,7 +49,7 @@ jobs:
           install_packages(
               username='${USERNAME}',
               license_key='${LICENSE_KEY}',
-              package='sdv-enterprise',
+              package='bundle-xsynthesizers',
           )
           "
           python -m pip install "sdgym[all]"
