@@ -1367,7 +1367,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-549-enterprise-single-table-synthesizer"
+        pip install sdgym[all]
         pip install s3fs
 
         echo "======== Write Script ==========="
