@@ -231,6 +231,8 @@ class ResultsHandler(ABC):
             pd.DataFrame:
                 A DataFrame containing the results of the specified folder.
         """
+        has_dataset_filter = dataset_names is not None
+        has_synthesizer_filter = synthesizer_names is not None
         self._validate_folder_name(results_folder_name)
         self._validate_load_results_filters(dataset_names, synthesizer_names, summary)
         result_filenames = self._get_results_files(
@@ -241,17 +243,17 @@ class ResultsHandler(ABC):
             self._get_results(results_folder_name, result_filenames),
             ignore_index=True,
         )
-        if dataset_names is not None:
+        if has_dataset_filter:
             result = result[result['Dataset'].isin(dataset_names)]
 
-        if synthesizer_names is not None:
+        if has_synthesizer_filter:
             result = result[result['Synthesizer'].isin(synthesizer_names)]
 
         if result.empty:
             filters = []
-            if dataset_names is not None:
+            if has_dataset_filter:
                 filters.append(f'- Datasets: {", ".join(dataset_names)}')
-            if synthesizer_names is not None:
+            if has_synthesizer_filter:
                 filters.append(f'- Synthesizers: {", ".join(synthesizer_names)}')
 
             if filters:

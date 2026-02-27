@@ -7,6 +7,7 @@ from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
 from sdgym.benchmark import benchmark_single_table
+from sdgym.result_explorer.result_handler import SUMMARY_COLUMNS
 
 
 def test_end_to_end_local(tmp_path):
@@ -104,17 +105,7 @@ def test_load_results_with_filters(dataset_names, synthesizer_names, summary):
     )
     assert set(results['Dataset']) == expected_datasets
     assert set(results['Synthesizer']) == expected_synthesizers
-    if summary:
-        expected_columns = {
-            'Synthesizer',
-            'Dataset',
-            'Adjusted_Total_Time',
-            'Adjusted_Quality_Score',
-            'Diagnostic_Score',
-        }
-    else:
-        expected_columns = set(expected_results.columns)
-
+    expected_columns = set(SUMMARY_COLUMNS) if summary else set(expected_results.columns)
     assert set(results.columns) == expected_columns
     dataset_mask = (
         expected_results['Dataset'].isin(dataset_names)
