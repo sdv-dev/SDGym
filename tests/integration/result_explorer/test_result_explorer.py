@@ -65,20 +65,21 @@ def test_end_to_end_local(tmp_path):
 
 
 @pytest.mark.parametrize(
-    'dataset_names, synthesizer_names, summary',
+    'dataset_names, synthesizer_names, summary, expected_columns',
     [
         (
             ['fake_hotels'],
             ['HMASynthesizer'],
             True,
+            SUMMARY_COLUMNS,
         ),
-        (['fake_hotels'], None, False),
-        (None, ['HMASynthesizer'], False),
-        (None, None, False),
-        (None, None, True),
+        (['fake_hotels'], None, False, None),
+        (None, ['HMASynthesizer'], False, None),
+        (None, None, False, None),
+        (None, None, True, SUMMARY_COLUMNS),
     ],
 )
-def test_load_results_with_filters(dataset_names, synthesizer_names, summary):
+def test_load_results_with_filters(dataset_names, synthesizer_names, summary, expected_columns):
     """Test loading results with dataset and synthesizer and summary filters."""
     # Setup
     output_destination = 'tests/integration/result_explorer/_benchmark_results/'
@@ -87,6 +88,7 @@ def test_load_results_with_filters(dataset_names, synthesizer_names, summary):
         'tests/integration/result_explorer/_benchmark_results/multi_table/'
         'SDGym_results_12_02_2025/results.csv',
     )
+    expected_columns = set(expected_columns) if expected_columns else set(expected_results.columns)
     all_dataset_names = expected_results['Dataset'].unique().tolist()
     all_synthesizer_names = expected_results['Synthesizer'].unique().tolist()
 
@@ -105,7 +107,6 @@ def test_load_results_with_filters(dataset_names, synthesizer_names, summary):
     )
     assert set(results['Dataset']) == expected_datasets
     assert set(results['Synthesizer']) == expected_synthesizers
-    expected_columns = set(SUMMARY_COLUMNS) if summary else set(expected_results.columns)
     assert set(results.columns) == expected_columns
     dataset_mask = (
         expected_results['Dataset'].isin(dataset_names)
