@@ -1,5 +1,6 @@
 """SDGym Results Explorer for accessing and managing benchmark results."""
 
+import operator
 import os
 from datetime import datetime
 
@@ -62,7 +63,7 @@ class ResultsExplorer:
                 f"'{RESULTS_FOLDER_PREFIX}MM_DD_YYYY' under: {self.path}/{self.modality}"
             )
 
-        return max(candidates, key=lambda x: x[0])[1]
+        return max(candidates, key=operator.itemgetter(0))[1]
 
     def _create_results_handler(self, original_path, effective_path):
         """Create the appropriate results handler for local or S3 storage."""
