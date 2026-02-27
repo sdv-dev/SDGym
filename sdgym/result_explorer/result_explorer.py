@@ -113,7 +113,17 @@ class ResultsExplorer:
         return self._handler.get_file_path(path_parts, end_filename)
 
     def load_synthesizer(self, dataset_name, synthesizer_name, results_folder_name=None):
-        """Load the synthesizer for a given dataset and synthesizer."""
+        """Load the synthesizer for a given dataset and synthesizer.
+
+        Args:
+            dataset_name (str):
+                The name of the dataset.
+            synthesizer_name (str):
+                The name of the synthesizer.
+            results_folder_name (str, optional):
+                The name of the results folder to load from. If not provided,
+                the latest run will be used. Defaults to None.
+        """
         results_folder_name = results_folder_name or self._get_latest_run()
         file_path = self._get_file_path(
             results_folder_name, dataset_name, synthesizer_name, 'synthesizer'
@@ -121,7 +131,17 @@ class ResultsExplorer:
         return self._handler.load_synthesizer(file_path)
 
     def load_synthetic_data(self, dataset_name, synthesizer_name, results_folder_name=None):
-        """Load the synthetic data for a given dataset and synthesizer."""
+        """Load the synthetic data for a given dataset and synthesizer.
+
+        Args:
+            dataset_name (str):
+                The name of the dataset.
+            synthesizer_name (str):
+                The name of the synthesizer.
+            results_folder_name (str, optional):
+                The name of the results folder to load from. If not provided,
+                the latest run will be used. Defaults to None.
+        """
         results_folder_name = results_folder_name or self._get_latest_run()
         file_path = self._get_file_path(
             results_folder_name, dataset_name, synthesizer_name, 'synthetic_data'
@@ -129,7 +149,16 @@ class ResultsExplorer:
         return self._handler.load_synthetic_data(file_path)
 
     def load_real_data(self, dataset_name):
-        """Load the real data for a given dataset."""
+        """Load the real data for a given dataset.
+
+        Args:
+            dataset_name (str):
+                The name of the dataset.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame containing the real data for the specified dataset.
+        """
         data, _ = _load_dataset_with_client(
             modality=self.modality,
             dataset=dataset_name,
@@ -141,8 +170,9 @@ class ResultsExplorer:
         """Summarize the results in the specified folder.
 
         Args:
-            results_folder_name (str):
-                The name of the results folder to summarize.
+            results_folder_name (str, optional):
+                The name of the results folder to summarize. If not provided,
+                the latest run will be used. Defaults to None.
 
         Returns:
             tuple (pd.DataFrame, pd.DataFrame):
@@ -161,8 +191,9 @@ class ResultsExplorer:
         """Load and aggregate all the results CSV files from the specified results folder.
 
         Args:
-            results_folder_name (str):
-                The name of the results folder to load results from.
+            results_folder_name (str, optional):
+                The name of the results folder to load results from. If not provided,
+                the latest run will be used. Defaults to None.
 
         Returns:
             pd.DataFrame:
@@ -175,8 +206,9 @@ class ResultsExplorer:
         """Load and aggregate all the metainfo YAML files from the specified results folder.
 
         Args:
-            results_folder_name (str):
-                The name of the results folder to load metainfo from.
+            results_folder_name (str, optional):
+                The name of the results folder to load metainfo from. If not provided,
+                the latest run will be used. Defaults to None.
 
         Returns:
             dict:

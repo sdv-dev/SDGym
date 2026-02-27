@@ -167,10 +167,10 @@ def test_loading_last_run_results_by_default():
 
     # Run
     results = result_explorer.load_results()
-    metafinfo = result_explorer.load_metainfo()
+    metainfo = result_explorer.load_metainfo()
 
     # Assert
-    assert metafinfo == expected_metainfo
+    assert metainfo == expected_metainfo
     expected_results = pd.read_csv(
         'tests/integration/result_explorer/_benchmark_results/single_table/'
         'SDGym_results_12_17_2024/results.csv',
