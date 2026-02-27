@@ -42,7 +42,7 @@ class ResultsExplorer:
     """Explorer for SDGym benchmark results, supporting both local and S3 storage."""
 
     def _get_latest_run(self):
-        """Return the folder name of the latest SDGym run (by date in folder name)."""
+        """Get the folder name of the latest SDGym run."""
         candidates = []
         for name in self._handler.list():
             name = name.rstrip('/')

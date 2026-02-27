@@ -153,7 +153,7 @@ def test_list_and_load_results_multi_table(tmp_path):
     assert isinstance(metainfo, dict) and len(metainfo) >= 1
 
 
-def test_last_run_results():
+def test_loading_last_run_results_by_default():
     """Test that the last run results are loaded when no folder name is provided."""
     # Setup
     output_destination = 'tests/integration/result_explorer/_benchmark_results/'

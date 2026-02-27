@@ -393,3 +393,54 @@ class TestResultsExplorer:
         # Assert
         result_explorer._handler.load_metainfo.assert_called_once_with('SDGym_results_07_07_2025')
         assert loaded_metainfo == metainfo
+
+    @pytest.mark.parametrize(
+        'method, kwargs, file_type',
+        [
+            ('summarize', {}, None),
+            ('all_runs_complete', {}, None),
+            ('load_results', {}, None),
+            ('load_metainfo', {}, None),
+            (
+                'load_synthesizer',
+                {'dataset_name': 'my_dataset', 'synthesizer_name': 'my_synthesizer'},
+                'synthesizer',
+            ),
+            (
+                'load_synthetic_data',
+                {'dataset_name': 'my_dataset', 'synthesizer_name': 'my_synthesizer'},
+                'synthetic_data',
+            ),
+        ],
+    )
+    def test_load_latest_result_by_default(self, method, kwargs, file_type, tmp_path):
+        """Test that the latest result folder is used by default when no folder name is provided."""
+        # Setup
+        base = tmp_path / 'benchmark_output'
+        effective = base / 'single_table'
+        effective.mkdir(parents=True)
+        (effective / 'SDGym_results_07_07_2025').mkdir()
+        (effective / 'SDGym_results_08_08_2025').mkdir()
+
+        result_explorer = ResultsExplorer(str(base), modality='single_table')
+        folder_latest_run = 'SDGym_results_08_08_2025'
+        file_path = 'path/to/file'
+
+        result_explorer._handler = Mock()
+        handler_method = getattr(result_explorer._handler, method)
+        result_explorer._get_latest_run = Mock(return_value=folder_latest_run)
+        result_explorer._get_file_path = Mock(return_value=file_path)
+
+        # Run
+        getattr(result_explorer, method)(**kwargs)
+
+        # Assert
+        result_explorer._get_latest_run.assert_called_once()
+        if file_type is None:
+            result_explorer._get_file_path.assert_not_called()
+            handler_method.assert_called_once_with(folder_latest_run)
+        else:
+            result_explorer._get_file_path.assert_called_once_with(
+                folder_latest_run, kwargs['dataset_name'], kwargs['synthesizer_name'], file_type
+            )
+            handler_method.assert_called_once_with(file_path)
