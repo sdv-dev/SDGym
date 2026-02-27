@@ -9,7 +9,11 @@ from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
 from sdgym.result_explorer.result_explorer import ResultsExplorer, _validate_local_path
-from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
+from sdgym.result_explorer.result_handler import (
+    RESULTS_FOLDER_PREFIX,
+    LocalResultsHandler,
+    S3ResultsHandler,
+)
 
 
 def test_validate_local_path(tmp_path):
@@ -29,6 +33,49 @@ def test_validate_local_path(tmp_path):
 
 
 class TestResultsExplorer:
+    def test__get_latest_run_returns_latest_by_date(self, tmp_path):
+        """Test the `_get_latest_run` method."""
+        # Setup
+        path = tmp_path / 'results' / 'single_table'
+        path.mkdir(parents=True)
+        result_explorer = ResultsExplorer(path, modality='single_table')
+        result_explorer._handler = Mock()
+        result_explorer._handler.list.return_value = [
+            'random_folder',
+            f'{RESULTS_FOLDER_PREFIX}02_24_2025/',
+            f'{RESULTS_FOLDER_PREFIX}01_01_2026',
+            f'{RESULTS_FOLDER_PREFIX}04_05_2024',
+            f'{RESULTS_FOLDER_PREFIX}not_a_date',
+        ]
+
+        # Run
+        latest = result_explorer._get_latest_run()
+
+        # Assert
+        assert latest == f'{RESULTS_FOLDER_PREFIX}01_01_2026'
+
+    def test__get_latest_run_raises_if_no_valid_run_folders(self, tmp_path):
+        """Test the `_get_latest_run` method raises when no valid run folders exist."""
+        # Setup
+        base = tmp_path / 'results'
+        (base / 'single_table').mkdir(parents=True)
+        path = str(base)
+        result_explorer = ResultsExplorer(path, modality='single_table')
+        result_explorer._handler = Mock()
+        result_explorer._handler.list.return_value = [
+            'run1',
+            'run2/',
+            f'{RESULTS_FOLDER_PREFIX}not_a_date',
+        ]
+        expected_error_message = re.escape(
+            f"No run folders found. Expected folders like '{RESULTS_FOLDER_PREFIX}MM_DD_YYYY'"
+            f' under: {path}/single_table'
+        )
+
+        # Run and Assert
+        with pytest.raises(ValueError, match=expected_error_message):
+            result_explorer._get_latest_run()
+
     @patch('sdgym.result_explorer.result_explorer.is_s3_path')
     @patch('sdgym.result_explorer.result_explorer._validate_local_path')
     def test__init__local(self, mock_validate_local_path, mock_is_s3_path):
