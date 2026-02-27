@@ -189,12 +189,12 @@ def main():
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     modality = args.modality
     benchmark_setup = _get_benchmark_setup(modality)
-    for job in benchmark_setup['job_split']:
+    for synthesizers, datasets in benchmark_setup['job_split']:
         benchmark_setup['method'](
             output_destination=OUTPUT_DESTINATION_AWS,
             credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
-            synthesizers=job[0],
-            sdv_datasets=job[1],
+            synthesizers=synthesizers,
+            sdv_datasets=datasets,
             timeout=345600,  # 4 days
         )
 

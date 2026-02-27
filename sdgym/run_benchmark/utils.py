@@ -49,18 +49,6 @@ PLOTLY_MARKERS = [
 ]
 PLOT_PADDING = 0.25
 
-# The synthesizers inside the same list will be run by the same ec2 instance
-SYNTHESIZERS_SPLIT_SINGLE_TABLE = [
-    ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer', 'TVAESynthesizer'],
-    ['CopulaGANSynthesizer'],
-    ['CTGANSynthesizer'],
-    ['RealTabFormerSynthesizer'],
-]
-SYNTHESIZERS_SPLIT_MULTI_TABLE = [
-    ['HMASynthesizer'],
-    ['HSASynthesizer', 'IndependentSynthesizer', 'MultiTableUniformSynthesizer'],
-]
-
 
 def _get_filename_to_gdrive_link():
     return {
