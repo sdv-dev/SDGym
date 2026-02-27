@@ -51,7 +51,7 @@ jobs:
               license_key='${LICENSE_KEY}',
           )
           "
-          python -m pip install "sdgym[all]"
+          python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-549-enterprise-single-table-synthesizer"
 
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
