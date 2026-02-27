@@ -11,6 +11,7 @@ import humanfriendly
 import numpy as np
 import pandas as pd
 import psutil
+from openpyxl.utils import get_column_letter
 
 from sdgym.errors import SDGymError
 from sdgym.synthesizers.base import BaselineSynthesizer
@@ -195,3 +196,11 @@ def convert_metadata_to_sdmetrics(metadata_dict):
     """Convert a sdv metadata dictionary into sdmetrics expected metadata."""
     table_name = next(iter(metadata_dict['tables']))
     return metadata_dict['tables'][table_name]
+
+
+def _set_column_width(writer, df, sheet_name):
+    worksheet = writer.sheets[sheet_name]
+    for col_idx, column in enumerate(df.columns, 1):
+        max_length = max(df[column].astype(str).map(len).max(), len(column))
+        column_letter = get_column_letter(col_idx)
+        worksheet.column_dimensions[column_letter].width = max_length + 2

@@ -12,6 +12,7 @@ import yaml
 from openpyxl import load_workbook
 
 from sdgym.s3 import parse_s3_path
+from sdgym.utils import _set_column_width
 
 
 class ResultsWriter(ABC):
@@ -79,6 +80,7 @@ class LocalResultsWriter:
         with writer:
             for sheet_name, df in data.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=index)
+                _set_column_width(writer, df, sheet_name)
 
         wb = load_workbook(file_path)
         for sheet_name in reversed(data.keys()):
