@@ -374,7 +374,7 @@ class TestResultsExplorer:
 
         # Run
         loaded_results = result_explorer.load_results(
-            'SDGym_results_07_07_2025',
+            results_folder_name='SDGym_results_07_07_2025',
             dataset_names=['A'],
             synthesizer_names=['Synth1'],
             summary=True,
@@ -412,7 +412,11 @@ class TestResultsExplorer:
         [
             ('summarize', {}, None),
             ('all_runs_complete', {}, None),
-            ('load_results', {}, None),
+            (
+                'load_results',
+                {'dataset_names': None, 'synthesizer_names': None, 'summary': False},
+                None,
+            ),
             ('load_metainfo', {}, None),
             (
                 'load_synthesizer',
@@ -449,10 +453,18 @@ class TestResultsExplorer:
 
         # Assert
         result_explorer._get_latest_run.assert_called_once()
-        if file_type is None:
+        if method == 'load_results':
+            result_explorer._get_file_path.assert_not_called()
+            handler_method.assert_called_once_with(
+                folder_latest_run,
+                kwargs['dataset_names'],
+                kwargs['synthesizer_names'],
+                kwargs['summary'],
+            )
+        elif file_type is None:
             result_explorer._get_file_path.assert_not_called()
             handler_method.assert_called_once_with(folder_latest_run)
-        else:
+        elif method in ['load_synthesizer', 'load_synthetic_data']:
             result_explorer._get_file_path.assert_called_once_with(
                 folder_latest_run, kwargs['dataset_name'], kwargs['synthesizer_name'], file_type
             )
