@@ -1,10 +1,10 @@
-Run started:2026-01-30 23:51:24.376616
+Run started:2026-02-28 10:30:56.196752+00:00
 
 Test results:
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b608_hardcoded_sql_expressions.html
    Location: ./sdgym/_benchmark/benchmark.py:161:12
 160	    return textwrap.dedent(
 161	        f"""\
@@ -73,7 +73,7 @@ Test results:
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
    Location: ./sdgym/benchmark.py:416:8
 415	    if isinstance(synthesizer, type):
 416	        assert issubclass(synthesizer, BaselineSynthesizer), (
@@ -85,7 +85,7 @@ Test results:
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b101_assert_used.html
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
    Location: ./sdgym/benchmark.py:421:8
 420	    else:
 421	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
@@ -97,7 +97,7 @@ Test results:
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b608_hardcoded_sql_expressions.html
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b608_hardcoded_sql_expressions.html
    Location: ./sdgym/benchmark.py:1344:31
 1343	def _get_user_data_script(access_key, secret_key, region_name, script_content):
 1344	    return textwrap.dedent(f"""\
@@ -143,39 +143,49 @@ Test results:
 1384	
 
 --------------------------------------------------
+>> Issue: [B615:huggingface_unsafe_download] Unsafe Hugging Face Hub download without revision pinning in load_dataset()
+   Severity: Medium   Confidence: High
+   CWE: CWE-494 (https://cwe.mitre.org/data/definitions/494.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b615_huggingface_unsafe_download.html
+   Location: ./sdgym/cli/utils.py:112:18
+111	    for dataset_path in datasets_path.iterdir():
+112	        dataset = load_dataset(dataset_path)
+113	        datasets.append({
+
+--------------------------------------------------
 >> Issue: [B110:try_except_pass] Try, Except, Pass detected.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b110_try_except_pass.html
-   Location: ./sdgym/result_writer.py:128:12
-127	
-128	            except Exception:
-129	                pass  # If the file does not exist, we will create it
-130	
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b110_try_except_pass.html
+   Location: ./sdgym/result_writer.py:130:12
+129	
+130	            except Exception:
+131	                pass  # If the file does not exist, we will create it
+132	
 
 --------------------------------------------------
 >> Issue: [B106:hardcoded_password_funcarg] Possible hardcoded password: 'https://oauth2.googleapis.com/token'
    Severity: Low   Confidence: Medium
    CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b106_hardcoded_password_funcarg.html
-   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:130:12
-129	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
-130	    creds = OAuth2Credentials(
-131	        access_token=creds_dict['access_token'],
-132	        client_id=creds_dict.get('client_id'),
-133	        client_secret=creds_dict.get('client_secret'),
-134	        refresh_token=creds_dict.get('refresh_token'),
-135	        token_expiry=None,
-136	        token_uri='https://oauth2.googleapis.com/token',
-137	        user_agent=None,
-138	    )
-139	    gauth = GoogleAuth()
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b106_hardcoded_password_funcarg.html
+   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:131:12
+130	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
+131	    creds = OAuth2Credentials(
+132	        access_token=creds_dict['access_token'],
+133	        client_id=creds_dict.get('client_id'),
+134	        client_secret=creds_dict.get('client_secret'),
+135	        refresh_token=creds_dict.get('refresh_token'),
+136	        token_expiry=None,
+137	        token_uri='https://oauth2.googleapis.com/token',
+138	        user_agent=None,
+139	    )
+140	    gauth = GoogleAuth()
 
 --------------------------------------------------
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
    Severity: Low   Confidence: High
    CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b403-import-pickle
+   More Info: https://bandit.readthedocs.io/en/1.9.2/blacklists/blacklist_imports.html#b403-import-pickle
    Location: ./sdgym/s3.py:5:0
 4	import logging
 5	import pickle
@@ -185,7 +195,7 @@ Test results:
 >> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/blacklists/blacklist_imports.html#b404-import-subprocess
+   More Info: https://bandit.readthedocs.io/en/1.9.2/blacklists/blacklist_imports.html#b404-import-subprocess
    Location: ./sdgym/utils.py:5:0
 4	import os
 5	import subprocess
@@ -195,27 +205,27 @@ Test results:
 >> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:144:17
-143	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-144	        output = subprocess.run(command, stdout=subprocess.PIPE)
-145	        return len(output.stdout.decode().split())
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./sdgym/utils.py:145:17
+144	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+145	        output = subprocess.run(command, stdout=subprocess.PIPE)
+146	        return len(output.stdout.decode().split())
 
 --------------------------------------------------
 >> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b603_subprocess_without_shell_equals_true.html
-   Location: ./sdgym/utils.py:160:17
-159	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
-160	        output = subprocess.run(command, stdout=subprocess.PIPE)
-161	        loads = np.array(output.stdout.decode().split()).astype(float)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./sdgym/utils.py:161:17
+160	        command = ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits']
+161	        output = subprocess.run(command, stdout=subprocess.PIPE)
+162	        loads = np.array(output.stdout.decode().split()).astype(float)
 
 --------------------------------------------------
 >> Issue: [B105:hardcoded_password_string] Possible hardcoded password: 'sdgym['
    Severity: Low   Confidence: Medium
    CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
-   More Info: https://bandit.readthedocs.io/en/1.7.7/plugins/b105_hardcoded_password_string.html
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b105_hardcoded_password_string.html
    Location: ./tasks.py:102:18
 101	    extra_dependencies = []
 102	    start_token = 'sdgym['
@@ -224,7 +234,7 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 6468
+	Total lines of code: 6549
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
@@ -232,11 +242,11 @@ Run metrics:
 	Total issues (by severity):
 		Undefined: 0
 		Low: 9
-		Medium: 2
+		Medium: 3
 		High: 0
 	Total issues (by confidence):
 		Undefined: 0
 		Low: 2
 		Medium: 2
-		High: 7
+		High: 8
 Files skipped (0):
