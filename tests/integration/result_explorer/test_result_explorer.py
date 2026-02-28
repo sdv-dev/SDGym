@@ -2,6 +2,7 @@ import shutil
 import time
 
 import pandas as pd
+import yaml
 from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
@@ -150,3 +151,28 @@ def test_list_and_load_results_multi_table(tmp_path):
     )
     pd.testing.assert_frame_equal(loaded_results, expected_results)
     assert isinstance(metainfo, dict) and len(metainfo) >= 1
+
+
+def test_loading_last_run_results_by_default():
+    """Test that the last run results are loaded when no folder name is provided."""
+    # Setup
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
+    result_explorer = ResultsExplorer(output_destination, modality='single_table')
+    metainfo_path = f'{output_destination}single_table/SDGym_results_12_17_2024/metainfo.yaml'
+    with open(metainfo_path, 'r') as f:
+        raw_yaml = yaml.safe_load(f)
+
+    run_id = raw_yaml.get('run_id')
+    expected_metainfo = {run_id: {k: v for k, v in raw_yaml.items() if k != 'run_id'}}
+
+    # Run
+    results = result_explorer.load_results()
+    metainfo = result_explorer.load_metainfo()
+
+    # Assert
+    assert metainfo == expected_metainfo
+    expected_results = pd.read_csv(
+        'tests/integration/result_explorer/_benchmark_results/single_table/'
+        'SDGym_results_12_17_2024/results.csv',
+    )
+    pd.testing.assert_frame_equal(results, expected_results)

@@ -9,7 +9,11 @@ from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
 from sdgym.result_explorer.result_explorer import ResultsExplorer, _validate_local_path
-from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
+from sdgym.result_explorer.result_handler import (
+    RESULTS_FOLDER_PREFIX,
+    LocalResultsHandler,
+    S3ResultsHandler,
+)
 
 
 def test_validate_local_path(tmp_path):
@@ -29,6 +33,49 @@ def test_validate_local_path(tmp_path):
 
 
 class TestResultsExplorer:
+    def test__get_latest_run_returns_latest_by_date(self, tmp_path):
+        """Test the `_get_latest_run` method."""
+        # Setup
+        path = tmp_path / 'results' / 'single_table'
+        path.mkdir(parents=True)
+        result_explorer = ResultsExplorer(path, modality='single_table')
+        result_explorer._handler = Mock()
+        result_explorer._handler.list.return_value = [
+            'random_folder',
+            f'{RESULTS_FOLDER_PREFIX}02_24_2025/',
+            f'{RESULTS_FOLDER_PREFIX}01_01_2026',
+            f'{RESULTS_FOLDER_PREFIX}04_05_2024',
+            f'{RESULTS_FOLDER_PREFIX}not_a_date',
+        ]
+
+        # Run
+        latest = result_explorer._get_latest_run()
+
+        # Assert
+        assert latest == f'{RESULTS_FOLDER_PREFIX}01_01_2026'
+
+    def test__get_latest_run_raises_if_no_valid_run_folders(self, tmp_path):
+        """Test the `_get_latest_run` method raises when no valid run folders exist."""
+        # Setup
+        base = tmp_path / 'results'
+        (base / 'single_table').mkdir(parents=True)
+        path = str(base)
+        result_explorer = ResultsExplorer(path, modality='single_table')
+        result_explorer._handler = Mock()
+        result_explorer._handler.list.return_value = [
+            'run1',
+            'run2/',
+            f'{RESULTS_FOLDER_PREFIX}not_a_date',
+        ]
+        expected_error_message = re.escape(
+            f"No run folders found. Expected folders like '{RESULTS_FOLDER_PREFIX}MM_DD_YYYY'"
+            f' under: {path}/single_table'
+        )
+
+        # Run and Assert
+        with pytest.raises(ValueError, match=expected_error_message):
+            result_explorer._get_latest_run()
+
     @patch('sdgym.result_explorer.result_explorer.is_s3_path')
     @patch('sdgym.result_explorer.result_explorer._validate_local_path')
     def test__init__local(self, mock_validate_local_path, mock_is_s3_path):
@@ -346,3 +393,54 @@ class TestResultsExplorer:
         # Assert
         result_explorer._handler.load_metainfo.assert_called_once_with('SDGym_results_07_07_2025')
         assert loaded_metainfo == metainfo
+
+    @pytest.mark.parametrize(
+        'method, kwargs, file_type',
+        [
+            ('summarize', {}, None),
+            ('all_runs_complete', {}, None),
+            ('load_results', {}, None),
+            ('load_metainfo', {}, None),
+            (
+                'load_synthesizer',
+                {'dataset_name': 'my_dataset', 'synthesizer_name': 'my_synthesizer'},
+                'synthesizer',
+            ),
+            (
+                'load_synthetic_data',
+                {'dataset_name': 'my_dataset', 'synthesizer_name': 'my_synthesizer'},
+                'synthetic_data',
+            ),
+        ],
+    )
+    def test_load_latest_result_by_default(self, method, kwargs, file_type, tmp_path):
+        """Test that the latest result folder is used by default when no folder name is provided."""
+        # Setup
+        base = tmp_path / 'benchmark_output'
+        effective = base / 'single_table'
+        effective.mkdir(parents=True)
+        (effective / 'SDGym_results_07_07_2025').mkdir()
+        (effective / 'SDGym_results_08_08_2025').mkdir()
+
+        result_explorer = ResultsExplorer(str(base), modality='single_table')
+        folder_latest_run = 'SDGym_results_08_08_2025'
+        file_path = 'path/to/file'
+
+        result_explorer._handler = Mock()
+        handler_method = getattr(result_explorer._handler, method)
+        result_explorer._get_latest_run = Mock(return_value=folder_latest_run)
+        result_explorer._get_file_path = Mock(return_value=file_path)
+
+        # Run
+        getattr(result_explorer, method)(**kwargs)
+
+        # Assert
+        result_explorer._get_latest_run.assert_called_once()
+        if file_type is None:
+            result_explorer._get_file_path.assert_not_called()
+            handler_method.assert_called_once_with(folder_latest_run)
+        else:
+            result_explorer._get_file_path.assert_called_once_with(
+                folder_latest_run, kwargs['dataset_name'], kwargs['synthesizer_name'], file_type
+            )
+            handler_method.assert_called_once_with(file_path)

@@ -1,9 +1,12 @@
 """SDGym Results Explorer for accessing and managing benchmark results."""
 
+import operator
 import os
+from datetime import datetime
 
 from sdgym.datasets import _load_dataset_with_client
 from sdgym.result_explorer.result_handler import (
+    RESULTS_FOLDER_PREFIX,
     SYNTHESIZER_BASELINE,
     LocalResultsHandler,
     S3ResultsHandler,
@@ -38,6 +41,29 @@ def _resolve_effective_path(path, modality):
 
 class ResultsExplorer:
     """Explorer for SDGym benchmark results, supporting both local and S3 storage."""
+
+    def _get_latest_run(self):
+        """Get the folder name of the latest SDGym run."""
+        candidates = []
+        for name in self._handler.list():
+            name = name.rstrip('/')
+            if not name.startswith(RESULTS_FOLDER_PREFIX):
+                continue
+
+            date_str = name[len(RESULTS_FOLDER_PREFIX) :]
+            try:
+                date_obj = datetime.strptime(date_str, '%m_%d_%Y')
+            except ValueError:
+                continue
+
+            candidates.append((date_obj, name))
+        if not candidates:
+            raise ValueError(
+                f'No run folders found. Expected folders like '
+                f"'{RESULTS_FOLDER_PREFIX}MM_DD_YYYY' under: {self.path}/{self.modality}"
+            )
+
+        return max(candidates, key=operator.itemgetter(0))[1]
 
     def _create_results_handler(self, original_path, effective_path):
         """Create the appropriate results handler for local or S3 storage."""
@@ -86,22 +112,53 @@ class ResultsExplorer:
 
         return self._handler.get_file_path(path_parts, end_filename)
 
-    def load_synthesizer(self, results_folder_name, dataset_name, synthesizer_name):
-        """Load the synthesizer for a given dataset and synthesizer."""
+    def load_synthesizer(self, dataset_name, synthesizer_name, results_folder_name=None):
+        """Load the synthesizer for a given dataset and synthesizer.
+
+        Args:
+            dataset_name (str):
+                The name of the dataset.
+            synthesizer_name (str):
+                The name of the synthesizer.
+            results_folder_name (str, optional):
+                The name of the results folder to load from. If not provided,
+                the latest run will be used. Defaults to None.
+        """
+        results_folder_name = results_folder_name or self._get_latest_run()
         file_path = self._get_file_path(
             results_folder_name, dataset_name, synthesizer_name, 'synthesizer'
         )
         return self._handler.load_synthesizer(file_path)
 
-    def load_synthetic_data(self, results_folder_name, dataset_name, synthesizer_name):
-        """Load the synthetic data for a given dataset and synthesizer."""
+    def load_synthetic_data(self, dataset_name, synthesizer_name, results_folder_name=None):
+        """Load the synthetic data for a given dataset and synthesizer.
+
+        Args:
+            dataset_name (str):
+                The name of the dataset.
+            synthesizer_name (str):
+                The name of the synthesizer.
+            results_folder_name (str, optional):
+                The name of the results folder to load from. If not provided,
+                the latest run will be used. Defaults to None.
+        """
+        results_folder_name = results_folder_name or self._get_latest_run()
         file_path = self._get_file_path(
             results_folder_name, dataset_name, synthesizer_name, 'synthetic_data'
         )
         return self._handler.load_synthetic_data(file_path)
 
     def load_real_data(self, dataset_name):
-        """Load the real data for a given dataset."""
+        """Load the real data for a given dataset.
+
+        Args:
+            dataset_name (str):
+                The name of the dataset.
+
+        Returns:
+            pd.DataFrame:
+                A DataFrame containing the real data for the specified dataset.
+        """
         data, _ = _load_dataset_with_client(
             modality=self.modality,
             dataset=dataset_name,
@@ -109,46 +166,53 @@ class ResultsExplorer:
         )
         return data
 
-    def summarize(self, folder_name):
+    def summarize(self, results_folder_name=None):
         """Summarize the results in the specified folder.
 
         Args:
-            folder_name (str):
-                The name of the results folder to summarize.
+            results_folder_name (str, optional):
+                The name of the results folder to summarize. If not provided,
+                the latest run will be used. Defaults to None.
 
         Returns:
             tuple (pd.DataFrame, pd.DataFrame):
                 - A summary DataFrame with the number of Wins per synthesizer.
                 - A DataFrame with the results of the benchmark for the specified folder.
         """
-        return self._handler.summarize(folder_name)
+        results_folder_name = results_folder_name or self._get_latest_run()
+        return self._handler.summarize(results_folder_name)
 
-    def all_runs_complete(self, folder_name):
+    def all_runs_complete(self, results_folder_name=None):
         """Check if all runs in the specified folder are complete."""
-        return self._handler.all_runs_complete(folder_name)
+        results_folder_name = results_folder_name or self._get_latest_run()
+        return self._handler.all_runs_complete(results_folder_name)
 
-    def load_results(self, results_folder_name):
+    def load_results(self, results_folder_name=None):
         """Load and aggregate all the results CSV files from the specified results folder.
 
         Args:
-            results_folder_name (str):
-                The name of the results folder to load results from.
+            results_folder_name (str, optional):
+                The name of the results folder to load results from. If not provided,
+                the latest run will be used. Defaults to None.
 
         Returns:
             pd.DataFrame:
                 A DataFrame containing the results of the specified folder.
         """
+        results_folder_name = results_folder_name or self._get_latest_run()
         return self._handler.load_results(results_folder_name)
 
-    def load_metainfo(self, results_folder_name):
+    def load_metainfo(self, results_folder_name=None):
         """Load and aggregate all the metainfo YAML files from the specified results folder.
 
         Args:
-            results_folder_name (str):
-                The name of the results folder to load metainfo from.
+            results_folder_name (str, optional):
+                The name of the results folder to load metainfo from. If not provided,
+                the latest run will be used. Defaults to None.
 
         Returns:
             dict:
                 A dictionary containing the metainfo of the specified folder.
         """
+        results_folder_name = results_folder_name or self._get_latest_run()
         return self._handler.load_metainfo(results_folder_name)
