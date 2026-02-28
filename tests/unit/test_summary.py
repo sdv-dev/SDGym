@@ -64,7 +64,7 @@ def test_make_summary_spreadsheet(
         index=['synth1', 'synth2'],
     )
     preprocessed_data = pd.DataFrame({'modality': ['single-table']})
-    errors = pd.DataFrame({'synth1': [0], 'synth2': [1], 'error': ['RuntimeError: error.']})
+    errors = pd.DataFrame({'synth1': [0], 'synth2': [1], 'Error': ['RuntimeError: error.']})
     preprocess_mock.return_value = preprocessed_data
     summarize_mock.return_value = data
     errors_summary_mock.return_value = errors

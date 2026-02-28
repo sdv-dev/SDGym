@@ -514,7 +514,7 @@ def _compute_scores(
         for metric_name, metric in metrics.items():
             scores.append({
                 'metric': metric_name,
-                'error': 'Metric Timeout',
+                'Error': 'Metric Timeout',
             })
             # re-inject list to multiprocessing output
             output['scores'] = scores
@@ -537,7 +537,7 @@ def _compute_scores(
             scores[-1].update({
                 'score': score,
                 'normalized_score': normalized_score,
-                'error': error,
+                'Error': error,
                 'metric_time': calculate_score_time(start),
             })
             # re-inject list to multiprocessing output
@@ -603,7 +603,7 @@ def _score(
         output = {}
 
     output['timeout'] = True  # To be deleted if there is no error
-    output['error'] = 'Load Timeout'  # To be deleted if there is no error
+    output['Error'] = 'Load Timeout'  # To be deleted if there is no error
     try:
         LOGGER.info(
             'Running %s on %s dataset %s; %s',
@@ -615,7 +615,7 @@ def _score(
 
         output['dataset_size'] = get_size_of(data) / N_BYTES_IN_MB
         # To be deleted if there is no error
-        output['error'] = 'Synthesizer Timeout'
+        output['Error'] = 'Synthesizer Timeout'
 
         try:
             synthetic_data, train_time, sample_time, synthesizer_size, peak_memory = _synthesize(
@@ -642,7 +642,7 @@ def _score(
             )
 
             # No error so far. _compute_scores tracks its own errors by metric
-            del output['error']
+            del output['Error']
             _compute_scores(
                 metrics,
                 data,
@@ -671,14 +671,14 @@ def _score(
             output['peak_memory'] = err.peak_memory
 
             output['exception'] = err.exception
-            output['error'] = err.error
+            output['Error'] = err.error
             output['timeout'] = False
 
     except Exception:
         LOGGER.exception('Error running %s on dataset %s;', synthesizer['name'], dataset_name)
         exception, error = format_exception()
         output['exception'] = exception
-        output['error'] = error
+        output['Error'] = error
         output['timeout'] = False  # There was no timeout
 
     finally:
@@ -744,7 +744,7 @@ def _score_with_timeout(
         thread.join(timeout)
         if thread.is_alive():
             LOGGER.error('Timeout running %s on dataset %s;', synthesizer['name'], dataset_name)
-            return {'timeout': True, 'error': 'Synthesizer Timeout'}
+            return {'timeout': True, 'Error': 'Synthesizer Timeout'}
 
         return output
 
@@ -815,8 +815,8 @@ def _format_output(
     for score in output.get('scores', []):
         scores.insert(len(scores.columns), score['metric'], score['normalized_score'])
 
-    if 'error' in output:
-        scores['error'] = output['error']
+    if 'Error' in output:
+        scores['Error'] = output['Error']
 
     return scores
 
@@ -1085,8 +1085,8 @@ def _add_adjusted_scores(scores, timeout):
 
         fit_times = scores.loc[dataset_mask, 'Train_Time'].fillna(0)
         sample_times = scores.loc[dataset_mask, 'Sample_Time'].fillna(0)
-        if 'error' in scores.columns:
-            errors = scores.loc[dataset_mask, 'error']
+        if 'Error' in scores.columns:
+            errors = scores.loc[dataset_mask, 'Error']
         else:
             errors = pd.Series([None] * dataset_mask.sum(), index=scores.index[dataset_mask])
 

@@ -60,7 +60,7 @@ def test_get_credentials(tmp_path):
 pip install sdv-installer
 
 python -c "from sdv_installer.installation.installer import install_packages; \\
-install_packages(username='test_user', license_key='test_key', package='sdv-enterprise')"
+install_packages(username='test_user', license_key='test_key')"
 """,
         ),
         ({'sdv': {}}, ''),

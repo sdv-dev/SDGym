@@ -142,7 +142,7 @@ def test_benchmark_single_table_error_handling():
     assert not output.empty
     assert 'Train_Time' in output
     assert 'Sample_Time' in output
-    assert output['error'].to_list() == [np.nan, np.nan, np.nan, 'ValueError: random error']
+    assert output['Error'].to_list() == [np.nan, np.nan, np.nan, 'ValueError: random error']
 
 
 def test_benchmark_single_table_compute_quality_score():
@@ -297,7 +297,7 @@ def test_benchmark_single_table_timeout():
 
     # Run
     scores = sdgym.benchmark_single_table(
-        synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['insurance'], timeout=2
+        synthesizers=['GaussianCopulaSynthesizer'], sdv_datasets=['insurance'], timeout=1
     )
     total_time = time.time() - start_time
 
@@ -318,8 +318,8 @@ def test_benchmark_single_table_timeout():
             'Diagnostic_Score': None,
             'Quality_Score': None,
             'Privacy_Score': None,
-            'error': 'Synthesizer Timeout',
-            'Adjusted_Total_Time': 2 + fallback_train_time + fallback_sample_time,
+            'Error': 'Synthesizer Timeout',
+            'Adjusted_Total_Time': 1 + fallback_train_time + fallback_sample_time,
             'Adjusted_Quality_Score': None,
         },
         name=0,
@@ -508,7 +508,7 @@ def test_benchmark_single_table_no_synthesizers_with_parameters():
         .all()
     )
     assert result['Evaluate_Time'] is None
-    assert result['error'] == 'ValueError: Unknown single_table metric: a'
+    assert result['Error'] == 'ValueError: Unknown single_table metric: a'
 
 
 def test_benchmark_single_table_custom_synthesizer():
@@ -811,7 +811,7 @@ def test_benchmark_single_table_error_during_fit(mock_fit):
     )
 
     # Assert
-    assert result['error'].to_list() == [
+    assert result['Error'].to_list() == [
         'Exception: Fitting error',
         np.nan,
         np.nan,
@@ -855,7 +855,7 @@ def test_benchmark_single_table_error_during_sample(mock_sample):
     )
 
     # Assert
-    assert result['error'].to_list() == [
+    assert result['Error'].to_list() == [
         'Exception: Sampling error',
         np.nan,
         np.nan,
@@ -1030,11 +1030,11 @@ def test_benchmark_multi_table_error_during_fit(mock_augment_tables):
     # Run
     result = benchmark_multi_table(
         synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
-        sdv_datasets=['Student_loan', 'fake_hotels'],
+        sdv_datasets=['fake_hotels_extended', 'fake_hotels'],
     )
 
     # Assert
-    assert result['error'].to_list() == [
+    assert result['Error'].to_list() == [
         'Exception: Fitting error',
         np.nan,
         'Exception: Fitting error',

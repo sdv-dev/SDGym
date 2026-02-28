@@ -1,5 +1,26 @@
 # History
 
+## v0.13.1 - 2026-02-28
+
+### New Features
+
+* Include SDV-Enterprise in single-table benchmarks - Issue [#549](https://github.com/sdv-dev/SDGym/issues/549) by @R-Palazzo
+
+### Internal
+
+* Add extremity data points of the Pareto curve for the Quality–Speed Tradeoff plot - Issue [#556](https://github.com/sdv-dev/SDGym/issues/556) by @R-Palazzo
+* Internal benchmark results upload crashes if there's no error column in the result table - Issue [#544](https://github.com/sdv-dev/SDGym/issues/544) by @R-Palazzo
+
+### Maintenance
+
+* Update RELEASE guide to include conda-forge step - Issue [#560](https://github.com/sdv-dev/SDGym/issues/560) by @sarahmish
+* Support Python 3.14 - Issue [#528](https://github.com/sdv-dev/SDGym/issues/528) by @pvk-developer
+* Update license information in pyproject.toml to use new format - Issue [#527](https://github.com/sdv-dev/SDGym/issues/527) by @pvk-developer
+
+### Miscellaneous
+
+* Set the SDGym Slack alert to be posted on the `sdgym` channel. - Issue [#555](https://github.com/sdv-dev/SDGym/issues/555) by @R-Palazzo
+
 ## v0.13.0 - 2026-01-30
 
 ### New Features

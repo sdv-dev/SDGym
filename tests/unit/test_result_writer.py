@@ -1,5 +1,5 @@
 import zipfile
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import cloudpickle
 import pandas as pd
@@ -131,6 +131,67 @@ class TestLocalResultsWriter:
                 with zf.open(f'{table_name}.csv') as f:
                     loaded_df = pd.read_csv(f)
                     pd.testing.assert_frame_equal(df, loaded_df)
+
+    @patch('sdgym.result_writer.Path.exists')
+    @patch('sdgym.result_writer.load_workbook')
+    @patch('sdgym.result_writer.pd.ExcelWriter')
+    @patch('sdgym.result_writer._set_column_width')
+    @patch('sdgym.result_writer.pd.DataFrame.to_excel', autospec=True)
+    def test_write_xlsx(
+        self,
+        mock_to_excel,
+        mock_set_column_width,
+        mock_excel_writer,
+        mock_load_workbook,
+        mock_exists,
+        tmp_path,
+    ):
+        """Test the `write_xlsx` method."""
+        # Setup
+        mock_exists.return_value = False
+        file_path = tmp_path / 'test.xlsx'
+        df1 = pd.DataFrame({'A': [1, 2]})
+        df2 = pd.DataFrame({'B': [3, 4]})
+        data = {'SheetA': df1, 'SheetB': df2}
+        mock_writer = mock_excel_writer.return_value
+        mock_writer.__enter__.return_value = mock_writer
+        mock_writer.__exit__.return_value = None
+
+        mock_ws_a = Mock()
+        mock_ws_b = Mock()
+        mock_wb = MagicMock()
+
+        def get_sheet(name):
+            sheets = {'SheetA': mock_ws_a, 'SheetB': mock_ws_b}
+            return sheets[name]
+
+        mock_wb.__getitem__.side_effect = get_sheet
+        mock_load_workbook.return_value = mock_wb
+        result_writer = LocalResultsWriter()
+
+        # Run
+        result_writer.write_xlsx(data, file_path)
+
+        # Assert
+        _, kwargs = mock_excel_writer.call_args
+        assert kwargs['mode'] == 'w'
+        assert kwargs['engine'] == 'openpyxl'
+        mock_to_excel.assert_has_calls(
+            [
+                call(ANY, mock_writer, sheet_name='SheetA', index=False),
+                call(ANY, mock_writer, sheet_name='SheetB', index=False),
+            ],
+            any_order=False,
+        )
+        assert mock_to_excel.call_args_list[0].args[0] is df1
+        assert mock_to_excel.call_args_list[1].args[0] is df2
+        mock_set_column_width.assert_has_calls([
+            call(mock_writer, df1, 'SheetA'),
+            call(mock_writer, df2, 'SheetB'),
+        ])
+        assert mock_wb._sheets.remove.call_count == 2
+        assert mock_wb._sheets.insert.call_count == 2
+        mock_wb.save.assert_called_once_with(file_path)
 
 
 class TestS3ResultsWriter:

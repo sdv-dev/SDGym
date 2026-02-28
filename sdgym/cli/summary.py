@@ -35,11 +35,11 @@ def preprocess(data):
     bydataset = grouped.mean()
     data = bydataset.reset_index()
 
-    if 'error' in data.columns:
+    if 'Error' in data.columns:
         errors = data.error.fillna('')
         for message, column in KNOWN_ERRORS:
             data[column] = errors.str.contains(message)
-            data.loc[data[column], 'error'] = np.nan
+            data.loc[data[column], 'Error'] = np.nan
 
     return data
 
@@ -122,7 +122,7 @@ def summarize(data, baselines=(), datasets=None):
         baseline_scores = baseline_data.set_index('Dataset').Quality_Score
         results[f'beat_{baseline.lower()}'] = _beat_baseline(data, baseline_scores)
 
-    if 'error' in data.columns:
+    if 'Error' in data.columns:
         grouped = data.groupby('Synthesizer')
         for _, error_column in KNOWN_ERRORS:
             results[error_column] = grouped[error_column].sum()
@@ -135,7 +135,7 @@ def summarize(data, baselines=(), datasets=None):
 
 
 def _error_counts(data):
-    if 'error' in data.columns:
+    if 'Error' in data.columns:
         return data.error.value_counts()
     return 0
 
@@ -158,8 +158,8 @@ def errors_summary(data):
     Returns:
         pandas.DataFrame
     """
-    if 'error' in data.columns:
-        all_errors = pd.DataFrame(_error_counts(data)).rename(columns={'error': 'all'})
+    if 'Error' in data.columns:
+        all_errors = pd.DataFrame(_error_counts(data)).rename(columns={'Error': 'all'})
         synthesizer_errors = data.groupby('Synthesizer').apply(_error_counts).pivot_table(level=0)
         for synthesizer, errors in synthesizer_errors.items():
             all_errors[synthesizer] = errors.fillna(0).astype(int)

@@ -49,7 +49,6 @@ jobs:
           install_packages(
               username='${USERNAME}',
               license_key='${LICENSE_KEY}',
-              package='sdv-enterprise',
           )
           "
           python -m pip install "sdgym[all]"

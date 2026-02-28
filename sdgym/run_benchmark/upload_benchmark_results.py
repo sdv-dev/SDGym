@@ -29,6 +29,7 @@ from sdgym.run_benchmark.utils import (
     get_df_to_plot,
 )
 from sdgym.s3 import S3_REGION, parse_s3_path
+from sdgym.utils import _set_column_width
 
 LOGGER = logging.getLogger(__name__)
 SYNTHESIZER_TO_GLOBAL_POSITION = {
@@ -231,7 +232,6 @@ def get_model_details(summary, results, df_to_plot, modality):
     with open(SYNTHESIZER_DESCRIPTION_PATH, 'r', encoding='utf-8') as f:
         synthesizer_info = yaml.safe_load(f) or {}
 
-    err_column = 'error' if 'error' in results.columns else 'Error'
     paretos_synthesizers = (
         df_to_plot.loc[df_to_plot['Pareto'].eq(True), 'Synthesizer'].astype(str).add('Synthesizer')
     )
@@ -258,18 +258,23 @@ def get_model_details(summary, results, df_to_plot, modality):
     model_details['Number of datasets - Wins'] = (
         model_details['Synthesizer'].map(wins).fillna(0).astype(int)
     )
-    timeout_counts = (
-        results
-        .loc[results[err_column].eq('Synthesizer Timeout')]
-        .groupby('Synthesizer')['Dataset']
-        .nunique()
-    )
-    error_counts = (
-        results
-        .loc[results[err_column].notna() & ~results[err_column].eq('Synthesizer Timeout')]
-        .groupby('Synthesizer')['Dataset']
-        .nunique()
-    )
+    if 'Error' in results.columns:
+        timeout_counts = (
+            results
+            .loc[results['Error'].eq('Synthesizer Timeout')]
+            .groupby('Synthesizer')['Dataset']
+            .nunique()
+        )
+        error_counts = (
+            results
+            .loc[results['Error'].notna() & ~results['Error'].eq('Synthesizer Timeout')]
+            .groupby('Synthesizer')['Dataset']
+            .nunique()
+        )
+    else:
+        timeout_counts = pd.Series(0, index=model_details['Synthesizer'])
+        error_counts = pd.Series(0, index=model_details['Synthesizer'])
+
     model_details['Number of datasets - Timeout'] = (
         model_details['Synthesizer'].map(timeout_counts).fillna(0).astype(int)
     )
@@ -313,7 +318,8 @@ def update_table_aws(s3_client, bucket, filename, table, reference_column):
     updated_table = pd.concat([existing_table, table], ignore_index=True)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        updated_table.to_excel(writer, index=False)
+        updated_table.to_excel(writer, index=False, sheet_name='Sheet1')
+        _set_column_width(writer, updated_table, 'Sheet1')
 
     output.seek(0)
     s3_client.upload_fileobj(output, bucket, filename)

@@ -6,13 +6,15 @@ from datetime import datetime
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
 from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
-SLACK_CHANNEL = 'sdv-alerts'
+SLACK_CHANNEL = 'sdgym'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
 PLOTLY_MARKERS = [
     'circle',
@@ -45,18 +47,7 @@ PLOTLY_MARKERS = [
     'diamond-cross',
     'diamond-x',
 ]
-
-# The synthesizers inside the same list will be run by the same ec2 instance
-SYNTHESIZERS_SPLIT_SINGLE_TABLE = [
-    ['UniformSynthesizer', 'ColumnSynthesizer', 'GaussianCopulaSynthesizer', 'TVAESynthesizer'],
-    ['CopulaGANSynthesizer'],
-    ['CTGANSynthesizer'],
-    ['RealTabFormerSynthesizer'],
-]
-SYNTHESIZERS_SPLIT_MULTI_TABLE = [
-    ['HMASynthesizer'],
-    ['HSASynthesizer', 'IndependentSynthesizer', 'MultiTableUniformSynthesizer'],
-]
+PLOT_PADDING = 0.25
 
 
 def _get_filename_to_gdrive_link():
@@ -104,7 +95,7 @@ def post_slack_message(channel, text):
 
 
 def post_benchmark_launch_message(date_str, compute_service='AWS', modality='single_table'):
-    """Post a message to the SDV Alerts Slack channel when the benchmark is launched."""
+    """Post a message to the sdgym Slack channel when the benchmark is launched."""
     channel = SLACK_CHANNEL
     folder_name = get_result_folder_name(date_str)
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
@@ -116,7 +107,7 @@ def post_benchmark_launch_message(date_str, compute_service='AWS', modality='sin
 
 
 def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='single_table'):
-    """Post benchmark uploaded message to sdv-alerts slack channel."""
+    """Post benchmark uploaded message to the sdgym Slack channel."""
     file_to_gdrive_link = _get_filename_to_gdrive_link()
     channel = SLACK_CHANNEL
     bucket, prefix = parse_s3_path(OUTPUT_DESTINATION_AWS)
@@ -134,6 +125,34 @@ def post_benchmark_uploaded_message(folder_name, commit_url=None, modality='sing
         body += f' - On GitHub: <{commit_url}|link>\n'
 
     post_slack_message(channel, body)
+
+
+def _add_pareto_curve_extremity_points(df_to_plot):
+    """Add extremity points to the Pareto curve for better visualization."""
+    pareto = df_to_plot.loc[df_to_plot['Pareto']].sort_values('Aggregated_Time')
+    if len(pareto) < 2:
+        return df_to_plot.reset_index(drop=True)  # Not enough points to define a curve
+
+    interp = interp1d(
+        pareto['Log10 Aggregated_Time'],
+        pareto['Quality_Score'],
+        kind='linear',
+        fill_value='extrapolate',
+    )
+
+    min_log = np.log10(df_to_plot['Aggregated_Time'].min()) - PLOT_PADDING
+    max_log = np.log10(df_to_plot['Aggregated_Time'].max()) + PLOT_PADDING
+    extremities = pd.DataFrame({
+        'Synthesizer': np.nan,
+        'Aggregated_Time': 10 ** np.array([min_log, max_log]),
+        'Quality_Score': interp([min_log, max_log]),
+        'Log10 Aggregated_Time': [min_log, max_log],
+        'Pareto': True,
+        'Color': '#01E0C9',
+        'Marker': np.nan,
+    })
+
+    return pd.concat([df_to_plot, extremities], ignore_index=True).reset_index(drop=True)
 
 
 def get_df_to_plot(benchmark_result):
@@ -177,8 +196,9 @@ def get_df_to_plot(benchmark_result):
     }
     df_to_plot['Marker'] = df_to_plot['Synthesizer'].map(marker_map)
     df_to_plot = df_to_plot.rename(columns={'Adjusted_Quality_Score': 'Quality_Score'})
+    df_to_plot = df_to_plot.drop(columns=['Cumulative Quality Score'])
 
-    return df_to_plot.drop(columns=['Cumulative Quality Score']).reset_index(drop=True)
+    return _add_pareto_curve_extremity_points(df_to_plot)
 
 
 def _parse_args():
@@ -203,3 +223,8 @@ def _extract_google_file_id(google_drive_link):
             return parsed.path.split(marker, 1)[1].split('/', 1)[0]
 
     raise ValueError(f'Invalid Google Drive link format: {google_drive_link}')
+
+
+def _exclude_datasets(datasets, dataset_to_exclude):
+    """Exclude datasets that are in the dataset_to_exclude list."""
+    return [dataset for dataset in datasets if dataset not in dataset_to_exclude]

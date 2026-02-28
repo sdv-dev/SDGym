@@ -118,7 +118,7 @@ def _get_example_pyproject_dict():
                 ],
             },
             'readme': 'README.md',
-            'requires-python': '>=3.9,<3.13',
+            'requires-python': '>=3.9,<3.15',
         },
         'tool': {
             'bumpversion': {
