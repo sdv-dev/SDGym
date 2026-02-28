@@ -2,10 +2,12 @@ import shutil
 import time
 
 import pandas as pd
+import pytest
 from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
 from sdgym.benchmark import benchmark_single_table
+from sdgym.result_explorer.result_handler import SUMMARY_COLUMNS
 
 
 def test_end_to_end_local(tmp_path):
@@ -60,6 +62,67 @@ def test_end_to_end_local(tmp_path):
     assert isinstance(synthesizer, TVAESynthesizer)
     assert set(new_synthetic_data.columns) == set(synthetic_data_fake_companies.columns)
     assert new_synthetic_data.shape[0] == 10
+
+
+@pytest.mark.parametrize(
+    'dataset_names, synthesizer_names, summary, expected_columns',
+    [
+        (
+            ['fake_hotels'],
+            ['HMASynthesizer'],
+            True,
+            SUMMARY_COLUMNS,
+        ),
+        (['fake_hotels'], None, False, None),
+        (None, ['HMASynthesizer'], False, None),
+        (None, None, False, None),
+        (None, None, True, SUMMARY_COLUMNS),
+    ],
+)
+def test_load_results_with_filters(dataset_names, synthesizer_names, summary, expected_columns):
+    """Test loading results with dataset and synthesizer and summary filters."""
+    # Setup
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
+    result_explorer = ResultsExplorer(output_destination, modality='multi_table')
+    expected_results = pd.read_csv(
+        'tests/integration/result_explorer/_benchmark_results/multi_table/'
+        'SDGym_results_12_02_2025/results.csv',
+    )
+    expected_columns = set(expected_columns) if expected_columns else set(expected_results.columns)
+    all_dataset_names = expected_results['Dataset'].unique().tolist()
+    all_synthesizer_names = expected_results['Synthesizer'].unique().tolist()
+
+    # Run
+    results = result_explorer.load_results(
+        'SDGym_results_12_02_2025',
+        dataset_names=dataset_names,
+        synthesizer_names=synthesizer_names,
+        summary=summary,
+    )
+
+    # Assert
+    expected_datasets = set(dataset_names) if dataset_names is not None else set(all_dataset_names)
+    expected_synthesizers = (
+        set(synthesizer_names) if synthesizer_names is not None else set(all_synthesizer_names)
+    )
+    assert set(results['Dataset']) == expected_datasets
+    assert set(results['Synthesizer']) == expected_synthesizers
+    assert set(results.columns) == expected_columns
+    dataset_mask = (
+        expected_results['Dataset'].isin(dataset_names)
+        if dataset_names is not None
+        else pd.Series(True, index=expected_results.index)
+    )
+    synth_mask = (
+        expected_results['Synthesizer'].isin(synthesizer_names)
+        if synthesizer_names is not None
+        else pd.Series(True, index=expected_results.index)
+    )
+    filtered_expected = expected_results[dataset_mask & synth_mask][results.columns]
+    pd.testing.assert_frame_equal(
+        results.sort_values(['Dataset', 'Synthesizer']).reset_index(drop=True),
+        filtered_expected.sort_values(['Dataset', 'Synthesizer']).reset_index(drop=True),
+    )
 
 
 def test_summarize():
