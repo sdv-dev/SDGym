@@ -1030,7 +1030,7 @@ def test_benchmark_multi_table_error_during_fit(mock_augment_tables):
     # Run
     result = benchmark_multi_table(
         synthesizers=['HMASynthesizer', 'MultiTableUniformSynthesizer'],
-        sdv_datasets=['Student_loan', 'fake_hotels'],
+        sdv_datasets=['fake_hotels_extended', 'fake_hotels'],
     )
 
     # Assert

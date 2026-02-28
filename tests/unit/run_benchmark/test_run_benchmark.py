@@ -5,14 +5,19 @@ from unittest.mock import Mock, call, patch
 import pytest
 from botocore.exceptions import ClientError
 
+from sdgym._benchmark.benchmark import (
+    _benchmark_multi_table_compute_gcp,
+    _benchmark_single_table_compute_gcp,
+)
 from sdgym.run_benchmark.run_benchmark import (
+    MULTI_TABLE_DATASETS,
+    SINGLE_TABLE_DATASETS,
+    _get_benchmark_setup,
     append_benchmark_run,
     main,
 )
 from sdgym.run_benchmark.utils import (
     OUTPUT_DESTINATION_AWS,
-    SYNTHESIZERS_SPLIT_MULTI_TABLE,
-    SYNTHESIZERS_SPLIT_SINGLE_TABLE,
 )
 
 
@@ -108,53 +113,142 @@ def test_append_benchmark_run_new_file(
     )
 
 
+def test__get_benchmark_setup_single_table():
+    """Test the `_get_benchmark_setup` method for single_table modality."""
+    # Setup
+    gan_not_excluded = [
+        dataset for dataset in SINGLE_TABLE_DATASETS if dataset not in ['covtype', 'intrusion']
+    ]
+    expected_job_split = [
+        (['ColumnSynthesizer', 'GaussianCopulaSynthesizer'], SINGLE_TABLE_DATASETS),
+        (['TVAESynthesizer'], SINGLE_TABLE_DATASETS),
+        (['SegmentSynthesizer'], SINGLE_TABLE_DATASETS),
+        (['XGCSynthesizer'], SINGLE_TABLE_DATASETS),
+        (['BootstrapSynthesizer'], SINGLE_TABLE_DATASETS),
+        (['CTGANSynthesizer'], gan_not_excluded),
+        (['CopulaGANSynthesizer'], gan_not_excluded),
+        (['RealTabFormerSynthesizer'], ['adult', 'alarm', 'child', 'insurance', 'news']),
+        (['RealTabFormerSynthesizer'], ['covtype']),
+        (['RealTabFormerSynthesizer'], ['intrusion']),
+        (['RealTabFormerSynthesizer'], ['expedia_hotel_logs']),
+        (['RealTabFormerSynthesizer'], ['census']),
+        (['CTGANSynthesizer'], ['covtype']),
+        (['CopulaGANSynthesizer'], ['covtype']),
+        (['CTGANSynthesizer'], ['intrusion']),
+        (['CopulaGANSynthesizer'], ['intrusion']),
+    ]
+
+    # Run
+    setup = _get_benchmark_setup('single_table')
+
+    # Assert
+    assert setup['method'] == _benchmark_single_table_compute_gcp
+    assert len(setup['job_split']) == len(expected_job_split) == 16
+    for expected, actual in zip(expected_job_split, setup['job_split']):
+        assert expected[0] == actual[0]
+        assert set(expected[1]) == set(actual[1])
+
+
+def test__get_benchmark_setup_multi_table():
+    """Test the `_get_benchmark_setup` method for multi_table modality."""
+    # Setup
+    hma_not_excluded = [
+        dataset
+        for dataset in MULTI_TABLE_DATASETS
+        if dataset
+        not in [
+            'Accidents',
+            'AustralianFootball',
+            'Countries',
+            'MuskSmall',
+            'NBA',
+            'OMOP_CDM_dayz',
+            'PremierLeague',
+            'SalesDB',
+            'airbnb-simplified',
+            'imdb_ijs',
+            'legalActs',
+            'SAP',
+            'imdb_MovieLens',
+        ]
+    ]
+    expected_job_split = [
+        (['HSASynthesizer', 'IndependentSynthesizer'], MULTI_TABLE_DATASETS),
+        (['HMASynthesizer'], hma_not_excluded),
+        (['HMASynthesizer'], ['Accidents']),
+        (['HMASynthesizer'], ['AustralianFootball']),
+        (['HMASynthesizer'], ['Countries']),
+        (['HMASynthesizer'], ['MuskSmall']),
+        (['HMASynthesizer'], ['NBA']),
+        (['HMASynthesizer'], ['OMOP_CDM_dayz']),
+        (['HMASynthesizer'], ['PremierLeague']),
+        (['HMASynthesizer'], ['SalesDB']),
+        (['HMASynthesizer'], ['airbnb-simplified']),
+        (['HMASynthesizer'], ['imdb_ijs']),
+        (['HMASynthesizer'], ['legalActs']),
+        (['HMASynthesizer'], ['SAP']),
+        (['HMASynthesizer'], ['imdb_MovieLens']),
+    ]
+
+    # Run
+    setup = _get_benchmark_setup('multi_table')
+
+    # Assert
+    assert setup['method'] == _benchmark_multi_table_compute_gcp
+    assert len(setup['job_split']) == len(expected_job_split) == 15
+    for expected, actual in zip(expected_job_split, setup['job_split']):
+        assert expected[0] == actual[0]
+        assert set(expected[1]) == set(actual[1])
+
+
 @pytest.mark.parametrize(
-    'modality,synthesizer_split',
+    'modality, benchmark_setup',
     [
-        ('single_table', SYNTHESIZERS_SPLIT_SINGLE_TABLE),
-        ('multi_table', SYNTHESIZERS_SPLIT_MULTI_TABLE),
+        (
+            'single_table',
+            {
+                'method': Mock(name='mock_single_method'),
+                'job_split': [
+                    (['GaussianCopulaSynthesizer', 'ColumnSynthesizer'], ['dataset1', 'dataset2']),
+                    (['TVAESynthesizer'], ['dataset3', 'dataset2']),
+                ],
+            },
+        ),
+        (
+            'multi_table',
+            {
+                'method': Mock(name='mock_multi_method'),
+                'job_split': [
+                    (['HSASynthesizer', 'IndependentSynthesizer'], ['datasetA', 'datasetB']),
+                    (['HMASynthesizer'], ['datasetC', 'datasetD']),
+                ],
+            },
+        ),
     ],
 )
 @patch('sdgym.run_benchmark.run_benchmark.post_benchmark_launch_message')
 @patch('sdgym.run_benchmark.run_benchmark.append_benchmark_run')
 @patch('sdgym.run_benchmark.run_benchmark.os.getenv')
 @patch('sdgym.run_benchmark.run_benchmark._parse_args')
-@patch.dict(
-    'sdgym.run_benchmark.run_benchmark.MODALITY_TO_SETUP',
-    values={
-        'single_table': {
-            'method': Mock(name='mock_single_method'),
-            'synthesizers_split': [],
-            'datasets': ['single_table_1', 'single_table_2'],
-        },
-        'multi_table': {
-            'method': Mock(name='mock_multi_method'),
-            'synthesizers_split': [],
-            'datasets': ['multi_table_1', 'multi_table_2'],
-        },
-    },
-    clear=True,
-)
+@patch('sdgym.run_benchmark.run_benchmark._get_benchmark_setup')
 def test_main(
+    mock_get_benchmark_setup,
     mock_parse_args,
     mock_getenv,
     mock_append_benchmark_run,
     mock_post_benchmark_launch_message,
     modality,
-    synthesizer_split,
+    benchmark_setup,
 ):
     """Test the `main` function with both single_table and multi_table modalities."""
     # Setup
-    from sdgym.run_benchmark.run_benchmark import MODALITY_TO_SETUP
-
+    mock_get_benchmark_setup.return_value = benchmark_setup
     mock_parse_args.return_value = Mock(modality=modality)
     mock_getenv.side_effect = lambda key: {
         'AWS_ACCESS_KEY_ID': 'my_access_key',
         'AWS_SECRET_ACCESS_KEY': 'my_secret_key',
         'CREDENTIALS_FILEPATH': '/path/to/creds.json',
     }.get(key)
-    MODALITY_TO_SETUP[modality]['synthesizers_split'] = synthesizer_split
-    mock_method = MODALITY_TO_SETUP[modality]['method']
     date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
     # Run
@@ -165,13 +259,14 @@ def test_main(
         call(
             output_destination=OUTPUT_DESTINATION_AWS,
             credential_filepath='/path/to/creds.json',
-            synthesizers=group,
-            sdv_datasets=MODALITY_TO_SETUP[modality]['datasets'],
+            synthesizers=group[0],
+            sdv_datasets=group[1],
             timeout=345600,
         )
-        for group in synthesizer_split
+        for group in benchmark_setup['job_split']
     ]
-    mock_method.assert_has_calls(expected_calls)
+    benchmark_setup['method'].assert_has_calls(expected_calls)
+    mock_get_benchmark_setup.assert_called_once_with(modality)
     mock_append_benchmark_run.assert_called_once_with(
         'my_access_key',
         'my_secret_key',
