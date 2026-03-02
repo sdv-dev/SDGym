@@ -3,6 +3,7 @@
 import io
 import operator
 import os
+import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -12,6 +13,7 @@ import yaml
 from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
+from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
@@ -19,6 +21,13 @@ metainfo_PREFIX = 'metainfo'
 RESULTS_FILE_PREFIX = 'results'
 NUM_DIGITS_DATE = 10
 REGEX_SYNTHESIZER_NAME = r'\s*\(\d+\)\s*$'
+SUMMARY_COLUMNS = [
+    'Dataset',
+    'Synthesizer',
+    'Adjusted_Total_Time',
+    'Adjusted_Quality_Score',
+    'Diagnostic_Score',
+]
 
 
 class ResultsHandler(ABC):
@@ -183,26 +192,84 @@ class ResultsHandler(ABC):
 
         return summarized_table, folder_to_results[folder_name]
 
-    def load_results(self, results_folder_name):
+    def _validate_load_results_filters(self, dataset_names, synthesizer_names, summary):
+        if dataset_names is not None:
+            if not _is_list_of_type(dataset_names, str):
+                raise ValueError('`dataset_names` must be a list of strings or None.')
+
+        if synthesizer_names is not None:
+            if not _is_list_of_type(synthesizer_names, str):
+                raise ValueError('`synthesizer_names` must be a list of strings or None.')
+
+        if not isinstance(summary, bool):
+            raise ValueError('`summary` must be a boolean.')
+
+    def load_results(
+        self, results_folder_name, dataset_names=None, synthesizer_names=None, summary=False
+    ):
         """Load and aggregate all the results CSV files from the specified results folder.
 
         Args:
             results_folder_name (str):
                 The name of the results folder to load results from.
+            dataset_names (list of str, optional):
+                A list of dataset names to filter results for. If None, results for all
+                datasets will be loaded. Defaults to None.
+            synthesizer_names (list of str, optional):
+                A list of synthesizer names to filter results for. If None, results for all
+                synthesizers will be loaded. Defaults to None.
+            summary (bool, optional):
+                If True, only return the summary results which include the following columns:
+                - 'Dataset'
+                - 'Synthesizer'
+                - 'Adjusted_Total_Time'
+                - 'Adjusted_Quality_Score'
+                - 'Diagnostic_Score'
+                Defaults to False.
 
         Returns:
             pd.DataFrame:
                 A DataFrame containing the results of the specified folder.
         """
+        has_dataset_filter = dataset_names is not None
+        has_synthesizer_filter = synthesizer_names is not None
         self._validate_folder_name(results_folder_name)
+        self._validate_load_results_filters(dataset_names, synthesizer_names, summary)
         result_filenames = self._get_results_files(
             results_folder_name, prefix=RESULTS_FILE_PREFIX, suffix='.csv'
         )
 
-        return pd.concat(
+        result = pd.concat(
             self._get_results(results_folder_name, result_filenames),
             ignore_index=True,
         )
+        if has_dataset_filter:
+            result = result[result['Dataset'].isin(dataset_names)]
+
+        if has_synthesizer_filter:
+            result = result[result['Synthesizer'].isin(synthesizer_names)]
+
+        if result.empty:
+            filters = []
+            if has_dataset_filter:
+                filters.append(f'- Datasets: {", ".join(dataset_names)}')
+            if has_synthesizer_filter:
+                filters.append(f'- Synthesizers: {", ".join(synthesizer_names)}')
+
+            if filters:
+                filters_text = '\n'.join(filters)
+                warning_message = (
+                    f'No results found in folder "{results_folder_name}" '
+                    f'matching the specified filters:\n'
+                    f'{filters_text}'
+                )
+            else:
+                warning_message = f'No results found in folder "{results_folder_name}".'
+
+            warnings.warn(warning_message)
+
+        result = result[SUMMARY_COLUMNS] if summary else result
+        return result.reset_index(drop=True)
 
     def load_metainfo(self, results_folder_name):
         """Load and aggregate all the metainfo YAML files from the specified results folder.

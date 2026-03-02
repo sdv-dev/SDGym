@@ -127,18 +127,36 @@ class ResultsExplorer:
         """Check if all runs in the specified folder are complete."""
         return self._handler.all_runs_complete(folder_name)
 
-    def load_results(self, results_folder_name):
+    def load_results(
+        self, results_folder_name, dataset_names=None, synthesizer_names=None, summary=False
+    ):
         """Load and aggregate all the results CSV files from the specified results folder.
 
         Args:
             results_folder_name (str):
                 The name of the results folder to load results from.
+            dataset_names (list[str], optional):
+                A list of dataset names to filter results for. If None, results for all
+                datasets will be loaded. Defaults to None.
+            synthesizer_names (list[str], optional):
+                A list of synthesizer names to filter results for. If None, results for all
+                synthesizers will be loaded. Defaults to None.
+            summary (bool, optional):
+                If True, only return the summary results which include the following columns:
+                - 'Dataset'
+                - 'Synthesizer'
+                - 'Adjusted_Total_Time'
+                - 'Adjusted_Quality_Score'
+                - 'Diagnostic_Score'
+                Defaults to False.
 
         Returns:
             pd.DataFrame:
                 A DataFrame containing the results of the specified folder.
         """
-        return self._handler.load_results(results_folder_name)
+        return self._handler.load_results(
+            results_folder_name, dataset_names, synthesizer_names, summary
+        )
 
     def load_metainfo(self, results_folder_name):
         """Load and aggregate all the metainfo YAML files from the specified results folder.

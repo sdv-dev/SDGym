@@ -8,7 +8,10 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
-from sdgym.result_explorer.result_explorer import ResultsExplorer, _validate_local_path
+from sdgym.result_explorer.result_explorer import (
+    ResultsExplorer,
+    _validate_local_path,
+)
 from sdgym.result_explorer.result_handler import LocalResultsHandler, S3ResultsHandler
 
 
@@ -323,10 +326,20 @@ class TestResultsExplorer:
         result_explorer._handler.load_results = Mock(return_value=results)
 
         # Run
-        loaded_results = result_explorer.load_results('SDGym_results_07_07_2025')
+        loaded_results = result_explorer.load_results(
+            'SDGym_results_07_07_2025',
+            dataset_names=['A'],
+            synthesizer_names=['Synth1'],
+            summary=True,
+        )
 
         # Assert
-        result_explorer._handler.load_results.assert_called_once_with('SDGym_results_07_07_2025')
+        result_explorer._handler.load_results.assert_called_once_with(
+            'SDGym_results_07_07_2025',
+            ['A'],
+            ['Synth1'],
+            True,
+        )
         pd.testing.assert_frame_equal(loaded_results, results)
 
     def test_load_metainfo(self, tmp_path):

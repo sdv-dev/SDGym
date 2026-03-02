@@ -199,12 +199,47 @@ class TestResultsHandler:
             assert folder == folder_name
             pd.testing.assert_frame_equal(agg_result, aggregated_results)
 
+    @pytest.mark.parametrize(
+        'dataset_names, synthesizer_names, summary, expected_error_message',
+        [
+            (None, None, False, None),
+            (['A'], None, True, None),
+            (None, ['Synth1'], False, None),
+            ('A', None, False, re.escape('`dataset_names` must be a list of strings or None.')),
+            (
+                None,
+                'Synth1',
+                False,
+                re.escape('`synthesizer_names` must be a list of strings or None.'),
+            ),
+            (['A'], ['Synth1'], 'not_a_bool', re.escape('`summary` must be a boolean.')),
+        ],
+    )
+    def test__validate_load_results_filters(
+        self, dataset_names, synthesizer_names, summary, expected_error_message
+    ):
+        """Test the `_validate_load_results_filters` method."""
+        # Setup
+        handler = Mock()
+
+        # Run and Assert
+        if expected_error_message is not None:
+            with pytest.raises(ValueError, match=expected_error_message):
+                ResultsHandler._validate_load_results_filters(
+                    handler, dataset_names, synthesizer_names, summary
+                )
+        else:
+            ResultsHandler._validate_load_results_filters(
+                handler, dataset_names, synthesizer_names, summary
+            )
+
     def test_load_results(self):
         """Test the `load_results` method."""
         # Setup
         folder_name = 'SDGym_results_07_15_2025'
         handler = Mock()
         handler._validate_folder_name = Mock()
+        handler._validate_load_results_filters = Mock()
         handler._get_results_files = Mock(return_value=['results.csv', 'results(1).csv'])
         result_1 = pd.DataFrame({
             'Dataset': ['A', 'B'],
@@ -224,12 +259,58 @@ class TestResultsHandler:
 
         # Assert
         handler._validate_folder_name.assert_called_once_with(folder_name)
+        handler._validate_load_results_filters.assert_called_once_with(None, None, False)
         expected_results = pd.concat(result_list, ignore_index=True)
         pd.testing.assert_frame_equal(results, expected_results)
         handler._get_results_files.assert_called_once_with(
             folder_name, prefix='results', suffix='.csv'
         )
         handler._get_results.assert_called_once_with(folder_name, ['results.csv', 'results(1).csv'])
+
+    @pytest.mark.parametrize(
+        'dataset_names, synthesizer_names',
+        [
+            (['C'], ['Synth1']),
+            (['A'], ['Synth3']),
+            (['C'], ['Synth3']),
+        ],
+    )
+    def test_load_results_empty(self, dataset_names, synthesizer_names):
+        """Test the `load_results` method when no results are found after filtering."""
+        # Setup
+        folder_name = 'SDGym_results_07_15_2025'
+        handler = Mock()
+        handler._validate_folder_name = Mock()
+        handler._validate_load_results_filters = Mock()
+        handler._get_results_files = Mock(return_value=['results.csv'])
+        result = pd.DataFrame({
+            'Dataset': ['A', 'B'],
+            'Synthesizer': ['Synth1'] * 2,
+            'Quality_Score': [0.5, 0.6],
+        })
+        handler._get_results = Mock(return_value=[result])
+        filters = []
+        if dataset_names is not None:
+            filters.append(f'- Datasets: {", ".join(dataset_names)}')
+        if synthesizer_names is not None:
+            filters.append(f'- Synthesizers: {", ".join(synthesizer_names)}')
+
+        filters_text = '\n'.join(filters)
+
+        expected_warning_message = re.escape(
+            f'No results found in folder "{folder_name}" '
+            f'matching the specified filters:\n'
+            f'{filters_text}'
+        )
+
+        # Run and Assert
+        with pytest.warns(UserWarning, match=expected_warning_message):
+            ResultsHandler.load_results(
+                handler,
+                folder_name,
+                dataset_names,
+                synthesizer_names,
+            )
 
     def test_load_metainfo(self):
         """Test the `load_metainfo` method."""
