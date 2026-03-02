@@ -246,7 +246,10 @@ class TestResultsExplorer:
 
         # Assert
         explorer._get_file_path.assert_called_once_with(
-            'results_folder_07_07_2025', 'my_dataset', 'my_synthesizer', 'synthesizer'
+            results_folder_name='results_folder_07_07_2025',
+            dataset_name='my_dataset',
+            synthesizer_name='my_synthesizer',
+            file_type='synthesizer',
         )
         explorer._handler.load_synthesizer.assert_called_once_with('path/to/synthesizer.pkl')
         assert isinstance(synthesizer, GaussianCopulaSynthesizer)
@@ -270,7 +273,10 @@ class TestResultsExplorer:
 
         # Assert
         explorer._get_file_path.assert_called_once_with(
-            'results_folder_07_07_2025', 'my_dataset', 'my_synthesizer', 'synthetic_data'
+            results_folder_name='results_folder_07_07_2025',
+            dataset_name='my_dataset',
+            synthesizer_name='my_synthesizer',
+            file_type='synthetic_data',
         )
         explorer._handler.load_synthetic_data.assert_called_once_with('path/to/synthetic_data.csv')
         pd.testing.assert_frame_equal(synthetic_data, data)
@@ -354,7 +360,9 @@ class TestResultsExplorer:
         summary = result_explorer.summarize('SDGym_results_07_07_2025')
 
         # Assert
-        result_explorer._handler.summarize.assert_called_once_with('SDGym_results_07_07_2025')
+        result_explorer._handler.summarize.assert_called_once_with(
+            results_folder_name='SDGym_results_07_07_2025'
+        )
         pd.testing.assert_frame_equal(summary, results)
 
     def test_load_results(self, tmp_path):
@@ -382,10 +390,10 @@ class TestResultsExplorer:
 
         # Assert
         result_explorer._handler.load_results.assert_called_once_with(
-            'SDGym_results_07_07_2025',
-            ['A'],
-            ['Synth1'],
-            True,
+            results_folder_name='SDGym_results_07_07_2025',
+            dataset_names=['A'],
+            synthesizer_names=['Synth1'],
+            summary=True,
         )
         pd.testing.assert_frame_equal(loaded_results, results)
 
@@ -404,7 +412,9 @@ class TestResultsExplorer:
         loaded_metainfo = result_explorer.load_metainfo('SDGym_results_07_07_2025')
 
         # Assert
-        result_explorer._handler.load_metainfo.assert_called_once_with('SDGym_results_07_07_2025')
+        result_explorer._handler.load_metainfo.assert_called_once_with(
+            results_folder_name='SDGym_results_07_07_2025'
+        )
         assert loaded_metainfo == metainfo
 
     @pytest.mark.parametrize(
@@ -456,16 +466,19 @@ class TestResultsExplorer:
         if method == 'load_results':
             result_explorer._get_file_path.assert_not_called()
             handler_method.assert_called_once_with(
-                folder_latest_run,
-                kwargs['dataset_names'],
-                kwargs['synthesizer_names'],
-                kwargs['summary'],
+                results_folder_name=folder_latest_run,
+                dataset_names=kwargs['dataset_names'],
+                synthesizer_names=kwargs['synthesizer_names'],
+                summary=kwargs['summary'],
             )
         elif file_type is None:
             result_explorer._get_file_path.assert_not_called()
-            handler_method.assert_called_once_with(folder_latest_run)
+            handler_method.assert_called_once_with(results_folder_name=folder_latest_run)
         elif method in ['load_synthesizer', 'load_synthetic_data']:
             result_explorer._get_file_path.assert_called_once_with(
-                folder_latest_run, kwargs['dataset_name'], kwargs['synthesizer_name'], file_type
+                results_folder_name=folder_latest_run,
+                dataset_name=kwargs['dataset_name'],
+                synthesizer_name=kwargs['synthesizer_name'],
+                file_type=file_type,
             )
             handler_method.assert_called_once_with(file_path)

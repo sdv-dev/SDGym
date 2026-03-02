@@ -126,7 +126,10 @@ class ResultsExplorer:
         """
         results_folder_name = results_folder_name or self._get_latest_run()
         file_path = self._get_file_path(
-            results_folder_name, dataset_name, synthesizer_name, 'synthesizer'
+            results_folder_name=results_folder_name,
+            dataset_name=dataset_name,
+            synthesizer_name=synthesizer_name,
+            file_type='synthesizer',
         )
         return self._handler.load_synthesizer(file_path)
 
@@ -144,7 +147,10 @@ class ResultsExplorer:
         """
         results_folder_name = results_folder_name or self._get_latest_run()
         file_path = self._get_file_path(
-            results_folder_name, dataset_name, synthesizer_name, 'synthetic_data'
+            results_folder_name=results_folder_name,
+            dataset_name=dataset_name,
+            synthesizer_name=synthesizer_name,
+            file_type='synthetic_data',
         )
         return self._handler.load_synthetic_data(file_path)
 
@@ -180,12 +186,12 @@ class ResultsExplorer:
                 - A DataFrame with the results of the benchmark for the specified folder.
         """
         results_folder_name = results_folder_name or self._get_latest_run()
-        return self._handler.summarize(results_folder_name)
+        return self._handler.summarize(results_folder_name=results_folder_name)
 
     def all_runs_complete(self, results_folder_name=None):
         """Check if all runs in the specified folder are complete."""
         results_folder_name = results_folder_name or self._get_latest_run()
-        return self._handler.all_runs_complete(results_folder_name)
+        return self._handler.all_runs_complete(results_folder_name=results_folder_name)
 
     def load_results(
         self, dataset_names=None, synthesizer_names=None, summary=False, results_folder_name=None
@@ -217,7 +223,10 @@ class ResultsExplorer:
         """
         results_folder_name = results_folder_name or self._get_latest_run()
         return self._handler.load_results(
-            results_folder_name, dataset_names, synthesizer_names, summary
+            results_folder_name=results_folder_name,
+            dataset_names=dataset_names,
+            synthesizer_names=synthesizer_names,
+            summary=summary,
         )
 
     def load_metainfo(self, results_folder_name=None):
@@ -233,4 +242,4 @@ class ResultsExplorer:
                 A dictionary containing the metainfo of the specified folder.
         """
         results_folder_name = results_folder_name or self._get_latest_run()
-        return self._handler.load_metainfo(results_folder_name)
+        return self._handler.load_metainfo(results_folder_name=results_folder_name)

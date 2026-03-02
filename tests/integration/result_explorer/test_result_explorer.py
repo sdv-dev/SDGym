@@ -26,8 +26,8 @@ def test_end_to_end_local(tmp_path):
     # Run
     result_explorer = ResultsExplorer(str(result_explorer_path), modality='single_table')
     runs = result_explorer.list()
-    results = result_explorer.load_results(runs[0])
-    metainfo = result_explorer.load_metainfo(runs[0])
+    results = result_explorer.load_results(results_folder_name=runs[0])
+    metainfo = result_explorer.load_metainfo(results_folder_name=runs[0])
     synthetic_data = result_explorer.load_synthetic_data(
         results_folder_name=runs[0],
         dataset_name='expedia_hotel_logs',
@@ -95,7 +95,7 @@ def test_load_results_with_filters(dataset_names, synthesizer_names, summary, ex
 
     # Run
     results = result_explorer.load_results(
-        'SDGym_results_12_02_2025',
+        results_folder_name='SDGym_results_12_02_2025',
         dataset_names=dataset_names,
         synthesizer_names=synthesizer_names,
         summary=summary,
@@ -133,7 +133,7 @@ def test_summarize():
     result_explorer = ResultsExplorer(output_destination, modality='single_table')
 
     # Run
-    summary, results = result_explorer.summarize('SDGym_results_10_11_2024')
+    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_10_11_2024')
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -163,7 +163,7 @@ def test_summarize_multi_table():
     result_explorer = ResultsExplorer(output_destination, modality='multi_table')
 
     # Run
-    summary, results = result_explorer.summarize('SDGym_results_12_02_2025')
+    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_12_02_2025')
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -199,11 +199,11 @@ def test_list_and_load_results_multi_table(tmp_path):
     assert runs == [run_folder]
     loaded_results = (
         explorer
-        .load_results(runs[0])
+        .load_results(results_folder_name=runs[0])
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
-    metainfo = explorer.load_metainfo(runs[0])
+    metainfo = explorer.load_metainfo(results_folder_name=runs[0])
 
     # Assert
     expected_results = (
