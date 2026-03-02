@@ -160,13 +160,15 @@ class ResultsHandler(ABC):
         filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
         return filtered_results.reset_index(drop=True)
 
-    def summarize(self, folder_name):
+    def summarize(self, results_folder_name):
         """Summarize the results in the specified folder."""
         all_folders = [f for f in self.list() if f.startswith(RESULTS_FOLDER_PREFIX)]
-        if folder_name not in all_folders:
-            raise ValueError(f'Folder "{folder_name}" does not exist in the results directory.')
+        if results_folder_name not in all_folders:
+            raise ValueError(
+                f'Folder "{results_folder_name}" does not exist in the results directory.'
+            )
 
-        date = pd.to_datetime(folder_name[-NUM_DIGITS_DATE:], format='%m_%d_%Y')
+        date = pd.to_datetime(results_folder_name[-NUM_DIGITS_DATE:], format='%m_%d_%Y')
         folder_to_results = {}
         for folder in all_folders:
             folder_date = pd.to_datetime(folder[len(RESULTS_FOLDER_PREFIX) :], format='%m_%d_%Y')
@@ -190,7 +192,7 @@ class ResultsHandler(ABC):
 
         summarized_table = self._get_summarize_table(folder_to_results, folder_infos)
 
-        return summarized_table, folder_to_results[folder_name]
+        return summarized_table, folder_to_results[results_folder_name]
 
     def _validate_load_results_filters(self, dataset_names, synthesizer_names, summary):
         if dataset_names is not None:
@@ -294,14 +296,16 @@ class ResultsHandler(ABC):
 
         return results
 
-    def all_runs_complete(self, folder_name):
+    def all_runs_complete(self, results_folder_name):
         """Check if all runs in the specified folder are complete."""
-        yaml_files = self._get_results_files(folder_name, prefix=metainfo_PREFIX, suffix='.yaml')
+        yaml_files = self._get_results_files(
+            results_folder_name, prefix=metainfo_PREFIX, suffix='.yaml'
+        )
         if not yaml_files:
             return False
 
         for yaml_file in yaml_files:
-            metainfo_info = self._load_yaml_file(folder_name, yaml_file)
+            metainfo_info = self._load_yaml_file(results_folder_name, yaml_file)
             if metainfo_info.get('completed_date') is None:
                 return False
 
@@ -345,21 +349,21 @@ class LocalResultsHandler(ResultsHandler):
 
         return pd.read_csv(full_path)
 
-    def _get_results_files(self, folder_name, prefix, suffix):
+    def _get_results_files(self, results_folder_name, prefix, suffix):
         return [
             f
-            for f in os.listdir(os.path.join(self.base_path, folder_name))
+            for f in os.listdir(os.path.join(self.base_path, results_folder_name))
             if f.endswith(suffix) and f.startswith(prefix)
         ]
 
-    def _get_results(self, folder_name, file_names):
+    def _get_results(self, results_folder_name, file_names):
         return [
-            pd.read_csv(os.path.join(self.base_path, folder_name, file_name))
+            pd.read_csv(os.path.join(self.base_path, results_folder_name, file_name))
             for file_name in file_names
         ]
 
-    def _load_yaml_file(self, folder_name, file_name):
-        file_path = os.path.join(self.base_path, folder_name, file_name)
+    def _load_yaml_file(self, results_folder_name, file_name):
+        file_path = os.path.join(self.base_path, results_folder_name, file_name)
         with open(file_path, 'r') as f:
             return yaml.safe_load(f)
 
@@ -463,8 +467,8 @@ class S3ResultsHandler(ResultsHandler):
 
         return pd.read_csv(io.BytesIO(body))
 
-    def _get_results_files(self, folder_name, prefix, suffix):
-        s3_prefix = f'{self.prefix}{folder_name}/'
+    def _get_results_files(self, results_folder_name, prefix, suffix):
+        s3_prefix = f'{self.prefix}{results_folder_name}/'
         response = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=s3_prefix)
         if 'Contents' not in response:
             return []
@@ -475,17 +479,17 @@ class S3ResultsHandler(ResultsHandler):
             if obj['Key'].startswith(s3_prefix + prefix) and obj['Key'].endswith(suffix)
         ]
 
-    def _get_results(self, folder_name, file_names):
+    def _get_results(self, results_folder_name, file_names):
         results = []
         for file_name in file_names:
-            s3_key = f'{self.prefix}{folder_name}/{file_name}'
+            s3_key = f'{self.prefix}{results_folder_name}/{file_name}'
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
             result_df = pd.read_csv(io.BytesIO(response['Body'].read()))
             results.append(result_df)
 
         return results
 
-    def _load_yaml_file(self, folder_name, file_name):
-        s3_key = f'{self.prefix}{folder_name}/{file_name}'
+    def _load_yaml_file(self, results_folder_name, file_name):
+        s3_key = f'{self.prefix}{results_folder_name}/{file_name}'
         response = self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
         return yaml.safe_load(response['Body'])

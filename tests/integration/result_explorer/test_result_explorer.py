@@ -3,6 +3,7 @@ import time
 
 import pandas as pd
 import pytest
+import yaml
 from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
@@ -25,8 +26,8 @@ def test_end_to_end_local(tmp_path):
     # Run
     result_explorer = ResultsExplorer(str(result_explorer_path), modality='single_table')
     runs = result_explorer.list()
-    results = result_explorer.load_results(runs[0])
-    metainfo = result_explorer.load_metainfo(runs[0])
+    results = result_explorer.load_results(results_folder_name=runs[0])
+    metainfo = result_explorer.load_metainfo(results_folder_name=runs[0])
     synthetic_data = result_explorer.load_synthetic_data(
         results_folder_name=runs[0],
         dataset_name='expedia_hotel_logs',
@@ -94,7 +95,7 @@ def test_load_results_with_filters(dataset_names, synthesizer_names, summary, ex
 
     # Run
     results = result_explorer.load_results(
-        'SDGym_results_12_02_2025',
+        results_folder_name='SDGym_results_12_02_2025',
         dataset_names=dataset_names,
         synthesizer_names=synthesizer_names,
         summary=summary,
@@ -132,7 +133,7 @@ def test_summarize():
     result_explorer = ResultsExplorer(output_destination, modality='single_table')
 
     # Run
-    summary, results = result_explorer.summarize('SDGym_results_10_11_2024')
+    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_10_11_2024')
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -162,7 +163,7 @@ def test_summarize_multi_table():
     result_explorer = ResultsExplorer(output_destination, modality='multi_table')
 
     # Run
-    summary, results = result_explorer.summarize('SDGym_results_12_02_2025')
+    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_12_02_2025')
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -198,11 +199,11 @@ def test_list_and_load_results_multi_table(tmp_path):
     assert runs == [run_folder]
     loaded_results = (
         explorer
-        .load_results(runs[0])
+        .load_results(results_folder_name=runs[0])
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
-    metainfo = explorer.load_metainfo(runs[0])
+    metainfo = explorer.load_metainfo(results_folder_name=runs[0])
 
     # Assert
     expected_results = (
@@ -213,3 +214,28 @@ def test_list_and_load_results_multi_table(tmp_path):
     )
     pd.testing.assert_frame_equal(loaded_results, expected_results)
     assert isinstance(metainfo, dict) and len(metainfo) >= 1
+
+
+def test_loading_last_run_results_by_default():
+    """Test that the last run results are loaded when no folder name is provided."""
+    # Setup
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
+    result_explorer = ResultsExplorer(output_destination, modality='single_table')
+    metainfo_path = f'{output_destination}single_table/SDGym_results_12_17_2024/metainfo.yaml'
+    with open(metainfo_path, 'r') as f:
+        raw_yaml = yaml.safe_load(f)
+
+    run_id = raw_yaml.get('run_id')
+    expected_metainfo = {run_id: {k: v for k, v in raw_yaml.items() if k != 'run_id'}}
+
+    # Run
+    results = result_explorer.load_results()
+    metainfo = result_explorer.load_metainfo()
+
+    # Assert
+    assert metainfo == expected_metainfo
+    expected_results = pd.read_csv(
+        'tests/integration/result_explorer/_benchmark_results/single_table/'
+        'SDGym_results_12_17_2024/results.csv',
+    )
+    pd.testing.assert_frame_equal(results, expected_results)
