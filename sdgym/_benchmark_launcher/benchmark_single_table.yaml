@@ -10,19 +10,80 @@ datasets_single_table: &datasets_single_table
   - intrusion
   - news
 
+exclusions:
+  gan: &gan_exclude
+    - covtype
+    - intrusion
+  realtabformer: &rtf_exclude
+    - covtype
+    - intrusion
+    - expedia_hotel_logs
+    - census
+
 instance_jobs:
-  - datasets: *datasets_single_table
-    synthesizers:
-      - UniformSynthesizer
-      - ColumnSynthesizer
-      - GaussianCopulaSynthesizer
-      - TVAESynthesizer
+  - synthesizers: [ColumnSynthesizer, GaussianCopulaSynthesizer]
+    datasets:
+      include: *datasets_single_table
 
-  - datasets: *datasets_single_table
-    synthesizers: [CTGANSynthesizer]
+  - synthesizers: [TVAESynthesizer]
+    datasets:
+      include: *datasets_single_table
 
-  - datasets: *datasets_single_table
-    synthesizers: [CopulaGANSynthesizer]
+  - synthesizers: [SegmentSynthesizer]
+    datasets:
+      include: *datasets_single_table
 
-  - datasets: *datasets_single_table
-    synthesizers: [RealTabFormerSynthesizer]
+  - synthesizers: [XGCSynthesizer]
+    datasets:
+      include: *datasets_single_table
+
+  - synthesizers: [BootstrapSynthesizer]
+    datasets:
+      include: *datasets_single_table
+
+  - synthesizers: [CTGANSynthesizer]
+    datasets:
+      include: *datasets_single_table
+      exclude: *gan_exclude
+
+  - synthesizers: [CopulaGANSynthesizer]
+    datasets:
+      include: *datasets_single_table
+      exclude: *gan_exclude
+
+  - synthesizers: [RealTabFormerSynthesizer]
+    datasets:
+      include: *datasets_single_table
+      exclude: *rtf_exclude
+
+  - synthesizers: [RealTabFormerSynthesizer]
+    datasets:
+      include: [covtype]
+
+  - synthesizers: [RealTabFormerSynthesizer]
+    datasets:
+      include: [intrusion]
+
+  - synthesizers: [RealTabFormerSynthesizer]
+    datasets:
+      include: [expedia_hotel_logs]
+
+  - synthesizers: [RealTabFormerSynthesizer]
+    datasets:
+      include: [census]
+
+  - synthesizers: [CTGANSynthesizer]
+    datasets:
+      include: [covtype]
+
+  - synthesizers: [CopulaGANSynthesizer]
+    datasets:
+      include: [covtype]
+
+  - synthesizers: [CTGANSynthesizer]
+    datasets:
+      include: [intrusion]
+
+  - synthesizers: [CopulaGANSynthesizer]
+    datasets:
+      include: [intrusion]

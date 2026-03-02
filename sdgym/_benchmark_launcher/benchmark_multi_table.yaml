@@ -1,1 +1,134 @@
 modality: multi_table
+datasets_multi_table: &datasets_multi_table
+  - WebKP
+  - DCG
+  - UW_std
+  - Same_gen
+  - CORA
+  - got_families
+  - SalesDB
+  - UTube
+  - Student_loan
+  - Hepatitis_std
+  - Elti
+  - Bupa
+  - Toxicology
+  - imdb_ijs
+  - ftp
+  - imdb_small
+  - imdb_MovieLens
+  - Pima
+  - university
+  - legalActs
+  - Dunur
+  - Mesh
+  - world
+  - airbnb-simplified
+  - trains
+  - FNHK
+  - fake_hotels
+  - SAT
+  - genes
+  - Biodegradability
+  - Pyrimidine
+  - mutagenesis
+  - restbase
+  - Triazine
+  - Carcinogenesis
+  - fake_hotels_extended
+  - Mooney_Family
+  - PTE
+  - Facebook
+  - multi_table_ID_demo_dataset
+  - SAP
+  - Chess
+  - Countries
+  - NCAA
+  - Atherosclerosis
+  - nations
+  - TubePricing
+  - financial
+  - Accidents
+  - MuskSmall
+  - NBA
+  - AustralianFootball
+  - PremierLeague
+  - OMOP_CDM_dayz
+
+exclusions:
+  hma: &hma_exclude
+    - Accidents
+    - AustralianFootball
+    - Countries
+    - MuskSmall
+    - NBA
+    - OMOP_CDM_dayz
+    - PremierLeague
+    - SalesDB
+    - airbnb-simplified
+    - imdb_ijs
+    - legalActs
+    - SAP
+    - imdb_MovieLens
+
+instance_jobs:
+  - synthesizers: [HSASynthesizer, IndependentSynthesizer]
+    datasets:
+      include: *datasets_multi_table
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: *datasets_multi_table
+      exclude: *hma_exclude
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [Accidents]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [AustralianFootball]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [Countries]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [MuskSmall]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [NBA]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [OMOP_CDM_dayz]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [PremierLeague]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [SalesDB]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [airbnb-simplified]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [imdb_ijs]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [legalActs]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [SAP]
+
+  - synthesizers: [HMASynthesizer]
+    datasets:
+      include: [imdb_MovieLens]

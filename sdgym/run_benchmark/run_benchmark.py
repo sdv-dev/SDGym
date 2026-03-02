@@ -4,14 +4,14 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-
+import yaml
 from botocore.exceptions import ClientError
-
+import tempfile
 from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
 )
-from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
+from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig, _deep_merge
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     _parse_args,
@@ -19,7 +19,18 @@ from sdgym.run_benchmark.utils import (
     post_benchmark_launch_message,
 )
 from sdgym.s3 import get_s3_client, parse_s3_path
+from importlib.resources import files
 
+_YAML_PKG = 'sdgym._benchmark_launcher'
+MODALITY_TO_CONFIG_FILE = {
+    'single_table': 'benchmark_single_table.yaml',
+    'multi_table': 'benchmark_multi_table.yaml',
+}
+
+def _load_yaml_resource(filename: str) -> dict:
+    resource = files(_YAML_PKG).joinpath(filename)
+    with resource.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
 _METHODS = {
     ("single_table", "gcp"): _benchmark_single_table_compute_gcp,
@@ -62,40 +73,33 @@ def append_benchmark_run(
 
 def _resolve_modality_config(modality): 
     """Method that resolves the config for a modality and save it into a tmp yaml file"""
-    return f'benchmark_{modality}.yaml'
+    base_config = _load_yaml_resource("benchmark_base.yaml")
+    modality_config = _load_yaml_resource(MODALITY_TO_CONFIG_FILE[modality])
+    merged_config = _deep_merge(base_config, modality_config)
+    tmp = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yaml")
+    try:
+        yaml.safe_dump(merged_config, tmp)
+        tmp.flush()
+        return tmp.name
+    finally:
+        tmp.close()
+
+def _get_config(modality):
+    yaml_path = _resolve_modality_config(modality)
+    try:
+        config = BenchmarkConfig.load_from_yaml(yaml_path)
+    finally:
+        os.unlink(yaml_path)
+
+    config.validate()
+    return config
+
 
 def main():
     args = _parse_args()
     modality = args.modality
-    yaml_config = _resolve_modality_config(modality)
-    config = BenchmarkConfig.load_from_yaml(yaml_config)
-    config.validate()
+    config = _get_config(modality)
     config.run()
-    '''
-    compute_service = config.compute["service"]
-    method = _METHODS.get((modality, compute_service))
-    credential_filepath = config.credentials['credential_filepath']
-    method_kwargs = config.method_params
-    method_kwargs['credential_filepath'] = credential_filepath
-    date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    for job in config.instance_jobs:
-        kwargs = {
-            **method_kwargs,
-            'synthesizers': job['synthesizers'],
-            'sdv_datasets': job['datasets'],
-        }
-        method(**kwargs)
-
-    append_benchmark_run(
-        output_destination=method_kwargs['output_destination'],
-        aws_access_key_id=config["credentials"]["aws_access_key_id"],
-        aws_secret_access_key=config["credentials"]["aws_secret_access_key"],
-        date_str=date_str,
-        modality=modality,
-    )
-    post_benchmark_launch_message(date_str, compute_service=compute_service.upper(), modality=modality)
-    '''
-
 
 if __name__ == "__main__":
     main()
