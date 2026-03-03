@@ -30,3 +30,7 @@ class BenchmarkError(RuntimeError):
         self.peak_memory = peak_memory
         self.exception = exception_text
         self.error = error_text
+
+
+class BenchmarkConfigError(Exception):
+    """Error raised when a BenchmarkConfig is not well-formed."""
