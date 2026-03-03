@@ -1,12 +1,21 @@
 method_params:
   timeout: 345600
-  output_destination: 's3://my-bucket/sdgym-results/Debug/Benchmark_Launcher/'
-  compute_quality: true
-  compute_diagnostic: true
-  compute_privacy: false
+  output_destination: 's3://sdgym-benchmark/Debug/Benchmark_Launcher/'
+  compute_quality_score: true
+  compute_diagnostic_score: true
+  compute_privacy_score: false
 
 compute:
   service: 'gcp'
 
 credentials:
-  credential_filepath_env: CREDENTIALS_FILEPATH
+  gcp:
+    service_account_json: 'GCP_SERVICE_ACCOUNT_JSON'
+    project_id: 'GCP_PROJECT_ID'
+    zone: 'GCP_ZONE'
+  sdv_enterprise:
+    username: 'SDV_ENTERPRISE_USERNAME'
+    license_key: 'SDV_ENTERPRISE_LICENSE_KEY'
+  aws:
+    access_key_id: 'AWS_ACCESS_KEY_ID'
+    secret_access_key: 'AWS_SECRET_ACCESS_KEY'

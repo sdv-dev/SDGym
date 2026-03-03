@@ -3,9 +3,12 @@
 import json
 import os
 from contextlib import contextmanager
-from tempfile import NamedTemporaryFile
-import yaml
 from importlib.resources import files
+from tempfile import NamedTemporaryFile
+
+import yaml
+
+from sdgym._benchmark_launcher._validation import _get_credentials, _validate_resolved_credentials
 
 _YAML_PKG = 'sdgym._benchmark_launcher'
 MODALITY_TO_CONFIG_FILE = {
@@ -19,6 +22,7 @@ CONFIG_KEYS = {
     'compute',
     'instance_jobs',
 }
+
 
 @contextmanager
 def resolved_credential_filepath(credentials_config, build_credentials_dict_fn):
@@ -75,10 +79,12 @@ def _resolve_datasets(datasets_spec):
 
     raise ValueError(f"'datasets' must be a list or dict. Found: {type(datasets_spec)}")
 
+
 def _load_yaml_resource(filename: str) -> dict:
     resource = files(_YAML_PKG).joinpath(filename)
     with resource.open('r', encoding='utf-8') as f:
         return yaml.safe_load(f)
+
 
 def _deep_merge(base, override):
     """Recursively merge override into base (override wins)."""
@@ -91,19 +97,12 @@ def _deep_merge(base, override):
             result[key] = value
     return result
 
-def _resolve_modality_config(modality):
-    base_config = _load_yaml_resource('benchmark_base.yaml')
-    modality_config = _load_yaml_resource(MODALITY_TO_CONFIG_FILE[modality])
-    merged_config = _deep_merge(base_config, modality_config)
-    resolved_dict = {
-        key: value for key, value in merged_config.items() if key in CONFIG_KEYS
-    }
 
-    return resolved_dict
+def resolve_credentials(credentials_config):
+    """Resolve credentials dict from config."""
+    credentials = _get_credentials(credentials_config)
+    errors = _validate_resolved_credentials(credentials)
+    if errors:
+        raise ValueError('Invalid resolved credentials:\n- ' + '\n- '.join(errors))
 
-
-def _env(env_name):
-    if not env_name:
-        return None
-    value = os.getenv(env_name)
-    return value if value != '' else None
+    return credentials

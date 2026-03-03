@@ -1,9 +1,7 @@
 """Script to run a benchmark and upload results to S3."""
 
 import json
-from importlib.resources import files
 
-import yaml
 from botocore.exceptions import ClientError
 
 from sdgym._benchmark.benchmark import (
