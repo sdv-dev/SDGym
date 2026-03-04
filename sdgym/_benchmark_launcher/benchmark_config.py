@@ -12,10 +12,10 @@ from sdgym._benchmark.benchmark import (
     _benchmark_single_table_compute_gcp,
 )
 from sdgym._benchmark_launcher._validation import (
+    _format_sectioned_errors,
     _validate_credentials_config,
-    _validate_jobs,
+    _validate_instance_jobs,
     _validate_method_params,
-    _validate_modality,
     _validate_structure,
 )
 from sdgym._benchmark_launcher.utils import _resolve_datasets, resolve_credentials
@@ -37,7 +37,6 @@ CONFIG_KEYS = frozenset([
 class BenchmarkConfig:
     """Build and validate benchmark configs."""
 
-    _KEYS = CONFIG_KEYS
     _CREDENTIAL_KEYS = {
         'aws': {'access_key_id_env', 'secret_access_key_env'},
         'gcp': {'service_account_json_env', 'project_id_env', 'zone_env'},
@@ -58,7 +57,7 @@ class BenchmarkConfig:
     def to_dict(self):
         """Return a python ``dict`` representation of the ``BenchmarkConfig``."""
         config = {}
-        for key in self._KEYS:
+        for key in CONFIG_KEYS:
             value = getattr(self, f'{key}', None)
             if value is not None:
                 config[key] = value
@@ -71,25 +70,25 @@ class BenchmarkConfig:
         return printed
 
     def validate(self):
-        """Validate that the BenchmarkConfig is well-formed and can be run."""
-        errors = []
-        errors.append(_validate_structure(self))
-        errors.append(_validate_method_params(self.method_params))
-        errors.append(_validate_credentials_config(self.credentials_config))
-        errors.append(_validate_jobs(self.instance_jobs))
-        errors.append(_validate_modality(self.modality))
-        if any(errors):
-            errors = [error for error in errors if error is not None]
-            message = 'BenchmarkConfig validation failed with the following errors:\n - '
-            message += '\n - '.join(errors)
-            raise BenchmarkConfigError(message)
+        method_to_run = _METHODS[(self.modality, self.compute.get('service'))]
+        errors = _validate_structure(self)
+        if errors:
+            raise BenchmarkConfigError(_format_sectioned_errors({'structure': errors}))
+
+        section_errors = {
+            'method_params': _validate_method_params(self.method_params, method_to_run),
+            'credentials': _validate_credentials_config(self.credentials_config),
+            'instance_jobs': _validate_instance_jobs(self.instance_jobs),
+        }
+
+        if any(section_errors.values()):
+            raise BenchmarkConfigError(_format_sectioned_errors(section_errors))
 
         self._is_validated = True
 
     def _run(self):
         method_to_run = _METHODS[(self.modality, self.compute.get('service'))]
         credentials = resolve_credentials(self.credentials_config)
-
         for instance_job in self.instance_jobs:
             sdv_datasets = _resolve_datasets(instance_job['datasets'])
             method_to_run(
@@ -110,10 +109,10 @@ class BenchmarkConfig:
 
     def _validate_no_extra_keys(self, config_dict):
         """Validate that the config dictionary does not contain extra keys."""
-        extra_keys = set(config_dict.keys()).difference(self._KEYS)
+        extra_keys = set(config_dict.keys()).difference(CONFIG_KEYS)
         if extra_keys:
             extra_keys = "', '".join(sorted(extra_keys))
-            valid_keys = "', '".join(sorted(self._KEYS))
+            valid_keys = "', '".join(sorted(CONFIG_KEYS))
             raise ValueError(
                 f"The config dictionary contains extra keys: '{extra_keys}'. "
                 f"Valid keys are: '{valid_keys}'."

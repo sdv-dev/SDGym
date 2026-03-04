@@ -1,5 +1,7 @@
+import inspect
 import json
 import os
+from urllib.parse import urlparse
 
 _REQUIRED_SECTIONS = {'aws', 'gcp'}
 _OPTIONAL_SECTIONS = {'sdv'}
@@ -32,212 +34,34 @@ _CREDENTIAL_SECTION_SCHEMA = {
         'optional': {'username', 'license_key'},
     },
 }
+_INJECTED_PARAMS = {'credentials', 'synthesizers', 'sdv_datasets', 'compute_config'}
 
 
-def _validate_structure(benchmark_config):
-    """Validate the overall structure of the config (keys and types)."""
-    errors = []
-    if benchmark_config.modality not in ['single_table', 'multi_table']:
-        errors.append(
-            f"Invalid modality '{benchmark_config.modality}'. Must be 'single_table'"
-            " or 'multi_table'."
-        )
-
-    if not isinstance(benchmark_config.method_params, dict):
-        errors.append(
-            f"'method_params' must be a dict. Found: {type(benchmark_config.method_params)}"
-        )
-
-    if not isinstance(benchmark_config.credentials_config, dict):
-        errors.append(
-            f"'credentials' must be a dict. Found: {type(benchmark_config.credentials_config)}"
-        )
-
-    if not isinstance(benchmark_config.compute, dict):
-        errors.append(f"'compute' must be a dict. Found: {type(benchmark_config.compute)}")
-    elif 'service' not in benchmark_config.compute or benchmark_config.compute['service'] not in [
-        'gcp'
-    ]:
-        errors.append(
-            f"'compute.service' must be either 'aws' or 'gcp'. Found: "
-            f'{benchmark_config.compute.get("service")}'
-        )
-
-    return '\n'.join(errors) if errors else None
+def _as_errors(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(v) for v in value if v]
+    return [str(value)]
 
 
-def _validate_modality(modality):
-    """Validate that the modality is valid."""
-    if modality not in ['single_table', 'multi_table']:
-        return f"modality: Invalid modality '{modality}'. Must be 'single_table' or 'multi_table'."
-
-
-def _validate_method_params(method_params):
-    """Validate the method parameters."""
-    errors = []
-    if not isinstance(method_params, dict):
-        return f'method_params: must be a dict. Found: {type(method_params)}'
-
-    errors.append('la')
-
-
-def _validate_jobs(instance_jobs):
-    error_message = (
-        "Each job in 'instance_jobs' must be a dict with 'synthesizers' (list of strings) "
-        "and 'datasets' (list of strings or dict with 'include' and optional 'exclude')."
-    )
-    invalid_jobs = []
-    for job in instance_jobs:
-        if 'datasets' not in job or 'synthesizers' not in job:
-            invalid_jobs.append(job)
+def _format_sectioned_errors(section_errors):
+    parts = ['BenchmarkConfig validation failed:\n']
+    for section, raw in section_errors.items():
+        errs = _as_errors(raw)
+        if not errs:
             continue
-
-        if not isinstance(job['synthesizers'], list) or not all(
-            isinstance(s, str) for s in job['synthesizers']
-        ):
-            invalid_jobs.append(job)
-            continue
-
-        if not (isinstance(job['datasets'], list) or isinstance(job['datasets'], dict)):
-            invalid_jobs.append(job)
-            continue
-
-        if isinstance(job['datasets'], list) and not all(
-            isinstance(d, str) for d in job['datasets']
-        ):
-            invalid_jobs.append(job)
-            continue
-
-        if isinstance(job['datasets'], dict):
-            if ('include' not in job['datasets']) or (
-                not isinstance(job['datasets']['include'], list)
-                or not all(isinstance(d, str) for d in job['datasets']['include'])
-            ):
-                invalid_jobs.append(job)
-                continue
-
-            if 'exclude' in job['datasets']:
-                if (not isinstance(job['datasets']['exclude'], list)) or not all(
-                    isinstance(d, str) for d in job['datasets']['exclude']
-                ):
-                    invalid_jobs.append(job)
-                    continue
-
-    if invalid_jobs:
-        invalid_jobs = '\n'.join(str(job) for job in invalid_jobs)
-        error_message = f'{error_message}\n Invalid jobs: {invalid_jobs}'
-        return error_message
+        parts.append(f'[{section}]')
+        parts.extend([f'- {e}' for e in errs])
+        parts.append('')
+    return '\n'.join(parts).rstrip()
 
 
-def _env(name: str | None) -> str | None:
+def _env(name):
     if not name:
         return None
     value = os.getenv(name)
     return value if value not in (None, '') else None
-
-
-def _validate_credentials_config_structure(credentials_config):
-    """Validate credential config structure.
-
-    This validates:
-    - either file mode (credential_filepath exists + readable json dict)
-    - or env mode (required provider sections present; expected *_env keys present;
-      referenced env vars are set)
-    """
-    errors = []
-    if not isinstance(credentials_config, dict):
-        return [f"'credentials' must be a dict. Found: {type(credentials_config)}"]
-
-    allowed_top = {'credential_filepath'} | _ALLOWED_SECTIONS
-    unknown_top = set(credentials_config.keys()) - allowed_top
-    if unknown_top:
-        errors.append(f'credentials: unknown top-level keys: {sorted(unknown_top)}')
-
-    filepath = credentials_config.get('credential_filepath')
-    if filepath is not None:
-        if not isinstance(filepath, str) or not filepath:
-            errors.append('credentials.credential_filepath must be a non-empty string path.')
-            return errors
-
-        if not os.path.isfile(filepath):
-            errors.append(f'credentials file not found: {filepath}')
-            return errors
-
-        try:
-            with open(filepath, 'r') as f:
-                payload = json.load(f)
-        except json.JSONDecodeError:
-            errors.append(f'credentials file is not valid JSON: {filepath}')
-            return errors
-        except OSError as e:
-            errors.append(f'credentials file could not be read ({filepath}): {e}')
-            return errors
-
-        if not isinstance(payload, dict):
-            errors.append('credentials file JSON must be a dict at the top level.')
-            return errors
-
-        return errors
-
-    for section in _REQUIRED_SECTIONS:
-        if section not in credentials_config:
-            errors.append(f'credentials.{section}: section is required but missing.')
-            continue
-        if not isinstance(credentials_config[section], dict):
-            errors.append(
-                f'credentials.{section}: must be a dict. Found: {type(credentials_config[section])}'
-            )
-
-    for section in ('sdv',):
-        if section in credentials_config and not isinstance(credentials_config[section], dict):
-            errors.append(
-                f'credentials.{section}: must be a dict. Found: {type(credentials_config[section])}'
-            )
-
-    for section, schema in _CREDENTIAL_SECTION_SCHEMA.items():
-        section_config = credentials_config.get(section)
-        if section_config is None:
-            continue
-        if not isinstance(section_config, dict):
-            continue
-
-        expected_env_keys = set(schema['env_to_var'].keys())
-        actual_keys = set(section_config.keys())
-
-        missing_env_keys = expected_env_keys - actual_keys
-        extra_keys = actual_keys - expected_env_keys
-        if missing_env_keys:
-            errors.append(f'credentials.{section}: missing keys: {sorted(missing_env_keys)}')
-        if extra_keys:
-            errors.append(f'credentials.{section}: unknown keys: {sorted(extra_keys)}')
-
-        for env_key, canon_key in schema['env_to_var'].items():
-            if env_key not in section_config:
-                continue
-
-            env_var_name = section_config.get(env_key)
-            if not isinstance(env_var_name, str) or not env_var_name:
-                errors.append(f'credentials.{section}.{env_key}: must be a non-empty env var name.')
-                continue
-
-            env_val = _env(env_var_name)
-            if env_val is None:
-                errors.append(
-                    f"Environment variable '{env_var_name}' (for credentials.{section}.{env_key}) "
-                    'is not set or empty.'
-                )
-                continue
-
-            if section == 'gcp' and env_key == 'service_account_json_env':
-                try:
-                    json.loads(env_val)
-                except json.JSONDecodeError:
-                    errors.append(
-                        f"Environment variable '{env_var_name}' must contain valid JSON "
-                        '(GCP service account).'
-                    )
-
-    return errors
 
 
 def _get_credentials(credentials_config):
@@ -280,80 +104,283 @@ def _get_credentials(credentials_config):
     return resolved
 
 
-def _validate_resolved_credentials(credentials):
-    """Validate the resolved credentials dict (actual values, canonical keys)."""
+def _validate_structure(config):
     errors = []
-    if not isinstance(credentials, dict):
-        return ['credentials must be a dict.']
+    if config.modality not in ('single_table', 'multi_table'):
+        errors.append(
+            f"modality: must be 'single_table' or 'multi_table'. Found: {config.modality!r}"
+        )
+    expected_types = {
+        'method_params': dict,
+        'credentials_config': dict,
+        'compute': dict,
+        'instance_jobs': list,
+    }
+    for key, expected_type in expected_types.items():
+        value = getattr(config, key, None)
+        if value is None:
+            errors.append(f'{key}: is a required section but missing.')
+        if not isinstance(value, expected_type):
+            errors.append(f'{key}: must be a {expected_type.__name__}. Found: {type(value)}')
 
-    unknown_sections = set(credentials.keys()) - _ALLOWED_SECTIONS
-    if unknown_sections:
-        errors.append(f'credentials has unknown sections: {sorted(unknown_sections)}')
-
-    missing_sections = _REQUIRED_SECTIONS - set(credentials.keys())
-    if missing_sections:
-        errors.append(f'credentials missing required sections: {sorted(missing_sections)}')
-
-    for section in _ALLOWED_SECTIONS & set(credentials.keys()):
-        sec = credentials.get(section)
-        if not isinstance(sec, dict):
-            errors.append(f'credentials["{section}"] must be a dict.')
-            continue
-
-    for section, schema in _CREDENTIAL_SECTION_SCHEMA.items():
-        sec = credentials.get(section, {})
-        if not isinstance(sec, dict):
-            continue
-
-        required = set(schema['required'])
-        optional = set(schema['optional'])
-        allowed = required | optional
-        if section == 'sdv':
-            username = sec.get('username')
-            license_key = sec.get('license_key')
-            if (username in (None, '')) and (license_key in (None, '')):
-                continue
-
-            if username in (None, ''):
-                errors.append(
-                    "credentials['sdv']['username'] is required when SDV credentials are provided."
-                )
-            if license_key in (None, ''):
-                errors.append(
-                    "credentials['sdv']['license_key'] is required when SDV credentials"
-                    ' are provided.'
-                )
-            continue
-
-        missing = required - set(sec.keys())
-        if missing:
-            errors.append(f"credentials['{section}'] missing keys: {sorted(missing)}")
-
-        for k in required:
-            if sec.get(k) in (None, ''):
-                errors.append(f"credentials['{section}']['{k}'] is missing or empty.")
-
-        if section == 'aws':
-            extra = set(sec.keys()) - allowed
-            if extra:
-                errors.append(f"credentials['aws'] has unknown keys: {sorted(extra)}")
-
-        # For GCP, we allow many extra keys from service account JSON,
-        # but we still require core SA fields.
-        if section == 'gcp':
-            for k in _GCP_SA_REQUIRED_KEYS:
-                if sec.get(k) in (None, ''):
-                    errors.append(f"credentials['gcp']['{k}'] is missing or empty.")
+    compute = getattr(config, 'compute', None)
+    if isinstance(compute, dict):
+        service = compute.get('service')
+        if service not in ('gcp',):
+            errors.append(f"compute.service: must be 'gcp'. Found: {service!r}")
 
     return errors
 
 
+def _validate_method_params(method_params, method_to_run):
+    errors = []
+    output_destination = method_params.get('output_destination')
+    if not isinstance(output_destination, str) or not output_destination:
+        errors.append(
+            'method_params.output_destination: is required and must be a non-empty string.'
+        )
+    else:
+        parsed = urlparse(output_destination)
+        if parsed.scheme != 's3':
+            errors.append(
+                'method_params.output_destination: must be an S3 URI like "s3://bucket/prefix/".'
+            )
+        if not output_destination.endswith('/'):
+            errors.append('method_params.output_destination: should end with "/".')
+
+    timeout = method_params.get('timeout')
+    if timeout is not None:
+        if not isinstance(timeout, int):
+            errors.append(
+                f'method_params.timeout: must be int seconds. Found: {timeout!r} ({type(timeout)})'
+            )
+        elif timeout <= 0:
+            errors.append('method_params.timeout: must be > 0.')
+
+    for key in ('compute_quality_score', 'compute_diagnostic_score', 'compute_privacy_score'):
+        value = method_params.get(key)
+        if value is not None and not isinstance(value, bool):
+            errors.append(f'method_params.{key}: must be bool. Found: {value!r} ({type(value)})')
+
+    sig = inspect.signature(method_to_run)
+    required = {
+        parameter.name
+        for parameter in sig.parameters.values()
+        if parameter.default is inspect.Parameter.empty
+        and parameter.kind
+        in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+    required_from_yaml = required - _INJECTED_PARAMS
+    missing = required_from_yaml - set(method_params)
+    if missing:
+        errors.append(
+            f'method_params: missing required parameters for {method_to_run.__name__}:'
+            f' {sorted(missing)}'
+        )
+
+    illegal = _INJECTED_PARAMS & set(method_params)
+    if illegal:
+        errors.append(
+            f'method_params: must not define injected parameters {sorted(illegal)} '
+            f'(resolved from credentials/instance_jobs).'
+        )
+
+    return errors
+
+
+def _validate_instance_jobs(instance_jobs):
+    error_message = (
+        "Each job in 'instance_jobs' must be a dict with 'synthesizers' (list of strings) "
+        "and 'datasets' (list of strings or dict with 'include' and optional 'exclude')."
+    )
+    invalid_jobs = []
+    for job in instance_jobs:
+        if not isinstance(job, dict):
+            invalid_jobs.append(job)
+            continue
+
+        if 'datasets' not in job or 'synthesizers' not in job:
+            invalid_jobs.append(job)
+            continue
+
+        synthesizers = job['synthesizers']
+        if not isinstance(synthesizers, list) or not all(isinstance(s, str) for s in synthesizers):
+            invalid_jobs.append(job)
+            continue
+
+        datasets = job['datasets']
+        if isinstance(datasets, list):
+            if not all(isinstance(d, str) for d in datasets):
+                invalid_jobs.append(job)
+            continue
+
+        if isinstance(datasets, dict):
+            include = datasets.get('include')
+            exclude = datasets.get('exclude')
+
+            if not isinstance(include, list) or not all(isinstance(d, str) for d in include):
+                invalid_jobs.append(job)
+                continue
+
+            if exclude is not None and (
+                not isinstance(exclude, list) or not all(isinstance(d, str) for d in exclude)
+            ):
+                invalid_jobs.append(job)
+            continue
+
+        invalid_jobs.append(job)
+
+    if not invalid_jobs:
+        return []
+
+    invalid_jobs_str = '\n'.join(str(job) for job in invalid_jobs)
+
+    return [f'{error_message}\nInvalid jobs:\n{invalid_jobs_str}']
+
+
+def _validate_credentials_config_structure(credentials_config):
+    errors = []
+    allowed_top = {'credential_filepath'} | _ALLOWED_SECTIONS
+    unknown = set(credentials_config) - allowed_top
+    if unknown:
+        errors.append(f'credentials: unknown top-level keys: {sorted(unknown)}')
+
+    filepath = credentials_config.get('credential_filepath')
+    if filepath is not None:
+        if not isinstance(filepath, str) or not filepath:
+            return errors + ['credentials.credential_filepath: must be a non-empty string.']
+        if not os.path.isfile(filepath):
+            return errors + [f'credentials.credential_filepath: file not found: {filepath}']
+        try:
+            with open(filepath, 'r') as f:
+                payload = json.load(f)
+        except json.JSONDecodeError:
+            return errors + [f'credentials.credential_filepath: invalid JSON: {filepath}']
+        except OSError as e:
+            return errors + [f'credentials.credential_filepath: cannot read ({filepath}): {e}']
+        if not isinstance(payload, dict):
+            return errors + ['credentials file JSON must be a dict at the top level.']
+
+        for section in _ALLOWED_SECTIONS & set(payload):
+            if not isinstance(payload.get(section), dict):
+                errors.append(f'credentials file section "{section}" must be a dict.')
+
+        return errors
+
+    for section in _REQUIRED_SECTIONS:
+        if section not in credentials_config:
+            errors.append(f'credentials.{section}: section is required but missing.')
+        elif not isinstance(credentials_config[section], dict):
+            errors.append(
+                f'credentials.{section}: must be a dict. Found: {type(credentials_config[section])}'
+            )
+
+    if 'sdv' in credentials_config and not isinstance(credentials_config['sdv'], dict):
+        errors.append(f'credentials.sdv: must be a dict. Found: {type(credentials_config["sdv"])}')
+
+    for section, schema in _CREDENTIAL_SECTION_SCHEMA.items():
+        section_cfg = credentials_config.get(section)
+        if section_cfg is None:
+            continue
+        if not isinstance(section_cfg, dict):
+            continue
+
+        expected = set(schema['env_to_var'])
+        actual = set(section_cfg)
+        missing = expected - actual
+        extra = actual - expected
+        if missing:
+            errors.append(f'credentials.{section}: missing keys: {sorted(missing)}')
+        if extra:
+            errors.append(f'credentials.{section}: unknown keys: {sorted(extra)}')
+
+        for env_key in expected & actual:
+            env_var = section_cfg.get(env_key)
+            if not isinstance(env_var, str) or not env_var:
+                errors.append(f'credentials.{section}.{env_key}: must be a non-empty env var name.')
+                continue
+
+            value = _env(env_var)
+            if value is None:
+                errors.append(
+                    f"Environment variable '{env_var}' (for credentials.{section}.{env_key}) "
+                    'is not set or empty.'
+                )
+                continue
+
+            if section == 'gcp' and env_key == 'service_account_json_env':
+                try:
+                    json.loads(value)
+                except json.JSONDecodeError:
+                    errors.append(
+                        f"Environment variable '{env_var}' must contain valid JSON (GCP "
+                        'service account).'
+                    )
+
+    return sorted(errors)
+
+
+def _validate_resolved_credentials(credentials):
+    errors = []
+    unknown_sections = set(credentials) - _ALLOWED_SECTIONS
+    if unknown_sections:
+        errors.append(f'credentials: unknown sections: {sorted(unknown_sections)}')
+
+    missing_sections = _REQUIRED_SECTIONS - set(credentials)
+    if missing_sections:
+        errors.append(f'credentials: missing required sections: {sorted(missing_sections)}')
+
+    for section in _ALLOWED_SECTIONS & set(credentials):
+        section_dict = credentials.get(section)
+        if not isinstance(section_dict, dict):
+            errors.append(f"credentials['{section}'] must be a dict.")
+            continue
+
+    for section, schema in _CREDENTIAL_SECTION_SCHEMA.items():
+        section_dict = credentials.get(section, {})
+        if not isinstance(section_dict, dict):
+            continue
+
+        if section == 'sdv':
+            username = section_dict.get('username')
+            licence_key = section_dict.get('license_key')
+            if (username in (None, '')) and (licence_key in (None, '')):
+                continue
+            if username in (None, ''):
+                errors.append(
+                    "credentials['sdv']['username'] is required when SDV credentials are provided."
+                )
+            if licence_key in (None, ''):
+                errors.append(
+                    "credentials['sdv']['license_key'] is required when SDV credentials are"
+                    ' provided.'
+                )
+            continue
+
+        for key in schema['required']:
+            if key not in section_dict:
+                errors.append(f'credentials["{section}"] missing key: "{key}"')
+            elif section_dict.get(key) in (None, ''):
+                errors.append(f'credentials["{section}"]["{key}"] is missing or empty.')
+
+        if section == 'aws':
+            allowed = set(schema['required']) | set(schema['optional'])
+            extra = set(section_dict) - allowed
+            if extra:
+                errors.append(f'credentials["aws"] has unknown keys: {sorted(extra)}')
+
+        if section == 'gcp':
+            for key in _GCP_SA_REQUIRED_KEYS:
+                if section_dict.get(key) in (None, ''):
+                    errors.append(f'credentials["gcp"]["{key}"] is missing or empty.')
+
+    return sorted(errors)
+
+
 def _validate_credentials_config(credentials_config):
-    """Validate credentials config end-to-end."""
     errors = _validate_credentials_config_structure(credentials_config)
     if errors:
-        return '\n'.join(errors)
+        return errors
 
     credentials = _get_credentials(credentials_config)
-    errors = _validate_resolved_credentials(credentials)
-    return '\n'.join(errors) if errors else None
+    return _validate_resolved_credentials(credentials)

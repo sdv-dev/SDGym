@@ -1,10 +1,6 @@
 """Utilities for benchmark launcher."""
 
-import json
-import os
-from contextlib import contextmanager
 from importlib.resources import files
-from tempfile import NamedTemporaryFile
 
 import yaml
 
@@ -24,41 +20,13 @@ CONFIG_KEYS = {
 }
 
 
-@contextmanager
-def resolved_credential_filepath(credentials_config, build_credentials_dict_fn):
-    """Yields a credential_filepath to use.
+def _resolve_modality_config(modality):
+    base_config = _load_yaml_resource('benchmark_base.yaml')
+    modality_config = _load_yaml_resource(MODALITY_TO_CONFIG_FILE[modality])
+    merged_config = _deep_merge(base_config, modality_config)
+    resolved_dict = {key: value for key, value in merged_config.items() if key in CONFIG_KEYS}
 
-    - If credentials_config defines credential_filepath_env and it's set, yield that path.
-    - Else build a dict (from env var names in YAML), write temp JSON, yield temp path,
-      then delete it on exit.
-    """
-    created_tmp_path = None
-    env_name = (credentials_config or {}).get('credential_filepath_env')
-    if env_name:
-        existing_path = os.getenv(env_name)
-        if existing_path:
-            yield existing_path
-            return
-
-    credentials_dict = build_credentials_dict_fn(credentials_config)
-    tmp = NamedTemporaryFile(mode='w', delete=False, suffix='.json')
-    try:
-        json.dump(credentials_dict, tmp)
-        tmp.flush()
-        tmp.close()
-        try:
-            os.chmod(tmp.name, 0o600)
-        except Exception:
-            pass
-
-        created_tmp_path = tmp.name
-        yield created_tmp_path
-    finally:
-        if created_tmp_path:
-            try:
-                os.remove(created_tmp_path)
-            except FileNotFoundError:
-                pass
+    return resolved_dict
 
 
 def _resolve_datasets(datasets_spec):

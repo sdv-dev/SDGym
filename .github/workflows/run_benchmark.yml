@@ -67,6 +67,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
-          export CREDENTIALS_FILEPATH=$(python -c "from sdgym._benchmark.credentials_utils import create_credentials_file; print(create_credentials_file())")
           invoke run-sdgym-benchmark --modality "${{ inputs.modality }}"
-          rm -f "$CREDENTIALS_FILEPATH"
