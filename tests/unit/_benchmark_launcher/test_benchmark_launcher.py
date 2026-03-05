@@ -12,7 +12,7 @@ from sdgym._benchmark_launcher.utils import _METHODS
 class TestBenchmarkLauncher:
     @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_id')
     def test__init__(self, mock_generate_benchmark_id):
-        """Test the `__init__` method of BenchmarkLauncher."""
+        """Test the `__init__` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'

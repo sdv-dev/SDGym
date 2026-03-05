@@ -12,7 +12,7 @@ from sdgym.errors import BenchmarkConfigError
 
 class TestBenchmarkConfig:
     def test__init__(self):
-        """Test `__init__` sets default values."""
+        """Test the `__init__` method."""
         # Run
         config = BenchmarkConfig()
 
@@ -24,8 +24,8 @@ class TestBenchmarkConfig:
         assert config.instance_jobs == []
         assert config._is_validated is False
 
-    def test_to_dict_returns_deepcopy(self):
-        """Test `to_dict` returns a deepcopy of the configuration."""
+    def test_to_dict(self):
+        """Test the `to_dict` method."""
         # Setup
         config = BenchmarkConfig()
         config.modality = 'single_table'
@@ -43,8 +43,8 @@ class TestBenchmarkConfig:
         assert config.compute['region'] == 'x'
         assert config.method_params['output_destination'] == 's3://bucket/prefix/'
 
-    def test_repr_returns_json_string(self):
-        """Test `__repr__` returns a JSON pretty string."""
+    def test__repr__(self):
+        """Test the `__repr__` method."""
         # Setup
         config = BenchmarkConfig()
         config.modality = 'single_table'
@@ -68,7 +68,7 @@ class TestBenchmarkConfig:
     )
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_instance_jobs', return_value=[])
     @patch('sdgym._benchmark_launcher.benchmark_config._format_sectioned_errors')
-    def test_validate_success_sets_is_validated(
+    def test_validate(
         self,
         mock_format_errors,
         mock_validate_jobs,
@@ -76,7 +76,7 @@ class TestBenchmarkConfig:
         mock_validate_method_params,
         mock_validate_structure,
     ):
-        """Test `validate` sets `_is_validated=True` when no errors exist."""
+        """Test the `validate` method."""
         # Setup
         config = BenchmarkConfig()
         config.modality = 'single_table'
@@ -154,8 +154,8 @@ class TestBenchmarkConfig:
         assert config._is_validated is False
         mock_format_errors.assert_called_once()
 
-    def test_validate_no_extra_keys_raises(self):
-        """Test `_validate_no_extra_keys` raises when extra keys exist."""
+    def test__validate_no_extra_keys(self):
+        """Test the `_validate_no_extra_keys` method."""
         # Setup
         config = BenchmarkConfig()
         config_dict = {'modality': 'single_table', 'extra': 1}
@@ -164,8 +164,8 @@ class TestBenchmarkConfig:
         with pytest.raises(ValueError, match='extra keys'):
             config._validate_no_extra_keys(config_dict)
 
-    def test_load_from_dict_sets_fields(self):
-        """Test `load_from_dict` sets all fields and validates keys."""
+    def test_load_from_dict(self):
+        """Test the `load_from_dict` method."""
         # Setup
         config_dict = {
             'modality': 'single_table',
@@ -185,8 +185,8 @@ class TestBenchmarkConfig:
         assert config.compute == {'service': 'gcp'}
         assert config.instance_jobs == [{'synthesizers': ['A'], 'datasets': ['d1']}]
 
-    def test_load_from_yaml_reads_file_and_sets_fields(self, tmp_path):
-        """Test `load_from_yaml` reads YAML and sets fields."""
+    def test_load_from_yaml(self, tmp_path):
+        """Test the `load_from_yaml` method."""
         # Setup
         path = tmp_path / 'config.yaml'
         config_dict = {
@@ -209,8 +209,8 @@ class TestBenchmarkConfig:
         assert config.instance_jobs == [{'synthesizers': ['A'], 'datasets': ['d1']}]
 
     @patch('sdgym._benchmark_launcher.benchmark_config.yaml.dump')
-    def test_save_to_yaml_calls_yaml_dump(self, mock_yaml_dump, tmp_path):
-        """Test `save_to_yaml` writes expected dict through `yaml.dump`."""
+    def test_save_to_yaml(self, mock_yaml_dump, tmp_path):
+        """Test the `save_to_yaml` method writes expected dict through `yaml.dump`."""
         # Setup
         config = BenchmarkConfig()
         config.modality = 'single_table'
