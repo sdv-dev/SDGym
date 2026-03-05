@@ -1,4 +1,4 @@
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import yaml
@@ -151,97 +151,6 @@ class TestBenchmarkConfig:
         mock_validate_jobs.assert_called_once_with(config.instance_jobs)
         assert config._is_validated is False
         mock_format_errors.assert_called_once()
-
-    def test_run_calls_validate_when_not_validated(self):
-        """Test `run` calls `validate` when `_is_validated` is False."""
-        # Setup
-        config = BenchmarkConfig()
-        config._is_validated = False
-        config.validate = Mock()
-        config._run = Mock()
-
-        # Run
-        config.run()
-
-        # Assert
-        config.validate.assert_called_once_with()
-        config._run.assert_called_once_with()
-        assert config._is_validated is True
-
-    def test_run_already_validated(self):
-        """Test `run` when config already validated."""
-        # Setup
-        config = BenchmarkConfig()
-        config._is_validated = True
-        config.validate = Mock()
-        config._run = Mock()
-
-        # Run
-        config.run()
-
-        # Assert
-        config.validate.assert_not_called()
-        config._run.assert_called_once_with()
-
-    @patch(
-        'sdgym._benchmark_launcher.benchmark_config.resolve_credentials',
-        return_value={'aws': {}, 'gcp': {}, 'sdv': {}},
-    )
-    @patch(
-        'sdgym._benchmark_launcher.benchmark_config._resolve_datasets', side_effect=[['d1'], ['d2']]
-    )
-    @patch.dict(
-        'sdgym._benchmark_launcher.benchmark_config._METHODS',
-        {('single_table', 'gcp'): Mock(name='method_to_run')},
-        clear=True,
-    )
-    def test_run_internal_calls_method_for_each_job(
-        self, mock_resolve_datasets, mock_resolve_credentials
-    ):
-        """Test `_run` calls the underlying benchmark method for each job."""
-        # Setup
-        config = BenchmarkConfig()
-        config.modality = 'single_table'
-        config.compute = {'service': 'gcp'}
-        config.method_params = {
-            'output_destination': 's3://bucket/prefix/',
-            'timeout': 10,
-            'compute_quality_score': True,
-            'compute_diagnostic_score': True,
-            'compute_privacy_score': False,
-        }
-        config.credentials_config = {'credential_filepath': 'creds.json'}
-        config.instance_jobs = [
-            {'synthesizers': ['Synth1'], 'datasets': ['a']},
-            {'synthesizers': ['Synth2'], 'datasets': ['b']},
-        ]
-        method_to_run = benchmark_config_module._METHODS[('single_table', 'gcp')]
-
-        # Run
-        config._run()
-
-        # Assert
-        mock_resolve_credentials.assert_called_once_with(config.credentials_config)
-        assert mock_resolve_datasets.call_args_list == [call(['a']), call(['b'])]
-
-        expected_calls = [
-            call(
-                synthesizers=['Synth1'],
-                sdv_datasets=['d1'],
-                credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute_config=config.compute,
-                **config.method_params,
-            ),
-            call(
-                synthesizers=['Synth2'],
-                sdv_datasets=['d2'],
-                credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute_config=config.compute,
-                **config.method_params,
-            ),
-        ]
-        method_to_run.assert_has_calls(expected_calls, any_order=False)
-        assert method_to_run.call_count == 2
 
     def test_validate_no_extra_keys_raises(self):
         """Test `_validate_no_extra_keys` raises when extra keys exist."""

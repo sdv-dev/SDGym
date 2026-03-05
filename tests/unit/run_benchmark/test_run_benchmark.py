@@ -137,7 +137,9 @@ def test__get_config(
 @patch('sdgym.run_benchmark.run_benchmark.os.getenv')
 @patch('sdgym.run_benchmark.run_benchmark._parse_args')
 @patch('sdgym.run_benchmark.run_benchmark._get_config')
+@patch('sdgym.run_benchmark.run_benchmark.BenchmarkLauncher')
 def test_main(
+    mock_benchmark_launcher,
     mock_get_config,
     mock_parse_args,
     mock_getenv,
@@ -156,12 +158,17 @@ def test_main(
     date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     config = Mock()
     mock_get_config.return_value = config
+    launcher = Mock()
+    mock_benchmark_launcher.return_value = launcher
+    mock_launch = Mock()
+    launcher.launch = mock_launch
 
     # Run
     main()
 
     # Assert
-    config.run.assert_called_once()
+    mock_benchmark_launcher.assert_called_once_with(config)
+    launcher.launch.assert_called_once()
     mock_append_benchmark_run.assert_called_once_with(
         'my_access_key',
         'my_secret_key',

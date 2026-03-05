@@ -1,9 +1,14 @@
 """Utilities for benchmark launcher."""
 
+import uuid
 from importlib.resources import files
 
 import yaml
 
+from sdgym._benchmark.benchmark import (
+    _benchmark_multi_table_compute_gcp,
+    _benchmark_single_table_compute_gcp,
+)
 from sdgym._benchmark_launcher._validation import _get_credentials, _validate_resolved_credentials
 
 _YAML_PKG = 'sdgym._benchmark_launcher'
@@ -17,6 +22,10 @@ CONFIG_KEYS = {
     'credentials',
     'compute',
     'instance_jobs',
+}
+_METHODS = {
+    ('single_table', 'gcp'): _benchmark_single_table_compute_gcp,
+    ('multi_table', 'gcp'): _benchmark_multi_table_compute_gcp,
 }
 
 
@@ -74,3 +83,24 @@ def resolve_credentials(credentials_config):
         raise ValueError('Invalid resolved credentials:\n- ' + '\n- '.join(errors))
 
     return credentials
+
+
+def generate_benchmark_id(benchmark_launcher):
+    """Generate a unique identifier for the benchmark instance.
+
+    This method creates a unique identifier by combining the modality, the compute
+    service and the last part of a UUID4 composed by 6 characters.
+
+    Args:
+        benchmark_launcher (BenchmarkLauncher):
+            An SDGym benchmark launcher.
+
+    Returns:
+        ID:
+            A unique identifier for this benchmark instance.
+    """
+    modality = benchmark_launcher.modality
+    compute_service = benchmark_launcher.compute_service
+    unique_id = ''.join(str(uuid.uuid4()).split('-'))[-6:]
+
+    return f'{modality}_{compute_service}_{unique_id}'

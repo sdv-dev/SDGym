@@ -33,4 +33,4 @@ class BenchmarkError(RuntimeError):
 
 
 class BenchmarkConfigError(Exception):
-    """Error raised when a BenchmarkConfig is not well-formed."""
+    """Error raised when a BenchmarkConfig is not well-defined."""

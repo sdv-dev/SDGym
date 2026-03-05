@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 
 from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
+from sdgym._benchmark_launcher.benchmark_launcher import BenchmarkLauncher
 from sdgym._benchmark_launcher.utils import _resolve_modality_config
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
@@ -62,13 +63,14 @@ def _get_config(modality):
 def main():
     """Main function to run the benchmark."""
     args = _parse_args()
-    date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     modality = args.modality
 
     config = _get_config(modality)
-    config.run()
+    launcher = BenchmarkLauncher(config)
+    launcher.launch()
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality=modality)
     post_benchmark_launch_message(date_str, compute_service='GCP', modality=modality)

@@ -7,10 +7,6 @@ from copy import deepcopy
 
 import yaml
 
-from sdgym._benchmark.benchmark import (
-    _benchmark_multi_table_compute_gcp,
-    _benchmark_single_table_compute_gcp,
-)
 from sdgym._benchmark_launcher._validation import (
     _format_sectioned_errors,
     _validate_credentials_config,
@@ -18,13 +14,9 @@ from sdgym._benchmark_launcher._validation import (
     _validate_method_params,
     _validate_structure,
 )
-from sdgym._benchmark_launcher.utils import _resolve_datasets, resolve_credentials
+from sdgym._benchmark_launcher.utils import _METHODS
 from sdgym.errors import BenchmarkConfigError
 
-_METHODS = {
-    ('single_table', 'gcp'): _benchmark_single_table_compute_gcp,
-    ('multi_table', 'gcp'): _benchmark_multi_table_compute_gcp,
-}
 CONFIG_KEYS = frozenset([
     'modality',
     'method_params',
@@ -35,7 +27,26 @@ CONFIG_KEYS = frozenset([
 
 
 class BenchmarkConfig:
-    """Build and validate benchmark configs."""
+    """BenchmarkConfig class.
+
+    This class represents the configuration for a benchmark. It can be loaded from a YAML file
+    or a dictionary and provides methods for validation and conversion to different formats.
+    The expected structure of the config is as follows:
+    {
+        'modality': 'single_table' or 'multi_table',
+        'method_params': dict of parameters to pass to the benchmark method (e.g. timeout),
+        'credentials': dict specifying how to resolve credentials (e.g. from env vars or a file),
+        'compute': dict specifying the compute configuration (e.g. service: 'gcp'),
+        'instance_jobs': list of dicts, each specifying a combination of synthesizers and datasets:
+            [
+                {
+                    'synthesizers': ['synthesizer1', 'synthesizer2'],
+                    'datasets': ['dataset1', 'dataset2'] or {'include': [...], 'exclude': [...]}
+                },
+                ...
+            ]
+    }
+    """
 
     _CREDENTIAL_KEYS = {
         'aws': {'access_key_id_env', 'secret_access_key_env'},
@@ -80,32 +91,10 @@ class BenchmarkConfig:
             'credentials': _validate_credentials_config(self.credentials_config),
             'instance_jobs': _validate_instance_jobs(self.instance_jobs),
         }
-
         if any(section_errors.values()):
             raise BenchmarkConfigError(_format_sectioned_errors(section_errors))
 
         self._is_validated = True
-
-    def _run(self):
-        method_to_run = _METHODS[(self.modality, self.compute.get('service'))]
-        credentials = resolve_credentials(self.credentials_config)
-        for instance_job in self.instance_jobs:
-            sdv_datasets = _resolve_datasets(instance_job['datasets'])
-            method_to_run(
-                synthesizers=instance_job['synthesizers'],
-                sdv_datasets=sdv_datasets,
-                credentials=credentials,
-                compute_config=self.compute,
-                **self.method_params,
-            )
-
-    def run(self):
-        """Run the BenchmarkConfig: validate it and then execute the specified benchmark method."""
-        if not self._is_validated:
-            self.validate()
-            self._is_validated = True
-
-        self._run()
 
     def _validate_no_extra_keys(self, config_dict):
         """Validate that the config dictionary does not contain extra keys."""
