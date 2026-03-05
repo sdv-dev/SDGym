@@ -1,6 +1,4 @@
-"""Build a ready-to-run benchmark configuration from YAML files."""
-
-from __future__ import annotations
+"""Define the BenchmarkConfig class, which represents the configuration for a benchmark."""
 
 import json
 from copy import deepcopy

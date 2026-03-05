@@ -1,3 +1,5 @@
+"""Unit tests for the benchmark launcher utils."""
+
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest

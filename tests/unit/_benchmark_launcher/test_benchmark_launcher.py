@@ -1,3 +1,5 @@
+"""Unit tests for the BenchmarkLauncher class."""
+
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -124,7 +126,7 @@ class TestBenchmarkLauncher:
         assert launcher.method_to_run.call_count == 2
 
     def test_terminate(self):
-        """Test the `terminate` method of BenchmarkLauncher."""
+        """Test the `terminate` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -136,7 +138,7 @@ class TestBenchmarkLauncher:
             launcher.terminate()
 
     def test_get_status(self):
-        """Test the `get_status` method of BenchmarkLauncher."""
+        """Test the `get_status` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'

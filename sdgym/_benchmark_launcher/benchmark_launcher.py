@@ -1,3 +1,5 @@
+"""Define the BenchmarkLauncher class, which launches and manages benchmark executions."""
+
 import cloudpickle
 
 from sdgym._benchmark_launcher.utils import (
@@ -84,7 +86,7 @@ class BenchmarkLauncher:
             instance_ids (list of str, optional):
                 List of instance IDs to get status for.
                 If None, gets status for all instance jobs. Default to None.
-        
+
         Returns:
             pd.DataFrame:
                 A dataframe with one row per job (synthesizer-dataset combination) and columns:
@@ -99,3 +101,14 @@ class BenchmarkLauncher:
         """Save the benchmark configuration to a file."""
         with open(filepath, 'wb') as output:
             cloudpickle.dump(self, output)
+
+    @classmethod
+    def load(cls, filepath):
+        """Load a benchmark configuration from a file."""
+        with open(filepath, 'rb') as input_file:
+            benchmark = cloudpickle.load(input_file)
+
+        if getattr(benchmark, '_synthesizer_id', None) is None:
+            benchmark.benchmark_id = generate_benchmark_id(benchmark)
+
+        return benchmark

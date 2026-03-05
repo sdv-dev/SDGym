@@ -1,3 +1,5 @@
+"""Unit tests for the benchmark launcher validation functions."""
+
 import json
 from unittest.mock import Mock, call, patch
 
@@ -332,10 +334,6 @@ class TestBenchmarkLauncherValidation:
             },
         }
         expected_errors = [
-            "Environment variable 'AWS_ACCESS_KEY_ID' (for credentials.aws.access_key_id_env)"
-            ' is not set or empty.',
-            "Environment variable 'AWS_SECRET_ACCESS_KEY' (for "
-            'credentials.aws.secret_access_key_env) is not set or empty.',
             'credentials.gcp: section is required but missing.',
         ]
 

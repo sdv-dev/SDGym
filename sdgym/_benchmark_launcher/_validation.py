@@ -42,6 +42,7 @@ def _as_errors(value):
         return []
     if isinstance(value, list):
         return [str(v) for v in value if v]
+
     return [str(value)]
 
 
@@ -54,6 +55,7 @@ def _format_sectioned_errors(section_errors):
         parts.append(f'[{section}]')
         parts.extend([f'- {e}' for e in errs])
         parts.append('')
+
     return '\n'.join(parts).rstrip()
 
 
@@ -61,6 +63,7 @@ def _env(name):
     if not name:
         return None
     value = os.getenv(name)
+
     return value if value not in (None, '') else None
 
 
@@ -110,6 +113,7 @@ def _validate_structure(config):
         errors.append(
             f"modality: must be 'single_table' or 'multi_table'. Found: {config.modality!r}"
         )
+
     expected_types = {
         'method_params': dict,
         'credentials_config': dict,
@@ -120,7 +124,7 @@ def _validate_structure(config):
         value = getattr(config, key, None)
         if value is None:
             errors.append(f'{key}: is a required section but missing.')
-        if not isinstance(value, expected_type):
+        elif not isinstance(value, expected_type):
             errors.append(f'{key}: must be a {expected_type.__name__}. Found: {type(value)}')
 
     compute = getattr(config, 'compute', None)
@@ -145,7 +149,7 @@ def _validate_method_params(method_params, method_to_run):
             errors.append(
                 'method_params.output_destination: must be an S3 URI like "s3://bucket/prefix/".'
             )
-        if not output_destination.endswith('/'):
+        elif not output_destination.endswith('/'):
             errors.append('method_params.output_destination: should end with "/".')
 
     timeout = method_params.get('timeout')
@@ -249,20 +253,20 @@ def _validate_credentials_config_structure(credentials_config):
     if filepath is not None:
         if not isinstance(filepath, str) or not filepath:
             return errors + ['credentials.credential_filepath: must be a non-empty string.']
-        if not os.path.isfile(filepath):
+        elif not os.path.isfile(filepath):
             return errors + [f'credentials.credential_filepath: file not found: {filepath}']
+
         try:
             with open(filepath, 'r') as f:
-                payload = json.load(f)
-        except json.JSONDecodeError:
-            return errors + [f'credentials.credential_filepath: invalid JSON: {filepath}']
-        except OSError as e:
-            return errors + [f'credentials.credential_filepath: cannot read ({filepath}): {e}']
-        if not isinstance(payload, dict):
+                cred_dict = json.load(f)
+        except Exception as e:
+            return errors + [f'credentials.credential_filepath: invalid JSON: ({filepath}): {e}']
+
+        if not isinstance(cred_dict, dict):
             return errors + ['credentials file JSON must be a dict at the top level.']
 
-        for section in _ALLOWED_SECTIONS & set(payload):
-            if not isinstance(payload.get(section), dict):
+        for section in _ALLOWED_SECTIONS & set(cred_dict):
+            if not isinstance(cred_dict.get(section), dict):
                 errors.append(f'credentials file section "{section}" must be a dict.')
 
         return errors

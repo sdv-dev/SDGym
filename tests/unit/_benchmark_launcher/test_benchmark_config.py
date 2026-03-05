@@ -1,3 +1,5 @@
+"""Unit tests for the BenchmarkConfig class."""
+
 from unittest.mock import Mock, patch
 
 import pytest
