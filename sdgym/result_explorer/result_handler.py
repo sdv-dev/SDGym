@@ -469,15 +469,15 @@ class S3ResultsHandler(ResultsHandler):
 
     def _get_results_files(self, results_folder_name, prefix, suffix):
         s3_prefix = f'{self.prefix}{results_folder_name}/'
-        response = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=s3_prefix)
-        if 'Contents' not in response:
-            return []
+        paginator = self.s3_client.get_paginator('list_objects_v2')
+        files = []
+        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=s3_prefix):
+            for obj in page.get('Contents', []):
+                key = obj['Key']
+                if key.startswith(s3_prefix + prefix) and key.endswith(suffix):
+                    files.append(key.rsplit('/', 1)[-1])
 
-        return [
-            obj['Key'].split('/')[-1]
-            for obj in response['Contents']
-            if obj['Key'].startswith(s3_prefix + prefix) and obj['Key'].endswith(suffix)
-        ]
+        return files
 
     def _get_results(self, results_folder_name, file_names):
         results = []
