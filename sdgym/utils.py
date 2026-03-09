@@ -204,3 +204,8 @@ def _set_column_width(writer, df, sheet_name):
         max_length = max(df[column].astype(str).map(len).max(), len(column))
         column_letter = get_column_letter(col_idx)
         worksheet.column_dimensions[column_letter].width = max_length + 2
+
+
+def _is_list_of_type(values, type_to_check=str):
+    """Checks that 'values' is a list and all elements are of type 'type_to_check'."""
+    return isinstance(values, list) and all(isinstance(value, type_to_check) for value in values)

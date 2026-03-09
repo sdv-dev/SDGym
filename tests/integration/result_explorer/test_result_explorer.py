@@ -2,10 +2,13 @@ import shutil
 import time
 
 import pandas as pd
+import pytest
+import yaml
 from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
 from sdgym.benchmark import benchmark_single_table
+from sdgym.result_explorer.result_handler import SUMMARY_COLUMNS
 
 
 def test_end_to_end_local(tmp_path):
@@ -23,8 +26,8 @@ def test_end_to_end_local(tmp_path):
     # Run
     result_explorer = ResultsExplorer(str(result_explorer_path), modality='single_table')
     runs = result_explorer.list()
-    results = result_explorer.load_results(runs[0])
-    metainfo = result_explorer.load_metainfo(runs[0])
+    results = result_explorer.load_results(results_folder_name=runs[0])
+    metainfo = result_explorer.load_metainfo(results_folder_name=runs[0])
     synthetic_data = result_explorer.load_synthetic_data(
         results_folder_name=runs[0],
         dataset_name='expedia_hotel_logs',
@@ -62,6 +65,67 @@ def test_end_to_end_local(tmp_path):
     assert new_synthetic_data.shape[0] == 10
 
 
+@pytest.mark.parametrize(
+    'dataset_names, synthesizer_names, summary, expected_columns',
+    [
+        (
+            ['fake_hotels'],
+            ['HMASynthesizer'],
+            True,
+            SUMMARY_COLUMNS,
+        ),
+        (['fake_hotels'], None, False, None),
+        (None, ['HMASynthesizer'], False, None),
+        (None, None, False, None),
+        (None, None, True, SUMMARY_COLUMNS),
+    ],
+)
+def test_load_results_with_filters(dataset_names, synthesizer_names, summary, expected_columns):
+    """Test loading results with dataset and synthesizer and summary filters."""
+    # Setup
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
+    result_explorer = ResultsExplorer(output_destination, modality='multi_table')
+    expected_results = pd.read_csv(
+        'tests/integration/result_explorer/_benchmark_results/multi_table/'
+        'SDGym_results_12_02_2025/results.csv',
+    )
+    expected_columns = set(expected_columns) if expected_columns else set(expected_results.columns)
+    all_dataset_names = expected_results['Dataset'].unique().tolist()
+    all_synthesizer_names = expected_results['Synthesizer'].unique().tolist()
+
+    # Run
+    results = result_explorer.load_results(
+        results_folder_name='SDGym_results_12_02_2025',
+        dataset_names=dataset_names,
+        synthesizer_names=synthesizer_names,
+        summary=summary,
+    )
+
+    # Assert
+    expected_datasets = set(dataset_names) if dataset_names is not None else set(all_dataset_names)
+    expected_synthesizers = (
+        set(synthesizer_names) if synthesizer_names is not None else set(all_synthesizer_names)
+    )
+    assert set(results['Dataset']) == expected_datasets
+    assert set(results['Synthesizer']) == expected_synthesizers
+    assert set(results.columns) == expected_columns
+    dataset_mask = (
+        expected_results['Dataset'].isin(dataset_names)
+        if dataset_names is not None
+        else pd.Series(True, index=expected_results.index)
+    )
+    synth_mask = (
+        expected_results['Synthesizer'].isin(synthesizer_names)
+        if synthesizer_names is not None
+        else pd.Series(True, index=expected_results.index)
+    )
+    filtered_expected = expected_results[dataset_mask & synth_mask][results.columns]
+    pd.testing.assert_frame_equal(
+        results.sort_values(['Dataset', 'Synthesizer']).reset_index(drop=True),
+        filtered_expected.sort_values(['Dataset', 'Synthesizer']).reset_index(drop=True),
+    )
+
+
 def test_summarize():
     """Test the `summarize` method."""
     # Setup
@@ -69,7 +133,7 @@ def test_summarize():
     result_explorer = ResultsExplorer(output_destination, modality='single_table')
 
     # Run
-    summary, results = result_explorer.summarize('SDGym_results_10_11_2024')
+    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_10_11_2024')
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -99,7 +163,7 @@ def test_summarize_multi_table():
     result_explorer = ResultsExplorer(output_destination, modality='multi_table')
 
     # Run
-    summary, results = result_explorer.summarize('SDGym_results_12_02_2025')
+    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_12_02_2025')
 
     # Assert
     expected_summary = pd.DataFrame({
@@ -135,11 +199,11 @@ def test_list_and_load_results_multi_table(tmp_path):
     assert runs == [run_folder]
     loaded_results = (
         explorer
-        .load_results(runs[0])
+        .load_results(results_folder_name=runs[0])
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
-    metainfo = explorer.load_metainfo(runs[0])
+    metainfo = explorer.load_metainfo(results_folder_name=runs[0])
 
     # Assert
     expected_results = (
@@ -150,3 +214,28 @@ def test_list_and_load_results_multi_table(tmp_path):
     )
     pd.testing.assert_frame_equal(loaded_results, expected_results)
     assert isinstance(metainfo, dict) and len(metainfo) >= 1
+
+
+def test_loading_last_run_results_by_default():
+    """Test that the last run results are loaded when no folder name is provided."""
+    # Setup
+    output_destination = 'tests/integration/result_explorer/_benchmark_results/'
+    result_explorer = ResultsExplorer(output_destination, modality='single_table')
+    metainfo_path = f'{output_destination}single_table/SDGym_results_12_17_2024/metainfo.yaml'
+    with open(metainfo_path, 'r') as f:
+        raw_yaml = yaml.safe_load(f)
+
+    run_id = raw_yaml.get('run_id')
+    expected_metainfo = {run_id: {k: v for k, v in raw_yaml.items() if k != 'run_id'}}
+
+    # Run
+    results = result_explorer.load_results()
+    metainfo = result_explorer.load_metainfo()
+
+    # Assert
+    assert metainfo == expected_metainfo
+    expected_results = pd.read_csv(
+        'tests/integration/result_explorer/_benchmark_results/single_table/'
+        'SDGym_results_12_17_2024/results.csv',
+    )
+    pd.testing.assert_frame_equal(results, expected_results)

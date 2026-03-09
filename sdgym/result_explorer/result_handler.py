@@ -3,6 +3,7 @@
 import io
 import operator
 import os
+import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -12,6 +13,7 @@ import yaml
 from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
+from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
 RESULTS_FOLDER_PREFIX = 'SDGym_results_'
@@ -19,6 +21,13 @@ metainfo_PREFIX = 'metainfo'
 RESULTS_FILE_PREFIX = 'results'
 NUM_DIGITS_DATE = 10
 REGEX_SYNTHESIZER_NAME = r'\s*\(\d+\)\s*$'
+SUMMARY_COLUMNS = [
+    'Dataset',
+    'Synthesizer',
+    'Adjusted_Total_Time',
+    'Adjusted_Quality_Score',
+    'Diagnostic_Score',
+]
 
 
 class ResultsHandler(ABC):
@@ -151,13 +160,15 @@ class ResultsHandler(ABC):
         filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
         return filtered_results.reset_index(drop=True)
 
-    def summarize(self, folder_name):
+    def summarize(self, results_folder_name):
         """Summarize the results in the specified folder."""
         all_folders = [f for f in self.list() if f.startswith(RESULTS_FOLDER_PREFIX)]
-        if folder_name not in all_folders:
-            raise ValueError(f'Folder "{folder_name}" does not exist in the results directory.')
+        if results_folder_name not in all_folders:
+            raise ValueError(
+                f'Folder "{results_folder_name}" does not exist in the results directory.'
+            )
 
-        date = pd.to_datetime(folder_name[-NUM_DIGITS_DATE:], format='%m_%d_%Y')
+        date = pd.to_datetime(results_folder_name[-NUM_DIGITS_DATE:], format='%m_%d_%Y')
         folder_to_results = {}
         for folder in all_folders:
             folder_date = pd.to_datetime(folder[len(RESULTS_FOLDER_PREFIX) :], format='%m_%d_%Y')
@@ -181,28 +192,86 @@ class ResultsHandler(ABC):
 
         summarized_table = self._get_summarize_table(folder_to_results, folder_infos)
 
-        return summarized_table, folder_to_results[folder_name]
+        return summarized_table, folder_to_results[results_folder_name]
 
-    def load_results(self, results_folder_name):
+    def _validate_load_results_filters(self, dataset_names, synthesizer_names, summary):
+        if dataset_names is not None:
+            if not _is_list_of_type(dataset_names, str):
+                raise ValueError('`dataset_names` must be a list of strings or None.')
+
+        if synthesizer_names is not None:
+            if not _is_list_of_type(synthesizer_names, str):
+                raise ValueError('`synthesizer_names` must be a list of strings or None.')
+
+        if not isinstance(summary, bool):
+            raise ValueError('`summary` must be a boolean.')
+
+    def load_results(
+        self, results_folder_name, dataset_names=None, synthesizer_names=None, summary=False
+    ):
         """Load and aggregate all the results CSV files from the specified results folder.
 
         Args:
             results_folder_name (str):
                 The name of the results folder to load results from.
+            dataset_names (list of str, optional):
+                A list of dataset names to filter results for. If None, results for all
+                datasets will be loaded. Defaults to None.
+            synthesizer_names (list of str, optional):
+                A list of synthesizer names to filter results for. If None, results for all
+                synthesizers will be loaded. Defaults to None.
+            summary (bool, optional):
+                If True, only return the summary results which include the following columns:
+                - 'Dataset'
+                - 'Synthesizer'
+                - 'Adjusted_Total_Time'
+                - 'Adjusted_Quality_Score'
+                - 'Diagnostic_Score'
+                Defaults to False.
 
         Returns:
             pd.DataFrame:
                 A DataFrame containing the results of the specified folder.
         """
+        has_dataset_filter = dataset_names is not None
+        has_synthesizer_filter = synthesizer_names is not None
         self._validate_folder_name(results_folder_name)
+        self._validate_load_results_filters(dataset_names, synthesizer_names, summary)
         result_filenames = self._get_results_files(
             results_folder_name, prefix=RESULTS_FILE_PREFIX, suffix='.csv'
         )
 
-        return pd.concat(
+        result = pd.concat(
             self._get_results(results_folder_name, result_filenames),
             ignore_index=True,
         )
+        if has_dataset_filter:
+            result = result[result['Dataset'].isin(dataset_names)]
+
+        if has_synthesizer_filter:
+            result = result[result['Synthesizer'].isin(synthesizer_names)]
+
+        if result.empty:
+            filters = []
+            if has_dataset_filter:
+                filters.append(f'- Datasets: {", ".join(dataset_names)}')
+            if has_synthesizer_filter:
+                filters.append(f'- Synthesizers: {", ".join(synthesizer_names)}')
+
+            if filters:
+                filters_text = '\n'.join(filters)
+                warning_message = (
+                    f'No results found in folder "{results_folder_name}" '
+                    f'matching the specified filters:\n'
+                    f'{filters_text}'
+                )
+            else:
+                warning_message = f'No results found in folder "{results_folder_name}".'
+
+            warnings.warn(warning_message)
+
+        result = result[SUMMARY_COLUMNS] if summary else result
+        return result.reset_index(drop=True)
 
     def load_metainfo(self, results_folder_name):
         """Load and aggregate all the metainfo YAML files from the specified results folder.
@@ -227,14 +296,16 @@ class ResultsHandler(ABC):
 
         return results
 
-    def all_runs_complete(self, folder_name):
+    def all_runs_complete(self, results_folder_name):
         """Check if all runs in the specified folder are complete."""
-        yaml_files = self._get_results_files(folder_name, prefix=metainfo_PREFIX, suffix='.yaml')
+        yaml_files = self._get_results_files(
+            results_folder_name, prefix=metainfo_PREFIX, suffix='.yaml'
+        )
         if not yaml_files:
             return False
 
         for yaml_file in yaml_files:
-            metainfo_info = self._load_yaml_file(folder_name, yaml_file)
+            metainfo_info = self._load_yaml_file(results_folder_name, yaml_file)
             if metainfo_info.get('completed_date') is None:
                 return False
 
@@ -278,21 +349,21 @@ class LocalResultsHandler(ResultsHandler):
 
         return pd.read_csv(full_path)
 
-    def _get_results_files(self, folder_name, prefix, suffix):
+    def _get_results_files(self, results_folder_name, prefix, suffix):
         return [
             f
-            for f in os.listdir(os.path.join(self.base_path, folder_name))
+            for f in os.listdir(os.path.join(self.base_path, results_folder_name))
             if f.endswith(suffix) and f.startswith(prefix)
         ]
 
-    def _get_results(self, folder_name, file_names):
+    def _get_results(self, results_folder_name, file_names):
         return [
-            pd.read_csv(os.path.join(self.base_path, folder_name, file_name))
+            pd.read_csv(os.path.join(self.base_path, results_folder_name, file_name))
             for file_name in file_names
         ]
 
-    def _load_yaml_file(self, folder_name, file_name):
-        file_path = os.path.join(self.base_path, folder_name, file_name)
+    def _load_yaml_file(self, results_folder_name, file_name):
+        file_path = os.path.join(self.base_path, results_folder_name, file_name)
         with open(file_path, 'r') as f:
             return yaml.safe_load(f)
 
@@ -396,29 +467,29 @@ class S3ResultsHandler(ResultsHandler):
 
         return pd.read_csv(io.BytesIO(body))
 
-    def _get_results_files(self, folder_name, prefix, suffix):
-        s3_prefix = f'{self.prefix}{folder_name}/'
-        response = self.s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=s3_prefix)
-        if 'Contents' not in response:
-            return []
+    def _get_results_files(self, results_folder_name, prefix, suffix):
+        s3_prefix = f'{self.prefix}{results_folder_name}/'
+        paginator = self.s3_client.get_paginator('list_objects_v2')
+        files = []
+        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=s3_prefix):
+            for obj in page.get('Contents', []):
+                key = obj['Key']
+                if key.startswith(s3_prefix + prefix) and key.endswith(suffix):
+                    files.append(key.rsplit('/', 1)[-1])
 
-        return [
-            obj['Key'].split('/')[-1]
-            for obj in response['Contents']
-            if obj['Key'].startswith(s3_prefix + prefix) and obj['Key'].endswith(suffix)
-        ]
+        return files
 
-    def _get_results(self, folder_name, file_names):
+    def _get_results(self, results_folder_name, file_names):
         results = []
         for file_name in file_names:
-            s3_key = f'{self.prefix}{folder_name}/{file_name}'
+            s3_key = f'{self.prefix}{results_folder_name}/{file_name}'
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
             result_df = pd.read_csv(io.BytesIO(response['Body'].read()))
             results.append(result_df)
 
         return results
 
-    def _load_yaml_file(self, folder_name, file_name):
-        s3_key = f'{self.prefix}{folder_name}/{file_name}'
+    def _load_yaml_file(self, results_folder_name, file_name):
+        s3_key = f'{self.prefix}{results_folder_name}/{file_name}'
         response = self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
         return yaml.safe_load(response['Body'])

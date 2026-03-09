@@ -1,5 +1,16 @@
 # History
 
+## v0.14.0 - 2026-03-09
+
+### New Features
+
+* The ResultExplorer should look for latest run results by default - Issue [#552](https://github.com/sdv-dev/SDGym/issues/552) by @R-Palazzo
+* Update load_results to be able to filter on dataset or synthesizer - Issue [#551](https://github.com/sdv-dev/SDGym/issues/551) by @R-Palazzo
+
+### Bugs Fixed
+
+* `OUTPUT_DESTINATION_AWS` points to the wrong location - Issue [#564](https://github.com/sdv-dev/SDGym/issues/564) by @R-Palazzo
+
 ## v0.13.1 - 2026-02-28
 
 ### New Features
