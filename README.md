@@ -73,9 +73,7 @@ Now, we can benchmark the different techniques:
 ```python
 import sdgym
 
-sdgym.benchmark_single_table(
-    synthesizers=(sdv_synthesizers + baseline_synthesizers)
-)
+sdgym.benchmark_single_table(synthesizers=(sdv_synthesizers + baseline_synthesizers))
 ```
 
 The result is a detailed performance, memory and quality evaluation across the synthesizers
@@ -91,6 +89,7 @@ def my_training_logic(data, metadata):
     # create an object to represent your synthesizer
     # train it using the data
     return synthesizer
+
 
 def my_sampling_logic(trained_synthesizer, num_rows):
     # use the trained synthesizer to create
