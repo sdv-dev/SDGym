@@ -5,7 +5,7 @@ import shutil
 import stat
 import sys
 from pathlib import Path
-
+import shlex
 import tomli
 from invoke import task
 from packaging.requirements import Requirement
@@ -218,3 +218,40 @@ def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None, modality='s
     from sdgym.run_benchmark.utils import post_benchmark_uploaded_message
 
     post_benchmark_uploaded_message(folder_name, commit_url, modality)
+
+@task
+def launch_benchmark(
+    c,
+    config_filepath=None,
+    modality=None,
+    datasets=None,
+    synthesizers=None,
+    num_instances=1,
+    output_destination=None,
+    timeout=None,
+):
+    """Launch the SDGym benchmark."""
+    command = ['python', 'sdgym/_benchmark_launcher/script.py']
+    if config_filepath is not None:
+        command.extend(['--config-filepath', config_filepath])
+
+    if modality is not None:
+        command.extend(['--modality', modality])
+
+    if datasets is not None:
+        command.extend(['--datasets', datasets])
+
+    if synthesizers is not None:
+        command.extend(['--synthesizers', synthesizers])
+
+    if num_instances is not None:
+        command.extend(['--num-instances', str(num_instances)])
+
+    if output_destination is not None:
+        command.extend(['--output-destination', output_destination])
+
+    if timeout is not None:
+        command.extend(['--timeout', str(timeout)])
+
+    quoted_command = ' '.join(shlex.quote(part) for part in command)
+    c.run(quoted_command)
