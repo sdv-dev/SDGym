@@ -282,9 +282,8 @@ def _validate_credential_locations_structure(credential_locations):
             errors.append(f'credential_locations.{section}: section is required but missing.')
         elif not isinstance(credential_locations[section], dict):
             errors.append(
-                f'credential_locations.{section}: must be a dict. Found: {
-                    type(credential_locations[section])
-                }'
+                f'credential_locations.{section}: must be a dict. Found: '
+                f'{type(credential_locations[section])}'
             )
 
     if 'sdv' in credential_locations and not isinstance(credential_locations['sdv'], dict):
