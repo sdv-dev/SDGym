@@ -122,13 +122,13 @@ def test__deep_merge_recursive_override_wins():
 def test_resolve_credentials_returns_credentials_when_valid(mock_validate, mock_get_credentials):
     """Test `resolve_credentials` returns credentials when validation passes."""
     # Setup
-    credentials_config = {'credential_filepath': 'creds.json'}
+    credential_locations = {'credential_filepath': 'creds.json'}
 
     # Run
-    credentials = resolve_credentials(credentials_config)
+    credentials = resolve_credentials(credential_locations)
 
     # Assert
-    mock_get_credentials.assert_called_once_with(credentials_config)
+    mock_get_credentials.assert_called_once_with(credential_locations)
     mock_validate.assert_called_once_with({'aws': {}, 'gcp': {}, 'sdv': {}})
     assert credentials == {'aws': {}, 'gcp': {}, 'sdv': {}}
 
@@ -138,12 +138,12 @@ def test_resolve_credentials_returns_credentials_when_valid(mock_validate, mock_
 def test_resolve_credentials_raises_when_invalid(mock_validate, mock_get_credentials):
     """Test `resolve_credentials` raises ValueError when resolved credentials are invalid."""
     # Setup
-    credentials_config = {'credential_filepath': 'creds.json'}
+    credential_locations = {'credential_filepath': 'creds.json'}
 
     # Run
     with pytest.raises(ValueError, match='Invalid resolved credentials'):
-        resolve_credentials(credentials_config)
+        resolve_credentials(credential_locations)
 
     # Assert
-    mock_get_credentials.assert_called_once_with(credentials_config)
+    mock_get_credentials.assert_called_once_with(credential_locations)
     mock_validate.assert_called_once()

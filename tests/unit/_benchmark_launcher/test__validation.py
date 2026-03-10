@@ -8,8 +8,8 @@ from sdgym._benchmark_launcher._validation import (
     _env,
     _format_sectioned_errors,
     _get_credentials,
-    _validate_credentials_config,
-    _validate_credentials_config_structure,
+    _validate_credential_locations,
+    _validate_credential_locations_structure,
     _validate_instance_jobs,
     _validate_method_params,
     _validate_resolved_credentials,
@@ -114,10 +114,10 @@ class TestBenchmarkLauncherValidation:
             'sdv': {'username': 'u', 'license_key': 'k'},
         }
         credential_file.write_text(json.dumps(expected_credentials))
-        credentials_config = {'credential_filepath': str(credential_file)}
+        credential_locations = {'credential_filepath': str(credential_file)}
 
         # Run
-        creds = _get_credentials(credentials_config)
+        creds = _get_credentials(credential_locations)
 
         # Assert
         assert creds == expected_credentials
@@ -144,7 +144,7 @@ class TestBenchmarkLauncherValidation:
             }.get(key, None)
 
         mock_getenv.side_effect = getenv_side_effect
-        credentials_config = {
+        credential_locations = {
             'aws': {
                 'access_key_id_env': 'AWS_ACCESS_KEY_ID',
                 'secret_access_key_env': 'AWS_SECRET_ACCESS_KEY',
@@ -170,7 +170,7 @@ class TestBenchmarkLauncherValidation:
         }
 
         # Run
-        credentials = _get_credentials(credentials_config)
+        credentials = _get_credentials(credential_locations)
 
         # Assert
         mock_getenv.assert_has_calls([
@@ -188,7 +188,7 @@ class TestBenchmarkLauncherValidation:
         config = Mock()
         config.modality = 'single_table'
         config.method_params = {}
-        config.credentials_config = {}
+        config.credential_locations = {}
         config.compute = {'service': 'gcp'}
         config.instance_jobs = []
 
@@ -204,13 +204,13 @@ class TestBenchmarkLauncherValidation:
         config = Mock()
         config.modality = 'bad'
         config.method_params = []
-        config.credentials_config = 'nope'
+        config.credential_locations = 'nope'
         config.compute = {'service': 'aws'}
         config.instance_jobs = {}
         expected_errors = [
             "modality: must be 'single_table' or 'multi_table'. Found: 'bad'",
             "method_params: must be a dict. Found: <class 'list'>",
-            "credentials_config: must be a dict. Found: <class 'str'>",
+            "credential_locations: must be a dict. Found: <class 'str'>",
             "instance_jobs: must be a list. Found: <class 'dict'>",
             "compute.service: must be 'gcp'. Found: 'aws'",
         ]
@@ -311,40 +311,44 @@ class TestBenchmarkLauncherValidation:
         # Assert
         assert errors == expected_error
 
-    def test__validate_credentials_config_structure_file_valid(self, tmp_path):
-        """Test `_validate_credentials_config_structure` returns empty list in file mode."""
+    def test__validate_credential_locations_structure_file_valid(self, tmp_path):
+        """Test `_validate_credential_locations_structure` returns empty list in file mode."""
         # Setup
         credential_file = tmp_path / 'creds.json'
         credential_file.write_text(json.dumps({'aws': {}, 'gcp': {}}))
-        credentials_config = {'credential_filepath': str(credential_file)}
+        credential_locations = {'credential_filepath': str(credential_file)}
 
         # Run
-        errors = _validate_credentials_config_structure(credentials_config)
+        errors = _validate_credential_locations_structure(credential_locations)
 
         # Assert
         assert errors == []
 
-    def test__validate_credentials_config_structure_env_missing_required_section(self):
-        """Test `_validate_credentials_config_structure` reports missing required gcp section."""
+    def test__validate_credential_locations_structure_env_missing_required_section(self):
+        """Test `_validate_credential_locations_structure` reports missing required gcp section."""
         # Setup
-        credentials_config = {
+        credential_locations = {
             'aws': {
                 'access_key_id_env': 'AWS_ACCESS_KEY_ID',
                 'secret_access_key_env': 'AWS_SECRET_ACCESS_KEY',
             },
         }
         expected_errors = [
-            'credentials.gcp: section is required but missing.',
+            "Environment variable 'AWS_ACCESS_KEY_ID' (for credential_locations.aws."
+            'access_key_id_env) is not set or empty.',
+            "Environment variable 'AWS_SECRET_ACCESS_KEY' (for credential_locations.aws."
+            'secret_access_key_env) is not set or empty.',
+            'credential_locations.gcp: section is required but missing.',
         ]
 
         # Run
-        errors = _validate_credentials_config_structure(credentials_config)
+        errors = _validate_credential_locations_structure(credential_locations)
 
         # Assert
         assert errors == expected_errors
 
     def test__validate_resolved_credentials_valid(self):
-        """Test `_validate_resolved_credentials` with valid credentials."""
+        """Test `_validate_resolved_credentials` with valid credential_locations."""
         # Setup
         credentials = {
             'aws': {'aws_access_key_id': 'AKIA', 'aws_secret_access_key': 'SECRET'},
@@ -390,8 +394,8 @@ class TestBenchmarkLauncherValidation:
         assert errors == expected_errors
 
     @patch('sdgym._benchmark_launcher._validation.os.getenv')
-    def test__validate_credentials_config_end_to_end_env_valid(self, mock_getenv):
-        """Test `_validate_credentials_config` returns empty list for valid env credentials."""
+    def test__validate_credential_locations_end_to_end_env_valid(self, mock_getenv):
+        """Test `_validate_credential_locations` for valid credential_locations."""
         # Setup
         service_account = {
             'type': 'service_account',
@@ -411,7 +415,7 @@ class TestBenchmarkLauncherValidation:
             }.get(key, None)
 
         mock_getenv.side_effect = getenv_side_effect
-        credentials_config = {
+        credential_locations = {
             'aws': {
                 'access_key_id_env': 'AWS_ACCESS_KEY_ID',
                 'secret_access_key_env': 'AWS_SECRET_ACCESS_KEY',
@@ -424,17 +428,17 @@ class TestBenchmarkLauncherValidation:
         }
 
         # Run
-        errors = _validate_credentials_config(credentials_config)
+        errors = _validate_credential_locations(credential_locations)
 
         # Assert
         assert errors == []
 
-    def test__validate_credentials_config_end_to_end_file_invalid(self, tmp_path):
-        """Test `_validate_credentials_config` returns errors for invalid credentials file."""
+    def test__validate_credential_locations_end_to_end_file_invalid(self, tmp_path):
+        """Test `_validate_credential_locations` errors for invalid credential_locations."""
         # Setup
-        credential_file = tmp_path / 'creds.json'
+        credential_file = tmp_path / 'credential_locations.json'
         credential_file.write_text(json.dumps({'aws': {}, 'gcp': {}}))
-        credentials_config = {'credential_filepath': str(credential_file)}
+        credential_locations = {'credential_filepath': str(credential_file)}
         expected_errors = [
             'credentials["aws"] missing key: "aws_access_key_id"',
             'credentials["aws"] missing key: "aws_secret_access_key"',
@@ -448,7 +452,7 @@ class TestBenchmarkLauncherValidation:
         ]
 
         # Run
-        errors = _validate_credentials_config(credentials_config)
+        errors = _validate_credential_locations(credential_locations)
 
         # Assert
         assert errors == expected_errors

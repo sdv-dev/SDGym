@@ -21,69 +21,94 @@ exclusions:
     - census
 
 instance_jobs:
-  - synthesizers: [ColumnSynthesizer, GaussianCopulaSynthesizer]
+  - synthesizers:
+      - ColumnSynthesizer
+      - GaussianCopulaSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers: [TVAESynthesizer]
+  - synthesizers:
+      - TVAESynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers: [SegmentSynthesizer]
+  - synthesizers:
+      - SegmentSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers: [XGCSynthesizer]
+  - synthesizers:
+      - XGCSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers: [BootstrapSynthesizer]
+  - synthesizers:
+      - BootstrapSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers: [CTGANSynthesizer]
+  - synthesizers:
+      - CTGANSynthesizer
     datasets:
       include: *datasets_single_table
       exclude: *gan_exclude
 
-  - synthesizers: [CopulaGANSynthesizer]
+  - synthesizers:
+      - CopulaGANSynthesizer
     datasets:
       include: *datasets_single_table
       exclude: *gan_exclude
 
-  - synthesizers: [RealTabFormerSynthesizer]
+  - synthesizers:
+      - RealTabFormerSynthesizer
     datasets:
       include: *datasets_single_table
       exclude: *rtf_exclude
 
-  - synthesizers: [RealTabFormerSynthesizer]
+  - synthesizers:
+      - RealTabFormerSynthesizer
     datasets:
-      include: [covtype]
+      include:
+        - covtype
 
-  - synthesizers: [RealTabFormerSynthesizer]
+  - synthesizers:
+      - RealTabFormerSynthesizer
     datasets:
-      include: [intrusion]
+      include:
+        - intrusion
 
-  - synthesizers: [RealTabFormerSynthesizer]
+  - synthesizers:
+      - RealTabFormerSynthesizer
     datasets:
-      include: [expedia_hotel_logs]
+      include:
+        - expedia_hotel_logs
 
-  - synthesizers: [RealTabFormerSynthesizer]
+  - synthesizers:
+      - RealTabFormerSynthesizer
     datasets:
-      include: [census]
+      include:
+        - census
 
-  - synthesizers: [CTGANSynthesizer]
+  - synthesizers:
+      - CTGANSynthesizer
     datasets:
-      include: [covtype]
+      include:
+        - covtype
 
-  - synthesizers: [CopulaGANSynthesizer]
+  - synthesizers:
+      - CopulaGANSynthesizer
     datasets:
-      include: [covtype]
+      include:
+        - covtype
 
-  - synthesizers: [CTGANSynthesizer]
+  - synthesizers:
+      - CTGANSynthesizer
     datasets:
-      include: [intrusion]
+      include:
+        - intrusion
 
-  - synthesizers: [CopulaGANSynthesizer]
+  - synthesizers:
+      - CopulaGANSynthesizer
     datasets:
-      include: [intrusion]
+      include:
+        - intrusion

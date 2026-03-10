@@ -72,63 +72,79 @@ exclusions:
     - imdb_MovieLens
 
 instance_jobs:
-  - synthesizers: [HSASynthesizer, IndependentSynthesizer]
+  - synthesizers:
+      - HSAynthesizer
+      - IndependentSynthesizer
     datasets:
       include: *datasets_multi_table
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: *datasets_multi_table
       exclude: *hma_exclude
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [Accidents]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [AustralianFootball]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [Countries]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [MuskSmall]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [NBA]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [OMOP_CDM_dayz]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [PremierLeague]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [SalesDB]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [airbnb-simplified]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [imdb_ijs]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [legalActs]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [SAP]
 
-  - synthesizers: [HMASynthesizer]
+  - synthesizers:
+      - HMASynthesizer
     datasets:
       include: [imdb_MovieLens]

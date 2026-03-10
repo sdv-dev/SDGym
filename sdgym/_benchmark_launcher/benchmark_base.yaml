@@ -8,7 +8,7 @@ method_params:
 compute:
   service: 'gcp'
 
-credentials:
+credential_locations:
   gcp:
     service_account_json_env: 'GCP_SERVICE_ACCOUNT_JSON'
     project_id_env: 'GCP_PROJECT_ID'

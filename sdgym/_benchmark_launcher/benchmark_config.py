@@ -7,7 +7,7 @@ import yaml
 
 from sdgym._benchmark_launcher._validation import (
     _format_sectioned_errors,
-    _validate_credentials_config,
+    _validate_credential_locations,
     _validate_instance_jobs,
     _validate_method_params,
     _validate_structure,
@@ -18,7 +18,7 @@ from sdgym.errors import BenchmarkConfigError
 CONFIG_KEYS = frozenset([
     'modality',
     'method_params',
-    'credentials',
+    'credential_locations',
     'compute',
     'instance_jobs',
 ])
@@ -56,10 +56,8 @@ class BenchmarkConfig:
     def __init__(self):
         self.modality = None
         self.method_params = None
-        self.credentials_config = {}
-        self.compute = {
-            'service': None,
-        }
+        self.credential_locations = {}
+        self.compute = {'service': None}
         self.instance_jobs = []
         self._is_validated = False
 
@@ -73,7 +71,7 @@ class BenchmarkConfig:
 
         return deepcopy(config)
 
-    def __repr__(self):
+    def __str__(self):
         """Pretty print the ``BenchmarkConfig``."""
         printed = json.dumps(self.to_dict(), indent=4)
         return printed
@@ -86,7 +84,7 @@ class BenchmarkConfig:
 
         section_errors = {
             'method_params': _validate_method_params(self.method_params, method_to_run),
-            'credentials': _validate_credentials_config(self.credentials_config),
+            'credential_locations': _validate_credential_locations(self.credential_locations),
             'instance_jobs': _validate_instance_jobs(self.instance_jobs),
         }
         if any(section_errors.values()):
@@ -110,11 +108,8 @@ class BenchmarkConfig:
         """Load the BenchmarkConfig from a dict."""
         instance = cls()
         instance._validate_no_extra_keys(config_dict)
-        instance.modality = config_dict.get('modality')
-        instance.method_params = config_dict.get('method_params', {})
-        instance.credentials_config = config_dict.get('credentials', {})
-        instance.compute = config_dict.get('compute', {})
-        instance.instance_jobs = config_dict.get('instance_jobs', [])
+        for attribute_name, attribute_value in config_dict.items():
+            setattr(instance, attribute_name, attribute_value)
 
         return instance
 
@@ -126,22 +121,13 @@ class BenchmarkConfig:
             config_dict = yaml.safe_load(f)
 
         instance._validate_no_extra_keys(config_dict)
-        instance.modality = config_dict.get('modality')
-        instance.method_params = config_dict.get('method_params', {})
-        instance.credentials_config = config_dict.get('credentials', {})
-        instance.compute = config_dict.get('compute', {})
-        instance.instance_jobs = config_dict.get('instance_jobs', [])
+        for attribute_name, attribute_value in config_dict.items():
+            setattr(instance, attribute_name, attribute_value)
 
         return instance
 
     def save_to_yaml(self, filepath):
         """Save the BenchmarkConfig in a YAML file."""
-        config_dict = {
-            'modality': self.modality,
-            'method_params': self.method_params,
-            'credentials': self.credentials_config,
-            'compute': self.compute,
-            'instance_jobs': self.instance_jobs,
-        }
+        config_dict = self.to_dict()
         with open(filepath, 'w') as file:
             yaml.dump(config_dict, file)

@@ -67,9 +67,9 @@ def _env(name):
     return value if value not in (None, '') else None
 
 
-def _get_credentials(credentials_config):
+def _get_credentials(credential_locations):
     """Get resolved credentials dict."""
-    config = credentials_config or {}
+    config = credential_locations or {}
     filepath = config.get('credential_filepath')
     if filepath:
         with open(filepath, 'r') as f:
@@ -116,7 +116,7 @@ def _validate_structure(config):
 
     expected_types = {
         'method_params': dict,
-        'credentials_config': dict,
+        'credential_locations': dict,
         'compute': dict,
         'instance_jobs': list,
     }
@@ -242,25 +242,31 @@ def _validate_instance_jobs(instance_jobs):
     return [f'{error_message}\nInvalid jobs:\n{invalid_jobs_str}']
 
 
-def _validate_credentials_config_structure(credentials_config):
+def _validate_credential_locations_structure(credential_locations):
     errors = []
     allowed_top = {'credential_filepath'} | _ALLOWED_SECTIONS
-    unknown = set(credentials_config) - allowed_top
+    unknown = set(credential_locations) - allowed_top
     if unknown:
         errors.append(f'credentials: unknown top-level keys: {sorted(unknown)}')
 
-    filepath = credentials_config.get('credential_filepath')
+    filepath = credential_locations.get('credential_filepath')
     if filepath is not None:
         if not isinstance(filepath, str) or not filepath:
-            return errors + ['credentials.credential_filepath: must be a non-empty string.']
+            return errors + [
+                'credential_locations.credential_filepath: must be a non-empty string.'
+            ]
         elif not os.path.isfile(filepath):
-            return errors + [f'credentials.credential_filepath: file not found: {filepath}']
+            return errors + [
+                f'credential_locations.credential_filepath: file not found: {filepath}'
+            ]
 
         try:
             with open(filepath, 'r') as f:
                 cred_dict = json.load(f)
         except Exception as e:
-            return errors + [f'credentials.credential_filepath: invalid JSON: ({filepath}): {e}']
+            return errors + [
+                f'credential_locations.credential_filepath: invalid JSON: ({filepath}): {e}'
+            ]
 
         if not isinstance(cred_dict, dict):
             return errors + ['credentials file JSON must be a dict at the top level.']
@@ -272,18 +278,22 @@ def _validate_credentials_config_structure(credentials_config):
         return errors
 
     for section in _REQUIRED_SECTIONS:
-        if section not in credentials_config:
-            errors.append(f'credentials.{section}: section is required but missing.')
-        elif not isinstance(credentials_config[section], dict):
+        if section not in credential_locations:
+            errors.append(f'credential_locations.{section}: section is required but missing.')
+        elif not isinstance(credential_locations[section], dict):
             errors.append(
-                f'credentials.{section}: must be a dict. Found: {type(credentials_config[section])}'
+                f'credential_locations.{section}: must be a dict. Found: {
+                    type(credential_locations[section])
+                }'
             )
 
-    if 'sdv' in credentials_config and not isinstance(credentials_config['sdv'], dict):
-        errors.append(f'credentials.sdv: must be a dict. Found: {type(credentials_config["sdv"])}')
+    if 'sdv' in credential_locations and not isinstance(credential_locations['sdv'], dict):
+        errors.append(
+            f'credential_locations.sdv: must be a dict. Found: {type(credential_locations["sdv"])}'
+        )
 
     for section, schema in _CREDENTIAL_SECTION_SCHEMA.items():
-        section_cfg = credentials_config.get(section)
+        section_cfg = credential_locations.get(section)
         if section_cfg is None:
             continue
         if not isinstance(section_cfg, dict):
@@ -294,21 +304,23 @@ def _validate_credentials_config_structure(credentials_config):
         missing = expected - actual
         extra = actual - expected
         if missing:
-            errors.append(f'credentials.{section}: missing keys: {sorted(missing)}')
+            errors.append(f'credential_locations.{section}: missing keys: {sorted(missing)}')
         if extra:
-            errors.append(f'credentials.{section}: unknown keys: {sorted(extra)}')
+            errors.append(f'credential_locations.{section}: unknown keys: {sorted(extra)}')
 
         for env_key in expected & actual:
             env_var = section_cfg.get(env_key)
             if not isinstance(env_var, str) or not env_var:
-                errors.append(f'credentials.{section}.{env_key}: must be a non-empty env var name.')
+                errors.append(
+                    f'credential_locations.{section}.{env_key}: must be a non-empty env var name.'
+                )
                 continue
 
             value = _env(env_var)
             if value is None:
                 errors.append(
-                    f"Environment variable '{env_var}' (for credentials.{section}.{env_key}) "
-                    'is not set or empty.'
+                    f"Environment variable '{env_var}' (for credential_locations."
+                    f'{section}.{env_key}) is not set or empty.'
                 )
                 continue
 
@@ -381,10 +393,10 @@ def _validate_resolved_credentials(credentials):
     return sorted(errors)
 
 
-def _validate_credentials_config(credentials_config):
-    errors = _validate_credentials_config_structure(credentials_config)
+def _validate_credential_locations(credential_locations):
+    errors = _validate_credential_locations_structure(credential_locations)
     if errors:
         return errors
 
-    credentials = _get_credentials(credentials_config)
+    credentials = _get_credentials(credential_locations)
     return _validate_resolved_credentials(credentials)

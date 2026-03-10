@@ -18,7 +18,7 @@ class BenchmarkLauncher:
     required credentials, and dispatches the benchmark jobs to the appropriate
     execution method depending on the configured modality and compute service.
 
-    The `launch()` method starts one EC2 instance per `instance_job` on the
+    The `launch()` method starts one instance per `instance_job` on the
     configured compute service (e.g., AWS or GCP) and executes the specified
     benchmark method on each instance with the provided parameters. This enables
     multiple machines to run the benchmark in parallel.
@@ -42,7 +42,7 @@ class BenchmarkLauncher:
         self.benchmark_id = generate_benchmark_id(self)
 
     def _launch(self):
-        credentials = resolve_credentials(self.benchmark_config.credentials_config)
+        credentials = resolve_credentials(self.benchmark_config.credential_locations)
         for instance_job in self.benchmark_config.instance_jobs:
             sdv_datasets = _resolve_datasets(instance_job['datasets'])
             self.method_to_run(
@@ -104,7 +104,7 @@ class BenchmarkLauncher:
 
     @classmethod
     def load(cls, filepath):
-        """Load a benchmark configuration from a file."""
+        """Load a benchmark launcher from a file."""
         with open(filepath, 'rb') as input_file:
             benchmark = cloudpickle.load(input_file)
 

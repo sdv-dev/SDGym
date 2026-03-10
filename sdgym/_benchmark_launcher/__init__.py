@@ -1,4 +1,4 @@
-"""Init file for the benchmark launcher module."""
+"""Benchmark Launcher Module."""
 
 from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
 from sdgym._benchmark_launcher.benchmark_launcher import BenchmarkLauncher
