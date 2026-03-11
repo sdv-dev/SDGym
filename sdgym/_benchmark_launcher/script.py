@@ -41,22 +41,19 @@ def _validate_args(args):
     if args.modality is None:
         raise ValueError("'--modality' is required when '--config-filepath' is not provided.")
 
-    if args.datasets is None:
-        raise ValueError("'--datasets' is required in manual mode.")
-
-    if args.synthesizers is None:
-        raise ValueError("'--synthesizers' is required in manual mode.")
-
     if args.output_destination is None:
-        raise ValueError("'--output-destination' is required in manual mode.")
-
-    if args.output_destination == OUTPUT_DESTINATION_AWS:
         raise ValueError(
-            f"'--output-destination' cannot be {OUTPUT_DESTINATION_AWS!r} in manual mode."
+            "'--output-destination' is required when '--config-filepath' is not provided."
         )
 
     if args.num_instances < 1:
         raise ValueError("'--num-instances' must be greater than or equal to 1.")
+
+    if args.output_destination == OUTPUT_DESTINATION_AWS:
+        raise ValueError(
+            f"'--output-destination' cannot be {OUTPUT_DESTINATION_AWS!r} that is reserved"
+            ' for internal benchmarks'
+        )
 
 
 def _split_list(values):
@@ -66,7 +63,7 @@ def _split_list(values):
 
 
 def _instance_job_size(instance_job):
-    """Return the number of atomic jobs in an instance job."""
+    """Return the number of synthesizer and dataset combinations."""
     return len(instance_job['synthesizers']) * len(instance_job['datasets'])
 
 
@@ -104,7 +101,7 @@ def _split_instance_jobs(instance_job):
             },
         ]
 
-    raise ValueError('Cannot split a 1x1 instance job any further.')
+    raise ValueError('Cannot split the instance job any further.')
 
 
 def _build_instance_jobs(datasets, synthesizers, num_instances):
@@ -139,20 +136,44 @@ def _build_instance_jobs(datasets, synthesizers, num_instances):
     return instance_jobs
 
 
+def _get_default_datasets_and_synthesizers(modality):
+    """Get default datasets and synthesizers from the modality config."""
+    base_dict = _resolve_modality_config(modality)
+    instance_jobs = base_dict.get('instance_jobs', [])
+
+    datasets = []
+    synthesizers = []
+    for instance_job in instance_jobs:
+        datasets.extend(instance_job.get('datasets', []))
+        synthesizers.extend(instance_job.get('synthesizers', []))
+
+    return sorted(set(datasets)), sorted(set(synthesizers))
+
+
 def build_dict_from_args(args):
     """Build a config override dict from command-line arguments."""
-    config = {'method_params': {}}
+    config = {}
+    method_params = {}
     if args.timeout is not None:
-        config['method_params']['timeout'] = args.timeout
+        method_params['timeout'] = args.timeout
 
-    config['method_params']['output_destination'] = args.output_destination
+    if args.output_destination is not None:
+        method_params['output_destination'] = args.output_destination
+
+    if method_params:
+        config['method_params'] = method_params
+
     datasets = _parse_csv(args.datasets)
     synthesizers = _parse_csv(args.synthesizers)
-    config['instance_jobs'] = _build_instance_jobs(
-        datasets=datasets,
-        synthesizers=synthesizers,
-        num_instances=args.num_instances,
-    )
+    if datasets is not None or synthesizers is not None or args.num_instances != 1:
+        default_datasets, default_synthesizers = _get_default_datasets_and_synthesizers(
+            args.modality
+        )
+        config['instance_jobs'] = _build_instance_jobs(
+            datasets=datasets if datasets is not None else default_datasets,
+            synthesizers=synthesizers if synthesizers is not None else default_synthesizers,
+            num_instances=args.num_instances,
+        )
 
     return config
 

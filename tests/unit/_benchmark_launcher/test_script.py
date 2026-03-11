@@ -8,6 +8,7 @@ import pytest
 
 from sdgym._benchmark_launcher.script import (
     _build_instance_jobs,
+    _get_default_datasets_and_synthesizers,
     _instance_job_size,
     _parse_args,
     _parse_csv,
@@ -23,7 +24,7 @@ from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS
 
 @patch('sdgym._benchmark_launcher.script.argparse.ArgumentParser.parse_args')
 def test__parse_args_calls_parse_args(mock_parse_args):
-    """Test `_parse_args` calls argparse parse_args."""
+    """Test `_parse_args` method."""
     # Setup
     expected = Mock()
     mock_parse_args.return_value = expected
@@ -36,18 +37,6 @@ def test__parse_args_calls_parse_args(mock_parse_args):
     assert args is expected
 
 
-def test__parse_csv_returns_none_for_empty_values():
-    """Test `_parse_csv` returns None for empty values."""
-    # Setup
-    value = ''
-
-    # Run
-    parsed = _parse_csv(value)
-
-    # Assert
-    assert parsed is None
-
-
 def test__parse_csv_splits_and_strips_values():
     """Test `_parse_csv` splits comma-separated values and strips whitespace."""
     # Setup
@@ -55,13 +44,15 @@ def test__parse_csv_splits_and_strips_values():
 
     # Run
     parsed = _parse_csv(value)
+    empty = _parse_csv('')
 
     # Assert
     assert parsed == ['adult', 'alarm', 'census', 'intrusion']
+    assert empty is None
 
 
-def test__validate_args_returns_early_when_config_filepath_is_provided():
-    """Test `_validate_args` returns early when config filepath is provided."""
+def test__validate_args_with_config_filepath():
+    """Test `_validate_args` with a config_filepath."""
     # Setup
     args = Namespace(
         config_filepath='config.yaml',
@@ -80,26 +71,28 @@ def test__validate_args_returns_early_when_config_filepath_is_provided():
     assert True
 
 
-def test__validate_args_raises_when_modality_is_missing():
-    """Test `_validate_args` raises when modality is missing in manual mode."""
-    # Setup
-    args = Namespace(
-        config_filepath=None,
-        modality=None,
-        datasets='adult',
-        synthesizers='CTGANSynthesizer',
-        num_instances=1,
-        timeout=None,
-        output_destination='s3://sdgym-benchmark/Debug/test/',
-    )
-
-    # Run / Assert
-    with pytest.raises(ValueError, match="'--modality' is required"):
-        _validate_args(args)
-
-
-def test__validate_args_raises_when_output_destination_is_reserved():
-    """Test `_validate_args` raises when output destination is reserved."""
+@pytest.mark.parametrize(
+    'param,value,message',
+    [
+        ('modality', None, "'--modality' is required when '--config-filepath' is not provided."),
+        ('num_instances', 0, "'--num-instances' must be greater than or equal to 1."),
+        (
+            'output_destination',
+            None,
+            ("'--output-destination' is required when '--config-filepath' is not provided."),
+        ),
+        (
+            'output_destination',
+            OUTPUT_DESTINATION_AWS,
+            (
+                f"'--output-destination' cannot be {OUTPUT_DESTINATION_AWS!r} that is reserved"
+                ' for internal benchmarks'
+            ),
+        ),
+    ],
+)
+def test__validate_args(param, value, message):
+    """Test `_validate_args` raises appropriate errors."""
     # Setup
     args = Namespace(
         config_filepath=None,
@@ -108,25 +101,31 @@ def test__validate_args_raises_when_output_destination_is_reserved():
         synthesizers='CTGANSynthesizer',
         num_instances=1,
         timeout=None,
-        output_destination=OUTPUT_DESTINATION_AWS,
+        output_destination='s3://sdgym-benchmark/Debug/test/',
     )
+    setattr(args, param, value)
 
-    # Run / Assert
-    with pytest.raises(ValueError, match="'--output-destination' cannot be"):
+    # Run and Assert
+    with pytest.raises(ValueError, match=message):
         _validate_args(args)
 
 
-def test__split_list_splits_evenly():
-    """Test `_split_list` splits a list into two non-empty parts."""
-    # Setup
-    values = ['a', 'b', 'c', 'd']
-
+@pytest.mark.parametrize(
+    'values,expected_left,expected_right',
+    [
+        (['a', 'b', 'c', 'd'], ['a', 'b'], ['c', 'd']),
+        (['a', 'b', 'c'], ['a'], ['b', 'c']),
+        (['a', 'b'], ['a'], ['b']),
+    ],
+)
+def test__split_list(values, expected_left, expected_right):
+    """Test `_split_list` method."""
     # Run
     left, right = _split_list(values)
 
     # Assert
-    assert left == ['a', 'b']
-    assert right == ['c', 'd']
+    assert left == expected_left
+    assert right == expected_right
 
 
 def test__instance_job_size_returns_number_of_atomic_jobs():
@@ -144,7 +143,7 @@ def test__instance_job_size_returns_number_of_atomic_jobs():
     assert size == 6
 
 
-def test__split_instance_jobs_prefers_splitting_synthesizers():
+def test__split_instance_jobs_synthesizers():
     """Test `_split_instance_jobs` first splits synthesizers when possible."""
     # Setup
     instance_job = {
@@ -168,7 +167,7 @@ def test__split_instance_jobs_prefers_splitting_synthesizers():
     ]
 
 
-def test__split_instance_jobs_splits_datasets_when_one_synthesizer():
+def test__split_instance_jobs_splits_datasets():
     """Test `_split_instance_jobs` splits datasets when only one synthesizer exists."""
     # Setup
     instance_job = {
@@ -192,8 +191,22 @@ def test__split_instance_jobs_splits_datasets_when_one_synthesizer():
     ]
 
 
-def test__build_instance_jobs_returns_requested_number_when_possible():
-    """Test `_build_instance_jobs` returns the requested number of instance jobs."""
+def test__split_instance_jobs_error():
+    """Test `_split_instance_jobs` raises an error when it cannot be split further."""
+    # Setup
+    instance_job = {
+        'synthesizers': ['CTGANSynthesizer'],
+        'datasets': ['adult'],
+    }
+    expected_message = re.escape('Cannot split the instance job any further.')
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _split_instance_jobs(instance_job)
+
+
+def test__build_instance_jobs():
+    """Test `_build_instance_jobs` method."""
     # Setup
     datasets = ['adult', 'alarm']
     synthesizers = ['CTGANSynthesizer', 'TVAESynthesizer', 'GaussianCopulaSynthesizer']
@@ -247,6 +260,26 @@ def test__build_instance_jobs_warns_and_caps_num_instances():
     ]
 
 
+@patch('sdgym._benchmark_launcher.script._resolve_modality_config')
+def test__get_default_datasets_and_synthesizers(mock_resolve_modality_config):
+    """Test `_get_default_datasets_and_synthesizers` returns default datasets and synthesizers."""
+    # Setup
+    mock_resolve_modality_config.return_value = {
+        'instance_jobs': [
+            {'datasets': ['adult', 'alarm'], 'synthesizers': ['CTGANSynthesizer']},
+            {'datasets': ['census'], 'synthesizers': ['TVAESynthesizer']},
+        ]
+    }
+
+    # Run
+    datasets, synthesizers = _get_default_datasets_and_synthesizers('single_table')
+
+    # Assert
+    mock_resolve_modality_config.assert_called_once_with('single_table')
+    assert datasets == ['adult', 'alarm', 'census']
+    assert synthesizers == ['CTGANSynthesizer', 'TVAESynthesizer']
+
+
 @patch('sdgym._benchmark_launcher.script._build_instance_jobs')
 @patch('sdgym._benchmark_launcher.script._parse_csv')
 def test_build_dict_from_args_builds_expected_override_dict(
@@ -255,6 +288,7 @@ def test_build_dict_from_args_builds_expected_override_dict(
     """Test `build_dict_from_args` builds the expected config override dict."""
     # Setup
     args = Namespace(
+        modality='single_table',
         datasets='adult,alarm',
         synthesizers='CTGANSynthesizer,TVAESynthesizer',
         num_instances=2,
@@ -300,6 +334,7 @@ def test_build_dict_from_args_without_timeout(mock_parse_csv, mock_build_instanc
     """Test `build_dict_from_args` omits timeout when it is not provided."""
     # Setup
     args = Namespace(
+        modality='single_table',
         datasets='adult',
         synthesizers='CTGANSynthesizer',
         num_instances=1,
@@ -330,7 +365,7 @@ def test_build_dict_from_args_without_timeout(mock_parse_csv, mock_build_instanc
 @patch('sdgym._benchmark_launcher.script._deep_merge')
 @patch('sdgym._benchmark_launcher.script.build_dict_from_args')
 @patch('sdgym._benchmark_launcher.script._resolve_modality_config')
-def test_build_config_from_args_builds_and_loads_config(
+def test_build_config_from_args_mock(
     mock_resolve_modality_config,
     mock_build_dict_from_args,
     mock_deep_merge,
