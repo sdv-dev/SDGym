@@ -290,9 +290,8 @@ def _validate_credential_locations_structure(credential_locations):
         credential_locations['sdv_enterprise'], dict
     ):
         errors.append(
-            f'credential_locations.sdv_enterprise: must be a dict. Found: {
-                type(credential_locations["sdv"])
-            }'
+            'credential_locations.sdv_enterprise: must be a dict. Found: '
+            f'{type(credential_locations["sdv_enterprise"])}'
         )
 
     for section, schema in _CREDENTIAL_SECTION_SCHEMA.items():
