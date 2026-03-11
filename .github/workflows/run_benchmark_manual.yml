@@ -1,0 +1,52 @@
+name: Run SDGym Benchmark Manually
+
+on:
+  workflow_dispatch:
+    inputs:
+      modality:
+        description: "Benchmark modality"
+        required: true
+        type: choice
+        options:
+          - single_table
+          - multi_table
+      datasets:
+        description: "Optional comma-separated datasets. Leave empty to use all default datasets for the modality. (Ex: 'adult','census')"
+        required: false
+        type: string
+      synthesizers:
+        description: "Optional comma-separated synthesizers. Leave empty to use all default synthesizers for the modality. (Ex: 'CTGANSynthesizer', 'TVAESynthesizer')"
+        required: false
+        type: string
+      num_instances:
+        description: "Number of compute instances"
+        required: false
+        default: "1"
+        type: string
+      output_destination:
+        description: "Required output destination to save benchmark results. (Ex: 's3://sdgym-benchmark/Debug/')"
+        required: true
+        type: string
+      timeout:
+        description: "Optional timeout in seconds"
+        required: false
+        type: string
+
+jobs:
+  run:
+    uses: ./.github/workflows/_run_sdgym_benchmark.yml
+    with:
+      modality: ${{ inputs.modality }}
+      datasets: ${{ inputs.datasets }}
+      synthesizers: ${{ inputs.synthesizers }}
+      num_instances: ${{ inputs.num_instances }}
+      output_destination: ${{ inputs.output_destination }}
+      timeout: ${{ inputs.timeout }}
+    secrets:
+      SDV_ENTERPRISE_USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
+      SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
+      GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_ZONE: ${{ secrets.GCP_ZONE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
