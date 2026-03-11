@@ -226,41 +226,24 @@ def launch_benchmark(
     modality=None,
     datasets=None,
     synthesizers=None,
-    num_instances=1,
+    num_instances=None,
     output_destination=None,
     timeout=None,
 ):
     """Launch the SDGym benchmark."""
     command = ['python', 'sdgym/_benchmark_launcher/script.py']
-
-    if config_filepath is not None:
-        if any(
-            value is not None
-            for value in (modality, datasets, synthesizers, output_destination, timeout)
-        ) or num_instances != 1:
-            raise ValueError(
-                "'config_filepath' cannot be combined with the other benchmark arguments."
-            )
-
-        command.extend(['--config-filepath', config_filepath])
-    else:
-        if modality is not None:
-            command.extend(['--modality', modality])
-
-        if datasets is not None:
-            command.extend(['--datasets', datasets])
-
-        if synthesizers is not None:
-            command.extend(['--synthesizers', synthesizers])
-
-        if num_instances is not None:
-            command.extend(['--num-instances', str(num_instances)])
-
-        if output_destination is not None:
-            command.extend(['--output-destination', output_destination])
-
-        if timeout is not None:
-            command.extend(['--timeout', str(timeout)])
+    arguments = [
+        ('--config-filepath', config_filepath),
+        ('--modality', modality),
+        ('--datasets', datasets),
+        ('--synthesizers', synthesizers),
+        ('--num-instances', num_instances),
+        ('--output-destination', output_destination),
+        ('--timeout', timeout),
+    ]
+    for flag, value in arguments:
+        if value is not None:
+            command.extend([flag, str(value)])
 
     quoted_command = ' '.join(shlex.quote(part) for part in command)
     c.run(quoted_command)
