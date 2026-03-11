@@ -11,26 +11,63 @@ on:
           - single_table
           - multi_table
       datasets:
-        description: "Optional comma-separated datasets. Leave empty to use all default datasets for the modality. (Ex: 'adult','census')"
+        description: "Optional comma-separated datasets"
         required: false
         type: string
       synthesizers:
-        description: "Optional comma-separated synthesizers. Leave empty to use all default synthesizers for the modality. (Ex: 'CTGANSynthesizer', 'TVAESynthesizer')"
+        description: "Optional comma-separated synthesizers"
         required: false
         type: string
       num_instances:
-        description: "Number of compute instances"
+        description: "Number of instances"
         required: false
         default: "1"
         type: string
       output_destination:
-        description: "Required output destination to save benchmark results. (Ex: 's3://sdgym-benchmark/Debug/')"
+        description: "Required output destination"
         required: true
         type: string
       timeout:
         description: "Optional timeout in seconds"
         required: false
         type: string
+
+  workflow_call:
+    inputs:
+      modality:
+        required: true
+        type: string
+      datasets:
+        required: false
+        type: string
+      synthesizers:
+        required: false
+        type: string
+      num_instances:
+        required: false
+        type: string
+        default: "1"
+      output_destination:
+        required: true
+        type: string
+      timeout:
+        required: false
+        type: string
+    secrets:
+      SDV_ENTERPRISE_USERNAME:
+        required: true
+      SDV_ENTERPRISE_LICENSE_KEY:
+        required: true
+      GCP_SERVICE_ACCOUNT_JSON:
+        required: true
+      GCP_PROJECT_ID:
+        required: true
+      GCP_ZONE:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
 
 jobs:
   run:
