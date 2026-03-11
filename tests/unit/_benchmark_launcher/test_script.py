@@ -59,7 +59,7 @@ def test__validate_args_with_config_filepath():
         modality=None,
         datasets=None,
         synthesizers=None,
-        num_instances=0,
+        num_instances=None,
         timeout=None,
         output_destination=None,
     )

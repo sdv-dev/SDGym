@@ -36,6 +36,21 @@ def _parse_csv(value):
 def _validate_args(args):
     """Validate command-line arguments."""
     if args.config_filepath is not None:
+        if any(
+            value is not None
+            for value in (
+                args.modality,
+                args.datasets,
+                args.synthesizers,
+                args.output_destination,
+                args.timeout,
+                args.num_instances,
+            )
+        ):
+            raise ValueError(
+                "'--config-filepath' cannot be combined with the other benchmark arguments."
+            )
+
         return
 
     if args.modality is None:
@@ -51,8 +66,8 @@ def _validate_args(args):
 
     if args.output_destination == OUTPUT_DESTINATION_AWS:
         raise ValueError(
-            f"'--output-destination' cannot be {OUTPUT_DESTINATION_AWS!r} that is reserved"
-            ' for internal benchmarks'
+            f"'--output-destination' cannot be {OUTPUT_DESTINATION_AWS!r} that is reserved "
+            'for internal benchmarks'
         )
 
 
