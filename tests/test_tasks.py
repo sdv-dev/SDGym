@@ -1,5 +1,7 @@
 """Tests for the ``tasks.py`` file."""
 
+from unittest.mock import Mock
+
 import pytest
 from tasks import (
     _get_extra_dependencies,
@@ -7,7 +9,6 @@ from tasks import (
     _resolve_version_conflicts,
     launch_benchmark,
 )
-from unittest.mock import Mock
 
 
 def test_get_minimum_versions():
