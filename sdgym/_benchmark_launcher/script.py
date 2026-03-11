@@ -18,7 +18,7 @@ def _parse_args():
     )
     parser.add_argument('--datasets', type=str, default=None)
     parser.add_argument('--synthesizers', type=str, default=None)
-    parser.add_argument('--num-instances', type=int, default=1)
+    parser.add_argument('--num-instances', type=int, default=None)
     parser.add_argument('--timeout', type=int, default=None)
     parser.add_argument('--output-destination', type=str, default=None)
 
@@ -180,14 +180,15 @@ def build_dict_from_args(args):
 
     datasets = _parse_csv(args.datasets)
     synthesizers = _parse_csv(args.synthesizers)
-    if datasets is not None or synthesizers is not None or args.num_instances != 1:
+    num_instances = args.num_instances if args.num_instances is not None else 1
+    if datasets is not None or synthesizers is not None or num_instances != 1:
         default_datasets, default_synthesizers = _get_default_datasets_and_synthesizers(
             args.modality
         )
         config['instance_jobs'] = _build_instance_jobs(
             datasets=datasets if datasets is not None else default_datasets,
             synthesizers=synthesizers if synthesizers is not None else default_synthesizers,
-            num_instances=args.num_instances,
+            num_instances=num_instances,
         )
 
     return config
