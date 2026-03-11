@@ -13,6 +13,6 @@ jobs:
       datasets: expedia_hotel_logs,fake_hotel_guests
       synthesizers: GaussianCopulaSynthesizer,TVAESynthesizer
       num_instances: "2"
-      output_destination: s3://sdgym-benchmark/Debug/Benchmark_Launcher/Manual
+      output_destination: s3://sdgym-benchmark/Debug/Benchmark_Launcher/Manual/
       timeout: "60"
     secrets: inherit
