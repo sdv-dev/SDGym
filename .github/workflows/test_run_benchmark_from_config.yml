@@ -1,0 +1,13 @@
+name: Test SDGym Config Workflow
+
+on:
+  push:
+    branches:
+      - issue-547-define-benchmark-launcher
+
+jobs:
+  run:
+    uses: ./.github/workflows/run_benchmark_from_config.yml
+    with:
+      config_filepath: sdgym/_benchmark_launcher/test_benchmark_config.yaml
+    secrets: inherit
