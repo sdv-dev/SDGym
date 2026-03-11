@@ -7,7 +7,7 @@ on:
 
 jobs:
   run:
-    uses: ./.github/workflows/run_sdgym_benchmark_manual.yml
+    uses: ./.github/workflows/run_benchmark_manual.yml
     with:
       modality: single_table
       datasets: expedia_hotel_logs,fake_hotel_guests
