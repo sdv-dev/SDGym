@@ -44,6 +44,7 @@ on:
 jobs:
   run-sdgym-benchmark:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,74 +72,41 @@ jobs:
               license_key='${LICENSE_KEY}',
           )
           "
-          python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@${{ github.ref_name }}"
+          python -m pip install ".[all]"
 
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
 
-      - name: Validate inputs
-        run: |
-          if [ -n "${{ inputs.config_filepath }}" ] && \
-             { [ -n "${{ inputs.modality }}" ] || \
-               [ -n "${{ inputs.datasets }}" ] || \
-               [ -n "${{ inputs.synthesizers }}" ] || \
-               [ -n "${{ inputs.output_destination }}" ] || \
-               [ -n "${{ inputs.timeout }}" ] || \
-               [ "${{ inputs.num_instances }}" != "1" ]; }; then
-            echo "config_filepath cannot be combined with manual benchmark inputs."
-            exit 1
-          fi
-
-          if [ -z "${{ inputs.config_filepath }}" ] && [ -z "${{ inputs.modality }}" ]; then
-            echo "modality is required when config_filepath is not provided."
-            exit 1
-          fi
-
-      - name: Run SDGym Benchmark from config
-        if: ${{ inputs.config_filepath != '' }}
+      - name: Run SDGym Benchmark
         env:
-          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          GCP_ZONE: ${{ secrets.GCP_ZONE }}
-          SDV_ENTERPRISE_USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
-          SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+            GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+            GCP_ZONE: ${{ secrets.GCP_ZONE }}
+            SDV_ENTERPRISE_USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
+            SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          invoke launch-benchmark \
-            --config-filepath "${{ inputs.config_filepath }}"
+            CMD=(python sdgym/_benchmark_launcher/script.py)
 
-      - name: Run SDGym Benchmark from manual inputs
-        if: ${{ inputs.config_filepath == '' }}
-        env:
-          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          GCP_ZONE: ${{ secrets.GCP_ZONE }}
-          SDV_ENTERPRISE_USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
-          SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          CMD="invoke launch-benchmark --modality '${{ inputs.modality }}'"
+            add_arg() {
+            local flag="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+                CMD+=("$flag" "$value")
+            fi
+            }
 
-          if [ -n "${{ inputs.datasets }}" ]; then
-            CMD="$CMD --datasets '${{ inputs.datasets }}'"
-          fi
+            add_arg --config-filepath "${{ inputs.config_filepath }}"
+            add_arg --modality "${{ inputs.modality }}"
+            add_arg --datasets "${{ inputs.datasets }}"
+            add_arg --synthesizers "${{ inputs.synthesizers }}"
+            add_arg --num-instances "${{ inputs.num_instances }}"
+            add_arg --output-destination "${{ inputs.output_destination }}"
+            add_arg --timeout "${{ inputs.timeout }}"
 
-          if [ -n "${{ inputs.synthesizers }}" ]; then
-            CMD="$CMD --synthesizers '${{ inputs.synthesizers }}'"
-          fi
+            printf 'Running command:'
+            printf ' %q' "${CMD[@]}"
+            printf '\n'
 
-          if [ -n "${{ inputs.output_destination }}" ]; then
-            CMD="$CMD --output-destination '${{ inputs.output_destination }}'"
-          fi
-
-          if [ -n "${{ inputs.timeout }}" ]; then
-            CMD="$CMD --timeout '${{ inputs.timeout }}'"
-          fi
-
-          if [ -n "${{ inputs.num_instances }}" ]; then
-            CMD="$CMD --num-instances '${{ inputs.num_instances }}'"
-          fi
-
-          eval "$CMD"
+            "${CMD[@]}"
