@@ -4,7 +4,7 @@ import os
 from urllib.parse import urlparse
 
 _REQUIRED_SECTIONS = {'aws', 'gcp'}
-_OPTIONAL_SECTIONS = {'sdv'}
+_OPTIONAL_SECTIONS = {'sdv_enterprise'}
 _ALLOWED_SECTIONS = _REQUIRED_SECTIONS | _OPTIONAL_SECTIONS
 _GCP_SA_REQUIRED_KEYS = {'type', 'project_id', 'private_key', 'client_email', 'token_uri'}
 _CREDENTIAL_SECTION_SCHEMA = {
@@ -25,7 +25,7 @@ _CREDENTIAL_SECTION_SCHEMA = {
         'required': {'gcp_project', 'gcp_zone'},
         'optional': {'service_account_json'},
     },
-    'sdv': {
+    'sdv_enterprise': {
         'env_to_var': {
             'username_env': 'username',
             'license_key_env': 'license_key',
@@ -101,8 +101,8 @@ def _get_credentials(credential_locations):
         keep = {'gcp_project': gcp.get('gcp_project'), 'gcp_zone': gcp.get('gcp_zone')}
         resolved['gcp'] = {**sa_obj, **keep}
 
-    resolved['sdv'].setdefault('username', None)
-    resolved['sdv'].setdefault('license_key', None)
+    resolved['sdv_enterprise'].setdefault('username', None)
+    resolved['sdv_enterprise'].setdefault('license_key', None)
 
     return resolved
 
@@ -286,9 +286,13 @@ def _validate_credential_locations_structure(credential_locations):
                 f'{type(credential_locations[section])}'
             )
 
-    if 'sdv' in credential_locations and not isinstance(credential_locations['sdv'], dict):
+    if 'sdv_enterprise' in credential_locations and not isinstance(
+        credential_locations['sdv_enterprise'], dict
+    ):
         errors.append(
-            f'credential_locations.sdv: must be a dict. Found: {type(credential_locations["sdv"])}'
+            f'credential_locations.sdv_enterprise: must be a dict. Found: {
+                type(credential_locations["sdv"])
+            }'
         )
 
     for section, schema in _CREDENTIAL_SECTION_SCHEMA.items():
@@ -356,19 +360,20 @@ def _validate_resolved_credentials(credentials):
         if not isinstance(section_dict, dict):
             continue
 
-        if section == 'sdv':
+        if section == 'sdv_enterprise':
             username = section_dict.get('username')
             licence_key = section_dict.get('license_key')
             if (username in (None, '')) and (licence_key in (None, '')):
                 continue
             if username in (None, ''):
                 errors.append(
-                    "credentials['sdv']['username'] is required when SDV credentials are provided."
+                    "credential_locations['sdv_enterprise']['username'] is required when SDV"
+                    ' credentials are provided.'
                 )
             if licence_key in (None, ''):
                 errors.append(
-                    "credentials['sdv']['license_key'] is required when SDV credentials are"
-                    ' provided.'
+                    "credential_locations['sdv_enterprise']['license_key'] is required when SDV"
+                    ' credentials are provided.'
                 )
             continue
 

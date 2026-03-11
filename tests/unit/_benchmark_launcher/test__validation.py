@@ -111,7 +111,7 @@ class TestBenchmarkLauncherValidation:
                 'gcp_project': 'my-project',
                 'gcp_zone': 'zone',
             },
-            'sdv': {'username': 'u', 'license_key': 'k'},
+            'sdv_enterprise': {'username': 'u', 'license_key': 'k'},
         }
         credential_file.write_text(json.dumps(expected_credentials))
         credential_locations = {'credential_filepath': str(credential_file)}
@@ -166,7 +166,7 @@ class TestBenchmarkLauncherValidation:
                 'gcp_project': 'my-project',
                 'gcp_zone': 'zone',
             },
-            'sdv': {'username': None, 'license_key': None},
+            'sdv_enterprise': {'username': None, 'license_key': None},
         }
 
         # Run
@@ -361,7 +361,7 @@ class TestBenchmarkLauncherValidation:
                 'gcp_project': 'my-project',
                 'gcp_zone': 'zone',
             },
-            'sdv': {'username': None, 'license_key': None},
+            'sdv_enterprise': {'username': None, 'license_key': None},
         }
 
         # Run
@@ -373,8 +373,10 @@ class TestBenchmarkLauncherValidation:
     def test__validate_resolved_credentials_missing_required_fields(self):
         """Test `_validate_resolved_credentials` catches missing required fields."""
         # Setup
-        credentials = {'aws': {}, 'gcp': {}, 'sdv': {'username': 'u'}}
+        credentials = {'aws': {}, 'gcp': {}, 'sdv_enterprise': {'username': 'u'}}
         expected_errors = [
+            "credential_locations['sdv_enterprise']['license_key'] is required when"
+            ' SDV credentials are provided.',
             'credentials["aws"] missing key: "aws_access_key_id"',
             'credentials["aws"] missing key: "aws_secret_access_key"',
             'credentials["gcp"] missing key: "gcp_project"',
@@ -384,7 +386,6 @@ class TestBenchmarkLauncherValidation:
             'credentials["gcp"]["project_id"] is missing or empty.',
             'credentials["gcp"]["token_uri"] is missing or empty.',
             'credentials["gcp"]["type"] is missing or empty.',
-            "credentials['sdv']['license_key'] is required when SDV credentials are provided.",
         ]
 
         # Run

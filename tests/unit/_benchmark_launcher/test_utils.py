@@ -23,7 +23,7 @@ def test__resolve_modality_config_filters_to_config_keys(mock_load_yaml, modalit
         'method_params': {'timeout': 1},
         'extra': 'drop',
         'compute': {'service': 'gcp'},
-        'credentials': {},
+        'credential_locations': {},
     }
     modality_dict = {
         'modality': modality,
@@ -35,7 +35,7 @@ def test__resolve_modality_config_filters_to_config_keys(mock_load_yaml, modalit
     expected = {
         'modality': modality,
         'method_params': {'timeout': 999, 'other_param': 2},
-        'credentials': {},
+        'credential_locations': {},
         'compute': {'service': 'gcp'},
         'instance_jobs': [{'synthesizers': ['A'], 'datasets': ['d1']}],
     }
@@ -116,7 +116,7 @@ def test__deep_merge_recursive_override_wins():
 
 @patch(
     'sdgym._benchmark_launcher.utils._get_credentials',
-    return_value={'aws': {}, 'gcp': {}, 'sdv': {}},
+    return_value={'aws': {}, 'gcp': {}, 'sdv_enterprise': {}},
 )
 @patch('sdgym._benchmark_launcher.utils._validate_resolved_credentials', return_value=[])
 def test_resolve_credentials_returns_credentials_when_valid(mock_validate, mock_get_credentials):
@@ -129,8 +129,8 @@ def test_resolve_credentials_returns_credentials_when_valid(mock_validate, mock_
 
     # Assert
     mock_get_credentials.assert_called_once_with(credential_locations)
-    mock_validate.assert_called_once_with({'aws': {}, 'gcp': {}, 'sdv': {}})
-    assert credentials == {'aws': {}, 'gcp': {}, 'sdv': {}}
+    mock_validate.assert_called_once_with({'aws': {}, 'gcp': {}, 'sdv_enterprise': {}})
+    assert credentials == {'aws': {}, 'gcp': {}, 'sdv_enterprise': {}}
 
 
 @patch('sdgym._benchmark_launcher.utils._get_credentials', return_value={'aws': {}, 'gcp': {}})

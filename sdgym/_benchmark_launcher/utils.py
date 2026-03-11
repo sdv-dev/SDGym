@@ -19,7 +19,7 @@ MODALITY_TO_CONFIG_FILE = {
 CONFIG_KEYS = {
     'modality',
     'method_params',
-    'credentials',
+    'credential_locations',
     'compute',
     'instance_jobs',
 }
