@@ -3,7 +3,7 @@ name: Test SDGym Manual Workflow
 on:
   push:
     branches:
-      - issue-547-define-benchmark-launcher
+      - issue-547-define-benchmark-launcher_2
 
 jobs:
   run:
