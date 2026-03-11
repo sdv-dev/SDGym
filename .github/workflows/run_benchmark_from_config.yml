@@ -10,7 +10,7 @@ on:
 
 jobs:
   run:
-    uses: ./.github/workflows/_run_sdgym_benchmark.yml
+    uses: ./.github/workflows/_run_benchmark.yml
     with:
       config_filepath: ${{ inputs.config_filepath }}
     secrets:

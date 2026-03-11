@@ -71,7 +71,7 @@ on:
 
 jobs:
   run:
-    uses: ./.github/workflows/_run_sdgym_benchmark.yml
+    uses: ./.github/workflows/_run_benchmark.yml
     with:
       modality: ${{ inputs.modality }}
       datasets: ${{ inputs.datasets }}
