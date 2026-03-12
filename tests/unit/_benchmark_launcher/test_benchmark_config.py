@@ -19,7 +19,7 @@ class TestBenchmarkConfig:
         # Assert
         assert config.modality is None
         assert config.method_params is None
-        assert config.credential_locations == {}
+        assert config.credentials_filepath == {}
         assert config.compute == {'service': None}
         assert config.instance_jobs == []
         assert config._is_validated is False
@@ -30,7 +30,7 @@ class TestBenchmarkConfig:
         config = BenchmarkConfig()
         config.modality = 'single_table'
         config.method_params = {'output_destination': 's3://bucket/prefix/'}
-        config.credential_locations = {'credential_filepath': 'creds.json'}
+        config.credentials_filepath = 'credential.json'
         config.compute = {'service': 'gcp', 'region': 'x'}
         config.instance_jobs = [{'synthesizers': ['A'], 'datasets': ['d1']}]
 
@@ -49,7 +49,7 @@ class TestBenchmarkConfig:
         config = BenchmarkConfig()
         config.modality = 'single_table'
         config.method_params = {'output_destination': 's3://bucket/prefix/'}
-        config.credential_locations = {}
+        config.credentials_filepath = {}
         config.compute = {'service': 'gcp'}
         config.instance_jobs = []
 
@@ -63,9 +63,7 @@ class TestBenchmarkConfig:
 
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_structure', return_value=[])
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_method_params', return_value=[])
-    @patch(
-        'sdgym._benchmark_launcher.benchmark_config._validate_credential_locations', return_value=[]
-    )
+    @patch('sdgym._benchmark_launcher.benchmark_config._validate_credentials', return_value=[])
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_instance_jobs', return_value=[])
     @patch('sdgym._benchmark_launcher.benchmark_config._format_sectioned_errors')
     def test_validate(
@@ -82,7 +80,7 @@ class TestBenchmarkConfig:
         config.modality = 'single_table'
         config.compute = {'service': 'gcp'}
         config.method_params = {'output_destination': 's3://bucket/prefix/'}
-        config.credential_locations = {}
+        config.credentials_filepath = {}
         config.instance_jobs = []
 
         method_to_run = Mock(name='method_to_run')
@@ -99,7 +97,7 @@ class TestBenchmarkConfig:
         mock_format_errors.assert_not_called()
         mock_validate_structure.assert_called_once_with(config)
         mock_validate_method_params.assert_called_once_with(config.method_params, method_to_run)
-        mock_validate_creds.assert_called_once_with(config.credential_locations)
+        mock_validate_creds.assert_called_once_with(config.credentials_filepath)
         mock_validate_jobs.assert_called_once_with(config.instance_jobs)
 
     @patch.dict(
@@ -112,9 +110,7 @@ class TestBenchmarkConfig:
         return_value=[],
     )
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_method_params', return_value=[])
-    @patch(
-        'sdgym._benchmark_launcher.benchmark_config._validate_credential_locations', return_value=[]
-    )
+    @patch('sdgym._benchmark_launcher.benchmark_config._validate_credentials', return_value=[])
     @patch(
         'sdgym._benchmark_launcher.benchmark_config._validate_instance_jobs',
         return_value=['bad structure'],
@@ -137,7 +133,7 @@ class TestBenchmarkConfig:
         config.modality = 'single_table'
         config.compute = {'service': 'gcp'}
         config.method_params = {'output_destination': 's3://bucket/prefix/'}
-        config.credential_locations = {}
+        config.credentials_filepath = {}
         config.instance_jobs = []
 
         # Run and Assert
@@ -149,7 +145,7 @@ class TestBenchmarkConfig:
         mock_validate_method_params.assert_called_once_with(
             config.method_params, benchmark_config_module._METHODS[('single_table', 'gcp')]
         )
-        mock_validate_creds.assert_called_once_with(config.credential_locations)
+        mock_validate_creds.assert_called_once_with(config.credentials_filepath)
         mock_validate_jobs.assert_called_once_with(config.instance_jobs)
         assert config._is_validated is False
         mock_format_errors.assert_called_once()
@@ -170,7 +166,7 @@ class TestBenchmarkConfig:
         config_dict = {
             'modality': 'single_table',
             'method_params': {'output_destination': 's3://bucket/prefix/'},
-            'credential_locations': {'credential_filepath': 'creds.json'},
+            'credentials_filepath': 'credential.json',
             'compute': {'service': 'gcp'},
             'instance_jobs': [{'synthesizers': ['A'], 'datasets': ['d1']}],
         }
@@ -181,7 +177,7 @@ class TestBenchmarkConfig:
         # Assert
         assert config.modality == 'single_table'
         assert config.method_params == {'output_destination': 's3://bucket/prefix/'}
-        assert config.credential_locations == {'credential_filepath': 'creds.json'}
+        assert config.credentials_filepath == 'credential.json'
         assert config.compute == {'service': 'gcp'}
         assert config.instance_jobs == [{'synthesizers': ['A'], 'datasets': ['d1']}]
 
@@ -192,7 +188,7 @@ class TestBenchmarkConfig:
         config_dict = {
             'modality': 'single_table',
             'method_params': {'output_destination': 's3://bucket/prefix/'},
-            'credential_locations': {'credential_filepath': 'creds.json'},
+            'credentials_filepath': 'credential.json',
             'compute': {'service': 'gcp'},
             'instance_jobs': [{'synthesizers': ['A'], 'datasets': ['d1']}],
         }
@@ -204,7 +200,7 @@ class TestBenchmarkConfig:
         # Assert
         assert config.modality == 'single_table'
         assert config.method_params == {'output_destination': 's3://bucket/prefix/'}
-        assert config.credential_locations == {'credential_filepath': 'creds.json'}
+        assert config.credentials_filepath == 'credential.json'
         assert config.compute == {'service': 'gcp'}
         assert config.instance_jobs == [{'synthesizers': ['A'], 'datasets': ['d1']}]
 
@@ -215,14 +211,14 @@ class TestBenchmarkConfig:
         config = BenchmarkConfig()
         config.modality = 'single_table'
         config.method_params = {'output_destination': 's3://bucket/prefix/'}
-        config.credential_locations = {'credential_filepath': 'creds.json'}
+        config.credentials_filepath = 'credential.json'
         config.compute = {'service': 'gcp'}
         config.instance_jobs = [{'synthesizers': ['A'], 'datasets': ['d1']}]
         filepath = tmp_path / 'out.yaml'
         expected = {
             'modality': 'single_table',
             'method_params': {'output_destination': 's3://bucket/prefix/'},
-            'credential_locations': {'credential_filepath': 'creds.json'},
+            'credentials_filepath': 'credential.json',
             'compute': {'service': 'gcp'},
             'instance_jobs': [{'synthesizers': ['A'], 'datasets': ['d1']}],
         }

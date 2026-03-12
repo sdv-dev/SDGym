@@ -1,15 +1,12 @@
-"""Unit tests for the benchmark launcher validation functions."""
+"""Unit tests for the benchmark launcher validation."""
 
-import json
-from unittest.mock import Mock, call, patch
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from sdgym._benchmark_launcher._validation import (
     _as_errors,
-    _env,
     _format_sectioned_errors,
-    _get_credentials,
-    _validate_credential_locations,
-    _validate_credential_locations_structure,
+    _validate_credentials,
     _validate_instance_jobs,
     _validate_method_params,
     _validate_resolved_credentials,
@@ -17,443 +14,420 @@ from sdgym._benchmark_launcher._validation import (
 )
 
 
-class TestBenchmarkLauncherValidation:
-    def test__as_errors_returns_empty_for_none(self):
-        """Test `_as_errors` returns an empty list for None."""
-        # Setup
-        value = None
+def test__as_errors_with_none():
+    """Test `_as_errors` returns an empty list for None."""
+    # Setup
+    value = None
 
-        # Run
-        result = _as_errors(value)
+    # Run
+    errors = _as_errors(value)
 
-        # Assert
-        assert result == []
+    # Assert
+    assert errors == []
 
-    def test__as_errors_filters_list_and_wraps_string(self):
-        """Test `_as_errors` filters list values and wraps strings."""
-        # Setup
-        list_value = ['a', '', None, 2]
-        str_value = 'hello'
 
-        # Run
-        list_result = _as_errors(list_value)
-        str_result = _as_errors(str_value)
+def test__as_errors_with_list():
+    """Test `_as_errors` converts list items to strings and drops falsy values."""
+    # Setup
+    value = ['error 1', None, '', 123]
 
-        # Assert
-        assert list_result == ['a', '2']
-        assert str_result == ['hello']
+    # Run
+    errors = _as_errors(value)
 
-    def test__format_sectioned_errors(self):
-        """Test the `_format_sectioned_errors` method."""
-        # Setup
-        section_errors = {'instance_jobs': "Each job in 'instance_jobs' must be valid."}
-        expected_message = (
-            'BenchmarkConfig validation failed:\n'
-            '\n'
-            '[instance_jobs]\n'
-            "- Each job in 'instance_jobs' must be valid."
-        )
+    # Assert
+    assert errors == ['error 1', '123']
 
-        # Run
-        rendered = _format_sectioned_errors(section_errors)
 
-        # Assert
-        assert rendered == expected_message
+def test__as_errors_with_scalar():
+    """Test `_as_errors` wraps a scalar value in a list."""
+    # Setup
+    value = 123
 
-    def test__format_sectioned_errors_skips_empty_sections(self):
-        """Test `_format_sectioned_errors` skips sections with no errors."""
-        # Setup
-        section_errors = {'structure': [], 'instance_jobs': ['bad job'], 'credentials': None}
-        expected_message = 'BenchmarkConfig validation failed:\n\n[instance_jobs]\n- bad job'
+    # Run
+    errors = _as_errors(value)
 
-        # Run
-        rendered = _format_sectioned_errors(section_errors)
+    # Assert
+    assert errors == ['123']
 
-        # Assert
-        assert rendered == expected_message
 
-    @patch('sdgym._benchmark_launcher._validation.os.getenv')
-    def test__env(self, mock_getenv):
-        """Test the `_env` method."""
+def test__format_sectioned_errors():
+    """Test `_format_sectioned_errors` formats non-empty sections."""
+    # Setup
+    section_errors = {
+        'structure': ['bad modality', 'missing compute'],
+        'credentials': [],
+        'instance_jobs': 'invalid job',
+    }
 
-        # Setup
-        def getenv_side_effect(key):
-            return {
-                'MY_VAR': 'value',
-                'EMPTY_VAR': '',
-            }.get(key, None)
+    # Run
+    formatted = _format_sectioned_errors(section_errors)
 
-        mock_getenv.side_effect = getenv_side_effect
+    # Assert
+    expected = (
+        'BenchmarkConfig validation failed:\n\n'
+        '[structure]\n'
+        '- bad modality\n'
+        '- missing compute\n\n'
+        '[instance_jobs]\n'
+        '- invalid job'
+    )
+    assert formatted == expected
 
-        # Run
-        value = _env('MY_VAR')
-        empty = _env('EMPTY_VAR')
-        missing = _env('MISSING_VAR')
 
-        # Assert
-        mock_getenv.assert_has_calls([call('MY_VAR'), call('EMPTY_VAR'), call('MISSING_VAR')])
-        assert value == 'value'
-        assert empty is None
-        assert missing is None
+def test__validate_structure_valid():
+    """Test `_validate_structure` returns no errors for a valid config."""
+    # Setup
+    config = SimpleNamespace(
+        modality='single_table',
+        method_params={'output_destination': 's3://bucket/prefix/'},
+        credentials_filepath='creds.json',
+        compute={'service': 'gcp'},
+        instance_jobs=[],
+    )
 
-    def test__get_credentials_file_mode(self, tmp_path):
-        """Test `_get_credentials` returns credentials from a file."""
-        # Setup
-        credential_file = tmp_path / 'creds.json'
-        expected_credentials = {
-            'aws': {'aws_access_key_id': 'AKIA', 'aws_secret_access_key': 'SECRET'},
-            'gcp': {
-                'type': 'service_account',
-                'project_id': 'sa-project',
-                'private_key': 'KEY',
-                'client_email': 'x@y.z',
-                'token_uri': 'https://oauth2.googleapis.com/token',
-                'gcp_project': 'my-project',
-                'gcp_zone': 'zone',
+    # Run
+    errors = _validate_structure(config)
+
+    # Assert
+    assert errors == []
+
+
+def test__validate_structure_invalid():
+    """Test `_validate_structure` returns errors for invalid config structure."""
+    # Setup
+    config = SimpleNamespace(
+        modality='bad_modality',
+        method_params=[],
+        credentials_filepath=None,
+        compute={'service': 'aws'},
+        instance_jobs={},
+    )
+
+    # Run
+    errors = _validate_structure(config)
+
+    # Assert
+    assert errors == [
+        "compute.service: must be 'gcp'. Found: 'aws'",
+        "instance_jobs: must be a list. Found: <class 'dict'>",
+        "method_params: must be a dict. Found: <class 'list'>",
+        "modality: must be 'single_table' or 'multi_table'. Found: 'bad_modality'",
+    ]
+
+
+def test__validate_method_params_valid():
+    """Test `_validate_method_params` returns no errors for valid params."""
+
+    # Setup
+    def method_to_run(output_destination, timeout=10, credentials=None, synthesizers=None):
+        return None
+
+    method_params = {
+        'output_destination': 's3://bucket/prefix/',
+        'timeout': 60,
+        'compute_quality_score': True,
+        'compute_diagnostic_score': False,
+        'compute_privacy_score': True,
+    }
+
+    # Run
+    errors = _validate_method_params(method_params, method_to_run)
+
+    # Assert
+    assert errors == []
+
+
+def test__validate_method_params_invalid():
+    """Test `_validate_method_params` returns errors for invalid params."""
+
+    # Setup
+    def method_to_run(output_destination, required_param, credentials=None, synthesizers=None):
+        return None
+
+    method_params = {
+        'output_destination': 'not-an-s3-uri',
+        'timeout': 0,
+        'compute_quality_score': 'yes',
+        'credentials': 'forbidden',
+    }
+
+    # Run
+    errors = _validate_method_params(method_params, method_to_run)
+
+    # Assert
+    assert errors == [
+        'method_params.output_destination: must be an S3 URI like "s3://bucket/prefix/".',
+        'method_params.timeout: must be > 0.',
+        "method_params.compute_quality_score: must be bool. Found: 'yes' (<class 'str'>)",
+        "method_params: missing required parameters for method_to_run: ['required_param']",
+        "method_params: must not define injected parameters ['credentials'] "
+        '(resolved from credentials/instance_jobs).',
+    ]
+
+
+def test__validate_method_params_requires_trailing_slash():
+    """Test `_validate_method_params` requires output_destination to end with slash."""
+
+    # Setup
+    def method_to_run(output_destination, credentials=None):
+        return None
+
+    method_params = {'output_destination': 's3://bucket/prefix'}
+
+    # Run
+    errors = _validate_method_params(method_params, method_to_run)
+
+    # Assert
+    assert errors == ['method_params.output_destination: should end with "/".']
+
+
+def test__validate_method_params_timeout_must_be_int():
+    """Test `_validate_method_params` validates timeout type."""
+
+    # Setup
+    def method_to_run(output_destination, credentials=None):
+        return None
+
+    method_params = {
+        'output_destination': 's3://bucket/prefix/',
+        'timeout': '60',
+    }
+
+    # Run
+    errors = _validate_method_params(method_params, method_to_run)
+
+    # Assert
+    assert errors == ["method_params.timeout: must be int seconds. Found: '60' (<class 'str'>)"]
+
+
+def test__validate_instance_jobs_valid():
+    """Test `_validate_instance_jobs` returns no errors for valid jobs."""
+    # Setup
+    instance_jobs = [
+        {
+            'synthesizers': ['synth1', 'synth2'],
+            'datasets': ['adult', 'census'],
+        },
+        {
+            'synthesizers': ['synth3'],
+            'datasets': {
+                'include': ['adult', 'census'],
+                'exclude': ['adult'],
             },
-            'sdv_enterprise': {'username': 'u', 'license_key': 'k'},
-        }
-        credential_file.write_text(json.dumps(expected_credentials))
-        credential_locations = {'credential_filepath': str(credential_file)}
+        },
+    ]
 
-        # Run
-        creds = _get_credentials(credential_locations)
+    # Run
+    errors = _validate_instance_jobs(instance_jobs)
 
-        # Assert
-        assert creds == expected_credentials
+    # Assert
+    assert errors == []
 
-    @patch('sdgym._benchmark_launcher._validation.os.getenv')
-    def test__get_credentials_env_mode(self, mock_getenv):
-        """Test `_get_credentials` with environment variable."""
-        # Setup
-        service_account = {
+
+def test__validate_instance_jobs_invalid():
+    """Test `_validate_instance_jobs` returns an error for invalid jobs."""
+    # Setup
+    instance_jobs = [
+        'not-a-dict',
+        {'synthesizers': ['synth1']},
+        {'synthesizers': 'not-a-list', 'datasets': ['adult']},
+        {'synthesizers': ['synth1'], 'datasets': [1, 2]},
+        {'synthesizers': ['synth1'], 'datasets': {'include': 'adult'}},
+        {'synthesizers': ['synth1'], 'datasets': {'include': ['adult'], 'exclude': 'census'}},
+    ]
+
+    # Run
+    errors = _validate_instance_jobs(instance_jobs)
+
+    # Assert
+    assert len(errors) == 1
+    assert "Each job in 'instance_jobs' must be a dict" in errors[0]
+    assert 'not-a-dict' in errors[0]
+    assert "{'synthesizers': ['synth1']}" in errors[0]
+
+
+def test__validate_resolved_credentials_valid():
+    """Test `_validate_resolved_credentials` returns no errors for valid credentials."""
+    # Setup
+    credentials = {
+        'aws': {
+            'AWS_ACCESS_KEY_ID': 'AKIA',
+            'AWS_SECRET_ACCESS_KEY': 'SECRET',
+        },
+        'sdv_enterprise': {
+            'SDV_ENTERPRISE_USERNAME': 'user',
+            'SDV_ENTERPRISE_LICENSE_KEY': 'license',
+        },
+        'gcp': {
             'type': 'service_account',
-            'project_id': 'sa-project',
-            'private_key': 'KEY',
-            'client_email': 'x@y.z',
+            'project_id': 'my-project',
+            'private_key_id': 'private-key-id',
+            'private_key': 'private-key',
+            'client_email': 'test@example.com',
+            'client_id': 'client-id',
+            'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
             'token_uri': 'https://oauth2.googleapis.com/token',
-        }
+            'auth_provider_x509_cert_url': 'https://www.googleapis.com/oauth2/v1/certs',
+            'client_x509_cert_url': (
+                'https://www.googleapis.com/robot/v1/metadata/x509/test@example.com'
+            ),
+        },
+    }
 
-        def getenv_side_effect(key):
-            return {
-                'AWS_ACCESS_KEY_ID': 'AKIA',
-                'AWS_SECRET_ACCESS_KEY': 'SECRET',
-                'GCP_SA_JSON': json.dumps(service_account),
-                'GCP_PROJECT': 'my-project',
-                'GCP_ZONE': 'zone',
-            }.get(key, None)
+    # Run
+    errors = _validate_resolved_credentials(credentials)
 
-        mock_getenv.side_effect = getenv_side_effect
-        credential_locations = {
-            'aws': {
-                'access_key_id_env': 'AWS_ACCESS_KEY_ID',
-                'secret_access_key_env': 'AWS_SECRET_ACCESS_KEY',
-            },
-            'gcp': {
-                'service_account_json_env': 'GCP_SA_JSON',
-                'project_id_env': 'GCP_PROJECT',
-                'zone_env': 'GCP_ZONE',
-            },
-        }
-        expected_credentials = {
-            'aws': {'aws_access_key_id': 'AKIA', 'aws_secret_access_key': 'SECRET'},
-            'gcp': {
-                'type': 'service_account',
-                'project_id': 'sa-project',
-                'private_key': 'KEY',
-                'client_email': 'x@y.z',
-                'token_uri': 'https://oauth2.googleapis.com/token',
-                'gcp_project': 'my-project',
-                'gcp_zone': 'zone',
-            },
-            'sdv_enterprise': {'username': None, 'license_key': None},
-        }
+    # Assert
+    assert errors == []
 
-        # Run
-        credentials = _get_credentials(credential_locations)
 
-        # Assert
-        mock_getenv.assert_has_calls([
-            call('AWS_ACCESS_KEY_ID'),
-            call('AWS_SECRET_ACCESS_KEY'),
-            call('GCP_SA_JSON'),
-            call('GCP_PROJECT'),
-            call('GCP_ZONE'),
-        ])
-        assert credentials == expected_credentials
+def test__validate_resolved_credentials_invalid_section_types():
+    """Test `_validate_resolved_credentials` validates section types."""
+    # Setup
+    credentials = {
+        'aws': 'bad',
+        'sdv_enterprise': 'bad',
+        'gcp': 'bad',
+    }
 
-    def test__validate_structure_valid(self):
-        """Test `_validate_structure` returns empty list for valid config."""
-        # Setup
-        config = Mock()
-        config.modality = 'single_table'
-        config.method_params = {}
-        config.credential_locations = {}
-        config.compute = {'service': 'gcp'}
-        config.instance_jobs = []
+    # Run
+    errors = _validate_resolved_credentials(credentials)
 
-        # Run
-        errors = _validate_structure(config)
+    # Assert
+    assert errors == [
+        'credentials["aws"] must be a dict.',
+        'credentials["gcp"] must be a dict.',
+        'credentials["sdv_enterprise"] must be a dict.',
+    ]
 
-        # Assert
-        assert errors == []
 
-    def test__validate_structure_invalid(self):
-        """Test `_validate_structure` returns errors for invalid config."""
-        # Setup
-        config = Mock()
-        config.modality = 'bad'
-        config.method_params = []
-        config.credential_locations = 'nope'
-        config.compute = {'service': 'aws'}
-        config.instance_jobs = {}
-        expected_errors = [
-            "modality: must be 'single_table' or 'multi_table'. Found: 'bad'",
-            "method_params: must be a dict. Found: <class 'list'>",
-            "credential_locations: must be a dict. Found: <class 'str'>",
-            "instance_jobs: must be a list. Found: <class 'dict'>",
-            "compute.service: must be 'gcp'. Found: 'aws'",
-        ]
+def test__validate_resolved_credentials_missing_aws_key():
+    """Test `_validate_resolved_credentials` validates missing AWS credentials."""
+    # Setup
+    credentials = {
+        'aws': {
+            'AWS_ACCESS_KEY_ID': 'AKIA',
+            'AWS_SECRET_ACCESS_KEY': None,
+        },
+        'sdv_enterprise': {},
+        'gcp': {},
+    }
 
-        # Run
-        errors = _validate_structure(config)
+    # Run
+    errors = _validate_resolved_credentials(credentials)
 
-        # Assert
-        assert errors == expected_errors
+    # Assert
+    assert errors == ['credentials["aws"]["AWS_SECRET_ACCESS_KEY"] is missing or empty.']
 
-    def test__validate_method_params_valid(self):
-        """Test `_validate_method_params` returns empty list for valid method_params."""
 
-        # Setup
-        def method_to_run(
-            output_destination,
-            credentials,
-            required_param,
-            compute_config=None,
-            synthesizers=None,
-            sdv_datasets=None,
-        ):
-            return None
+def test__validate_resolved_credentials_partial_sdv_enterprise():
+    """Test `_validate_resolved_credentials` requires both SDV Enterprise fields together."""
+    # Setup
+    credentials = {
+        'aws': {},
+        'sdv_enterprise': {
+            'SDV_ENTERPRISE_USERNAME': 'user',
+            'SDV_ENTERPRISE_LICENSE_KEY': None,
+        },
+        'gcp': {},
+    }
 
-        method_params = {
-            'output_destination': 's3://bucket/prefix/',
-            'timeout': 3600,
-            'required_param': 'value',
-            'compute_quality_score': True,
-            'compute_diagnostic_score': False,
-            'compute_privacy_score': False,
-        }
+    # Run
+    errors = _validate_resolved_credentials(credentials)
 
-        # Run
-        errors = _validate_method_params(method_params, method_to_run)
+    # Assert
+    assert errors == [
+        'credentials["sdv_enterprise"]["SDV_ENTERPRISE_LICENSE_KEY"] '
+        'is required when SDV Enterprise credentials are provided.'
+    ]
 
-        # Assert
-        assert errors == []
 
-    def test__validate_method_params_errors(self):
-        """Test `_validate_method_params` when method_params contain errors."""
-
-        # Setup
-        def method_to_run(output_destination, credentials, required_param, compute_config=None):
-            return None
-
-        method_params = {
-            'credentials': {'aws': {}},
-            'exta_param': 'value',
-        }
-        expected_errors = [
-            'method_params.output_destination: is required and must be a non-empty string.',
-            "method_params: missing required parameters for method_to_run: ['output_destination', "
-            "'required_param']",
-            "method_params: must not define injected parameters ['credentials'] (resolved "
-            'from credentials/instance_jobs).',
-        ]
-
-        # Run
-        errors = _validate_method_params(method_params, method_to_run)
-
-        # Assert
-        assert errors == expected_errors
-
-    def test__validate_instance_jobs_valid(self):
-        """Test `_validate_instance_jobs` returns empty list for valid jobs."""
-        # Setup
-        instance_jobs = [
-            {'synthesizers': ['GaussianCopulaSynthesizer'], 'datasets': ['adult']},
-            {
-                'synthesizers': ['CTGANSynthesizer'],
-                'datasets': {'include': ['adult'], 'exclude': ['alarm']},
-            },
-        ]
-
-        # Run
-        errors = _validate_instance_jobs(instance_jobs)
-
-        # Assert
-        assert errors == []
-
-    def test__validate_instance_jobs_invalid(self):
-        """Test `_validate_instance_jobs` returns one aggregated error for invalid jobs."""
-        # Setup
-        instance_jobs = [
-            {'datasets': ['adult']},
-            'not_a_dict',
-        ]
-        expected_error = [
-            "Each job in 'instance_jobs' must be a dict with 'synthesizers' (list of strings) and "
-            "'datasets' (list of strings or dict with 'include' and optional 'exclude').\nInvalid"
-            " jobs:\n{'datasets': ['adult']}\nnot_a_dict"
-        ]
-
-        # Run
-        errors = _validate_instance_jobs(instance_jobs)
-
-        # Assert
-        assert errors == expected_error
-
-    def test__validate_credential_locations_structure_file_valid(self, tmp_path):
-        """Test `_validate_credential_locations_structure` returns empty list in file mode."""
-        # Setup
-        credential_file = tmp_path / 'creds.json'
-        credential_file.write_text(json.dumps({'aws': {}, 'gcp': {}}))
-        credential_locations = {'credential_filepath': str(credential_file)}
-
-        # Run
-        errors = _validate_credential_locations_structure(credential_locations)
-
-        # Assert
-        assert errors == []
-
-    def test__validate_credential_locations_structure_env_missing_required_section(self):
-        """Test `_validate_credential_locations_structure` reports missing required gcp section."""
-        # Setup
-        credential_locations = {
-            'aws': {
-                'access_key_id_env': 'AWS_ACCESS_KEY_ID',
-                'secret_access_key_env': 'AWS_SECRET_ACCESS_KEY',
-            },
-        }
-        expected_errors = [
-            "Environment variable 'AWS_ACCESS_KEY_ID' (for credential_locations.aws."
-            'access_key_id_env) is not set or empty.',
-            "Environment variable 'AWS_SECRET_ACCESS_KEY' (for credential_locations.aws."
-            'secret_access_key_env) is not set or empty.',
-            'credential_locations.gcp: section is required but missing.',
-        ]
-
-        # Run
-        errors = _validate_credential_locations_structure(credential_locations)
-
-        # Assert
-        assert errors == expected_errors
-
-    def test__validate_resolved_credentials_valid(self):
-        """Test `_validate_resolved_credentials` with valid credential_locations."""
-        # Setup
-        credentials = {
-            'aws': {'aws_access_key_id': 'AKIA', 'aws_secret_access_key': 'SECRET'},
-            'gcp': {
-                'type': 'service_account',
-                'project_id': 'sa-project',
-                'private_key': 'KEY',
-                'client_email': 'x@y.z',
-                'token_uri': 'https://oauth2.googleapis.com/token',
-                'gcp_project': 'my-project',
-                'gcp_zone': 'zone',
-            },
-            'sdv_enterprise': {'username': None, 'license_key': None},
-        }
-
-        # Run
-        errors = _validate_resolved_credentials(credentials)
-
-        # Assert
-        assert errors == []
-
-    def test__validate_resolved_credentials_missing_required_fields(self):
-        """Test `_validate_resolved_credentials` catches missing required fields."""
-        # Setup
-        credentials = {'aws': {}, 'gcp': {}, 'sdv_enterprise': {'username': 'u'}}
-        expected_errors = [
-            "credential_locations['sdv_enterprise']['license_key'] is required when"
-            ' SDV credentials are provided.',
-            'credentials["aws"] missing key: "aws_access_key_id"',
-            'credentials["aws"] missing key: "aws_secret_access_key"',
-            'credentials["gcp"] missing key: "gcp_project"',
-            'credentials["gcp"] missing key: "gcp_zone"',
-            'credentials["gcp"]["client_email"] is missing or empty.',
-            'credentials["gcp"]["private_key"] is missing or empty.',
-            'credentials["gcp"]["project_id"] is missing or empty.',
-            'credentials["gcp"]["token_uri"] is missing or empty.',
-            'credentials["gcp"]["type"] is missing or empty.',
-        ]
-
-        # Run
-        errors = _validate_resolved_credentials(credentials)
-
-        # Assert
-        assert errors == expected_errors
-
-    @patch('sdgym._benchmark_launcher._validation.os.getenv')
-    def test__validate_credential_locations_end_to_end_env_valid(self, mock_getenv):
-        """Test `_validate_credential_locations` for valid credential_locations."""
-        # Setup
-        service_account = {
+def test__validate_resolved_credentials_missing_gcp_keys():
+    """Test `_validate_resolved_credentials` validates missing GCP service account keys."""
+    # Setup
+    credentials = {
+        'aws': {},
+        'sdv_enterprise': {},
+        'gcp': {
             'type': 'service_account',
-            'project_id': 'sa-project',
-            'private_key': 'KEY',
-            'client_email': 'x@y.z',
+            'project_id': 'my-project',
+            'private_key_id': None,
+            'private_key': None,
+            'client_email': 'test@example.com',
+            'client_id': 'client-id',
+            'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
             'token_uri': 'https://oauth2.googleapis.com/token',
-        }
+            'auth_provider_x509_cert_url': 'https://www.googleapis.com/oauth2/v1/certs',
+            'client_x509_cert_url': None,
+        },
+    }
 
-        def getenv_side_effect(key):
-            return {
-                'AWS_ACCESS_KEY_ID': 'AKIA',
-                'AWS_SECRET_ACCESS_KEY': 'SECRET',
-                'GCP_SA_JSON': json.dumps(service_account),
-                'GCP_PROJECT': 'my-project',
-                'GCP_ZONE': 'zone',
-            }.get(key, None)
+    # Run
+    errors = _validate_resolved_credentials(credentials)
 
-        mock_getenv.side_effect = getenv_side_effect
-        credential_locations = {
-            'aws': {
-                'access_key_id_env': 'AWS_ACCESS_KEY_ID',
-                'secret_access_key_env': 'AWS_SECRET_ACCESS_KEY',
-            },
-            'gcp': {
-                'service_account_json_env': 'GCP_SA_JSON',
-                'project_id_env': 'GCP_PROJECT',
-                'zone_env': 'GCP_ZONE',
-            },
-        }
+    # Assert
+    assert errors == [
+        'credentials["gcp"]["client_x509_cert_url"] is missing or empty.',
+        'credentials["gcp"]["private_key"] is missing or empty.',
+        'credentials["gcp"]["private_key_id"] is missing or empty.',
+    ]
 
-        # Run
-        errors = _validate_credential_locations(credential_locations)
 
-        # Assert
-        assert errors == []
+@patch('sdgym._benchmark_launcher._validation.resolve_credentials')
+def test__validate_credentials_invalid_filepath_type(mock_resolve_credentials):
+    """Test `_validate_credentials` rejects non-string credentials_filepath."""
+    # Setup
+    credentials_filepath = 123
 
-    def test__validate_credential_locations_end_to_end_file_invalid(self, tmp_path):
-        """Test `_validate_credential_locations` errors for invalid credential_locations."""
-        # Setup
-        credential_file = tmp_path / 'credential_locations.json'
-        credential_file.write_text(json.dumps({'aws': {}, 'gcp': {}}))
-        credential_locations = {'credential_filepath': str(credential_file)}
-        expected_errors = [
-            'credentials["aws"] missing key: "aws_access_key_id"',
-            'credentials["aws"] missing key: "aws_secret_access_key"',
-            'credentials["gcp"] missing key: "gcp_project"',
-            'credentials["gcp"] missing key: "gcp_zone"',
-            'credentials["gcp"]["client_email"] is missing or empty.',
-            'credentials["gcp"]["private_key"] is missing or empty.',
-            'credentials["gcp"]["project_id"] is missing or empty.',
-            'credentials["gcp"]["token_uri"] is missing or empty.',
-            'credentials["gcp"]["type"] is missing or empty.',
-        ]
+    # Run
+    errors = _validate_credentials(credentials_filepath)
 
-        # Run
-        errors = _validate_credential_locations(credential_locations)
+    # Assert
+    mock_resolve_credentials.assert_not_called()
+    assert errors == [
+        'credentials_filepath: must be a string path to the credentials file or None.'
+    ]
 
-        # Assert
-        assert errors == expected_errors
+
+@patch('sdgym._benchmark_launcher._validation.resolve_credentials')
+def test__validate_credentials_returns_resolved_validation_errors(mock_resolve_credentials):
+    """Test `_validate_credentials` validates resolved credentials."""
+    # Setup
+    credentials_filepath = 'creds.json'
+    mock_resolve_credentials.return_value = {
+        'aws': {
+            'AWS_ACCESS_KEY_ID': 'AKIA',
+            'AWS_SECRET_ACCESS_KEY': None,
+        },
+        'sdv_enterprise': {},
+        'gcp': {},
+    }
+
+    # Run
+    errors = _validate_credentials(credentials_filepath)
+
+    # Assert
+    mock_resolve_credentials.assert_called_once_with(credentials_filepath)
+    assert errors == ['credentials["aws"]["AWS_SECRET_ACCESS_KEY"] is missing or empty.']
+
+
+@patch('sdgym._benchmark_launcher._validation.resolve_credentials')
+def test__validate_credentials_returns_no_errors_when_valid(mock_resolve_credentials):
+    """Test `_validate_credentials` returns no errors for valid credentials."""
+    # Setup
+    credentials_filepath = None
+    mock_resolve_credentials.return_value = {
+        'aws': {
+            'AWS_ACCESS_KEY_ID': 'AKIA',
+            'AWS_SECRET_ACCESS_KEY': 'SECRET',
+        },
+        'sdv_enterprise': {},
+        'gcp': {},
+    }
+
+    # Run
+    errors = _validate_credentials(credentials_filepath)
+
+    # Assert
+    mock_resolve_credentials.assert_called_once_with(credentials_filepath)
+    assert errors == []

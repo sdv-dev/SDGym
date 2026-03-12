@@ -42,7 +42,7 @@ class BenchmarkLauncher:
         self.benchmark_id = generate_benchmark_id(self)
 
     def _launch(self):
-        credentials = resolve_credentials(self.benchmark_config.credential_locations)
+        credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
         for instance_job in self.benchmark_config.instance_jobs:
             sdv_datasets = _resolve_datasets(instance_job['datasets'])
             self.method_to_run(

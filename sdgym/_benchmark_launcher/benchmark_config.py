@@ -7,7 +7,7 @@ import yaml
 
 from sdgym._benchmark_launcher._validation import (
     _format_sectioned_errors,
-    _validate_credential_locations,
+    _validate_credentials,
     _validate_instance_jobs,
     _validate_method_params,
     _validate_structure,
@@ -18,7 +18,7 @@ from sdgym.errors import BenchmarkConfigError
 CONFIG_KEYS = frozenset([
     'modality',
     'method_params',
-    'credential_locations',
+    'credentials_filepath',
     'compute',
     'instance_jobs',
 ])
@@ -33,7 +33,9 @@ class BenchmarkConfig:
     {
         'modality': 'single_table' or 'multi_table',
         'method_params': dict of parameters to pass to the benchmark method (e.g. timeout),
-        'credentials': dict specifying how to resolve credentials (e.g. from env vars or a file),
+        'credentials_filepath':
+            string specifying the path to the credentials file, if None,
+            credentials will be resolved from environment variables.
         'compute': dict specifying the compute configuration (e.g. service: 'gcp'),
         'instance_jobs': list of dicts, each specifying a combination of synthesizers and datasets:
             [
@@ -46,17 +48,10 @@ class BenchmarkConfig:
     }
     """
 
-    _CREDENTIAL_KEYS = {
-        'aws': {'access_key_id_env', 'secret_access_key_env'},
-        'gcp': {'service_account_json_env', 'project_id_env', 'zone_env'},
-        'sdv': {'username_env', 'license_key_env'},
-    }
-    _CREDENTIAL_VALID_KEYS = frozenset({'credential_filepath'} | _CREDENTIAL_KEYS.keys())
-
     def __init__(self):
         self.modality = None
         self.method_params = None
-        self.credential_locations = {}
+        self.credentials_filepath = {}
         self.compute = {'service': None}
         self.instance_jobs = []
         self._is_validated = False
@@ -84,7 +79,7 @@ class BenchmarkConfig:
 
         section_errors = {
             'method_params': _validate_method_params(self.method_params, method_to_run),
-            'credential_locations': _validate_credential_locations(self.credential_locations),
+            'credentials_filepath': _validate_credentials(self.credentials_filepath),
             'instance_jobs': _validate_instance_jobs(self.instance_jobs),
         }
         if any(section_errors.values()):
@@ -116,15 +111,10 @@ class BenchmarkConfig:
     @classmethod
     def load_from_yaml(cls, filepath):
         """Load a config from a YAML file."""
-        instance = cls()
         with open(filepath, 'r') as f:
             config_dict = yaml.safe_load(f)
 
-        instance._validate_no_extra_keys(config_dict)
-        for attribute_name, attribute_value in config_dict.items():
-            setattr(instance, attribute_name, attribute_value)
-
-        return instance
+        return cls.load_from_dict(config_dict)
 
     def save_to_yaml(self, filepath):
         """Save the BenchmarkConfig in a YAML file."""

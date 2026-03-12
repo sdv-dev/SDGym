@@ -90,7 +90,7 @@ class TestBenchmarkLauncher:
                 'compute_diagnostic_score': True,
                 'compute_privacy_score': False,
             },
-            'credential_locations': {'credential_filepath': 'creds.json'},
+            'credentials_filepath': {'credentials_filepath': 'creds.json'},
             'instance_jobs': [
                 {'synthesizers': ['Synth1'], 'datasets': ['a']},
                 {'synthesizers': ['Synth2'], 'datasets': ['b']},
@@ -104,7 +104,7 @@ class TestBenchmarkLauncher:
         launcher._launch()
 
         # Assert
-        mock_resolve_credentials.assert_called_once_with(config.credential_locations)
+        mock_resolve_credentials.assert_called_once_with(config.credentials_filepath)
         assert mock_resolve_datasets.call_args_list == [call(['a']), call(['b'])]
         expected_calls = [
             call(
