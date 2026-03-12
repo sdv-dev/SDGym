@@ -1,4 +1,3 @@
-import inspect
 from urllib.parse import urlparse
 
 from sdgym._benchmark_launcher.utils import (
@@ -93,22 +92,6 @@ def _validate_method_params(method_params, method_to_run):
         if value is not None and not isinstance(value, bool):
             errors.append(f'method_params.{key}: must be bool. Found: {value!r} ({type(value)})')
 
-    sig = inspect.signature(method_to_run)
-    required = {
-        parameter.name
-        for parameter in sig.parameters.values()
-        if parameter.default is inspect.Parameter.empty
-        and parameter.kind
-        in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
-    }
-    required_from_yaml = required - _INJECTED_PARAMS
-    missing = required_from_yaml - set(method_params)
-    if missing:
-        errors.append(
-            f'method_params: missing required parameters for {method_to_run.__name__}:'
-            f' {sorted(missing)}'
-        )
-
     illegal = _INJECTED_PARAMS & set(method_params)
     if illegal:
         errors.append(
@@ -172,16 +155,16 @@ def _validate_resolved_credentials(credentials):
     errors = []
     aws = credentials.get('aws', {})
     if not isinstance(aws, dict):
-        errors.append('credentials["aws"] must be a dict.')
+        errors.append("credentials['aws'] must be a dict.")
     else:
         if any(aws.values()):
             for key in _AWS_CREDENTIAL_KEYS:
                 if aws.get(key) in (None, ''):
-                    errors.append(f'credentials["aws"]["{key}"] is missing or empty.')
+                    errors.append(f"credentials['aws']['{key}'] is missing or empty.")
 
     sdv = credentials.get('sdv_enterprise', {})
     if not isinstance(sdv, dict):
-        errors.append('credentials["sdv_enterprise"] must be a dict.')
+        errors.append("credentials['sdv_enterprise'] must be a dict.")
     else:
         username = sdv.get('SDV_ENTERPRISE_USERNAME')
         license_key = sdv.get('SDV_ENTERPRISE_LICENSE_KEY')
@@ -199,12 +182,12 @@ def _validate_resolved_credentials(credentials):
 
     gcp = credentials.get('gcp', {})
     if not isinstance(gcp, dict):
-        errors.append('credentials["gcp"] must be a dict.')
+        errors.append("credentials['gcp'] must be a dict.")
     else:
         if gcp:
             for key in _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS:
                 if gcp.get(key) in (None, ''):
-                    errors.append(f'credentials["gcp"]["{key}"] is missing or empty.')
+                    errors.append(f"credentials['gcp']['{key}'] is missing or empty.")
 
     return sorted(errors)
 

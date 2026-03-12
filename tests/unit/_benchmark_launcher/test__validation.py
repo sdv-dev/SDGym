@@ -141,7 +141,7 @@ def test__validate_method_params_invalid():
     """Test `_validate_method_params` returns errors for invalid params."""
 
     # Setup
-    def method_to_run(output_destination, required_param, credentials=None, synthesizers=None):
+    def method_to_run(output_destination, credentials=None, synthesizers=None):
         return None
 
     method_params = {
@@ -159,7 +159,6 @@ def test__validate_method_params_invalid():
         'method_params.output_destination: must be an S3 URI like "s3://bucket/prefix/".',
         'method_params.timeout: must be > 0.',
         "method_params.compute_quality_score: must be bool. Found: 'yes' (<class 'str'>)",
-        "method_params: missing required parameters for method_to_run: ['required_param']",
         "method_params: must not define injected parameters ['credentials'] "
         '(resolved from credentials/instance_jobs).',
     ]
@@ -295,9 +294,9 @@ def test__validate_resolved_credentials_invalid_section_types():
 
     # Assert
     assert errors == [
-        'credentials["aws"] must be a dict.',
-        'credentials["gcp"] must be a dict.',
-        'credentials["sdv_enterprise"] must be a dict.',
+        "credentials['aws'] must be a dict.",
+        "credentials['gcp'] must be a dict.",
+        "credentials['sdv_enterprise'] must be a dict.",
     ]
 
 
@@ -317,7 +316,7 @@ def test__validate_resolved_credentials_missing_aws_key():
     errors = _validate_resolved_credentials(credentials)
 
     # Assert
-    assert errors == ['credentials["aws"]["AWS_SECRET_ACCESS_KEY"] is missing or empty.']
+    assert errors == ["credentials['aws']['AWS_SECRET_ACCESS_KEY'] is missing or empty."]
 
 
 def test__validate_resolved_credentials_partial_sdv_enterprise():
@@ -337,7 +336,7 @@ def test__validate_resolved_credentials_partial_sdv_enterprise():
 
     # Assert
     assert errors == [
-        'credentials["sdv_enterprise"]["SDV_ENTERPRISE_LICENSE_KEY"] '
+        "credentials['sdv_enterprise']['SDV_ENTERPRISE_LICENSE_KEY'] "
         'is required when SDV Enterprise credentials are provided.'
     ]
 
@@ -367,9 +366,9 @@ def test__validate_resolved_credentials_missing_gcp_keys():
 
     # Assert
     assert errors == [
-        'credentials["gcp"]["client_x509_cert_url"] is missing or empty.',
-        'credentials["gcp"]["private_key"] is missing or empty.',
-        'credentials["gcp"]["private_key_id"] is missing or empty.',
+        "credentials['gcp']['client_x509_cert_url'] is missing or empty.",
+        "credentials['gcp']['private_key'] is missing or empty.",
+        "credentials['gcp']['private_key_id'] is missing or empty.",
     ]
 
 
@@ -408,7 +407,7 @@ def test__validate_credentials_returns_resolved_validation_errors(mock_resolve_c
 
     # Assert
     mock_resolve_credentials.assert_called_once_with(credentials_filepath)
-    assert errors == ['credentials["aws"]["AWS_SECRET_ACCESS_KEY"] is missing or empty.']
+    assert errors == ["credentials['aws']['AWS_SECRET_ACCESS_KEY'] is missing or empty."]
 
 
 @patch('sdgym._benchmark_launcher._validation.resolve_credentials')

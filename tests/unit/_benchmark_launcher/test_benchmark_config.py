@@ -19,7 +19,7 @@ class TestBenchmarkConfig:
         # Assert
         assert config.modality is None
         assert config.method_params is None
-        assert config.credentials_filepath == {}
+        assert config.credentials_filepath is None
         assert config.compute == {'service': None}
         assert config.instance_jobs == []
         assert config._is_validated is False

@@ -51,7 +51,7 @@ class BenchmarkConfig:
     def __init__(self):
         self.modality = None
         self.method_params = None
-        self.credentials_filepath = {}
+        self.credentials_filepath = None
         self.compute = {'service': None}
         self.instance_jobs = []
         self._is_validated = False
