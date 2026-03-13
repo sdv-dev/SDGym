@@ -314,13 +314,11 @@ def test__run_on_gcp(
 @patch('sdgym._benchmark.benchmark._import_and_validate_synthesizers')
 @patch('sdgym._benchmark.benchmark._ensure_uniform_included')
 @patch('sdgym._benchmark.benchmark._validate_output_destination')
-@patch('sdgym._benchmark.benchmark.get_credentials')
 @patch('sdgym._benchmark.benchmark.resolve_compute_config')
 @patch('sdgym._benchmark.benchmark.validate_compute_config')
 def test__benchmark_compute_gcp(
     mock_validate_compute_config,
     mock_resolve_compute_config,
-    mock_get_credentials,
     mock_validate_output,
     mock_ensure_uniform,
     mock_import_synths,
@@ -335,7 +333,6 @@ def test__benchmark_compute_gcp(
             'aws_secret_access_key': 'SECRET',
         }
     }
-    mock_get_credentials.return_value = credentials
     s3_client = Mock()
     mock_validate_output.return_value = s3_client
     mock_import_synths.return_value = [{'name': 'Synth'}]
@@ -346,7 +343,7 @@ def test__benchmark_compute_gcp(
     # Run
     _benchmark_compute_gcp(
         output_destination='s3://bucket/output',
-        credential_filepath='/creds.json',
+        credentials=credentials,
         compute_config={'foo': 'bar'},
         synthesizers=['Synth'],
         sdv_datasets=['dataset'],
@@ -391,13 +388,12 @@ def test__benchmark_compute_gcp(
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test__benchmark_single_table_compute_gcp(mock_benchmark_compute):
+def test__benchmark_single_table_compute_gcp(mock_benchmark_compute, base_credentials):
     """Test `_benchmark_single_table_compute_gcp` calls the compute benchmark correctly."""
     # Setup
     synthesizers = ['SynthA', 'SynthB']
     output_destination = 's3://bucket/single_table_output'
     timeout = 7200
-    credential_filepath = '/path/to/credentials.json'
     compute_config = 'compute_config_single'
     sdv_datasets = ['single_dataset1', 'single_dataset2']
     additional_datasets_folder = '/path/to/single_additional_datasets'
@@ -409,7 +405,7 @@ def test__benchmark_single_table_compute_gcp(mock_benchmark_compute):
     # Run
     _benchmark_single_table_compute_gcp(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
         compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
@@ -424,7 +420,7 @@ def test__benchmark_single_table_compute_gcp(mock_benchmark_compute):
     # Assert
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
         compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
@@ -440,22 +436,21 @@ def test__benchmark_single_table_compute_gcp(mock_benchmark_compute):
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test__benchmark_single_table_compute_gcp_defaults(mock_benchmark_compute):
+def test__benchmark_single_table_compute_gcp_defaults(mock_benchmark_compute, base_credentials):
     """Test `_benchmark_single_table_compute_gcp` with default parameters."""
     # Setup
     output_destination = 's3://bucket/single_table_output'
-    credential_filepath = '/path/to/credentials.json'
 
     # Run
     _benchmark_single_table_compute_gcp(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
     )
 
     # Assert
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
         compute_config=None,
         synthesizers=DEFAULT_SINGLE_TABLE_SYNTHESIZERS,
         sdv_datasets=DEFAULT_SINGLE_TABLE_DATASETS,
@@ -471,13 +466,12 @@ def test__benchmark_single_table_compute_gcp_defaults(mock_benchmark_compute):
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute):
+def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute, base_credentials):
     """Test `_benchmark_multi_table_compute_gcp` calls the compute benchmark correctly."""
     # Setup
     synthesizers = ['Synth1', 'Synth2']
     output_destination = 's3://bucket/output'
     timeout = 3600
-    credential_filepath = '/path/to/credentials.json'
     compute_config = 'compute_config'
     sdv_datasets = ['dataset1', 'dataset2']
     additional_datasets_folder = '/path/to/additional_datasets'
@@ -489,7 +483,7 @@ def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute):
     # Run
     _benchmark_multi_table_compute_gcp(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
         compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
@@ -504,7 +498,7 @@ def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute):
     # Assert
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
         compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
@@ -520,22 +514,21 @@ def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute):
 
 
 @patch('sdgym._benchmark.benchmark._benchmark_compute_gcp')
-def test__benchmark_multi_table_compute_gcp_defaults(mock_benchmark_compute):
+def test__benchmark_multi_table_compute_gcp_defaults(mock_benchmark_compute, base_credentials):
     """Test `_benchmark_multi_table_compute_gcp` with default parameters."""
     # Setup
     output_destination = 's3://bucket/output'
-    credential_filepath = '/path/to/credentials.json'
 
     # Run
     _benchmark_multi_table_compute_gcp(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
     )
 
     # Assert
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=base_credentials,
         compute_config=None,
         synthesizers=DEFAULT_MULTI_TABLE_SYNTHESIZERS,
         sdv_datasets=DEFAULT_MULTI_TABLE_DATASETS,

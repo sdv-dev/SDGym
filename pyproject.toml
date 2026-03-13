@@ -143,11 +143,13 @@ namespaces = false
     'make.bat',
     '*.jpg',
     '*.png',
-    '*.gif'
+    '*.gif',
+    '*.yaml'
 ]
 'sdgym' = [
     'leaderboard.csv',
-    'synthesizer_descriptions.yaml'
+    'synthesizer_descriptions.yaml',
+    '_benchmark_launcher/*.yaml',
 ]
 
 [tool.setuptools.exclude-package-data]

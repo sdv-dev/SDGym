@@ -55,7 +55,12 @@ def test_get_credentials(tmp_path):
     'credentials, expected_cmd',
     [
         (
-            {'sdv': {'username': 'test_user', 'license_key': 'test_key'}},
+            {
+                'sdv': {
+                    'sdv_enterprise_username': 'test_user',
+                    'sdv_enterprise_license_key': 'test_key',
+                }
+            },
             """\
 pip install sdv-installer
 
@@ -112,8 +117,8 @@ def test_create_credentials_file(tmp_path):
             'gcp_zone': 'us-central1-a',
         },
         'sdv': {
-            'username': 'fake-username',
-            'license_key': 'fake-license',
+            'sdv_enterprise_username': 'fake-username',
+            'sdv_enterprise_license_key': 'fake-license',
         },
     }
     os.remove(filepath)

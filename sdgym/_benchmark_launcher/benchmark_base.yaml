@@ -1,0 +1,11 @@
+method_params:
+  timeout: 345600
+  output_destination: 's3://sdgym-benchmark/Debug/Benchmark_Launcher/'
+  compute_quality_score: true
+  compute_diagnostic_score: true
+  compute_privacy_score: false
+
+compute:
+  service: 'gcp'
+
+credentials_filepath: null
