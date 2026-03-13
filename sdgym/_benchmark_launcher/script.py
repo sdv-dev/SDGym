@@ -16,21 +16,13 @@ def _parse_args():
         choices=['single_table', 'multi_table'],
         default=None,
     )
-    parser.add_argument('--datasets', type=str, default=None)
-    parser.add_argument('--synthesizers', type=str, default=None)
+    parser.add_argument('--datasets', nargs='+', default=None)
+    parser.add_argument('--synthesizers', nargs='+', default=None)
     parser.add_argument('--num-instances', type=int, default=None)
     parser.add_argument('--timeout', type=int, default=None)
     parser.add_argument('--output-destination', type=str, default=None)
 
     return parser.parse_args()
-
-
-def _parse_csv(value):
-    """Parse a comma-separated string into a list."""
-    if not value:
-        return None
-
-    return [item.strip() for item in value.split(',') if item.strip()]
 
 
 def _validate_args(args):
@@ -178,8 +170,8 @@ def build_dict_from_args(args):
     if method_params:
         config['method_params'] = method_params
 
-    datasets = _parse_csv(args.datasets)
-    synthesizers = _parse_csv(args.synthesizers)
+    datasets = args.datasets
+    synthesizers = args.synthesizers
     num_instances = args.num_instances if args.num_instances is not None else 1
     if datasets is not None or synthesizers is not None or num_instances != 1:
         default_datasets, default_synthesizers = _get_default_datasets_and_synthesizers(
