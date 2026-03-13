@@ -5,7 +5,7 @@ import shutil
 import stat
 import sys
 from pathlib import Path
-
+import shlex
 import tomli
 from invoke import task
 from packaging.requirements import Requirement
@@ -218,3 +218,32 @@ def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None, modality='s
     from sdgym.run_benchmark.utils import post_benchmark_uploaded_message
 
     post_benchmark_uploaded_message(folder_name, commit_url, modality)
+
+@task
+def launch_benchmark(
+    c,
+    config_filepath=None,
+    modality=None,
+    datasets=None,
+    synthesizers=None,
+    num_instances=None,
+    output_destination=None,
+    timeout=None,
+):
+    """Launch the SDGym benchmark."""
+    command = ['python', 'sdgym/_benchmark_launcher/script.py']
+    arguments = [
+        ('--config-filepath', config_filepath),
+        ('--modality', modality),
+        ('--datasets', datasets),
+        ('--synthesizers', synthesizers),
+        ('--num-instances', num_instances),
+        ('--output-destination', output_destination),
+        ('--timeout', timeout),
+    ]
+    for flag, value in arguments:
+        if value is not None:
+            command.extend([flag, str(value)])
+
+    quoted_command = ' '.join(shlex.quote(part) for part in command)
+    c.run(quoted_command)
