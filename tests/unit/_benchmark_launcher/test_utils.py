@@ -307,10 +307,10 @@ def test_resolve_credentials_without_filepath_returns_env_credentials(mock_get_e
     """Test `resolve_credentials` returns env credentials when filepath is None."""
     # Setup
     expected = {
-        'aws': {'AWS_ACCESS_KEY_ID': 'AKIA', 'AWS_SECRET_ACCESS_KEY': 'SECRET'},
+        'aws': {'aws_access_key_id': 'AKIA', 'aws_secret_access_key': 'SECRET'},
         'sdv_enterprise': {
-            'SDV_ENTERPRISE_USERNAME': 'user',
-            'SDV_ENTERPRISE_LICENSE_KEY': 'license',
+            'sdv_enterprise_username': 'user',
+            'sdv_enterprise_license_key': 'license',
         },
         'gcp': {'type': 'service_account', 'project_id': 'my-project'},
     }
@@ -368,12 +368,12 @@ def test_resolve_credentials_with_filepath_deep_merges_file_over_env(
     }
     expected = {
         'aws': {
-            'AWS_ACCESS_KEY_ID': 'FILE_AKIA',
-            'AWS_SECRET_ACCESS_KEY': 'ENV_SECRET',
+            'aws_access_key_id': 'FILE_AKIA',
+            'aws_secret_access_key': 'ENV_SECRET',
         },
         'sdv_enterprise': {
-            'SDV_ENTERPRISE_USERNAME': 'file-user',
-            'SDV_ENTERPRISE_LICENSE_KEY': 'ENV_LICENSE',
+            'sdv_enterprise_username': 'file-user',
+            'sdv_enterprise_license_key': 'ENV_LICENSE',
         },
         'gcp': {
             'type': 'service_account',
@@ -421,10 +421,10 @@ def test_resolve_credentials_file_mode(tmp_path):
     }
     credential_file.write_text(json.dumps(file_credentials))
     expected_credentials = {
-        'aws': {'AWS_ACCESS_KEY_ID': 'FILE_AKIA', 'AWS_SECRET_ACCESS_KEY': 'FILE_SECRET'},
+        'aws': {'aws_access_key_id': 'FILE_AKIA', 'aws_secret_access_key': 'FILE_SECRET'},
         'sdv_enterprise': {
-            'SDV_ENTERPRISE_USERNAME': 'file-user',
-            'SDV_ENTERPRISE_LICENSE_KEY': 'file-license',
+            'sdv_enterprise_username': 'file-user',
+            'sdv_enterprise_license_key': 'file-license',
         },
         'gcp': {
             'type': 'service_account',
@@ -473,8 +473,8 @@ def test_resolve_credentials_env_mode(mock_env):
 
     expected_credentials = {
         'aws': {
-            'AWS_ACCESS_KEY_ID': 'AKIA',
-            'AWS_SECRET_ACCESS_KEY': 'SECRET',
+            'aws_access_key_id': 'AKIA',
+            'aws_secret_access_key': 'SECRET',
         },
         'gcp': {
             'type': 'service_account',
@@ -489,8 +489,8 @@ def test_resolve_credentials_env_mode(mock_env):
             'client_x509_cert_url': 'https://www.googleapis.com/robot/v1/metadata/x509/test',
         },
         'sdv_enterprise': {
-            'SDV_ENTERPRISE_USERNAME': 'user',
-            'SDV_ENTERPRISE_LICENSE_KEY': 'license',
+            'sdv_enterprise_username': 'user',
+            'sdv_enterprise_license_key': 'license',
         },
     }
 

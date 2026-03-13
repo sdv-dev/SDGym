@@ -106,6 +106,7 @@ def _deep_merge(base, override):
 
         else:
             result[key] = value
+
     return result
 
 
@@ -158,10 +159,17 @@ def _get_env_credentials():
     }
 
 
-def resolve_credentials(credentials_filepath):
+def _lowercase_keys(data):
+    if isinstance(data, dict):
+        return {str(key).lower(): _lowercase_keys(value) for key, value in data.items()}
+
+    return data
+
+
+def resolve_credentials(credentials_filepath=None):
     env_credentials = _get_env_credentials()
     if credentials_filepath is None:
-        return env_credentials
+        return _lowercase_keys(env_credentials)
 
     file_credentials = _load_json_file(credentials_filepath)
-    return _deep_merge(env_credentials, file_credentials)
+    return _lowercase_keys(_deep_merge(env_credentials, file_credentials))

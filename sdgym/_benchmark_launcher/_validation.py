@@ -159,6 +159,7 @@ def _validate_resolved_credentials(credentials):
     else:
         if any(aws.values()):
             for key in _AWS_CREDENTIAL_KEYS:
+                key = key.lower()
                 if aws.get(key) in (None, ''):
                     errors.append(f"credentials['aws']['{key}'] is missing or empty.")
 
@@ -166,17 +167,17 @@ def _validate_resolved_credentials(credentials):
     if not isinstance(sdv, dict):
         errors.append("credentials['sdv_enterprise'] must be a dict.")
     else:
-        username = sdv.get('SDV_ENTERPRISE_USERNAME')
-        license_key = sdv.get('SDV_ENTERPRISE_LICENSE_KEY')
+        username = sdv.get('sdv_enterprise_username')
+        license_key = sdv.get('sdv_enterprise_license_key')
         if username or license_key:
             if not username:
                 errors.append(
-                    "credentials['sdv_enterprise']['SDV_ENTERPRISE_USERNAME'] "
+                    "credentials['sdv_enterprise']['sdv_enterprise_username'] "
                     'is required when SDV Enterprise credentials are provided.'
                 )
             if not license_key:
                 errors.append(
-                    "credentials['sdv_enterprise']['SDV_ENTERPRISE_LICENSE_KEY'] "
+                    "credentials['sdv_enterprise']['sdv_enterprise_license_key'] "
                     'is required when SDV Enterprise credentials are provided.'
                 )
 

@@ -250,12 +250,12 @@ def test__validate_resolved_credentials_valid():
     # Setup
     credentials = {
         'aws': {
-            'AWS_ACCESS_KEY_ID': 'AKIA',
-            'AWS_SECRET_ACCESS_KEY': 'SECRET',
+            'aws_access_key_id': 'AKIA',
+            'aws_secret_access_key': 'SECRET',
         },
         'sdv_enterprise': {
-            'SDV_ENTERPRISE_USERNAME': 'user',
-            'SDV_ENTERPRISE_LICENSE_KEY': 'license',
+            'sdv_enterprise_username': 'user',
+            'sdv_enterprise_license_key': 'license',
         },
         'gcp': {
             'type': 'service_account',
@@ -305,8 +305,8 @@ def test__validate_resolved_credentials_missing_aws_key():
     # Setup
     credentials = {
         'aws': {
-            'AWS_ACCESS_KEY_ID': 'AKIA',
-            'AWS_SECRET_ACCESS_KEY': None,
+            'aws_access_key_id': 'AKIA',
+            'aws_secret_access_key': None,
         },
         'sdv_enterprise': {},
         'gcp': {},
@@ -316,7 +316,7 @@ def test__validate_resolved_credentials_missing_aws_key():
     errors = _validate_resolved_credentials(credentials)
 
     # Assert
-    assert errors == ["credentials['aws']['AWS_SECRET_ACCESS_KEY'] is missing or empty."]
+    assert errors == ["credentials['aws']['aws_secret_access_key'] is missing or empty."]
 
 
 def test__validate_resolved_credentials_partial_sdv_enterprise():
@@ -325,8 +325,8 @@ def test__validate_resolved_credentials_partial_sdv_enterprise():
     credentials = {
         'aws': {},
         'sdv_enterprise': {
-            'SDV_ENTERPRISE_USERNAME': 'user',
-            'SDV_ENTERPRISE_LICENSE_KEY': None,
+            'sdv_enterprise_username': 'user',
+            'sdv_enterprise_license_key': None,
         },
         'gcp': {},
     }
@@ -336,7 +336,7 @@ def test__validate_resolved_credentials_partial_sdv_enterprise():
 
     # Assert
     assert errors == [
-        "credentials['sdv_enterprise']['SDV_ENTERPRISE_LICENSE_KEY'] "
+        "credentials['sdv_enterprise']['sdv_enterprise_license_key'] "
         'is required when SDV Enterprise credentials are provided.'
     ]
 
@@ -395,8 +395,8 @@ def test__validate_credentials_returns_resolved_validation_errors(mock_resolve_c
     credentials_filepath = 'creds.json'
     mock_resolve_credentials.return_value = {
         'aws': {
-            'AWS_ACCESS_KEY_ID': 'AKIA',
-            'AWS_SECRET_ACCESS_KEY': None,
+            'aws_access_key_id': 'AKIA',
+            'aws_secret_access_key': None,
         },
         'sdv_enterprise': {},
         'gcp': {},
@@ -407,7 +407,7 @@ def test__validate_credentials_returns_resolved_validation_errors(mock_resolve_c
 
     # Assert
     mock_resolve_credentials.assert_called_once_with(credentials_filepath)
-    assert errors == ["credentials['aws']['AWS_SECRET_ACCESS_KEY'] is missing or empty."]
+    assert errors == ["credentials['aws']['aws_secret_access_key'] is missing or empty."]
 
 
 @patch('sdgym._benchmark_launcher._validation.resolve_credentials')
@@ -417,8 +417,8 @@ def test__validate_credentials_returns_no_errors_when_valid(mock_resolve_credent
     credentials_filepath = None
     mock_resolve_credentials.return_value = {
         'aws': {
-            'AWS_ACCESS_KEY_ID': 'AKIA',
-            'AWS_SECRET_ACCESS_KEY': 'SECRET',
+            'aws_access_key_id': 'AKIA',
+            'aws_secret_access_key': 'SECRET',
         },
         'sdv_enterprise': {},
         'gcp': {},
