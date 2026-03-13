@@ -11,7 +11,6 @@ from sdgym._benchmark_launcher.script import (
     _get_default_datasets_and_synthesizers,
     _instance_job_size,
     _parse_args,
-    _parse_csv,
     _split_instance_jobs,
     _split_list,
     _validate_args,
@@ -35,20 +34,6 @@ def test__parse_args_calls_parse_args(mock_parse_args):
     # Assert
     mock_parse_args.assert_called_once_with()
     assert args is expected
-
-
-def test__parse_csv_splits_and_strips_values():
-    """Test `_parse_csv` splits comma-separated values and strips whitespace."""
-    # Setup
-    value = 'adult, alarm ,census ,, intrusion '
-
-    # Run
-    parsed = _parse_csv(value)
-    empty = _parse_csv('')
-
-    # Assert
-    assert parsed == ['adult', 'alarm', 'census', 'intrusion']
-    assert empty is None
 
 
 def test__validate_args_with_config_filepath():
@@ -281,24 +266,17 @@ def test__get_default_datasets_and_synthesizers(mock_resolve_modality_config):
 
 
 @patch('sdgym._benchmark_launcher.script._build_instance_jobs')
-@patch('sdgym._benchmark_launcher.script._parse_csv')
-def test_build_dict_from_args_builds_expected_override_dict(
-    mock_parse_csv, mock_build_instance_jobs
-):
+def test_build_dict_from_args_builds_expected_override_dict(mock_build_instance_jobs):
     """Test `build_dict_from_args` builds the expected config override dict."""
     # Setup
     args = Namespace(
         modality='single_table',
-        datasets='adult,alarm',
-        synthesizers='CTGANSynthesizer,TVAESynthesizer',
+        datasets=['adult', 'alarm'],
+        synthesizers=['CTGANSynthesizer', 'TVAESynthesizer'],
         num_instances=2,
         timeout=3600,
         output_destination='s3://sdgym-benchmark/Debug/test/',
     )
-    mock_parse_csv.side_effect = [
-        ['adult', 'alarm'],
-        ['CTGANSynthesizer', 'TVAESynthesizer'],
-    ]
     mock_build_instance_jobs.return_value = [
         {'synthesizers': ['CTGANSynthesizer'], 'datasets': ['adult', 'alarm']},
         {'synthesizers': ['TVAESynthesizer'], 'datasets': ['adult', 'alarm']},
@@ -308,9 +286,6 @@ def test_build_dict_from_args_builds_expected_override_dict(
     config = build_dict_from_args(args)
 
     # Assert
-    assert mock_parse_csv.call_count == 2
-    mock_parse_csv.assert_any_call('adult,alarm')
-    mock_parse_csv.assert_any_call('CTGANSynthesizer,TVAESynthesizer')
     mock_build_instance_jobs.assert_called_once_with(
         datasets=['adult', 'alarm'],
         synthesizers=['CTGANSynthesizer', 'TVAESynthesizer'],
@@ -329,14 +304,13 @@ def test_build_dict_from_args_builds_expected_override_dict(
 
 
 @patch('sdgym._benchmark_launcher.script._build_instance_jobs', return_value=[])
-@patch('sdgym._benchmark_launcher.script._parse_csv', side_effect=[['adult'], ['CTGANSynthesizer']])
-def test_build_dict_from_args_without_timeout(mock_parse_csv, mock_build_instance_jobs):
+def test_build_dict_from_args_without_timeout(mock_build_instance_jobs):
     """Test `build_dict_from_args` omits timeout when it is not provided."""
     # Setup
     args = Namespace(
         modality='single_table',
-        datasets='adult',
-        synthesizers='CTGANSynthesizer',
+        datasets=['adult'],
+        synthesizers=['CTGANSynthesizer'],
         num_instances=1,
         timeout=None,
         output_destination='s3://sdgym-benchmark/Debug/test/',
@@ -346,8 +320,6 @@ def test_build_dict_from_args_without_timeout(mock_parse_csv, mock_build_instanc
     config = build_dict_from_args(args)
 
     # Assert
-    mock_parse_csv.assert_any_call('adult')
-    mock_parse_csv.assert_any_call('CTGANSynthesizer')
     mock_build_instance_jobs.assert_called_once_with(
         datasets=['adult'],
         synthesizers=['CTGANSynthesizer'],
