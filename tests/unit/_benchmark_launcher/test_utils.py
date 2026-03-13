@@ -182,7 +182,6 @@ def test__get_gcp_credentials_from_env_uses_json_filepath(mock_load_json_file, m
     def env_side_effect(name):
         return {
             'GCP_SERVICE_ACCOUNT_JSON_FILEPATH': '/tmp/gcp.json',
-            'GOOGLE_APPLICATION_CREDENTIALS': None,
         }.get(name)
 
     mock_env.side_effect = env_side_effect
@@ -199,32 +198,25 @@ def test__get_gcp_credentials_from_env_uses_json_filepath(mock_load_json_file, m
 
 
 @patch('sdgym._benchmark_launcher.utils._env')
-def test__get_gcp_credentials_from_env_uses_google_application_credentials(mock_env):
-    """Test `_get_gcp_credentials_from_env` falls back to GOOGLE_APPLICATION_CREDENTIALS."""
+def test__get_gcp_credentials_from_env_uses_json(mock_env):
+    """Test `_get_gcp_credentials_from_env` loads JSON from content env var."""
     # Setup
     service_account = {'type': 'service_account', 'project_id': 'my-project'}
 
     def env_side_effect(name):
         return {
-            'GCP_SERVICE_ACCOUNT_JSON_FILEPATH': None,
-            'GOOGLE_APPLICATION_CREDENTIALS': '/tmp/gcp.json',
+            'GCP_SERVICE_ACCOUNT_JSON': json.dumps(service_account),
         }.get(name)
 
     mock_env.side_effect = env_side_effect
 
     # Run
-    with patch(
-        'sdgym._benchmark_launcher.utils._load_json_file',
-        return_value=service_account,
-    ) as mock_load_json_file:
-        credentials = _get_gcp_credentials_from_env()
+    credentials = _get_gcp_credentials_from_env()
 
     # Assert
     mock_env.assert_has_calls([
-        call('GCP_SERVICE_ACCOUNT_JSON_FILEPATH'),
-        call('GOOGLE_APPLICATION_CREDENTIALS'),
+        call('GCP_SERVICE_ACCOUNT_JSON'),
     ])
-    mock_load_json_file.assert_called_once_with('/tmp/gcp.json')
     assert credentials == service_account
 
 

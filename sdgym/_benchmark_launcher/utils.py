@@ -51,6 +51,9 @@ _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS = (
     'client_x509_cert_url',
 )
 
+_GCP_SERVICE_ACCOUNT_JSON = 'GCP_SERVICE_ACCOUNT_JSON'
+_GCP_SERVICE_ACCOUNT_JSON_FILEPATH = 'GCP_SERVICE_ACCOUNT_JSON_FILEPATH'
+
 
 def _resolve_modality_config(modality):
     base_config = _load_yaml_resource('benchmark_base.yaml')
@@ -135,9 +138,11 @@ def _load_json_file(path):
 
 def _get_gcp_credentials_from_env():
     """Build resolved GCP credentials from environment variables."""
-    json_filepath = _env('GCP_SERVICE_ACCOUNT_JSON_FILEPATH') or _env(
-        'GOOGLE_APPLICATION_CREDENTIALS'
-    )
+    json_content = _env(_GCP_SERVICE_ACCOUNT_JSON)
+    if json_content:
+        return json.loads(json_content)
+
+    json_filepath = _env(_GCP_SERVICE_ACCOUNT_JSON_FILEPATH)
     if json_filepath:
         return _load_json_file(json_filepath)
 
