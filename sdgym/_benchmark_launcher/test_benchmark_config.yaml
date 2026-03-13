@@ -1,0 +1,36 @@
+modality: single_table
+method_params:
+  timeout: 60
+  output_destination: 's3://sdgym-benchmark/Debug/Benchmark_Launcher/CONFIG/'
+  compute_quality_score: true
+  compute_diagnostic_score: true
+  compute_privacy_score: false
+
+compute:
+  service: 'gcp'
+
+credential_locations:
+  gcp:
+    service_account_json_env: 'GCP_SERVICE_ACCOUNT_JSON'
+    project_id_env: 'GCP_PROJECT_ID'
+    zone_env: 'GCP_ZONE'
+  sdv_enterprise:
+    username_env: 'SDV_ENTERPRISE_USERNAME'
+    license_key_env: 'SDV_ENTERPRISE_LICENSE_KEY'
+  aws:
+    access_key_id_env: 'AWS_ACCESS_KEY_ID'
+    secret_access_key_env: 'AWS_SECRET_ACCESS_KEY'
+
+instance_jobs:
+  - synthesizers:
+      - ColumnSynthesizer
+      - GaussianCopulaSynthesizer
+    datasets:
+      - expedia_hotel_logs
+      - fake_hotel_guests
+  - synthesizers:
+      - TVAESynthesizer
+    datasets:
+      - expedia_hotel_logs
+      - fake_hotel_guests
+
