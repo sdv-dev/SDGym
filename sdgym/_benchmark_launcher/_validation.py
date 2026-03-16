@@ -165,17 +165,13 @@ def _validate_resolved_credentials(credentials):
     else:
         username = sdv.get('sdv_enterprise_username')
         license_key = sdv.get('sdv_enterprise_license_key')
-        if username or license_key:
-            if not username:
-                errors.append(
-                    "credentials['sdv_enterprise']['sdv_enterprise_username'] "
-                    'is required when SDV Enterprise credentials are provided.'
-                )
-            if not license_key:
-                errors.append(
-                    "credentials['sdv_enterprise']['sdv_enterprise_license_key'] "
-                    'is required when SDV Enterprise credentials are provided.'
-                )
+        message = (
+            "credentials['sdv_enterprise'] require both 'sdv_enterprise_username' and "
+            "'sdv_enterprise_license_key' to be provided and non-empty if any SDV Enterprise"
+            ' credential is provided.'
+        )
+        if bool(username) != bool(license_key):
+            errors.append(message)
 
     gcp = credentials.get('gcp', {})
     if not isinstance(gcp, dict):

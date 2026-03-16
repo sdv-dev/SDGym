@@ -325,8 +325,9 @@ def test__validate_resolved_credentials_partial_sdv_enterprise():
 
     # Assert
     assert errors == [
-        "credentials['sdv_enterprise']['sdv_enterprise_license_key'] "
-        'is required when SDV Enterprise credentials are provided.'
+        "credentials['sdv_enterprise'] require both 'sdv_enterprise_username' and "
+        "'sdv_enterprise_license_key' to be provided and non-empty if any SDV Enterprise"
+        ' credential is provided.'
     ]
 
 

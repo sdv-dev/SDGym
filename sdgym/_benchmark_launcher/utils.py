@@ -167,6 +167,14 @@ def _lowercase_keys(data):
 
 
 def resolve_credentials(credentials_filepath=None):
+    """Resolve credentials from environment variables and, optionally, a credentials file.
+
+    Environment variables are loaded first. If a credentials file is provided, any values
+    defined in that file override the corresponding environment variables.
+
+    As a result, values from the credentials file take precedence. Environment variables
+    are only used for credentials that are missing from the file.
+    """
     env_credentials = _get_env_credentials()
     if credentials_filepath is None:
         return _lowercase_keys(env_credentials)
