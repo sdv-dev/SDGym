@@ -1,4 +1,5 @@
 modality: multi_table
+output_destination: 's3://sdgym-benchmark/Debug/Benchmark_Launcher/'
 datasets_multi_table: &datasets_multi_table
   - WebKP
   - DCG
@@ -72,79 +73,94 @@ exclusions:
     - imdb_MovieLens
 
 instance_jobs:
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HSAynthesizer
       - IndependentSynthesizer
     datasets:
       include: *datasets_multi_table
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: *datasets_multi_table
       exclude: *hma_exclude
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [Accidents]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [AustralianFootball]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [Countries]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [MuskSmall]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [NBA]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [OMOP_CDM_dayz]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [PremierLeague]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [SalesDB]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [airbnb-simplified]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [imdb_ijs]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [legalActs]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [SAP]
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - HMASynthesizer
     datasets:
       include: [imdb_MovieLens]

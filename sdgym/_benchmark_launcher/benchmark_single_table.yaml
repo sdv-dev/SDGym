@@ -1,4 +1,5 @@
 modality: single_table
+output_destination: 's3://sdgym-benchmark/Debug/Benchmark_Launcher/'
 datasets_single_table: &datasets_single_table
   - adult
   - alarm
@@ -21,93 +22,109 @@ exclusions:
     - census
 
 instance_jobs:
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - ColumnSynthesizer
       - GaussianCopulaSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - TVAESynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - SegmentSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - XGCSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - BootstrapSynthesizer
     datasets:
       include: *datasets_single_table
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - CTGANSynthesizer
     datasets:
       include: *datasets_single_table
       exclude: *gan_exclude
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - CopulaGANSynthesizer
     datasets:
       include: *datasets_single_table
       exclude: *gan_exclude
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - RealTabFormerSynthesizer
     datasets:
       include: *datasets_single_table
       exclude: *rtf_exclude
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - RealTabFormerSynthesizer
     datasets:
       include:
         - covtype
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - RealTabFormerSynthesizer
     datasets:
       include:
         - intrusion
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - RealTabFormerSynthesizer
     datasets:
       include:
         - expedia_hotel_logs
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - RealTabFormerSynthesizer
     datasets:
       include:
         - census
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - CTGANSynthesizer
     datasets:
       include:
         - covtype
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - CopulaGANSynthesizer
     datasets:
       include:
         - covtype
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - CTGANSynthesizer
     datasets:
       include:
         - intrusion
 
-  - synthesizers:
+  - output_destination: *output_destination
+    synthesizers:
       - CopulaGANSynthesizer
     datasets:
       include:

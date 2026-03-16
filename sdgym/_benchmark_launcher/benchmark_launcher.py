@@ -46,6 +46,7 @@ class BenchmarkLauncher:
         for instance_job in self.benchmark_config.instance_jobs:
             sdv_datasets = _resolve_datasets(instance_job['datasets'])
             self.method_to_run(
+                output_destination=instance_job['output_destination'],
                 synthesizers=instance_job['synthesizers'],
                 sdv_datasets=sdv_datasets,
                 credentials=credentials,

@@ -79,7 +79,7 @@ def test__validate_structure_valid():
     # Setup
     config = SimpleNamespace(
         modality='single_table',
-        method_params={'output_destination': 's3://bucket/prefix/'},
+        method_params={'timeout': 60},
         credentials_filepath='creds.json',
         compute={'service': 'gcp'},
         instance_jobs=[],
@@ -123,7 +123,6 @@ def test__validate_method_params_valid():
         return None
 
     method_params = {
-        'output_destination': 's3://bucket/prefix/',
         'timeout': 60,
         'compute_quality_score': True,
         'compute_diagnostic_score': False,
@@ -156,28 +155,11 @@ def test__validate_method_params_invalid():
 
     # Assert
     assert errors == [
-        'method_params.output_destination: must be an S3 URI like "s3://bucket/prefix/".',
         'method_params.timeout: must be > 0.',
         "method_params.compute_quality_score: must be bool. Found: 'yes' (<class 'str'>)",
-        "method_params: must not define injected parameters ['credentials'] "
+        "method_params: must not define injected parameters ['credentials', 'output_destination'] "
         '(resolved from credentials/instance_jobs).',
     ]
-
-
-def test__validate_method_params_requires_trailing_slash():
-    """Test `_validate_method_params` requires output_destination to end with slash."""
-
-    # Setup
-    def method_to_run(output_destination, credentials=None):
-        return None
-
-    method_params = {'output_destination': 's3://bucket/prefix'}
-
-    # Run
-    errors = _validate_method_params(method_params, method_to_run)
-
-    # Assert
-    assert errors == ['method_params.output_destination: should end with "/".']
 
 
 def test__validate_method_params_timeout_must_be_int():
@@ -188,7 +170,6 @@ def test__validate_method_params_timeout_must_be_int():
         return None
 
     method_params = {
-        'output_destination': 's3://bucket/prefix/',
         'timeout': '60',
     }
 
@@ -204,10 +185,12 @@ def test__validate_instance_jobs_valid():
     # Setup
     instance_jobs = [
         {
+            'output_destination': 's3://bucket/prefix/',
             'synthesizers': ['synth1', 'synth2'],
             'datasets': ['adult', 'census'],
         },
         {
+            'output_destination': 's3://bucket/prefix/',
             'synthesizers': ['synth3'],
             'datasets': {
                 'include': ['adult', 'census'],
@@ -228,6 +211,7 @@ def test__validate_instance_jobs_invalid():
     # Setup
     instance_jobs = [
         'not-a-dict',
+        {'synthesizer': ['synth1'], 'datasets': ['adult']},
         {'synthesizers': ['synth1']},
         {'synthesizers': 'not-a-list', 'datasets': ['adult']},
         {'synthesizers': ['synth1'], 'datasets': [1, 2]},
@@ -239,10 +223,15 @@ def test__validate_instance_jobs_invalid():
     errors = _validate_instance_jobs(instance_jobs)
 
     # Assert
-    assert len(errors) == 1
-    assert "Each job in 'instance_jobs' must be a dict" in errors[0]
-    assert 'not-a-dict' in errors[0]
-    assert "{'synthesizers': ['synth1']}" in errors[0]
+    assert errors == [
+        "Each job in 'instance_jobs' must be a dict with an 'output_destination' (string), "
+        "'synthesizers' (list of strings), and 'datasets' (list of strings or dict with "
+        "'include' and optional 'exclude').\nInvalid jobs:\nnot-a-dict\n{'synthesizer': "
+        "['synth1'], 'datasets': ['adult']}\n{'synthesizers': ['synth1']}\n{'synthesizers':"
+        " 'not-a-list', 'datasets': ['adult']}\n{'synthesizers': ['synth1'], 'datasets': [1, 2]}\n"
+        "{'synthesizers': ['synth1'], 'datasets': {'include': 'adult'}}\n"
+        "{'synthesizers': ['synth1'], 'datasets': {'include': ['adult'], 'exclude': 'census'}}"
+    ]
 
 
 def test__validate_resolved_credentials_valid():

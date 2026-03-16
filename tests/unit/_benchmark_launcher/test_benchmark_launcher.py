@@ -80,11 +80,11 @@ class TestBenchmarkLauncher:
     ):
         """Test `_launch` calls the underlying benchmark method for each job."""
         # Setup
+        output_destination = 's3://bucket/prefix/'
         config = BenchmarkConfig.load_from_dict({
             'modality': 'single_table',
             'compute': {'service': 'gcp'},
             'method_params': {
-                'output_destination': 's3://bucket/prefix/',
                 'timeout': 10,
                 'compute_quality_score': True,
                 'compute_diagnostic_score': True,
@@ -92,8 +92,16 @@ class TestBenchmarkLauncher:
             },
             'credentials_filepath': {'credentials_filepath': 'creds.json'},
             'instance_jobs': [
-                {'synthesizers': ['Synth1'], 'datasets': ['a']},
-                {'synthesizers': ['Synth2'], 'datasets': ['b']},
+                {
+                    'synthesizers': ['Synth1'],
+                    'datasets': ['a'],
+                    'output_destination': output_destination,
+                },
+                {
+                    'synthesizers': ['Synth2'],
+                    'datasets': ['b'],
+                    'output_destination': output_destination,
+                },
             ],
         })
         config.validate = Mock()
@@ -108,6 +116,7 @@ class TestBenchmarkLauncher:
         assert mock_resolve_datasets.call_args_list == [call(['a']), call(['b'])]
         expected_calls = [
             call(
+                output_destination=output_destination,
                 synthesizers=['Synth1'],
                 sdv_datasets=['d1'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
@@ -115,6 +124,7 @@ class TestBenchmarkLauncher:
                 **config.method_params,
             ),
             call(
+                output_destination=output_destination,
                 synthesizers=['Synth2'],
                 sdv_datasets=['d2'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},

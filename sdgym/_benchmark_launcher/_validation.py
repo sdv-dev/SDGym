@@ -1,12 +1,16 @@
-from urllib.parse import urlparse
-
 from sdgym._benchmark_launcher.utils import (
     _AWS_CREDENTIAL_KEYS,
     _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS,
     resolve_credentials,
 )
 
-_INJECTED_PARAMS = {'credentials', 'synthesizers', 'sdv_datasets', 'compute_config'}
+_INJECTED_PARAMS = {
+    'credentials',
+    'synthesizers',
+    'sdv_datasets',
+    'compute_config',
+    'output_destination',
+}
 
 
 def _as_errors(value):
@@ -64,20 +68,6 @@ def _validate_structure(config):
 
 def _validate_method_params(method_params, method_to_run):
     errors = []
-    output_destination = method_params.get('output_destination')
-    if not isinstance(output_destination, str) or not output_destination:
-        errors.append(
-            'method_params.output_destination: is required and must be a non-empty string.'
-        )
-    else:
-        parsed = urlparse(output_destination)
-        if parsed.scheme != 's3':
-            errors.append(
-                'method_params.output_destination: must be an S3 URI like "s3://bucket/prefix/".'
-            )
-        elif not output_destination.endswith('/'):
-            errors.append('method_params.output_destination: should end with "/".')
-
     timeout = method_params.get('timeout')
     if timeout is not None:
         if not isinstance(timeout, int):
@@ -104,8 +94,9 @@ def _validate_method_params(method_params, method_to_run):
 
 def _validate_instance_jobs(instance_jobs):
     error_message = (
-        "Each job in 'instance_jobs' must be a dict with 'synthesizers' (list of strings) "
-        "and 'datasets' (list of strings or dict with 'include' and optional 'exclude')."
+        "Each job in 'instance_jobs' must be a dict with an 'output_destination' (string), "
+        "'synthesizers' (list of strings), and 'datasets' (list of strings or dict with "
+        "'include' and optional 'exclude')."
     )
     invalid_jobs = []
     for job in instance_jobs:
@@ -113,12 +104,17 @@ def _validate_instance_jobs(instance_jobs):
             invalid_jobs.append(job)
             continue
 
-        if 'datasets' not in job or 'synthesizers' not in job:
+        if 'datasets' not in job or 'synthesizers' not in job or 'output_destination' not in job:
             invalid_jobs.append(job)
             continue
 
         synthesizers = job['synthesizers']
         if not isinstance(synthesizers, list) or not all(isinstance(s, str) for s in synthesizers):
+            invalid_jobs.append(job)
+            continue
+
+        output_destination = job['output_destination']
+        if not isinstance(output_destination, str) or not output_destination:
             invalid_jobs.append(job)
             continue
 
