@@ -16,21 +16,13 @@ def _parse_args():
         choices=['single_table', 'multi_table'],
         default=None,
     )
-    parser.add_argument('--datasets', type=str, default=None)
-    parser.add_argument('--synthesizers', type=str, default=None)
+    parser.add_argument('--datasets', nargs='+', default=None)
+    parser.add_argument('--synthesizers', nargs='+', default=None)
     parser.add_argument('--num-instances', type=int, default=None)
     parser.add_argument('--timeout', type=int, default=None)
     parser.add_argument('--output-destination', type=str, default=None)
 
     return parser.parse_args()
-
-
-def _parse_csv(value):
-    """Parse a comma-separated string into a list."""
-    if not value:
-        return None
-
-    return [item.strip() for item in value.split(',') if item.strip()]
 
 
 def _validate_args(args):
@@ -96,10 +88,12 @@ def _split_instance_jobs(instance_job):
             {
                 'synthesizers': left_synthesizers,
                 'datasets': datasets,
+                'output_destination': instance_job['output_destination'],
             },
             {
                 'synthesizers': right_synthesizers,
                 'datasets': datasets,
+                'output_destination': instance_job['output_destination'],
             },
         ]
 
@@ -109,17 +103,19 @@ def _split_instance_jobs(instance_job):
             {
                 'synthesizers': synthesizers,
                 'datasets': left_datasets,
+                'output_destination': instance_job['output_destination'],
             },
             {
                 'synthesizers': synthesizers,
                 'datasets': right_datasets,
+                'output_destination': instance_job['output_destination'],
             },
         ]
 
     raise ValueError('Cannot split the instance job any further.')
 
 
-def _build_instance_jobs(datasets, synthesizers, num_instances):
+def _build_instance_jobs(datasets, synthesizers, num_instances, output_destination):
     """Build exactly ``num_instances`` instance jobs."""
     max_jobs = len(synthesizers) * len(datasets)
     if num_instances > max_jobs:
@@ -133,6 +129,7 @@ def _build_instance_jobs(datasets, synthesizers, num_instances):
         {
             'synthesizers': list(synthesizers),
             'datasets': list(datasets),
+            'output_destination': output_destination,
         }
     ]
     while len(instance_jobs) < num_instances:
@@ -172,14 +169,9 @@ def build_dict_from_args(args):
     if args.timeout is not None:
         method_params['timeout'] = args.timeout
 
-    if args.output_destination is not None:
-        method_params['output_destination'] = args.output_destination
-
-    if method_params:
-        config['method_params'] = method_params
-
-    datasets = _parse_csv(args.datasets)
-    synthesizers = _parse_csv(args.synthesizers)
+    config['method_params'] = method_params
+    datasets = args.datasets
+    synthesizers = args.synthesizers
     num_instances = args.num_instances if args.num_instances is not None else 1
     if datasets is not None or synthesizers is not None or num_instances != 1:
         default_datasets, default_synthesizers = _get_default_datasets_and_synthesizers(
@@ -189,6 +181,7 @@ def build_dict_from_args(args):
             datasets=datasets if datasets is not None else default_datasets,
             synthesizers=synthesizers if synthesizers is not None else default_synthesizers,
             num_instances=num_instances,
+            output_destination=args.output_destination,
         )
 
     return config
