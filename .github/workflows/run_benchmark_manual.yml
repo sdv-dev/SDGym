@@ -11,11 +11,11 @@ on:
           - single_table
           - multi_table
       datasets:
-        description: "Optional comma-separated datasets"
+        description: "Space-separated datasets, e.g. 'adult alarm'. If not provided, all datasets for the modality will be included."
         required: false
         type: string
       synthesizers:
-        description: "Optional comma-separated synthesizers"
+        description: "Space-separated synthesizers, e.g. 'CTGANSynthesizer TVAESynthesizer'. If not provided, all synthesizers for the modality will be included."
         required: false
         type: string
       num_instances:

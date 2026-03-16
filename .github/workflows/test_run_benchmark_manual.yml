@@ -10,8 +10,8 @@ jobs:
     uses: ./.github/workflows/run_benchmark_manual.yml
     with:
       modality: single_table
-      datasets: expedia_hotel_logs,fake_hotel_guests
-      synthesizers: GaussianCopulaSynthesizer,TVAESynthesizer
+      datasets: expedia_hotel_logs fake_hotel_guests
+      synthesizers: GaussianCopulaSynthesizer TVAESynthesizer
       num_instances: "2"
       output_destination: s3://sdgym-benchmark/Debug/Benchmark_Launcher/Manual/
       timeout: "60"
