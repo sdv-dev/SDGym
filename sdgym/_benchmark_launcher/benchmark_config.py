@@ -12,16 +12,8 @@ from sdgym._benchmark_launcher._validation import (
     _validate_method_params,
     _validate_structure,
 )
-from sdgym._benchmark_launcher.utils import _METHODS
+from sdgym._benchmark_launcher.utils import _METHODS, CONFIG_KEYS
 from sdgym.errors import BenchmarkConfigError
-
-CONFIG_KEYS = frozenset([
-    'modality',
-    'method_params',
-    'credentials_filepath',
-    'compute',
-    'instance_jobs',
-])
 
 
 class BenchmarkConfig:
@@ -37,11 +29,14 @@ class BenchmarkConfig:
             string specifying the path to the credentials file, if None,
             credentials will be resolved from environment variables.
         'compute': dict specifying the compute configuration (e.g. service: 'gcp'),
-        'instance_jobs': list of dicts, each specifying a combination of synthesizers and datasets:
+        'instance_jobs': list of dicts, each specifying a combination of synthesizers
+        and datasets and output destination to run a benchmark job on. Each dict should
+        have the following structure:
             [
                 {
                     'synthesizers': ['synthesizer1', 'synthesizer2'],
-                    'datasets': ['dataset1', 'dataset2'] or {'include': [...], 'exclude': [...]}
+                    'datasets': ['dataset1', 'dataset2'] or {'include': [...], 'exclude': [...]},
+                    'output_destination': 's3://bucket/path'
                 },
                 ...
             ]
