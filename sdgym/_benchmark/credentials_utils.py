@@ -65,8 +65,8 @@ def get_credentials(credential_filepath):
 def sdv_install_cmd(credentials):
     """Return the shell command to install sdv-enterprise using sdv-installer."""
     sdv_creds = credentials.get('sdv') or {}
-    username = sdv_creds.get('username')
-    license_key = sdv_creds.get('license_key')
+    username = sdv_creds.get('sdv_enterprise_username')
+    license_key = sdv_creds.get('sdv_enterprise_license_key')
     if not (username and license_key):
         return ''
 
@@ -92,8 +92,8 @@ def create_credentials_file():
             'gcp_zone': os.getenv('GCP_ZONE'),
         },
         'sdv': {
-            'username': os.getenv('SDV_ENTERPRISE_USERNAME'),
-            'license_key': os.getenv('SDV_ENTERPRISE_LICENSE_KEY'),
+            'sdv_enterprise_username': os.getenv('SDV_ENTERPRISE_USERNAME'),
+            'sdv_enterprise_license_key': os.getenv('SDV_ENTERPRISE_LICENSE_KEY'),
         },
     }
 
