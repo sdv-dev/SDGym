@@ -1,0 +1,10 @@
+method_params:
+  timeout: 345600
+  compute_quality_score: true
+  compute_diagnostic_score: true
+  compute_privacy_score: false
+
+compute:
+  service: 'gcp'
+
+credentials_filepath: null
