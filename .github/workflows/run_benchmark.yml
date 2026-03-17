@@ -51,7 +51,7 @@ jobs:
               license_key='${LICENSE_KEY}',
           )
           "
-          python -m pip install "sdgym[all]"
+          python -m pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-532-define-yaml-files"
 
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
@@ -59,7 +59,6 @@ jobs:
       - name: Run SDGym Benchmark
         env:
           GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           GCP_ZONE: ${{ secrets.GCP_ZONE }}
           SDV_ENTERPRISE_USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
           SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
@@ -67,6 +66,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
-          export CREDENTIALS_FILEPATH=$(python -c "from sdgym._benchmark.credentials_utils import create_credentials_file; print(create_credentials_file())")
           invoke run-sdgym-benchmark --modality "${{ inputs.modality }}"
-          rm -f "$CREDENTIALS_FILEPATH"
