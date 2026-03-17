@@ -260,12 +260,13 @@ def test__build_instance_jobs_warns_and_caps_num_instances():
     ]
 
 
-@patch('sdgym._benchmark_launcher.script._resolve_modality_config')
-def test__get_default_datasets_and_synthesizers(mock_resolve_modality_config):
+@patch('sdgym._benchmark_launcher.script._load_merged_modality_config')
+def test__get_default_datasets_and_synthesizers(mock_load_merged_modality_config):
     """Test `_get_default_datasets_and_synthesizers` returns default datasets and synthesizers."""
     # Setup
     output_destination = 's3://bucket/prefix/'
-    mock_resolve_modality_config.return_value = {
+    mock_load_merged_modality_config.return_value = {
+        'datasets_single_table': ['adult', 'alarm', 'census'],
         'instance_jobs': [
             {
                 'datasets': ['adult', 'alarm'],
@@ -277,16 +278,88 @@ def test__get_default_datasets_and_synthesizers(mock_resolve_modality_config):
                 'synthesizers': ['TVAESynthesizer'],
                 'output_destination': output_destination,
             },
-        ]
+        ],
     }
 
     # Run
     datasets, synthesizers = _get_default_datasets_and_synthesizers('single_table')
 
     # Assert
-    mock_resolve_modality_config.assert_called_once_with('single_table')
+    mock_load_merged_modality_config.assert_called_once_with('single_table')
     assert datasets == ['adult', 'alarm', 'census']
     assert synthesizers == ['CTGANSynthesizer', 'TVAESynthesizer']
+
+
+@patch('sdgym._benchmark_launcher.script._resolve_modality_config')
+def test_build_dict_from_args_uses_default_modality_config(mock_resolve_modality_config):
+    """Test `build_dict_from_args` uses the default modality config when all selectors are None."""
+    # Setup
+    args = Namespace(
+        timeout=60,
+        datasets=None,
+        synthesizers=None,
+        num_instances=None,
+        modality='single_table',
+        output_destination='s3://bucket/prefix/',
+    )
+    mock_resolve_modality_config.return_value = {
+        'instance_jobs': [{'datasets': ['adult'], 'synthesizers': ['CTGANSynthesizer']}],
+    }
+
+    # Run
+    config = build_dict_from_args(args)
+
+    # Assert
+    mock_resolve_modality_config.assert_called_once_with('single_table')
+    assert config == {
+        'instance_jobs': [
+            {
+                'datasets': ['adult'],
+                'synthesizers': ['CTGANSynthesizer'],
+                'output_destination': 's3://bucket/prefix/',
+            }
+        ],
+        'method_params': {'timeout': 60},
+    }
+
+
+@patch('sdgym._benchmark_launcher.script._build_instance_jobs')
+@patch('sdgym._benchmark_launcher.script._get_default_datasets_and_synthesizers')
+def test_build_dict_from_args_uses_defaults_for_missing_values(
+    mock_get_default_datasets_and_synthesizers,
+    mock_build_instance_jobs,
+):
+    """Test `build_dict_from_args` fills missing values with defaults."""
+    # Setup
+    args = Namespace(
+        timeout=None,
+        datasets=None,
+        synthesizers=['CTGANSynthesizer'],
+        num_instances=None,
+        modality='single_table',
+        output_destination='s3://bucket/prefix/',
+    )
+    mock_get_default_datasets_and_synthesizers.return_value = (
+        ['adult', 'alarm'],
+        ['TVAESynthesizer'],
+    )
+    mock_build_instance_jobs.return_value = [{'some': 'job'}]
+
+    # Run
+    config = build_dict_from_args(args)
+
+    # Assert
+    mock_get_default_datasets_and_synthesizers.assert_called_once_with('single_table')
+    mock_build_instance_jobs.assert_called_once_with(
+        datasets=['adult', 'alarm'],
+        synthesizers=['CTGANSynthesizer'],
+        num_instances=1,
+        output_destination='s3://bucket/prefix/',
+    )
+    assert config == {
+        'method_params': {},
+        'instance_jobs': [{'some': 'job'}],
+    }
 
 
 @patch('sdgym._benchmark_launcher.script._build_instance_jobs')

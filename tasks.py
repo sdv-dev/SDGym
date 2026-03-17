@@ -219,6 +219,7 @@ def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None, modality='s
 
     post_benchmark_uploaded_message(folder_name, commit_url, modality)
 
+
 @task
 def launch_benchmark(
     c,
@@ -230,7 +231,27 @@ def launch_benchmark(
     output_destination=None,
     timeout=None,
 ):
-    """Launch the SDGym benchmark."""
+    """Launch the SDGym benchmark through the benchmark launcher script.
+
+    This task forwards the provided arguments to
+    ``sdgym/_benchmark_launcher/script.py``.
+
+    The launcher supports two modes:
+
+    - If ``config_filepath`` is provided, the benchmark configuration is loaded
+      from that file.
+    - Otherwise, the configuration is built from the remaining arguments. In
+      this case, ``modality`` and ``output_destination`` are required.
+
+    When building the configuration from arguments:
+
+    - If ``datasets``, ``synthesizers``, and ``num_instances`` are all omitted,
+      the default monthly benchmark configuration for the selected modality is
+      used.
+    - If ``num_instances`` is omitted, it defaults to ``1``.
+    - If ``datasets`` or ``synthesizers`` is omitted, the corresponding
+      defaults from the monthly benchmark configuration are used.
+    """
     command = ['python', 'sdgym/_benchmark_launcher/script.py']
     arguments = [
         ('--config-filepath', config_filepath),
@@ -242,7 +263,13 @@ def launch_benchmark(
         ('--timeout', timeout),
     ]
     for flag, value in arguments:
-        if value is not None:
+        if value is None:
+            continue
+
+        if isinstance(value, list):
+            command.append(flag)
+            command.extend(str(item) for item in value)
+        else:
             command.extend([flag, str(value)])
 
     quoted_command = ' '.join(shlex.quote(part) for part in command)
