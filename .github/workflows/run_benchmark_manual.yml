@@ -32,43 +32,6 @@ on:
         required: false
         type: string
 
-  workflow_call:
-    inputs:
-      modality:
-        required: true
-        type: string
-      datasets:
-        required: false
-        type: string
-      synthesizers:
-        required: false
-        type: string
-      num_instances:
-        required: false
-        type: string
-        default: "1"
-      output_destination:
-        required: true
-        type: string
-      timeout:
-        required: false
-        type: string
-    secrets:
-      SDV_ENTERPRISE_USERNAME:
-        required: true
-      SDV_ENTERPRISE_LICENSE_KEY:
-        required: true
-      GCP_SERVICE_ACCOUNT_JSON:
-        required: true
-      GCP_PROJECT_ID:
-        required: true
-      GCP_ZONE:
-        required: true
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-
 jobs:
   run:
     uses: ./.github/workflows/_run_benchmark.yml

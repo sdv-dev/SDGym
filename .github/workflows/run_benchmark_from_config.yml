@@ -7,26 +7,6 @@ on:
         description: "Path to the benchmark YAML file in the selected branch"
         required: true
         type: string
-  workflow_call:
-    inputs:
-      config_filepath:
-        required: true
-        type: string
-    secrets:
-      SDV_ENTERPRISE_USERNAME:
-        required: true
-      SDV_ENTERPRISE_LICENSE_KEY:
-        required: true
-      GCP_SERVICE_ACCOUNT_JSON:
-        required: true
-      GCP_PROJECT_ID:
-        required: true
-      GCP_ZONE:
-        required: true
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
 
 jobs:
   run:
