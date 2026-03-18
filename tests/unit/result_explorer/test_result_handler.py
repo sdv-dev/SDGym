@@ -31,27 +31,185 @@ class TestResultsHandler:
         with pytest.raises(ValueError, match=expected_error):
             ResultsHandler._validate_folder_name(handler, 'run3')
 
-    def test__compute_wins(self):
-        """Test the `_compute_wins` method."""
+    def test__compute_pareto_frontier_dataset(self):
+        """Test the `_compute_pareto_frontier_dataset` method."""
+        # Setup
+        dataset_results = pd.DataFrame(
+            {
+                'Adjusted_Quality_Score': [0.90, 0.80, 0.85, 0.80],
+                'Adjusted_Total_Time': [10, 20, 15, 10],
+            },
+            index=[10, 11, 12, 13],
+        )
+        handler = LocalResultsHandler(base_path='.')
+
+        # Run
+        result = handler._compute_pareto_frontier_dataset(dataset_results)
+
+        # Assert
+        expected_result = pd.Series([True, False, False, True], index=[10, 11, 12, 13])
+        pd.testing.assert_series_equal(result, expected_result)
+
+    def test__compute_pareto_frontier(self):
+        """Test the `_compute_pareto_frontier` method."""
+        # Setup
+        data = pd.DataFrame(
+            {
+                'Dataset': ['A', 'A', 'B', 'B'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'Synth2'],
+                'Adjusted_Quality_Score': [0.5, 0.6, 0.7, 0.8],
+                'Adjusted_Total_Time': [10, 20, 30, 40],
+            },
+            index=[4, 5, 6, 7],
+        )
+        handler = LocalResultsHandler(base_path='.')
+        handler._compute_pareto_frontier_dataset = Mock(
+            side_effect=[
+                pd.Series([True, False], index=[4, 5]),
+                pd.Series([False, True], index=[6, 7]),
+            ]
+        )
+
+        # Run
+        result = handler._compute_pareto_frontier(data)
+
+        # Assert
+        expected_result = pd.Series([True, False, False, True], index=[4, 5, 6, 7])
+        pd.testing.assert_series_equal(result, expected_result)
+
+        assert handler._compute_pareto_frontier_dataset.call_count == 2
+        pd.testing.assert_frame_equal(
+            handler._compute_pareto_frontier_dataset.call_args_list[0].args[0],
+            data.iloc[[0, 1]],
+        )
+        pd.testing.assert_frame_equal(
+            handler._compute_pareto_frontier_dataset.call_args_list[1].args[0],
+            data.iloc[[2, 3]],
+        )
+
+    def test__compute_meets_baseline_quality(self):
+        """Test the `_compute_meets_baseline_quality` method."""
         # Setup
         data = pd.DataFrame({
-            'Dataset': ['A', 'A', 'B', 'B'],
+            'Dataset': ['A', 'A', 'A', 'B', 'B', 'B'],
             'Synthesizer': [
                 'GaussianCopulaSynthesizer',
                 'Synth1',
+                'Synth2',
                 'GaussianCopulaSynthesizer',
                 'Synth1',
+                'Synth2',
             ],
-            'Quality_Score': [0.5, 0.6, 0.7, 0.6],
+            'Adjusted_Quality_Score': [0.90, 0.80, 0.95, 0.70, 0.70, 0.60],
+            'Adjusted_Total_Time': [10, 20, 15, 100, 90, 80],
         })
         handler = LocalResultsHandler(base_path='.')
 
         # Run
-        handler._compute_wins(data)
+        result = handler._compute_meets_baseline_quality(data)
 
         # Assert
-        expected_wins = [0, 1, 0, 0]
-        assert data['Win'].tolist() == expected_wins
+        expected_result = pd.Series([True, False, True, True, True, False])
+        pd.testing.assert_series_equal(result, expected_result)
+
+    def test__compute_wins_mock(self):
+        """Test the `_compute_wins` method with a mocks."""
+        # Setup
+        data = pd.DataFrame({
+            'Dataset': ['A', 'A', 'B', 'B', 'C'],
+            'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'Synth2', 'Synth1'],
+            'Adjusted_Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+            'Adjusted_Total_Time': [10, 20, 150, 100, 220],
+        })
+        handler = LocalResultsHandler(base_path='.')
+        handler._compute_meets_baseline_quality = Mock(
+            return_value=pd.Series([True, False, True, False, True])
+        )
+        handler._compute_pareto_frontier = Mock(
+            return_value=pd.Series([True, True, True, False, True])
+        )
+
+        # Run
+        result = handler._compute_wins(data)
+
+        # Assert
+        expected_result = pd.DataFrame({
+            'Dataset': ['A', 'A', 'B', 'B', 'C'],
+            'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'Synth2', 'Synth1'],
+            'Adjusted_Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+            'Adjusted_Total_Time': [10, 20, 150, 100, 220],
+            'Win': [1, 0, 1, 0, 1],
+        })
+        pd.testing.assert_frame_equal(result, expected_result)
+        handler._compute_meets_baseline_quality.assert_called_once_with(data)
+        handler._compute_pareto_frontier.assert_called_once_with(data)
+
+    def test__compute_wins(self):
+        """Test the `_compute_wins` method.
+
+        The expected result is:
+        - For dataset `A`: only `GaussianCopulaSynthesizer` wins because it meets the
+        baseline quality and strictly dominates the other synthesizers.
+        - For dataset `B`: only `Synth1` wins because `GaussianCopulaSynthesizer` is
+        dominated, and `Synth2` is on the Pareto frontier but does not meet the
+        baseline quality.
+        - For dataset `C`: `GaussianCopulaSynthesizer` and `Synth1` win because they
+        both meet the baseline quality, and equal quality with lower time does not
+        strictly dominate.
+        - For dataset `D`: all synthesizers win because they all meet the baseline
+        quality and none is strictly dominated.
+        - For dataset `E`: `GaussianCopulaSynthesizer` and `Synth1` win because exact
+        ties do not strictly dominate, while `Synth2` does not meet the baseline
+        quality.
+        """
+        # Setup
+        # fmt: off
+        data = pd.DataFrame({
+            'Dataset': [
+                'A', 'A', 'A',
+                'B', 'B', 'B',
+                'C', 'C', 'C',
+                'D', 'D', 'D',
+                'E', 'E', 'E',
+            ],
+            'Synthesizer': [
+                'GaussianCopulaSynthesizer', 'Synth1', 'Synth2',
+                'GaussianCopulaSynthesizer', 'Synth1', 'Synth2',
+                'GaussianCopulaSynthesizer', 'Synth1', 'Synth2',
+                'GaussianCopulaSynthesizer', 'Synth1', 'Synth2',
+                'GaussianCopulaSynthesizer', 'Synth1', 'Synth2',
+            ],
+            'Adjusted_Quality_Score': [
+                0.90, 0.80, 0.85,
+                0.70, 0.75, 0.60,
+                0.80, 0.80, 0.79,
+                0.60, 0.70, 0.65,
+                0.82, 0.82, 0.81,
+            ],
+            'Adjusted_Total_Time': [
+                10, 20, 15,
+                150, 100, 90,
+                220, 210, 200,
+                300, 340, 320,
+                110, 110, 105,
+            ],
+        })
+        # fmt: on
+        handler = LocalResultsHandler(base_path='.')
+
+        # Run
+        result = handler._compute_wins(data)
+
+        # Assert
+        expected_wins = {
+            'A': [1, 0, 0],
+            'B': [0, 1, 0],
+            'C': [1, 1, 0],
+            'D': [1, 1, 1],
+            'E': [1, 1, 0],
+        }
+        expected_wins = [win for wins in expected_wins.values() for win in wins]
+        assert result['Win'].tolist() == expected_wins
 
     def test__get_summarize_table(self):
         """Test the `_get_summarize_table` method."""
