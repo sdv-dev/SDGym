@@ -67,26 +67,56 @@ class ResultsHandler(ABC):
         if folder_name not in all_folders:
             raise ValueError(f"Folder '{folder_name}' does not exist in the results directory.")
 
-    def _compute_wins(self, result):
-        synthesizers = result['Synthesizer'].unique()
-        datasets = result['Dataset'].unique()
-        result['Win'] = 0
-        for dataset in datasets:
-            score_baseline = result.loc[
-                (result['Synthesizer'] == self.baseline_synthesizer)
-                & (result['Dataset'] == dataset)
-            ]['Quality_Score'].to_numpy()
-            if score_baseline.size == 0:
-                continue
+    def _compute_pareto_frontier_dataset(self, dataset_results):
+        """Compute whether each row is on the Pareto frontier for the dataset."""
+        qualities = dataset_results['Adjusted_Quality_Score'].to_numpy()
+        runtimes = dataset_results['Adjusted_Total_Time'].to_numpy()
 
-            for synthesizer in synthesizers:
-                loc_synthesizer = (result['Synthesizer'] == synthesizer) & (
-                    result['Dataset'] == dataset
-                )
-                score_synthesizer = result.loc[loc_synthesizer]['Quality_Score'].to_numpy()
-                result.loc[loc_synthesizer, 'Win'] = (score_synthesizer > score_baseline).astype(
-                    int
-                )
+        is_on_frontier = []
+        for quality, runtime in zip(qualities, runtimes):
+            dominated = ((qualities > quality) & (runtimes < runtime)).any()
+            is_on_frontier.append(not dominated)
+
+        return pd.Series(is_on_frontier, index=dataset_results.index)
+
+    def _compute_pareto_frontier(self, result):
+        """Compute whether each row is on the Pareto frontier for all datasets."""
+        frontier_mask = result.groupby('Dataset', group_keys=False).apply(
+            self._compute_pareto_frontier_dataset
+        )
+
+        return frontier_mask.reindex(result.index)
+
+    def _compute_meets_baseline_quality(self, result):
+        """Compute whether each row meets or exceeds the baseline quality for all datasets."""
+        baseline_scores = (
+            result
+            .loc[
+                result['Synthesizer'] == self.baseline_synthesizer,
+                ['Dataset', 'Adjusted_Quality_Score'],
+            ]
+            .drop_duplicates(subset='Dataset')
+            .rename(columns={'Adjusted_Quality_Score': 'Baseline_Quality_Score'})
+        )
+
+        result_with_baseline = result.merge(baseline_scores, on='Dataset', how='left')
+        meet_baseline = (
+            result_with_baseline['Adjusted_Quality_Score']
+            >= result_with_baseline['Baseline_Quality_Score']
+        )
+
+        return meet_baseline
+
+    def _compute_wins(self, result):
+        """Compute wins based on baseline quality and Pareto frontier."""
+        result['Meets_Baseline_Quality'] = self._compute_meets_baseline_quality(result)
+        result['On_Pareto_Frontier'] = self._compute_pareto_frontier(result)
+        result['Win'] = (result['Meets_Baseline_Quality'] & result['On_Pareto_Frontier']).astype(
+            int
+        )
+        result = result.drop(columns=['Meets_Baseline_Quality', 'On_Pareto_Frontier'])
+
+        return result
 
     def _get_summarize_table(self, folder_to_results, folder_infos):
         """Create a summary table from the results."""
