@@ -1,10 +1,28 @@
-name: Run SDGym Benchmark
+name: _Run SDGym Benchmark
 
 on:
   workflow_call:
     inputs:
+      config_filepath:
+        required: false
+        type: string
       modality:
-        required: true
+        required: false
+        type: string
+      datasets:
+        required: false
+        type: string
+      synthesizers:
+        required: false
+        type: string
+      num_instances:
+        required: false
+        type: string
+      output_destination:
+        required: false
+        type: string
+      timeout:
+        required: false
         type: string
     secrets:
       SDV_ENTERPRISE_USERNAME:
@@ -13,11 +31,13 @@ on:
         required: true
       GCP_SERVICE_ACCOUNT_JSON:
         required: true
+      GCP_PROJECT_ID:
+        required: true
+      GCP_ZONE:
+        required: true
       AWS_ACCESS_KEY_ID:
         required: true
       AWS_SECRET_ACCESS_KEY:
-        required: true
-      SLACK_TOKEN:
         required: true
 
 jobs:
@@ -51,7 +71,7 @@ jobs:
               license_key='${LICENSE_KEY}',
           )
           "
-          python -m pip install "sdgym[all]"
+          python -m pip install ".[all]"
 
           echo "VIRTUAL_ENV=$(pwd)/venv" >> $GITHUB_ENV
           echo "$(pwd)/venv/bin" >> $GITHUB_PATH
@@ -59,11 +79,43 @@ jobs:
       - name: Run SDGym Benchmark
         env:
           GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           GCP_ZONE: ${{ secrets.GCP_ZONE }}
           SDV_ENTERPRISE_USERNAME: ${{ secrets.SDV_ENTERPRISE_USERNAME }}
           SDV_ENTERPRISE_LICENSE_KEY: ${{ secrets.SDV_ENTERPRISE_LICENSE_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
-          invoke run-sdgym-benchmark --modality "${{ inputs.modality }}"
+          CMD=(python sdgym/_benchmark_launcher/script.py)
+
+          add_arg() {
+            local flag="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              CMD+=("$flag" "$value")
+            fi
+          }
+
+          add_list_arg() {
+            local flag="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              CMD+=("$flag")
+              read -r -a items <<< "$value"
+              CMD+=("${items[@]}")
+            fi
+          }
+
+          add_arg --config-filepath "${{ inputs.config_filepath }}"
+          add_arg --modality "${{ inputs.modality }}"
+          add_list_arg --datasets "${{ inputs.datasets }}"
+          add_list_arg --synthesizers "${{ inputs.synthesizers }}"
+          add_arg --num-instances "${{ inputs.num_instances }}"
+          add_arg --output-destination "${{ inputs.output_destination }}"
+          add_arg --timeout "${{ inputs.timeout }}"
+
+          printf 'Running command:'
+          printf ' %q' "${CMD[@]}"
+          printf '\n'
+
+          "${CMD[@]}"
