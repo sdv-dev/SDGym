@@ -13,6 +13,7 @@ from sdgym._benchmark.benchmark import (
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     OUTPUT_DESTINATION_AWS,
+    TIMEOUT,
     _exclude_datasets,
     _parse_args,
     get_result_folder_name,
@@ -195,7 +196,7 @@ def main():
             credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
             synthesizers=synthesizers,
             sdv_datasets=datasets,
-            timeout=345600,  # 4 days
+            timeout=TIMEOUT,  # 4 days
         )
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality=modality)

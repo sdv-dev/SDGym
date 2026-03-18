@@ -12,6 +12,7 @@ from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
 
+TIMEOUT = 345600
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
 SLACK_CHANNEL = 'sdgym'

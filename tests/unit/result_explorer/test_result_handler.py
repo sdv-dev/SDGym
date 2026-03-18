@@ -14,6 +14,7 @@ from sdgym.result_explorer.result_handler import (
     ResultsHandler,
     S3ResultsHandler,
 )
+from sdgym.run_benchmark.utils import TIMEOUT
 
 
 class TestResultsHandler:
@@ -270,21 +271,50 @@ class TestResultsHandler:
         # Setup
         results = [
             pd.DataFrame({
-                'Dataset': ['A', 'A', 'B', 'B', 'C'],
-                'Synthesizer': ['Synth1', 'Synth2(1)', 'Synth1', 'Synth2(1)', 'Synth1'],
-                'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+                'Dataset': ['A', 'A', 'A', 'B', 'B', 'B'],
+                'Synthesizer': [
+                    'Synth1',
+                    'Synth2(1)',
+                    'UniformSynthesizer',
+                    'Synth1',
+                    'Synth2(1)',
+                    'UniformSynthesizer',
+                ],
+                'Train_Time': [10, 100, 1000, 20, 200, 2000],
+                'Sample_Time': [1, 10, 100, 2, 20, 200],
+                'Quality_Score': [0.1, 0.4, 0.7, 0.2, 0.5, 0.8],
+                'Error': [None, 'Synthesizer Timeout', None, None, None, None],
+                'Adjusted_Total_Time': [1011, 1000 + TIMEOUT + 100, 2100, 2022, 2220, 4200],
+                'Adjusted_Quality_Score': [0.1, 0.7, 0.7, 0.2, 0.5, 0.8],
             }),
             pd.DataFrame({
-                'Dataset': ['D', 'D', 'D'],
-                'Synthesizer': ['Synth1(2)', 'Synth2', 'Synth1(2)'],
-                'Quality_Score': [0.7, 0.8, 0.9],
+                'Dataset': ['A', 'A', 'B', 'B', 'C', 'C', 'C'],
+                'Synthesizer': [
+                    'UniformSynthesizer(2)',
+                    'Synth1(2)',
+                    'UniformSynthesizer(3)',
+                    'Synth2(2)',
+                    'Synth1',
+                    'Synth2',
+                    'UniformSynthesizer',
+                ],
+                'Train_Time': [9999, 111, 9998, 222, 30, 300, 3000],
+                'Sample_Time': [999, 11, 998, 22, 3, 30, 300],
+                'Quality_Score': [0.99, 0.11, 0.98, 0.22, 0.3, 0.6, 0.9],
+                'Error': [None, None, None, None, None, None, None],
+                'Adjusted_Total_Time': [10998, 10121, 10996, 10242, 3033, 3330, 6300],
+                'Adjusted_Quality_Score': [0.99, 0.11, 0.98, 0.22, 0.3, 0.6, 0.9],
             }),
         ]
         invalid_results = [
             pd.DataFrame({
-                'Dataset': ['A', 'A', 'B', 'B', 'C'],
-                'Synthesizer': ['Synth1', 'Synth2', 'Synth3', 'Synth2', 'Synth1'],
-                'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
+                'Dataset': ['A', 'A', 'B', 'B'],
+                'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'UniformSynthesizer'],
+                'Train_Time': [10, 100, 20, 2000],
+                'Sample_Time': [1, 10, 2, 200],
+                'Quality_Score': [0.1, 0.4, 0.2, 0.8],
+                'Adjusted_Total_Time': [11, 110, 22, 2200],
+                'Adjusted_Quality_Score': [0.1, 0.4, 0.2, 0.8],
             }),
         ]
         handler = Mock()
@@ -299,11 +329,36 @@ class TestResultsHandler:
 
         # Assert
         expected_results = pd.DataFrame({
-            'Dataset': ['A', 'A', 'B', 'B', 'D', 'D'],
-            'Synthesizer': ['Synth1', 'Synth2'] * 3,
-            'Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.7, 0.8],
+            'Dataset': ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'],
+            'Synthesizer': [
+                'Synth1',
+                'Synth2',
+                'UniformSynthesizer',
+                'Synth1',
+                'Synth2',
+                'UniformSynthesizer',
+                'Synth1',
+                'Synth2',
+                'UniformSynthesizer',
+            ],
+            'Train_Time': [10, 100, 1000, 20, 200, 2000, 30, 300, 3000],
+            'Sample_Time': [1, 10, 100, 2, 20, 200, 3, 30, 300],
+            'Quality_Score': [0.1, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.9],
+            'Error': [None, 'Synthesizer Timeout', None, None, None, None, None, None, None],
+            'Adjusted_Total_Time': [
+                1011,
+                1000 + TIMEOUT + 100,
+                2100,
+                2022,
+                2220,
+                4200,
+                3033,
+                3330,
+                6300,
+            ],
+            'Adjusted_Quality_Score': [0.1, 0.7, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.9],
         })
-        pd.testing.assert_frame_equal(processed_results, expected_results)
+        pd.testing.assert_frame_equal(processed_results, expected_results, check_dtype=False)
 
     def test_summarize(self):
         """Test the `summarize` method."""

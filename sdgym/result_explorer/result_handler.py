@@ -13,6 +13,8 @@ import yaml
 from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
+from sdgym.benchmark import _add_adjusted_scores
+from sdgym.run_benchmark.utils import TIMEOUT
 from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
@@ -177,6 +179,7 @@ class ResultsHandler(ABC):
         aggregated_results = aggregated_results.drop_duplicates(
             subset=['Dataset', 'Synthesizer'], keep='first'
         )
+        aggregated_results = _add_adjusted_scores(aggregated_results, timeout=TIMEOUT)
         all_synthesizers = aggregated_results['Synthesizer'].unique()
         dataset_synth_counts = aggregated_results.groupby('Dataset')['Synthesizer'].nunique()
         valid_datasets = dataset_synth_counts[dataset_synth_counts == len(all_synthesizers)].index
