@@ -18,11 +18,6 @@ from sdgym.run_benchmark.utils import (
 )
 from sdgym.s3 import get_s3_client, parse_s3_path
 
-MODALITY_TO_CONFIG_FILE = {
-    'single_table': 'benchmark_single_table.yaml',
-    'multi_table': 'benchmark_multi_table.yaml',
-}
-
 
 def append_benchmark_run(
     aws_access_key_id, aws_secret_access_key, date_str, modality='single_table'
