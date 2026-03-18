@@ -55,13 +55,17 @@ _GCP_SERVICE_ACCOUNT_JSON = 'GCP_SERVICE_ACCOUNT_JSON'
 _GCP_SERVICE_ACCOUNT_JSON_FILEPATH = 'GCP_SERVICE_ACCOUNT_JSON_FILEPATH'
 
 
-def _resolve_modality_config(modality):
+def _load_merged_modality_config(modality):
+    """Load and merge the base and modality-specific benchmark configs."""
     base_config = _load_yaml_resource('benchmark_base.yaml')
     modality_config = _load_yaml_resource(MODALITY_TO_CONFIG_FILE[modality])
-    merged_config = _deep_merge(base_config, modality_config)
-    resolved_dict = {key: value for key, value in merged_config.items() if key in CONFIG_KEYS}
+    return _deep_merge(base_config, modality_config)
 
-    return resolved_dict
+
+def _resolve_modality_config(modality):
+    """Resolve the launchable benchmark config for a modality."""
+    merged_config = _load_merged_modality_config(modality)
+    return {key: value for key, value in merged_config.items() if key in CONFIG_KEYS}
 
 
 def _resolve_datasets(datasets_spec):

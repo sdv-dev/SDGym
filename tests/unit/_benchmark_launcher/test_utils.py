@@ -12,11 +12,57 @@ from sdgym._benchmark_launcher.utils import (
     _get_env_credentials,
     _get_gcp_credentials_from_env,
     _load_json_file,
+    _load_merged_modality_config,
     _load_yaml_resource,
     _resolve_datasets,
     _resolve_modality_config,
     resolve_credentials,
 )
+
+
+@patch('sdgym._benchmark_launcher.utils._load_yaml_resource')
+def test__load_merged_modality_config_calls_load_yaml_resource(mock_load_yaml):
+    """Test `_load_merged_modality_config` loads and merges base and modality configs."""
+    # Setup
+    modality = 'single_table'
+    base_config = {'a': 1, 'b': {'x': 1}}
+    modality_config = {'b': {'y': 2}, 'c': 3}
+    mock_load_yaml.side_effect = [base_config, modality_config]
+
+    # Run
+    merged = _load_merged_modality_config(modality)
+
+    # Assert
+    mock_load_yaml.assert_has_calls([
+        call('benchmark_base.yaml'),
+        call(MODALITY_TO_CONFIG_FILE[modality]),
+    ])
+    assert merged == {'a': 1, 'b': {'x': 1, 'y': 2}, 'c': 3}
+
+
+@patch('sdgym._benchmark_launcher.utils._load_merged_modality_config')
+def test__resolve_modality_config_mock(mock_load_modality_config):
+    """Test `_resolve_modality_config` merges configs and filters to CONFIG_KEYS."""
+    # Setup
+    modality = 'single_table'
+    base = {
+        'method_params': {'timeout': 1},
+        'extra': 'drop',
+        'compute': {'service': 'gcp'},
+        'credentials_filepath': {},
+    }
+    mock_load_modality_config.return_value = base
+
+    # Run
+    config = _resolve_modality_config(modality)
+
+    # Assert
+    mock_load_modality_config.assert_called_once_with(modality)
+    assert config == {
+        'method_params': {'timeout': 1},
+        'credentials_filepath': {},
+        'compute': {'service': 'gcp'},
+    }
 
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
