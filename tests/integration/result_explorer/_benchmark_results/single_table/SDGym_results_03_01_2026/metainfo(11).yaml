@@ -1,0 +1,10 @@
+completed_date: 03_01_2026 16:06:03
+jobs:
+- - census
+  - RealTabFormerSynthesizer(11)
+- - census
+  - UniformSynthesizer(11)
+modality: single_table
+run_id: run_03_01_2026_11
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:02:27

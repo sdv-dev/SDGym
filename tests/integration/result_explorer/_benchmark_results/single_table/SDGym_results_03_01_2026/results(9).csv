@@ -1,0 +1,3 @@
+Synthesizer,Dataset,Dataset_Size_MB,Train_Time,Peak_Memory_MB,Synthesizer_Size_MB,Sample_Time,Evaluate_Time,Diagnostic_Score,Quality_Score,Adjusted_Total_Time,Adjusted_Quality_Score
+RealTabFormerSynthesizer(9),intrusion,162.039016,93455.456859,11918.033989,181.453233,6680.374095,48.324162,0.9999987410429525,0.9631145818874595,100136.671831,0.9631145818874595
+UniformSynthesizer(9),intrusion,162.039016,0.840877,791.568725,150.190578,0.498046,36.386555,1.0,0.39939275677462727,2.1798,0.39939275677462727

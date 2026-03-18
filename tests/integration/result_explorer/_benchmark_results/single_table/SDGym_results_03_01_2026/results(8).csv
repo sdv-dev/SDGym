@@ -1,0 +1,3 @@
+Synthesizer,Dataset,Dataset_Size_MB,Train_Time,Peak_Memory_MB,Synthesizer_Size_MB,Sample_Time,Evaluate_Time,Diagnostic_Score,Quality_Score,Adjusted_Total_Time,Adjusted_Quality_Score
+RealTabFormerSynthesizer(8),covtype,255.645408,327044.139299,16829.329732,181.893473,8763.109735,80.020167,0.999999092492535,0.9891650151078218,335808.211304,0.9891650151078218
+UniformSynthesizer(8),covtype,255.645408,0.96227,1288.722766,255.648525,0.55078,72.996077,1.0,0.5232309272116891,2.47532,0.5232309272116891

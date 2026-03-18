@@ -1,0 +1,10 @@
+completed_date: 03_05_2026 03:22:02
+jobs:
+- - covtype
+  - RealTabFormerSynthesizer(8)
+- - covtype
+  - UniformSynthesizer(8)
+modality: single_table
+run_id: run_03_01_2026_8
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:01:16

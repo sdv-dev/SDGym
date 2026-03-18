@@ -1,0 +1,10 @@
+completed_date: 03_02_2026 09:52:55
+jobs:
+- - intrusion
+  - RealTabFormerSynthesizer(9)
+- - intrusion
+  - UniformSynthesizer(9)
+modality: single_table
+run_id: run_03_01_2026_9
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:01:38

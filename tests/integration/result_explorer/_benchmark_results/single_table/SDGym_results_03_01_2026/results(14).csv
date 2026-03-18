@@ -1,0 +1,3 @@
+Synthesizer,Dataset,Dataset_Size_MB,Train_Time,Peak_Memory_MB,Synthesizer_Size_MB,Sample_Time,Evaluate_Time,Diagnostic_Score,Quality_Score,Adjusted_Total_Time,Adjusted_Quality_Score
+CTGANSynthesizer(14),intrusion,162.039016,18639.387805,2660.009319,18.951021,49.174382,32.423786,1.0,0.7851332643596358,18689.301291,0.7851332643596358
+UniformSynthesizer(14),intrusion,162.039016,0.739104,790.63454,150.190578,0.519913,37.696331,1.0,0.4047882746588867,1.9981209999999998,0.4047882746588867

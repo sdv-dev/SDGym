@@ -1,0 +1,34 @@
+completed_date: 03_01_2026 10:46:08
+jobs:
+- - adult
+  - CopulaGANSynthesizer(6)
+- - adult
+  - UniformSynthesizer(6)
+- - alarm
+  - CopulaGANSynthesizer(6)
+- - alarm
+  - UniformSynthesizer(6)
+- - census
+  - CopulaGANSynthesizer(6)
+- - census
+  - UniformSynthesizer(6)
+- - child
+  - CopulaGANSynthesizer(6)
+- - child
+  - UniformSynthesizer(6)
+- - expedia_hotel_logs
+  - CopulaGANSynthesizer(6)
+- - expedia_hotel_logs
+  - UniformSynthesizer(6)
+- - insurance
+  - CopulaGANSynthesizer(6)
+- - insurance
+  - UniformSynthesizer(6)
+- - news
+  - CopulaGANSynthesizer(6)
+- - news
+  - UniformSynthesizer(6)
+modality: single_table
+run_id: run_03_01_2026_6
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:03:43

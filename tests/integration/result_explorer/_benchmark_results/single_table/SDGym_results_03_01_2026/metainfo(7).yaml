@@ -1,0 +1,26 @@
+completed_date: 03_01_2026 13:24:32
+jobs:
+- - adult
+  - RealTabFormerSynthesizer(7)
+- - adult
+  - UniformSynthesizer(7)
+- - alarm
+  - RealTabFormerSynthesizer(7)
+- - alarm
+  - UniformSynthesizer(7)
+- - child
+  - RealTabFormerSynthesizer(7)
+- - child
+  - UniformSynthesizer(7)
+- - insurance
+  - RealTabFormerSynthesizer(7)
+- - insurance
+  - UniformSynthesizer(7)
+- - news
+  - RealTabFormerSynthesizer(7)
+- - news
+  - UniformSynthesizer(7)
+modality: single_table
+run_id: run_03_01_2026_7
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:04:26

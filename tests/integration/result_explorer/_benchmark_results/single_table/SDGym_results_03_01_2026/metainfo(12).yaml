@@ -1,0 +1,10 @@
+completed_date: 03_01_2026 12:51:25
+jobs:
+- - covtype
+  - CTGANSynthesizer(12)
+- - covtype
+  - UniformSynthesizer(12)
+modality: single_table
+run_id: run_03_01_2026_12
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:03:19
