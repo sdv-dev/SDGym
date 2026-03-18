@@ -5,7 +5,7 @@ import shutil
 import stat
 import sys
 from pathlib import Path
-
+import shlex
 import tomli
 from invoke import task
 from packaging.requirements import Requirement
@@ -218,3 +218,59 @@ def notify_sdgym_benchmark_uploaded(c, folder_name, commit_url=None, modality='s
     from sdgym.run_benchmark.utils import post_benchmark_uploaded_message
 
     post_benchmark_uploaded_message(folder_name, commit_url, modality)
+
+
+@task
+def launch_benchmark(
+    c,
+    config_filepath=None,
+    modality=None,
+    datasets=None,
+    synthesizers=None,
+    num_instances=None,
+    output_destination=None,
+    timeout=None,
+):
+    """Launch the SDGym benchmark through the benchmark launcher script.
+
+    This task forwards the provided arguments to
+    ``sdgym/_benchmark_launcher/script.py``.
+
+    The launcher supports two modes:
+
+    - If ``config_filepath`` is provided, the benchmark configuration is loaded
+      from that file.
+    - Otherwise, the configuration is built from the remaining arguments. In
+      this case, ``modality`` and ``output_destination`` are required.
+
+    When building the configuration from arguments:
+
+    - If ``datasets``, ``synthesizers``, and ``num_instances`` are all omitted,
+      the default monthly benchmark configuration for the selected modality is
+      used.
+    - If ``num_instances`` is omitted, it defaults to ``1``.
+    - If ``datasets`` or ``synthesizers`` is omitted, the corresponding
+      defaults from the monthly benchmark configuration are used.
+    """
+    command = ['python', 'sdgym/_benchmark_launcher/script.py']
+    arguments = [
+        ('--config-filepath', config_filepath),
+        ('--modality', modality),
+        ('--datasets', datasets),
+        ('--synthesizers', synthesizers),
+        ('--num-instances', num_instances),
+        ('--output-destination', output_destination),
+        ('--timeout', timeout),
+    ]
+    for flag, value in arguments:
+        if value is None:
+            continue
+
+        if isinstance(value, list):
+            command.append(flag)
+            command.extend(str(item) for item in value)
+        else:
+            command.extend([flag, str(value)])
+
+    quoted_command = ' '.join(shlex.quote(part) for part in command)
+    c.run(quoted_command)
