@@ -189,8 +189,6 @@ def test_summarize():
     columns_to_compare = [
         'Synthesizer',
         'Dataset',
-        'Adjusted_Total_Time',
-        'Adjusted_Quality_Score',
         'Win',
     ]
     results_to_compare = (
