@@ -83,11 +83,14 @@ class ResultsHandler(ABC):
 
     def _compute_pareto_frontier(self, result):
         """Compute whether each row is on the Pareto frontier for all datasets."""
-        frontier_mask = result.groupby('Dataset', group_keys=False).apply(
-            self._compute_pareto_frontier_dataset
-        )
+        frontier_masks = []
+        for _, dataset_results in result.groupby('Dataset', sort=False):
+            dataset_frontier = self._compute_pareto_frontier_dataset(dataset_results)
+            dataset_frontier = pd.Series(dataset_frontier, index=dataset_results.index)
+            frontier_masks.append(dataset_frontier)
 
-        return frontier_mask.reindex(result.index)
+        frontier_mask = pd.concat(frontier_masks).reindex(result.index)
+        return frontier_mask.astype(bool)
 
     def _compute_meets_baseline_quality(self, result):
         """Compute whether each row meets or exceeds the baseline quality for all datasets."""
@@ -131,7 +134,6 @@ class ResultsHandler(ABC):
                 f' - # datasets: {folder_infos[folder]["# datasets"]}'
                 f' - sdgym version: {folder_infos[folder]["sdgym_version"]}'
             )
-            results = results.loc[results['Synthesizer'] != self.baseline_synthesizer]
             column_data = results.groupby(['Synthesizer'])['Win'].sum()
             columns.append((date_obj, column_name, column_data))
 
@@ -219,7 +221,7 @@ class ResultsHandler(ABC):
                 continue
 
             aggregated_results = self._process_results(results)
-            self._compute_wins(aggregated_results)
+            aggregated_results = self._compute_wins(aggregated_results)
             folder_to_results[folder] = aggregated_results
             folder_infos = self._get_column_name_infos(folder_to_results)
 

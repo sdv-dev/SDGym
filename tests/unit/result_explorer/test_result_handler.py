@@ -237,8 +237,8 @@ class TestResultsHandler:
 
         # Assert
         expected_summary = pd.DataFrame({
-            'Synthesizer': ['Synth1', 'Synth2'],
-            '07_15_2025 - # datasets: 3 - sdgym version: 0.9.0': [2, 1],
+            'Synthesizer': ['GaussianCopulaSynthesizer', 'Synth1', 'Synth2'],
+            '07_15_2025 - # datasets: 3 - sdgym version: 0.9.0': [0, 2, 1],
         })
         pd.testing.assert_frame_equal(result, expected_summary)
 
@@ -380,7 +380,7 @@ class TestResultsHandler:
         result_list = [result_1, result_2]
         handler._get_results = Mock(return_value=result_list)
         aggregated_results = pd.concat(result_list, ignore_index=True)
-        handler._compute_wins = Mock()
+        handler._compute_wins = Mock(return_value=aggregated_results)
         handler._get_column_name_infos = Mock(
             return_value={
                 folder_name: {'date': '07_15_2025', 'sdgym_version': '0.9.0', '# datasets': 1}
