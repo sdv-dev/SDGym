@@ -70,7 +70,7 @@ class ResultsHandler(ABC):
             raise ValueError(f"Folder '{folder_name}' does not exist in the results directory.")
 
     def _compute_pareto_frontier_dataset(self, dataset_results):
-        """Compute whether each row is on the Pareto frontier for the dataset."""
+        """Compute whether synthesizers are on the Pareto frontier for the dataset."""
         qualities = dataset_results['Adjusted_Quality_Score'].to_numpy()
         runtimes = dataset_results['Adjusted_Total_Time'].to_numpy()
 
@@ -82,7 +82,7 @@ class ResultsHandler(ABC):
         return pd.Series(is_on_frontier, index=dataset_results.index)
 
     def _compute_pareto_frontier(self, result):
-        """Compute whether each row is on the Pareto frontier for all datasets."""
+        """Compute whether synthesizers are on the Pareto frontier for all datasets."""
         frontier_masks = []
         for _, dataset_results in result.groupby('Dataset', sort=False):
             dataset_frontier = self._compute_pareto_frontier_dataset(dataset_results)
@@ -93,7 +93,7 @@ class ResultsHandler(ABC):
         return frontier_mask.astype(bool)
 
     def _compute_meets_baseline_quality(self, result):
-        """Compute whether each row meets or exceeds the baseline quality for all datasets."""
+        """Compute whether synthesizers meet or exceed the baseline quality for all datasets."""
         baseline_scores = (
             result
             .loc[
@@ -182,6 +182,20 @@ class ResultsHandler(ABC):
             subset=['Dataset', 'Synthesizer'], keep='first'
         )
         aggregated_results = _add_adjusted_scores(aggregated_results, timeout=TIMEOUT)
+
+        # Backward compatibility for runs done before graceful degradation logic existed
+        fallback_columns = {
+            'Adjusted_Quality_Score': aggregated_results['Quality_Score'],
+            'Adjusted_Total_Time': (
+                aggregated_results['Train_Time'] + aggregated_results['Sample_Time']
+            ),
+        }
+        missing_adjusted_columns = [
+            column for column in fallback_columns if aggregated_results[column].isna().all()
+        ]
+        for column in missing_adjusted_columns:
+            aggregated_results[column] = fallback_columns[column]
+
         all_synthesizers = aggregated_results['Synthesizer'].unique()
         dataset_synth_counts = aggregated_results.groupby('Dataset')['Synthesizer'].nunique()
         valid_datasets = dataset_synth_counts[dataset_synth_counts == len(all_synthesizers)].index
@@ -193,6 +207,9 @@ class ResultsHandler(ABC):
             )
 
         filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
+        if missing_adjusted_columns:
+            filtered_results = filtered_results.drop(columns=missing_adjusted_columns)
+
         return filtered_results.reset_index(drop=True)
 
     def summarize(self, results_folder_name):

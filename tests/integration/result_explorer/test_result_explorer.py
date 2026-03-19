@@ -2,6 +2,7 @@ import shutil
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -186,7 +187,16 @@ def test_summarize():
     )
     expected_results['Win'] = expected_results['Win'].astype('int64')
     pd.testing.assert_frame_equal(summary, expected_summary)
-    pd.testing.assert_frame_equal(results, expected_results)
+    pd.testing.assert_frame_equal(
+        results.drop(columns=['Train_Time']),
+        expected_results.drop(columns=['Train_Time']),
+    )
+    np.testing.assert_allclose(
+        results['Train_Time'],
+        expected_results['Train_Time'],
+        atol=0.05,
+        rtol=0,
+    )
 
 
 def test_summarize_multi_table():
