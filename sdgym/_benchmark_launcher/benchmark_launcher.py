@@ -1,7 +1,8 @@
 """Define the BenchmarkLauncher class, which launches and manages benchmark executions."""
 
 import cloudpickle
-
+from google.cloud import compute_v1
+from google.oauth2 import service_account
 from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _resolve_datasets,
@@ -61,6 +62,28 @@ class BenchmarkLauncher:
 
         self._launch()
 
+    def _list_gcp_instances(self, client):
+        """List all non-terminated GCP instances in the configured project."""
+        instances = []
+        response = client.aggregated_list(
+            project=project_id,
+            return_partial_success=True,
+        )
+        for _, scoped_list in response:
+            scoped_instances = getattr(scoped_list, 'instances', None) or []
+            for instance in scoped_instances:
+                if instance.status == 'TERMINATED':
+                    continue
+
+                instances.append({
+                    'id': str(instance.id),
+                    'name': instance.name,
+                    'zone': self._extract_zone_name(instance.zone),
+                    'status': instance.status,
+                })
+
+        return instances
+
     def terminate(self, instance_ids=None):
         """Terminate running benchmark instance jobs.
 
@@ -69,7 +92,53 @@ class BenchmarkLauncher:
                 List of instance IDs to terminate.
                 If None, terminates all instance jobs. Default to None.
         """
-        raise NotImplementedError
+        if self.compute_service != 'gcp':
+            raise NotImplementedError(
+                f"terminate is only implemented for GCP right now. Got: {self.compute_service!r}."
+            )
+
+        credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
+        gcp_credentials = credentials.get('gcp')
+        project_id = gcp_credentials.get('project_id')
+        client = compute_v1.InstancesClient(credentials=gcp_credentials)
+
+        all_instances = self._list_gcp_instances(client)
+        if instance_ids is not None:
+            target_ids = {str(instance_id) for instance_id in instance_ids}
+            instances_to_delete = [
+                instance
+                for instance in all_instances
+                if instance['id'] in target_ids
+            ]
+        else:
+            instances_to_delete = all_instances
+        
+        if not instances_to_delete:
+            if verbose:
+                print('No matching GCP instances found to terminate.')
+
+            return []
+
+        deleted_instances = []
+        for instance in instances_to_delete:
+            if verbose:
+                print(
+                    f"Deleting GCP instance {instance['name']!r} "
+                    f"(id={instance['id']}, zone={instance['zone']})..."
+                )
+
+            operation = client.delete(
+                project=project_id,
+                zone=instance['zone'],
+                instance=instance['name'],
+            )
+            operation.result()
+
+            deleted_instances.append(instance)
+            if verbose:
+                print(f'Terminated {len(deleted_instances)} GCP instance(s).')
+
+
 
     def get_status(self, dataset_names=None, synthesizer_names=None, instance_ids=None):
         """Get status of running benchmark instance jobs.
