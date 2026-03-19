@@ -114,7 +114,7 @@ class TestResultsHandler:
         pd.testing.assert_series_equal(result, expected_result)
 
     def test__compute_wins_mock(self):
-        """Test the `_compute_wins` method with a mocks."""
+        """Test the `_compute_wins` method with mocks."""
         # Setup
         data = pd.DataFrame({
             'Dataset': ['A', 'A', 'B', 'B', 'C'],
@@ -139,7 +139,7 @@ class TestResultsHandler:
             'Synthesizer': ['Synth1', 'Synth2', 'Synth1', 'Synth2', 'Synth1'],
             'Adjusted_Quality_Score': [0.5, 0.6, 0.7, 0.6, 0.8],
             'Adjusted_Total_Time': [10, 20, 150, 100, 220],
-            'Win': [1, 0, 1, 0, 1],
+            'Win': pd.Series([1, 0, 1, 0, 1], dtype=result['Win'].dtype),
         })
         pd.testing.assert_frame_equal(result, expected_result)
         handler._compute_meets_baseline_quality.assert_called_once_with(data)
