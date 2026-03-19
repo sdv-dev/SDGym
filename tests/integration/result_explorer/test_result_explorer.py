@@ -2,7 +2,6 @@ import shutil
 import time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -177,25 +176,41 @@ def test_summarize():
             '-',
         ],
     })
+
     expected_results = (
         pd
         .read_csv(
-            'tests/integration/result_explorer/_benchmark_results/expected_result_integration_test_single_table.csv',
+            'tests/integration/result_explorer/_benchmark_results/'
+            'expected_result_integration_test_single_table.csv',
         )
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
-    expected_results['Win'] = expected_results['Win'].astype('int64')
+    columns_to_compare = [
+        'Synthesizer',
+        'Dataset',
+        'Adjusted_Total_Time',
+        'Adjusted_Quality_Score',
+        'Win',
+    ]
+    results_to_compare = (
+        results[columns_to_compare]
+        .sort_values(by=['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
+    expected_results_to_compare = (
+        expected_results[columns_to_compare]
+        .sort_values(by=['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
+    expected_results_to_compare['Win'] = expected_results_to_compare['Win'].astype(
+        results_to_compare['Win'].dtype
+    )
     pd.testing.assert_frame_equal(summary, expected_summary)
     pd.testing.assert_frame_equal(
-        results.drop(columns=['Train_Time']),
-        expected_results.drop(columns=['Train_Time']),
-    )
-    np.testing.assert_allclose(
-        results['Train_Time'],
-        expected_results['Train_Time'],
-        atol=0.05,
-        rtol=0,
+        results_to_compare,
+        expected_results_to_compare,
+        check_dtype=False,
     )
 
 

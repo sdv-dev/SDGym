@@ -9,12 +9,12 @@ import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
+from sdgym.benchmark import TIMEOUT
 from sdgym.result_explorer.result_handler import (
     LocalResultsHandler,
     ResultsHandler,
     S3ResultsHandler,
 )
-from sdgym.run_benchmark.utils import TIMEOUT
 
 
 class TestResultsHandler:

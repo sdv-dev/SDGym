@@ -10,10 +10,10 @@ from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
 )
+from sdgym.benchmark import TIMEOUT
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     OUTPUT_DESTINATION_AWS,
-    TIMEOUT,
     _exclude_datasets,
     _parse_args,
     get_result_folder_name,

@@ -13,8 +13,7 @@ import yaml
 from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
-from sdgym.benchmark import _add_adjusted_scores
-from sdgym.run_benchmark.utils import TIMEOUT
+from sdgym.benchmark import TIMEOUT, _add_adjusted_scores
 from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'

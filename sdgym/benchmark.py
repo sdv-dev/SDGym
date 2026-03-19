@@ -64,6 +64,7 @@ from sdgym.utils import (
     used_memory,
 )
 
+TIMEOUT = 345600
 LOGGER = logging.getLogger(__name__)
 DEFAULT_SINGLE_TABLE_SYNTHESIZERS = [
     'GaussianCopulaSynthesizer',
