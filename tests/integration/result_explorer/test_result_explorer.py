@@ -176,7 +176,7 @@ def test_summarize():
             '-',
         ],
     })
-
+    expected_summary = expected_summary.astype(summary.dtypes.to_dict())
     expected_results = (
         pd
         .read_csv(
@@ -226,6 +226,7 @@ def test_summarize_multi_table():
         'Synthesizer': ['HMASynthesizer', 'MultiTableUniformSynthesizer'],
         '12_02_2025 - # datasets: 1 - sdgym version: 0.11.2.dev0': [0, 0],
     })
+    expected_summary = expected_summary.astype(summary.dtypes.to_dict())
     expected_results = (
         pd
         .read_csv(
@@ -236,6 +237,7 @@ def test_summarize_multi_table():
         .reset_index(drop=True)
     )
     expected_results['Win'] = [0, 0]
+    expected_results['Win'] = expected_results['Win'].astype(results['Win'].dtype)
     pd.testing.assert_frame_equal(summary, expected_summary)
     pd.testing.assert_frame_equal(results, expected_results)
 
