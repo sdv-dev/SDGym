@@ -130,11 +130,8 @@ class BenchmarkLauncher:
             error_message = '\n'.join(errors)
             raise ValueError(f'Invalid GCP credentials:\n{error_message}')
 
-        gcp_credentials_info = credentials['gcp']
-        project_id = gcp_credentials_info['project_id']
-        gcp_credentials = service_account.Credentials.from_service_account_info(
-            gcp_credentials_info
-        )
+        project_id = credentials['gcp']['project_id']
+        gcp_credentials = service_account.Credentials.from_service_account_info(credentials['gcp'])
         client = compute_v1.InstancesClient(credentials=gcp_credentials)
 
         return client, project_id
@@ -183,7 +180,7 @@ class BenchmarkLauncher:
         Args:
             instance_names (list of str, optional):
                 List of instance names to terminate.
-                If None, terminate all instances launched by this benchmark.
+                If None, terminate all instances launched by this benchmark. Defaults to None.
             verbose (bool):
                 Whether to print progress information. Defaults to True.
         """
@@ -192,9 +189,7 @@ class BenchmarkLauncher:
             self._terminate_gcp_instances(instances, verbose)
             return
 
-        raise NotImplementedError(
-            f'`terminate` is only implemented for GCP for now. Got: {self.compute_service!r}.'
-        )
+        raise NotImplementedError('`terminate()` is only implemented for GCP instances for now.')
 
     def get_status(self, dataset_names=None, synthesizer_names=None, instance_ids=None):
         """Get status of running benchmark instance jobs.

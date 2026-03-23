@@ -72,6 +72,7 @@ class TestBenchmarkLauncher:
         config.validate.assert_not_called()
         launcher._launch.assert_called_once_with()
 
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_ids')
     @patch(
         'sdgym._benchmark_launcher.benchmark_launcher.resolve_credentials',
         return_value={'aws': {}, 'gcp': {}, 'sdv': {}},
@@ -81,7 +82,7 @@ class TestBenchmarkLauncher:
         side_effect=[['d1'], ['d2']],
     )
     def test_launch_internal_calls_method_for_each_job(
-        self, mock_resolve_datasets, mock_resolve_credentials
+        self, mock_resolve_datasets, mock_resolve_credentials, mock_generate_benchmark_ids
     ):
         """Test `_launch` calls the underlying benchmark method for each job."""
         # Setup
@@ -112,6 +113,8 @@ class TestBenchmarkLauncher:
         config.validate = Mock()
         launcher = BenchmarkLauncher(config)
         launcher.method_to_run = Mock(name='method_to_run')
+        launcher.method_to_run.side_effect = ['instance-1', 'instance-2']
+        mock_generate_benchmark_ids.return_value = 'LAUNCH_ID_1'
 
         # Run
         launcher._launch()
@@ -139,6 +142,7 @@ class TestBenchmarkLauncher:
         ]
         launcher.method_to_run.assert_has_calls(expected_calls, any_order=False)
         assert launcher.method_to_run.call_count == 2
+        assert launcher.launch_to_instance_ids == {'LAUNCH_ID_1': ['instance-1', 'instance-2']}
 
     def test_list_gcp_instances(self):
         """Test the `_list_gcp_instances` method."""
@@ -389,6 +393,24 @@ class TestBenchmarkLauncher:
         launcher._terminate_gcp_instances.assert_called_once_with(
             ['instance-1', 'instance-2'], False
         )
+
+    def test_terminate_not_gcp(self):
+        """Test the `terminate` method when not using GCP."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        launcher.compute_service = 'aws'
+        expected_error = re.escape('`terminate()` is only implemented for GCP instances for now.')
+
+        # Run
+        with pytest.raises(NotImplementedError, match=expected_error):
+            launcher.terminate()
+
+        # Assert
+        launcher._validate_instance_names.assert_called_once_with(None)
 
     def test_get_status(self):
         """Test the `get_status` method."""
