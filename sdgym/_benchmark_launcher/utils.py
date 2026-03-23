@@ -114,25 +114,22 @@ def _deep_merge(base, override):
     return result
 
 
-def generate_benchmark_id(benchmark_launcher):
+def generate_benchmark_ids(prefixes):
     """Generate a unique identifier for the benchmark instance.
 
     This method creates a unique identifier by combining the modality, the compute
     service and the last part of a UUID4 composed by 6 characters.
 
     Args:
-        benchmark_launcher (BenchmarkLauncher):
-            An SDGym benchmark launcher.
+        prefixes (list of str):
+            A list of prefixes to include in the benchmark ID.
 
     Returns:
         ID:
             A unique identifier for this benchmark instance.
     """
-    modality = benchmark_launcher.modality
-    compute_service = benchmark_launcher.compute_service
     unique_id = ''.join(str(uuid.uuid4()).split('-'))[-6:]
-
-    return f'{modality}_{compute_service}_{unique_id}'
+    return '_'.join(prefixes + [unique_id])
 
 
 def _load_json_file(path):

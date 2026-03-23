@@ -1,14 +1,20 @@
 """Define the BenchmarkLauncher class, which launches and manages benchmark executions."""
 
+import logging
+import warnings
+
 import cloudpickle
 from google.cloud import compute_v1
 from google.oauth2 import service_account
+
 from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _resolve_datasets,
-    generate_benchmark_id,
+    generate_benchmark_ids,
     resolve_credentials,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 class BenchmarkLauncher:
@@ -40,13 +46,20 @@ class BenchmarkLauncher:
         self.modality = benchmark_config.modality
         self.compute_service = benchmark_config.compute.get('service')
         self.method_to_run = _METHODS[(self.modality, self.compute_service)]
-        self.benchmark_id = generate_benchmark_id(self)
+        self._benchmark_id = generate_benchmark_ids([
+            'BENCMARK_ID',
+            self.modality,
+            self.compute_service,
+        ])
+        self.launch_to_instance_ids = {}
 
     def _launch(self):
+        launch_id = generate_benchmark_ids(['LAUNCH_ID'])
+        self.launch_to_instance_ids[launch_id] = []
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
         for instance_job in self.benchmark_config.instance_jobs:
             sdv_datasets = _resolve_datasets(instance_job['datasets'])
-            self.method_to_run(
+            instance_name = self.method_to_run(
                 output_destination=instance_job['output_destination'],
                 synthesizers=instance_job['synthesizers'],
                 sdv_datasets=sdv_datasets,
@@ -54,6 +67,7 @@ class BenchmarkLauncher:
                 compute_config=self.benchmark_config.compute,
                 **self.benchmark_config.method_params,
             )
+            self.launch_to_instance_ids[launch_id].append(instance_name)
 
     def launch(self):
         """Run the BenchmarkConfig: validate it and then execute the specified benchmark method."""
@@ -62,15 +76,20 @@ class BenchmarkLauncher:
 
         self._launch()
 
-    def _list_gcp_instances(self, client):
+    def _extract_zone_name(self, zone):
+        """Extract the zone name from a GCP zone URL."""
+        return zone.split('/')[-1]
+
+    def _list_gcp_instances(self, client, project_id):
         """List all non-terminated GCP instances in the configured project."""
         instances = []
-        response = client.aggregated_list(
-            project=project_id,
-            return_partial_success=True,
-        )
+        response = client.aggregated_list(project=project_id)
+
         for _, scoped_list in response:
-            scoped_instances = getattr(scoped_list, 'instances', None) or []
+            scoped_instances = getattr(scoped_list, 'instances', None)
+            if not scoped_instances:
+                continue
+
             for instance in scoped_instances:
                 if instance.status == 'TERMINATED':
                     continue
@@ -84,47 +103,71 @@ class BenchmarkLauncher:
 
         return instances
 
-    def terminate(self, instance_ids=None):
-        """Terminate running benchmark instance jobs.
+    def _get_all_instance_names(self):
+        """Return all instance names launched by this BenchmarkLauncher."""
+        instance_names = []
+        for names in self.launch_to_instance_ids.values():
+            instance_names.extend(names)
+
+        return instance_names
+
+    def terminate(self, instances=None, verbose=True):
+        """Terminate running benchmark instances.
 
         Args:
-            instance_ids (list of str, optional):
-                List of instance IDs to terminate.
-                If None, terminates all instance jobs. Default to None.
+            instances (list of str, optional):
+                List of instance names to terminate.
+                If None, terminate all instances launched by this benchmark.
+            verbose (bool):
+                Whether to print progress information. Defaults to True.
         """
         if self.compute_service != 'gcp':
             raise NotImplementedError(
-                f"terminate is only implemented for GCP right now. Got: {self.compute_service!r}."
+                f'terminate is only implemented for GCP right now. Got: {self.compute_service!r}.'
+            )
+
+        launched_instances = self._get_all_instance_names()
+        instances = instances if instances is not None else launched_instances
+
+        unknown_instances = set(instances) - set(launched_instances)
+        if unknown_instances:
+            unknown_instances_str = "', '".join(sorted(unknown_instances))
+            launched_instances_str = "', '".join(sorted(launched_instances))
+            raise ValueError(
+                'Some provided instance names were not launched by this '
+                f"BenchmarkLauncher. Unknown: '{unknown_instances_str}'. "
+                f"Launched instances: '{launched_instances_str}'."
             )
 
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
-        gcp_credentials = credentials.get('gcp')
-        project_id = gcp_credentials.get('project_id')
+        gcp_credentials_info = credentials.get('gcp')
+        project_id = gcp_credentials_info.get('project_id')
+        gcp_credentials = service_account.Credentials.from_service_account_info(
+            gcp_credentials_info
+        )
+
         client = compute_v1.InstancesClient(credentials=gcp_credentials)
+        running_instances = self._list_gcp_instances(client, project_id)
+        running_instances_by_name = {instance['name']: instance for instance in running_instances}
+        instances_to_delete = [
+            running_instances_by_name[name]
+            for name in instances
+            if name in running_instances_by_name
+        ]
 
-        all_instances = self._list_gcp_instances(client)
-        if instance_ids is not None:
-            target_ids = {str(instance_id) for instance_id in instance_ids}
-            instances_to_delete = [
-                instance
-                for instance in all_instances
-                if instance['id'] in target_ids
-            ]
-        else:
-            instances_to_delete = all_instances
-        
-        if not instances_to_delete:
-            if verbose:
-                print('No matching GCP instances found to terminate.')
-
-            return []
+        not_running = sorted(set(instances) - set(running_instances_by_name))
+        if not_running and set(instances) != set(launched_instances):
+            not_running_str = "', '".join(not_running)
+            warnings.warn(
+                f"Some provided instance names are not currently running: '{not_running_str}'."
+            )
 
         deleted_instances = []
         for instance in instances_to_delete:
             if verbose:
-                print(
-                    f"Deleting GCP instance {instance['name']!r} "
-                    f"(id={instance['id']}, zone={instance['zone']})..."
+                LOGGER.info(
+                    f'Deleting GCP instance {instance["name"]!r} '
+                    f'(id={instance["id"]}, zone={instance["zone"]})...'
                 )
 
             operation = client.delete(
@@ -133,12 +176,10 @@ class BenchmarkLauncher:
                 instance=instance['name'],
             )
             operation.result()
+            deleted_instances.append(instance['name'])
 
-            deleted_instances.append(instance)
-            if verbose:
-                print(f'Terminated {len(deleted_instances)} GCP instance(s).')
-
-
+        if verbose:
+            LOGGER.info(f'Terminated {len(deleted_instances)} GCP instance(s).')
 
     def get_status(self, dataset_names=None, synthesizer_names=None, instance_ids=None):
         """Get status of running benchmark instance jobs.
@@ -178,7 +219,11 @@ class BenchmarkLauncher:
         with open(filepath, 'rb') as input_file:
             benchmark = cloudpickle.load(input_file)
 
-        if getattr(benchmark, '_synthesizer_id', None) is None:
-            benchmark.benchmark_id = generate_benchmark_id(benchmark)
+        if getattr(benchmark, '_benchmark_id', None) is None:
+            benchmark._benchmark_id = generate_benchmark_ids([
+                'BENCMARK_ID',
+                benchmark.modality,
+                benchmark.compute_service,
+            ])
 
         return benchmark
