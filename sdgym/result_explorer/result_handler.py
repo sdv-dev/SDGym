@@ -68,7 +68,7 @@ class ResultsHandler(ABC):
         if folder_name not in all_folders:
             raise ValueError(f"Folder '{folder_name}' does not exist in the results directory.")
 
-    def _compute_pareto_frontier_dataset(self, dataset_results):
+    def _compute_dataset_pareto_frontier(self, dataset_results):
         """Compute whether synthesizers are on the Pareto frontier for the dataset."""
         qualities = dataset_results['Adjusted_Quality_Score'].to_numpy()
         runtimes = dataset_results['Adjusted_Total_Time'].to_numpy()
@@ -84,7 +84,7 @@ class ResultsHandler(ABC):
         """Compute whether synthesizers are on the Pareto frontier for all datasets."""
         frontier_masks = []
         for _, dataset_results in result.groupby('Dataset', sort=False):
-            dataset_frontier = self._compute_pareto_frontier_dataset(dataset_results)
+            dataset_frontier = self._compute_dataset_pareto_frontier(dataset_results)
             dataset_frontier = pd.Series(dataset_frontier, index=dataset_results.index)
             frontier_masks.append(dataset_frontier)
 

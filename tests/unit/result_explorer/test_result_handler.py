@@ -32,8 +32,8 @@ class TestResultsHandler:
         with pytest.raises(ValueError, match=expected_error):
             ResultsHandler._validate_folder_name(handler, 'run3')
 
-    def test__compute_pareto_frontier_dataset(self):
-        """Test the `_compute_pareto_frontier_dataset` method."""
+    def test__compute_dataset_pareto_frontier(self):
+        """Test the `_compute_dataset_pareto_frontier` method."""
         # Setup
         dataset_results = pd.DataFrame(
             {
@@ -45,7 +45,7 @@ class TestResultsHandler:
         handler = LocalResultsHandler(base_path='.')
 
         # Run
-        result = handler._compute_pareto_frontier_dataset(dataset_results)
+        result = handler._compute_dataset_pareto_frontier(dataset_results)
 
         # Assert
         expected_result = pd.Series([True, False, False, True], index=[10, 11, 12, 13])
@@ -64,7 +64,7 @@ class TestResultsHandler:
             index=[4, 5, 6, 7],
         )
         handler = LocalResultsHandler(base_path='.')
-        handler._compute_pareto_frontier_dataset = Mock(
+        handler._compute_dataset_pareto_frontier = Mock(
             side_effect=[
                 pd.Series([True, False], index=[4, 5]),
                 pd.Series([False, True], index=[6, 7]),
@@ -78,13 +78,13 @@ class TestResultsHandler:
         expected_result = pd.Series([True, False, False, True], index=[4, 5, 6, 7])
         pd.testing.assert_series_equal(result, expected_result)
 
-        assert handler._compute_pareto_frontier_dataset.call_count == 2
+        assert handler._compute_dataset_pareto_frontier.call_count == 2
         pd.testing.assert_frame_equal(
-            handler._compute_pareto_frontier_dataset.call_args_list[0].args[0],
+            handler._compute_dataset_pareto_frontier.call_args_list[0].args[0],
             data.iloc[[0, 1]],
         )
         pd.testing.assert_frame_equal(
-            handler._compute_pareto_frontier_dataset.call_args_list[1].args[0],
+            handler._compute_dataset_pareto_frontier.call_args_list[1].args[0],
             data.iloc[[2, 3]],
         )
 
