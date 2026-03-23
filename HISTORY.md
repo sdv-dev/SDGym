@@ -1,5 +1,11 @@
 # History
 
+## v0.14.1 - 2026-03-23
+
+### Internal
+
+* Update the "wins" computation to include the Pareto front - Issue [#572](https://github.com/sdv-dev/SDGym/issues/572) by @R-Palazzo
+
 ## v0.14.0 - 2026-03-09
 
 ### New Features

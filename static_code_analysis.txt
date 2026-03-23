@@ -1,4 +1,4 @@
-Run started:2026-03-09 15:59:10.936165+00:00
+Run started:2026-03-23 16:26:39.586082+00:00
 
 Test results:
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
@@ -74,73 +74,73 @@ Test results:
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:416:8
-415	    if isinstance(synthesizer, type):
-416	        assert issubclass(synthesizer, BaselineSynthesizer), (
-417	            '`synthesizer` must be a synthesizer class'
-418	        )
-419	        synthesizer = synthesizer()
+   Location: ./sdgym/benchmark.py:417:8
+416	    if isinstance(synthesizer, type):
+417	        assert issubclass(synthesizer, BaselineSynthesizer), (
+418	            '`synthesizer` must be a synthesizer class'
+419	        )
+420	        synthesizer = synthesizer()
 
 --------------------------------------------------
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:421:8
-420	    else:
-421	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
-422	            '`synthesizer` must be an instance of a synthesizer class.'
-423	        )
-424	
+   Location: ./sdgym/benchmark.py:422:8
+421	    else:
+422	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
+423	            '`synthesizer` must be an instance of a synthesizer class.'
+424	        )
+425	
 
 --------------------------------------------------
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:1344:31
-1343	def _get_user_data_script(access_key, secret_key, region_name, script_content):
-1344	    return textwrap.dedent(f"""\
-1345	        #!/bin/bash
-1346	        set -e
-1347	
-1348	        # Always terminate the instance when the script exits (success or failure)
-1349	        trap '
-1350	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
-1351	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
-1352	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
-1353	        ' EXIT
-1354	
-1355	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-1356	        echo "======== Update and Install Dependencies ============"
-1357	        sudo apt update -y
-1358	        sudo apt install -y python3-pip python3-venv awscli
-1359	        echo "======== Configure AWS CLI ============"
-1360	        aws configure set aws_access_key_id '{access_key}'
-1361	        aws configure set aws_secret_access_key '{secret_key}'
-1362	        aws configure set default.region '{region_name}'
-1363	
-1364	        echo "======== Create Virtual Environment ============"
-1365	        python3 -m venv ~/env
-1366	        source ~/env/bin/activate
-1367	
-1368	        echo "======== Install Dependencies in venv ============"
-1369	        pip install --upgrade pip
-1370	        pip install sdgym[all]
-1371	        pip install s3fs
-1372	
-1373	        echo "======== Write Script ==========="
-1374	        cat << 'EOF' > ~/sdgym_script.py
-1375	{script_content}
-1376	EOF
-1377	
-1378	        echo "======== Run Script ==========="
-1379	        python ~/sdgym_script.py
-1380	        echo "======== Complete ==========="
-1381	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-1382	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-1383	    """).strip()
-1384	
+   Location: ./sdgym/benchmark.py:1345:31
+1344	def _get_user_data_script(access_key, secret_key, region_name, script_content):
+1345	    return textwrap.dedent(f"""\
+1346	        #!/bin/bash
+1347	        set -e
+1348	
+1349	        # Always terminate the instance when the script exits (success or failure)
+1350	        trap '
+1351	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
+1352	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
+1353	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
+1354	        ' EXIT
+1355	
+1356	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+1357	        echo "======== Update and Install Dependencies ============"
+1358	        sudo apt update -y
+1359	        sudo apt install -y python3-pip python3-venv awscli
+1360	        echo "======== Configure AWS CLI ============"
+1361	        aws configure set aws_access_key_id '{access_key}'
+1362	        aws configure set aws_secret_access_key '{secret_key}'
+1363	        aws configure set default.region '{region_name}'
+1364	
+1365	        echo "======== Create Virtual Environment ============"
+1366	        python3 -m venv ~/env
+1367	        source ~/env/bin/activate
+1368	
+1369	        echo "======== Install Dependencies in venv ============"
+1370	        pip install --upgrade pip
+1371	        pip install sdgym[all]
+1372	        pip install s3fs
+1373	
+1374	        echo "======== Write Script ==========="
+1375	        cat << 'EOF' > ~/sdgym_script.py
+1376	{script_content}
+1377	EOF
+1378	
+1379	        echo "======== Run Script ==========="
+1380	        python ~/sdgym_script.py
+1381	        echo "======== Complete ==========="
+1382	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+1383	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+1384	    """).strip()
+1385	
 
 --------------------------------------------------
 >> Issue: [B615:huggingface_unsafe_download] Unsafe Hugging Face Hub download without revision pinning in load_dataset()
@@ -234,7 +234,7 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 6698
+	Total lines of code: 6739
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
