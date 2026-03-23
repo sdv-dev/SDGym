@@ -1,0 +1,10 @@
+completed_date: 03_01_2026 10:51:59
+jobs:
+- - intrusion
+  - CopulaGANSynthesizer(15)
+- - intrusion
+  - UniformSynthesizer(15)
+modality: single_table
+run_id: run_03_01_2026_15
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:04:56

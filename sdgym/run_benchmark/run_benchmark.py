@@ -10,6 +10,7 @@ from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
 )
+from sdgym.benchmark import TIMEOUT
 from sdgym.run_benchmark.utils import (
     KEY_DATE_FILE,
     OUTPUT_DESTINATION_AWS,
@@ -195,7 +196,7 @@ def main():
             credential_filepath=os.getenv('CREDENTIALS_FILEPATH'),
             synthesizers=synthesizers,
             sdv_datasets=datasets,
-            timeout=345600,  # 4 days
+            timeout=TIMEOUT,  # 4 days
         )
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality=modality)

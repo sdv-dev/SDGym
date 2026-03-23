@@ -1,0 +1,10 @@
+completed_date: 03_01_2026 12:57:04
+jobs:
+- - covtype
+  - CopulaGANSynthesizer(13)
+- - covtype
+  - UniformSynthesizer(13)
+modality: single_table
+run_id: run_03_01_2026_13
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:03:52

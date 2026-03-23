@@ -1,0 +1,10 @@
+completed_date: 03_01_2026 17:26:26
+jobs:
+- - expedia_hotel_logs
+  - RealTabFormerSynthesizer(10)
+- - expedia_hotel_logs
+  - UniformSynthesizer(10)
+modality: single_table
+run_id: run_03_01_2026_10
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 06:01:56

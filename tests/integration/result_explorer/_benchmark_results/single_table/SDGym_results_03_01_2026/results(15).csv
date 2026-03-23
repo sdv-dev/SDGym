@@ -1,0 +1,3 @@
+Synthesizer,Dataset,Dataset_Size_MB,Train_Time,Peak_Memory_MB,Synthesizer_Size_MB,Sample_Time,Evaluate_Time,Diagnostic_Score,Quality_Score,Adjusted_Total_Time,Adjusted_Quality_Score
+CopulaGANSynthesizer(15),intrusion,162.039016,17034.964888,2964.751558,19.398358,73.917695,29.473462,1.0,0.6212708134516011,17109.544941,0.6212708134516011
+UniformSynthesizer(15),intrusion,162.039016,0.662358,790.634559,150.190578,0.461581,35.223611,1.0,0.401940211071262,1.786297,0.401940211071262

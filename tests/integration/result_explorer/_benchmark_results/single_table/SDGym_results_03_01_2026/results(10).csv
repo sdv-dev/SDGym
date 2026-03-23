@@ -1,0 +1,3 @@
+Synthesizer,Dataset,Dataset_Size_MB,Train_Time,Peak_Memory_MB,Synthesizer_Size_MB,Sample_Time,Evaluate_Time,Diagnostic_Score,Quality_Score,Adjusted_Total_Time,Adjusted_Quality_Score
+RealTabFormerSynthesizer(10),expedia_hotel_logs,0.200128,41051.661675,480.310886,188.200182,10.728653,1.352767,0.9810000000000001,0.6667126723603183,41062.660362,0.6667126723603183
+UniformSynthesizer(10),expedia_hotel_logs,0.200128,0.270034,2.081309,0.233587,0.024301,1.4376689999999999,0.83548,0.2615817608104038,0.564369,0.2615817608104038

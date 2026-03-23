@@ -1,5 +1,6 @@
 import shutil
 import time
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -133,27 +134,82 @@ def test_summarize():
     result_explorer = ResultsExplorer(output_destination, modality='single_table')
 
     # Run
-    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_10_11_2024')
+    summary, results = result_explorer.summarize(results_folder_name='SDGym_results_03_01_2026')
 
     # Assert
     expected_summary = pd.DataFrame({
-        'Synthesizer': ['CTGANSynthesizer', 'CopulaGANSynthesizer', 'TVAESynthesizer'],
-        '10_11_2024 - # datasets: 9 - sdgym version: 0.9.1': [6, 4, 5],
-        '05_10_2024 - # datasets: 9 - sdgym version: 0.8.0': [4, 4, 5],
-        '04_05_2024 - # datasets: 9 - sdgym version: 0.7.0': [5, 3, 5],
+        'Synthesizer': [
+            'BootstrapSynthesizer',
+            'CTGANSynthesizer',
+            'ColumnSynthesizer',
+            'CopulaGANSynthesizer',
+            'GaussianCopulaSynthesizer',
+            'RealTabFormerSynthesizer',
+            'SegmentSynthesizer',
+            'TVAESynthesizer',
+            'UniformSynthesizer',
+            'XGCSynthesizer',
+        ],
+        '03_01_2026 - # datasets: 9 - sdgym version: 0.13.1': [1, 0, 2, 1, 6, 5, 5, 7, 1, 4],
+        '02_01_2026 - # datasets: 9 - sdgym version: 0.13.0': [
+            '-',
+            2.0,
+            3.0,
+            1.0,
+            5.0,
+            5.0,
+            '-',
+            4.0,
+            1.0,
+            '-',
+        ],
+        '01_01_2026 - # datasets: 9 - sdgym version: 0.12.1': [
+            '-',
+            2.0,
+            3.0,
+            1.0,
+            5.0,
+            2.0,
+            '-',
+            4.0,
+            1.0,
+            '-',
+        ],
     })
+    expected_summary = expected_summary.astype(summary.dtypes.to_dict())
     expected_results = (
         pd
         .read_csv(
-            'tests/integration/result_explorer/_benchmark_results/single_table/'
-            'SDGym_results_10_11_2024/results.csv',
+            'tests/integration/result_explorer/_benchmark_results/'
+            'expected_result_integration_test_single_table.csv',
         )
         .sort_values(by=['Dataset', 'Synthesizer'])
         .reset_index(drop=True)
     )
-    expected_results['Win'] = expected_results['Win'].astype('int64')
+    columns_to_compare = [
+        'Synthesizer',
+        'Dataset',
+        'Win',
+    ]
+    results_to_compare = (
+        results[columns_to_compare]
+        .sort_values(by=['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
+    expected_results_to_compare = (
+        expected_results[columns_to_compare]
+        .sort_values(by=['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
+    expected_results_to_compare['Win'] = expected_results_to_compare['Win'].astype(
+        results_to_compare['Win'].dtype
+    )
     pd.testing.assert_frame_equal(summary, expected_summary)
-    pd.testing.assert_frame_equal(results, expected_results)
+    pd.testing.assert_frame_equal(
+        results_to_compare,
+        expected_results_to_compare,
+        check_dtype=False,
+    )
 
 
 def test_summarize_multi_table():
@@ -170,6 +226,7 @@ def test_summarize_multi_table():
         'Synthesizer': ['HMASynthesizer', 'MultiTableUniformSynthesizer'],
         '12_02_2025 - # datasets: 1 - sdgym version: 0.11.2.dev0': [0, 0],
     })
+    expected_summary = expected_summary.astype(summary.dtypes.to_dict())
     expected_results = (
         pd
         .read_csv(
@@ -180,6 +237,7 @@ def test_summarize_multi_table():
         .reset_index(drop=True)
     )
     expected_results['Win'] = [0, 0]
+    expected_results['Win'] = expected_results['Win'].astype(results['Win'].dtype)
     pd.testing.assert_frame_equal(summary, expected_summary)
     pd.testing.assert_frame_equal(results, expected_results)
 
@@ -221,21 +279,35 @@ def test_loading_last_run_results_by_default():
     # Setup
     output_destination = 'tests/integration/result_explorer/_benchmark_results/'
     result_explorer = ResultsExplorer(output_destination, modality='single_table')
-    metainfo_path = f'{output_destination}single_table/SDGym_results_12_17_2024/metainfo.yaml'
-    with open(metainfo_path, 'r') as f:
-        raw_yaml = yaml.safe_load(f)
+    results_dir = Path(output_destination) / 'single_table' / 'SDGym_results_03_01_2026'
 
-    run_id = raw_yaml.get('run_id')
-    expected_metainfo = {run_id: {k: v for k, v in raw_yaml.items() if k != 'run_id'}}
+    metainfo_paths = sorted(results_dir.glob('metainfo*.yaml'))
+    expected_metainfo = {}
+    for metainfo_path in metainfo_paths:
+        with open(metainfo_path, 'r') as f:
+            raw_yaml = yaml.safe_load(f)
+
+        run_id = raw_yaml['run_id']
+        expected_metainfo[run_id] = {
+            key: value for key, value in raw_yaml.items() if key != 'run_id'
+        }
+
+    result_paths = sorted(results_dir.glob('results*.csv'))
+    expected_results = (
+        pd
+        .concat(
+            [pd.read_csv(result_path) for result_path in result_paths],
+            ignore_index=True,
+        )
+        .sort_values(['Dataset', 'Synthesizer'])
+        .reset_index(drop=True)
+    )
 
     # Run
     results = result_explorer.load_results()
     metainfo = result_explorer.load_metainfo()
 
     # Assert
+    results = results.sort_values(['Dataset', 'Synthesizer']).reset_index(drop=True)
     assert metainfo == expected_metainfo
-    expected_results = pd.read_csv(
-        'tests/integration/result_explorer/_benchmark_results/single_table/'
-        'SDGym_results_12_17_2024/results.csv',
-    )
     pd.testing.assert_frame_equal(results, expected_results)

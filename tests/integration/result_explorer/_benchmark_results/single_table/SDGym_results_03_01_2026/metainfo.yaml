@@ -1,0 +1,61 @@
+completed_date: 03_01_2026 07:32:06
+jobs:
+- - adult
+  - ColumnSynthesizer
+- - adult
+  - GaussianCopulaSynthesizer
+- - adult
+  - UniformSynthesizer
+- - alarm
+  - ColumnSynthesizer
+- - alarm
+  - GaussianCopulaSynthesizer
+- - alarm
+  - UniformSynthesizer
+- - census
+  - ColumnSynthesizer
+- - census
+  - GaussianCopulaSynthesizer
+- - census
+  - UniformSynthesizer
+- - child
+  - ColumnSynthesizer
+- - child
+  - GaussianCopulaSynthesizer
+- - child
+  - UniformSynthesizer
+- - covtype
+  - ColumnSynthesizer
+- - covtype
+  - GaussianCopulaSynthesizer
+- - covtype
+  - UniformSynthesizer
+- - expedia_hotel_logs
+  - ColumnSynthesizer
+- - expedia_hotel_logs
+  - GaussianCopulaSynthesizer
+- - expedia_hotel_logs
+  - UniformSynthesizer
+- - insurance
+  - ColumnSynthesizer
+- - insurance
+  - GaussianCopulaSynthesizer
+- - insurance
+  - UniformSynthesizer
+- - intrusion
+  - ColumnSynthesizer
+- - intrusion
+  - GaussianCopulaSynthesizer
+- - intrusion
+  - UniformSynthesizer
+- - news
+  - ColumnSynthesizer
+- - news
+  - GaussianCopulaSynthesizer
+- - news
+  - UniformSynthesizer
+modality: single_table
+run_id: run_03_01_2026_0
+sdgym_version: 0.13.1
+sdv_version: 1.34.2
+starting_date: 03_01_2026 05:55:27
