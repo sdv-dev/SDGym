@@ -1,6 +1,7 @@
 """Unit tests for the BenchmarkLauncher class."""
 
-from unittest.mock import Mock, call, patch
+import re
+from unittest.mock import Mock, call, mock_open, patch
 
 import pytest
 
@@ -10,24 +11,28 @@ from sdgym._benchmark_launcher.utils import _METHODS
 
 
 class TestBenchmarkLauncher:
-    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_id')
-    def test__init__(self, mock_generate_benchmark_id):
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_ids')
+    def test__init__(self, mock_generate_benchmark_ids):
         """Test the `__init__` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
-        mock_generate_benchmark_id.return_value = 'unique_id'
+        mock_generate_benchmark_ids.return_value = 'unique_id'
 
         # Run
         launcher = BenchmarkLauncher(benchmark_config)
 
         # Assert
         benchmark_config.validate.assert_called_once()
-        mock_generate_benchmark_id.assert_called_once_with(launcher)
+        mock_generate_benchmark_ids.assert_called_once_with([
+            'BENCMARK_ID',
+            'single_table',
+            'gcp',
+        ])
         assert launcher.benchmark_config == benchmark_config
         assert launcher.method_to_run == _METHODS[('single_table', 'gcp')]
-        assert launcher.benchmark_id == 'unique_id'
+        assert launcher._benchmark_id == 'unique_id'
 
     def test_launch_calls_validate_when_not_validated(self):
         """Test `launch` calls `validate` when `_is_validated` is False."""
@@ -135,17 +140,255 @@ class TestBenchmarkLauncher:
         launcher.method_to_run.assert_has_calls(expected_calls, any_order=False)
         assert launcher.method_to_run.call_count == 2
 
-    def test_terminate(self):
-        """Test the `terminate` method."""
+    def test_list_gcp_instances(self):
+        """Test the `_list_gcp_instances` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
 
+        running_instance = Mock()
+        running_instance.id = 123
+        running_instance.name = 'instance-1'
+        running_instance.zone = (
+            'https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-a'
+        )
+        running_instance.status = 'RUNNING'
+
+        terminated_instance = Mock()
+        terminated_instance.id = 456
+        terminated_instance.name = 'instance-2'
+        terminated_instance.zone = (
+            'https://www.googleapis.com/compute/v1/projects/test-project/zones/us-central1-b'
+        )
+        terminated_instance.status = 'TERMINATED'
+
+        empty_scoped_list = Mock()
+        empty_scoped_list.instances = None
+
+        scoped_list = Mock()
+        scoped_list.instances = [running_instance, terminated_instance]
+
+        client = Mock()
+        client.aggregated_list.return_value = [
+            ('zones/us-central1-a', scoped_list),
+            ('zones/us-central1-b', empty_scoped_list),
+        ]
+
+        # Run
+        result = launcher._list_gcp_instances(client, 'test-project')
+
+        # Assert
+        client.aggregated_list.assert_called_once_with(project='test-project')
+        assert result == [
+            {
+                'id': '123',
+                'name': 'instance-1',
+                'zone': 'us-central1-a',
+                'status': 'RUNNING',
+            }
+        ]
+
+    def test_get_all_instance_names(self):
+        """Test the `_get_all_instance_names` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher.launch_to_instance_ids = {
+            'launch-1': ['instance-1', 'instance-2'],
+            'launch-2': ['instance-3'],
+        }
+
+        # Run
+        result = launcher._get_all_instance_names()
+
+        # Assert
+        assert result == ['instance-1', 'instance-2', 'instance-3']
+
+    def test_validate_instance_names(self):
+        """Test the `_validate_instance_names` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+
+        # Run
+        result = launcher._validate_instance_names(['instance-1'])
+
+        # Assert
+        assert result == ['instance-1']
+
+    def test_validate_instance_names_raises_error_for_unknown_instances(self):
+        """Test `_validate_instance_names` raises an error for unknown instances."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_all_instance_names = Mock(return_value=['instance-1'])
+        expected_error = re.escape(
+            'Some provided instance names were not launched by this BenchmarkLauncher.'
+            " Unknown: 'instance-2'. Launched instances: 'instance-1'."
+        )
+
         # Run and Assert
-        with pytest.raises(NotImplementedError):
-            launcher.terminate()
+        with pytest.raises(ValueError, match=expected_error):
+            launcher._validate_instance_names(['instance-2'])
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.resolve_credentials')
+    @patch(
+        'sdgym._benchmark_launcher.benchmark_launcher.service_account.Credentials.from_service_account_info'
+    )
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.compute_v1.InstancesClient')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._validate_gcp_credentials')
+    def test_get_gcp_client(
+        self,
+        mock_validate_gcp_credentials,
+        mock_instances_client,
+        mock_from_service_account_info,
+        mock_resolve_credentials,
+    ):
+        """Test the `_get_gcp_client` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.credentials_filepath = 'creds.json'
+        launcher = BenchmarkLauncher(benchmark_config)
+
+        mock_resolve_credentials.return_value = {
+            'gcp': {
+                'project_id': 'test-project',
+                'client_email': 'test@test.com',
+                'token_uri': 'https://oauth2.googleapis.com/token',
+                'private_key_id': 'key-id',
+                'private_key': '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n',
+            }
+        }
+        mock_validate_gcp_credentials.return_value = []
+        mock_credentials = Mock()
+        mock_from_service_account_info.return_value = mock_credentials
+        mock_client = Mock()
+        mock_instances_client.return_value = mock_client
+
+        # Run
+        result_client, result_project_id = launcher._get_gcp_client()
+
+        # Assert
+        mock_resolve_credentials.assert_called_once_with('creds.json')
+        mock_validate_gcp_credentials.assert_called_once_with(mock_resolve_credentials.return_value)
+        mock_from_service_account_info.assert_called_once_with(
+            mock_resolve_credentials.return_value['gcp']
+        )
+        mock_instances_client.assert_called_once_with(credentials=mock_credentials)
+        assert result_client is mock_client
+        assert result_project_id == 'test-project'
+
+    @patch('builtins.print')
+    def test__terminate_gcp_instances(self, mock_print):
+        """Test the `_terminate_gcp_instances` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_gcp_client = Mock(return_value=(Mock(), 'test-project'))
+        launcher._list_gcp_instances = Mock(
+            return_value=[
+                {
+                    'id': '123',
+                    'name': 'instance-1',
+                    'zone': 'us-central1-a',
+                    'status': 'RUNNING',
+                },
+                {
+                    'id': '456',
+                    'name': 'instance-2',
+                    'zone': 'us-central1-b',
+                    'status': 'RUNNING',
+                },
+            ]
+        )
+        client = launcher._get_gcp_client.return_value[0]
+        mock_operation_1 = Mock()
+        mock_operation_2 = Mock()
+        client.delete.side_effect = [mock_operation_1, mock_operation_2]
+
+        # Run
+        launcher._terminate_gcp_instances(
+            instance_names=['instance-1', 'instance-2'],
+            verbose=True,
+        )
+
+        # Assert
+        launcher._get_gcp_client.assert_called_once_with()
+        launcher._list_gcp_instances.assert_called_once_with(client, 'test-project')
+        assert client.delete.call_args_list == [
+            call(project='test-project', zone='us-central1-a', instance='instance-1'),
+            call(project='test-project', zone='us-central1-b', instance='instance-2'),
+        ]
+        mock_operation_1.result.assert_called_once_with()
+        mock_operation_2.result.assert_called_once_with()
+        mock_print.assert_has_calls([
+            call("Terminating GCP instance 'instance-1' (id=123, zone=us-central1-a)..."),
+            call("Terminating GCP instance 'instance-2' (id=456, zone=us-central1-b)..."),
+            call('Terminated 2 GCP instance(s).'),
+        ])
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.LOGGER')
+    def test__terminate_gcp_instances_for_not_running_instances(self, mock_logger):
+        """Test `_terminate_gcp_instances` logs a message for not running instances."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_gcp_client = Mock(return_value=(Mock(), 'test-project'))
+        launcher._list_gcp_instances = Mock(
+            return_value=[
+                {
+                    'id': '123',
+                    'name': 'instance-1',
+                    'zone': 'us-central1-a',
+                    'status': 'RUNNING',
+                },
+            ]
+        )
+
+        # Run
+        launcher._terminate_gcp_instances(
+            instance_names=['instance-1', 'instance-2'],
+            verbose=False,
+        )
+
+        # Assert
+        mock_logger.info.assert_called_once_with(
+            "Some provided instance names are not currently running: 'instance-2'."
+        )
+
+    def test_terminate_mock(self):
+        """Test the `terminate` method with a mock."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        launcher._terminate_gcp_instances = Mock()
+
+        # Run
+        launcher.terminate(instance_names=['instance-1', 'instance-2'], verbose=False)
+
+        # Assert
+        launcher._validate_instance_names.assert_called_once_with(['instance-1', 'instance-2'])
+        launcher._terminate_gcp_instances.assert_called_once_with(
+            ['instance-1', 'instance-2'], False
+        )
 
     def test_get_status(self):
         """Test the `get_status` method."""
@@ -158,3 +401,66 @@ class TestBenchmarkLauncher:
         # Run and Assert
         with pytest.raises(NotImplementedError):
             launcher.get_status()
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.cloudpickle.dump')
+    @patch('builtins.open', new_callable=mock_open)
+    def test_save(self, mock_file, mock_dump):
+        """Test the `save` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+
+        # Run
+        launcher.save('launcher.pkl')
+
+        # Assert
+        mock_file.assert_called_once_with('launcher.pkl', 'wb')
+        mock_dump.assert_called_once()
+        assert mock_dump.call_args[0][0] is launcher
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.cloudpickle.load')
+    @patch('builtins.open', new_callable=mock_open, read_data=b'test')
+    def test_load(self, mock_file, mock_load):
+        """Test the `load` method."""
+        # Setup
+        benchmark = Mock()
+        benchmark._benchmark_id = 'existing-id'
+        mock_load.return_value = benchmark
+
+        # Run
+        result = BenchmarkLauncher.load('launcher.pkl')
+
+        # Assert
+        mock_file.assert_called_once_with('launcher.pkl', 'rb')
+        mock_load.assert_called_once()
+        assert result is benchmark
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_ids')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.cloudpickle.load')
+    @patch('builtins.open', new_callable=mock_open, read_data=b'test')
+    def test_load_generates_benchmark_id_if_missing(
+        self, mock_file, mock_load, mock_generate_benchmark_ids
+    ):
+        """Test `load` generates a benchmark id if missing."""
+        # Setup
+        benchmark = Mock()
+        benchmark._benchmark_id = None
+        benchmark.modality = 'single_table'
+        benchmark.compute_service = 'gcp'
+        mock_load.return_value = benchmark
+        mock_generate_benchmark_ids.return_value = 'new-id'
+
+        # Run
+        result = BenchmarkLauncher.load('launcher.pkl')
+
+        # Assert
+        mock_file.assert_called_once_with('launcher.pkl', 'rb')
+        mock_load.assert_called_once()
+        mock_generate_benchmark_ids.assert_called_once_with([
+            'BENCMARK_ID',
+            'single_table',
+            'gcp',
+        ])
+        assert result._benchmark_id == 'new-id'

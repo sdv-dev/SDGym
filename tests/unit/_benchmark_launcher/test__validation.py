@@ -3,13 +3,18 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from sdgym._benchmark_launcher._validation import (
     _as_errors,
     _format_sectioned_errors,
+    _validate_aws_credentials,
     _validate_credentials,
+    _validate_gcp_credentials,
     _validate_instance_jobs,
     _validate_method_params,
     _validate_resolved_credentials,
+    _validate_sdv_enterprise_credentials,
     _validate_structure,
 )
 
@@ -234,6 +239,146 @@ def test__validate_instance_jobs_invalid():
     ]
 
 
+def test__validate_aws_credentials_valid():
+    """Test `_validate_aws_credentials` returns no errors for valid credentials."""
+    # Setup
+    credentials = {
+        'aws': {
+            'aws_access_key_id': 'AKIA',
+            'aws_secret_access_key': 'SECRET',
+        }
+    }
+
+    # Run
+    errors = _validate_aws_credentials(credentials)
+
+    # Assert
+    assert errors == []
+
+
+def test__validate_aws_credentials_missing_key():
+    """Test `_validate_aws_credentials` validates missing AWS credentials."""
+    # Setup
+    credentials = {
+        'aws': {
+            'aws_access_key_id': 'AKIA',
+            'aws_secret_access_key': None,
+        }
+    }
+
+    # Run
+    errors = _validate_aws_credentials(credentials)
+
+    # Assert
+    assert errors == ["credentials['aws']['aws_secret_access_key'] is missing or empty."]
+
+
+def test__validate_sdv_enterprise_credentials_valid():
+    """Test `_validate_sdv_enterprise_credentials` returns no errors for valid credentials."""
+    # Setup
+    credentials = {
+        'sdv_enterprise': {
+            'sdv_enterprise_username': 'user',
+            'sdv_enterprise_license_key': 'license',
+        }
+    }
+
+    # Run
+    errors = _validate_sdv_enterprise_credentials(credentials)
+
+    # Assert
+    assert errors == []
+
+
+def test__validate_sdv_enterprise_credentials_partial_credentials():
+    """Test `_validate_sdv_enterprise_credentials` requires both fields together."""
+    # Setup
+    credentials = {
+        'sdv_enterprise': {
+            'sdv_enterprise_username': 'user',
+            'sdv_enterprise_license_key': None,
+        }
+    }
+
+    # Run
+    errors = _validate_sdv_enterprise_credentials(credentials)
+
+    # Assert
+    assert errors == [
+        "credentials['sdv_enterprise'] require both 'sdv_enterprise_username' and "
+        "'sdv_enterprise_license_key' to be provided and non-empty if any SDV Enterprise"
+        ' credential is provided.'
+    ]
+
+
+def test__validate_gcp_credentials_valid():
+    """Test `_validate_gcp_credentials` returns no errors for valid credentials."""
+    # Setup
+    credentials = {
+        'gcp': {
+            'type': 'service_account',
+            'project_id': 'my-project',
+            'private_key_id': 'private-key-id',
+            'private_key': 'private-key',
+            'client_email': 'test@example.com',
+            'client_id': 'client-id',
+            'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+            'token_uri': 'https://oauth2.googleapis.com/token',
+            'auth_provider_x509_cert_url': 'https://www.googleapis.com/oauth2/v1/certs',
+            'client_x509_cert_url': (
+                'https://www.googleapis.com/robot/v1/metadata/x509/test@example.com'
+            ),
+        }
+    }
+
+    # Run
+    errors = _validate_gcp_credentials(credentials)
+
+    # Assert
+    assert errors == []
+
+
+def test__validate_gcp_credentials_invalid_section_type():
+    """Test `_validate_gcp_credentials` validates section type."""
+    # Setup
+    credentials = {'gcp': 'bad'}
+
+    # Run
+    errors = _validate_gcp_credentials(credentials)
+
+    # Assert
+    assert errors == ["credentials['gcp'] must be a dict."]
+
+
+def test__validate_gcp_credentials_missing_keys():
+    """Test `_validate_gcp_credentials` validates missing GCP service account keys."""
+    # Setup
+    credentials = {
+        'gcp': {
+            'type': 'service_account',
+            'project_id': 'my-project',
+            'private_key_id': None,
+            'private_key': None,
+            'client_email': 'test@example.com',
+            'client_id': 'client-id',
+            'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+            'token_uri': 'https://oauth2.googleapis.com/token',
+            'auth_provider_x509_cert_url': 'https://www.googleapis.com/oauth2/v1/certs',
+            'client_x509_cert_url': None,
+        }
+    }
+
+    # Run
+    errors = _validate_gcp_credentials(credentials)
+
+    # Assert
+    assert errors == [
+        "credentials['gcp']['client_x509_cert_url'] is missing or empty.",
+        "credentials['gcp']['private_key'] is missing or empty.",
+        "credentials['gcp']['private_key_id'] is missing or empty.",
+    ]
+
+
 def test__validate_resolved_credentials_valid():
     """Test `_validate_resolved_credentials` returns no errors for valid credentials."""
     # Setup
@@ -269,74 +414,50 @@ def test__validate_resolved_credentials_valid():
     assert errors == []
 
 
-def test__validate_resolved_credentials_invalid_section_types():
-    """Test `_validate_resolved_credentials` validates section types."""
+@pytest.mark.parametrize(
+    ('validator', 'section', 'expected'),
+    [
+        (
+            _validate_aws_credentials,
+            'aws',
+            ["credentials['aws'] must be a dict."],
+        ),
+        (
+            _validate_sdv_enterprise_credentials,
+            'sdv_enterprise',
+            ["credentials['sdv_enterprise'] must be a dict."],
+        ),
+        (
+            _validate_gcp_credentials,
+            'gcp',
+            ["credentials['gcp'] must be a dict."],
+        ),
+    ],
+)
+def test_validate_credentials_invalid_section_type(validator, section, expected):
+    """Test credential validators validate section type."""
     # Setup
-    credentials = {
-        'aws': 'bad',
-        'sdv_enterprise': 'bad',
-        'gcp': 'bad',
-    }
+    credentials = {section: 'bad'}
 
     # Run
-    errors = _validate_resolved_credentials(credentials)
+    errors = validator(credentials)
 
     # Assert
-    assert errors == [
-        "credentials['aws'] must be a dict.",
-        "credentials['gcp'] must be a dict.",
-        "credentials['sdv_enterprise'] must be a dict.",
-    ]
+    assert errors == expected
 
 
-def test__validate_resolved_credentials_missing_aws_key():
-    """Test `_validate_resolved_credentials` validates missing AWS credentials."""
+def test__validate_resolved_credentials_multiple_errors():
+    """Test `_validate_resolved_credentials` returns combined validation errors."""
     # Setup
     credentials = {
         'aws': {
             'aws_access_key_id': 'AKIA',
             'aws_secret_access_key': None,
         },
-        'sdv_enterprise': {},
-        'gcp': {},
-    }
-
-    # Run
-    errors = _validate_resolved_credentials(credentials)
-
-    # Assert
-    assert errors == ["credentials['aws']['aws_secret_access_key'] is missing or empty."]
-
-
-def test__validate_resolved_credentials_partial_sdv_enterprise():
-    """Test `_validate_resolved_credentials` requires both SDV Enterprise fields together."""
-    # Setup
-    credentials = {
-        'aws': {},
         'sdv_enterprise': {
             'sdv_enterprise_username': 'user',
             'sdv_enterprise_license_key': None,
         },
-        'gcp': {},
-    }
-
-    # Run
-    errors = _validate_resolved_credentials(credentials)
-
-    # Assert
-    assert errors == [
-        "credentials['sdv_enterprise'] require both 'sdv_enterprise_username' and "
-        "'sdv_enterprise_license_key' to be provided and non-empty if any SDV Enterprise"
-        ' credential is provided.'
-    ]
-
-
-def test__validate_resolved_credentials_missing_gcp_keys():
-    """Test `_validate_resolved_credentials` validates missing GCP service account keys."""
-    # Setup
-    credentials = {
-        'aws': {},
-        'sdv_enterprise': {},
         'gcp': {
             'type': 'service_account',
             'project_id': 'my-project',
@@ -356,9 +477,13 @@ def test__validate_resolved_credentials_missing_gcp_keys():
 
     # Assert
     assert errors == [
+        "credentials['aws']['aws_secret_access_key'] is missing or empty.",
         "credentials['gcp']['client_x509_cert_url'] is missing or empty.",
         "credentials['gcp']['private_key'] is missing or empty.",
         "credentials['gcp']['private_key_id'] is missing or empty.",
+        "credentials['sdv_enterprise'] require both 'sdv_enterprise_username' and "
+        "'sdv_enterprise_license_key' to be provided and non-empty if any SDV Enterprise"
+        ' credential is provided.',
     ]
 
 
@@ -420,3 +545,28 @@ def test__validate_credentials_returns_no_errors_when_valid(mock_resolve_credent
     # Assert
     mock_resolve_credentials.assert_called_once_with(credentials_filepath)
     assert errors == []
+
+
+@patch('sdgym._benchmark_launcher._validation._validate_gcp_credentials')
+@patch('sdgym._benchmark_launcher._validation._validate_sdv_enterprise_credentials')
+@patch('sdgym._benchmark_launcher._validation._validate_aws_credentials')
+def test__validate_resolved_credentials_calls_individual_validators(
+    mock_validate_aws_credentials,
+    mock_validate_sdv_enterprise_credentials,
+    mock_validate_gcp_credentials,
+):
+    """Test `_validate_resolved_credentials` calls the individual validators."""
+    # Setup
+    credentials = {'aws': {}, 'sdv_enterprise': {}, 'gcp': {}}
+    mock_validate_aws_credentials.return_value = ['aws error']
+    mock_validate_sdv_enterprise_credentials.return_value = ['sdv error']
+    mock_validate_gcp_credentials.return_value = ['gcp error']
+
+    # Run
+    errors = _validate_resolved_credentials(credentials)
+
+    # Assert
+    mock_validate_aws_credentials.assert_called_once_with(credentials)
+    mock_validate_sdv_enterprise_credentials.assert_called_once_with(credentials)
+    mock_validate_gcp_credentials.assert_called_once_with(credentials)
+    assert errors == ['aws error', 'gcp error', 'sdv error']
