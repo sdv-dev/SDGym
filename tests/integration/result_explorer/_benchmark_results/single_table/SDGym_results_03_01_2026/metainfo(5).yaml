@@ -1,0 +1,34 @@
+completed_date: 03_01_2026 10:02:42
+jobs:
+- - adult
+  - CTGANSynthesizer(5)
+- - adult
+  - UniformSynthesizer(5)
+- - alarm
+  - CTGANSynthesizer(5)
+- - alarm
+  - UniformSynthesizer(5)
+- - census
+  - CTGANSynthesizer(5)
+- - census
+  - UniformSynthesizer(5)
+- - child
+  - CTGANSynthesizer(5)
+- - child
+  - UniformSynthesizer(5)
+- - expedia_hotel_logs
+  - CTGANSynthesizer(5)
+- - expedia_hotel_logs
+  - UniformSynthesizer(5)
+- - insurance
+  - CTGANSynthesizer(5)
+- - insurance
+  - UniformSynthesizer(5)
+- - news
+  - CTGANSynthesizer(5)
+- - news
+  - UniformSynthesizer(5)
+modality: single_table
+run_id: run_03_01_2026_5
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 05:59:06

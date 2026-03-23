@@ -1,0 +1,3 @@
+Synthesizer,Dataset,Dataset_Size_MB,Train_Time,Peak_Memory_MB,Synthesizer_Size_MB,Sample_Time,Evaluate_Time,Diagnostic_Score,Quality_Score,Adjusted_Total_Time,Adjusted_Quality_Score
+CopulaGANSynthesizer(13),covtype,255.645408,24457.473523,3742.23623,8.653194,125.513055,58.704862000000006,1.0,0.5684277206692688,24583.790979,0.5684277206692688
+UniformSynthesizer(13),covtype,255.645408,0.804401,1287.784927,255.648525,0.54603,69.426868,1.0,0.5228146775042142,2.154832,0.5228146775042142

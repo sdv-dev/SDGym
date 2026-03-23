@@ -1,0 +1,42 @@
+completed_date: 03_01_2026 06:27:44
+jobs:
+- - adult
+  - XGCSynthesizer(3)
+- - adult
+  - UniformSynthesizer(3)
+- - alarm
+  - XGCSynthesizer(3)
+- - alarm
+  - UniformSynthesizer(3)
+- - census
+  - XGCSynthesizer(3)
+- - census
+  - UniformSynthesizer(3)
+- - child
+  - XGCSynthesizer(3)
+- - child
+  - UniformSynthesizer(3)
+- - covtype
+  - XGCSynthesizer(3)
+- - covtype
+  - UniformSynthesizer(3)
+- - expedia_hotel_logs
+  - XGCSynthesizer(3)
+- - expedia_hotel_logs
+  - UniformSynthesizer(3)
+- - insurance
+  - XGCSynthesizer(3)
+- - insurance
+  - UniformSynthesizer(3)
+- - intrusion
+  - XGCSynthesizer(3)
+- - intrusion
+  - UniformSynthesizer(3)
+- - news
+  - XGCSynthesizer(3)
+- - news
+  - UniformSynthesizer(3)
+modality: single_table
+run_id: run_03_01_2026_3
+sdgym_version: 0.13.1
+starting_date: 03_01_2026 05:58:07

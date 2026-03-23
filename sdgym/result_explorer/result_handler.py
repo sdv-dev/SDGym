@@ -13,6 +13,7 @@ import yaml
 from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
+from sdgym.benchmark import TIMEOUT, _add_adjusted_scores
 from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
@@ -67,26 +68,59 @@ class ResultsHandler(ABC):
         if folder_name not in all_folders:
             raise ValueError(f"Folder '{folder_name}' does not exist in the results directory.")
 
-    def _compute_wins(self, result):
-        synthesizers = result['Synthesizer'].unique()
-        datasets = result['Dataset'].unique()
-        result['Win'] = 0
-        for dataset in datasets:
-            score_baseline = result.loc[
-                (result['Synthesizer'] == self.baseline_synthesizer)
-                & (result['Dataset'] == dataset)
-            ]['Quality_Score'].to_numpy()
-            if score_baseline.size == 0:
-                continue
+    def _compute_dataset_pareto_frontier(self, dataset_results):
+        """Compute whether synthesizers are on the Pareto frontier for the dataset."""
+        qualities = dataset_results['Adjusted_Quality_Score'].to_numpy()
+        runtimes = dataset_results['Adjusted_Total_Time'].to_numpy()
 
-            for synthesizer in synthesizers:
-                loc_synthesizer = (result['Synthesizer'] == synthesizer) & (
-                    result['Dataset'] == dataset
-                )
-                score_synthesizer = result.loc[loc_synthesizer]['Quality_Score'].to_numpy()
-                result.loc[loc_synthesizer, 'Win'] = (score_synthesizer > score_baseline).astype(
-                    int
-                )
+        is_on_frontier = []
+        for quality, runtime in zip(qualities, runtimes):
+            dominated = ((qualities > quality) & (runtimes < runtime)).any()
+            is_on_frontier.append(not dominated)
+
+        return pd.Series(is_on_frontier, index=dataset_results.index)
+
+    def _compute_pareto_frontier(self, result):
+        """Compute whether synthesizers are on the Pareto frontier for all datasets."""
+        frontier_masks = []
+        for _, dataset_results in result.groupby('Dataset', sort=False):
+            dataset_frontier = self._compute_dataset_pareto_frontier(dataset_results)
+            dataset_frontier = pd.Series(dataset_frontier, index=dataset_results.index)
+            frontier_masks.append(dataset_frontier)
+
+        frontier_mask = pd.concat(frontier_masks).reindex(result.index)
+        return frontier_mask.astype(bool)
+
+    def _compute_meets_baseline_quality(self, result):
+        """Compute whether synthesizers meet or exceed the baseline quality for all datasets."""
+        baseline_scores = (
+            result
+            .loc[
+                result['Synthesizer'] == self.baseline_synthesizer,
+                ['Dataset', 'Adjusted_Quality_Score'],
+            ]
+            .drop_duplicates(subset='Dataset')
+            .rename(columns={'Adjusted_Quality_Score': 'Baseline_Quality_Score'})
+        )
+
+        result_with_baseline = result.merge(baseline_scores, on='Dataset', how='left')
+        meet_baseline = (
+            result_with_baseline['Adjusted_Quality_Score']
+            >= result_with_baseline['Baseline_Quality_Score']
+        )
+
+        return meet_baseline
+
+    def _compute_wins(self, result):
+        """Compute wins based on baseline quality and Pareto frontier."""
+        result['Meets_Baseline_Quality'] = self._compute_meets_baseline_quality(result)
+        result['On_Pareto_Frontier'] = self._compute_pareto_frontier(result)
+        result['Win'] = (result['Meets_Baseline_Quality'] & result['On_Pareto_Frontier']).astype(
+            int
+        )
+        result = result.drop(columns=['Meets_Baseline_Quality', 'On_Pareto_Frontier'])
+
+        return result
 
     def _get_summarize_table(self, folder_to_results, folder_infos):
         """Create a summary table from the results."""
@@ -99,7 +133,6 @@ class ResultsHandler(ABC):
                 f' - # datasets: {folder_infos[folder]["# datasets"]}'
                 f' - sdgym version: {folder_infos[folder]["sdgym_version"]}'
             )
-            results = results.loc[results['Synthesizer'] != self.baseline_synthesizer]
             column_data = results.groupby(['Synthesizer'])['Win'].sum()
             columns.append((date_obj, column_name, column_data))
 
@@ -147,6 +180,21 @@ class ResultsHandler(ABC):
         aggregated_results = aggregated_results.drop_duplicates(
             subset=['Dataset', 'Synthesizer'], keep='first'
         )
+        aggregated_results = _add_adjusted_scores(aggregated_results, timeout=TIMEOUT)
+
+        # Backward compatibility for runs done before graceful degradation logic existed
+        fallback_columns = {
+            'Adjusted_Quality_Score': aggregated_results['Quality_Score'],
+            'Adjusted_Total_Time': (
+                aggregated_results['Train_Time'] + aggregated_results['Sample_Time']
+            ),
+        }
+        missing_adjusted_columns = [
+            column for column in fallback_columns if aggregated_results[column].isna().all()
+        ]
+        for column in missing_adjusted_columns:
+            aggregated_results[column] = fallback_columns[column]
+
         all_synthesizers = aggregated_results['Synthesizer'].unique()
         dataset_synth_counts = aggregated_results.groupby('Dataset')['Synthesizer'].nunique()
         valid_datasets = dataset_synth_counts[dataset_synth_counts == len(all_synthesizers)].index
@@ -158,6 +206,9 @@ class ResultsHandler(ABC):
             )
 
         filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
+        if missing_adjusted_columns:
+            filtered_results = filtered_results.drop(columns=missing_adjusted_columns)
+
         return filtered_results.reset_index(drop=True)
 
     def summarize(self, results_folder_name):
@@ -186,7 +237,7 @@ class ResultsHandler(ABC):
                 continue
 
             aggregated_results = self._process_results(results)
-            self._compute_wins(aggregated_results)
+            aggregated_results = self._compute_wins(aggregated_results)
             folder_to_results[folder] = aggregated_results
             folder_infos = self._get_column_name_infos(folder_to_results)
 
