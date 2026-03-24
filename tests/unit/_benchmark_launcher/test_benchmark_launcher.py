@@ -158,6 +158,11 @@ class TestBenchmarkLauncher:
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
+        launcher._instance_name_to_status = {
+            'instance-1': 'running',
+            'instance-2': 'running',
+            'instance-3': 'stopped',
+        }
         launcher._get_gcp_client = Mock(return_value=(Mock(), 'test-project'))
         launcher._list_gcp_instances = Mock(
             return_value=[
@@ -169,7 +174,9 @@ class TestBenchmarkLauncher:
                 }
             ]
         )
-        launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        launcher._get_all_instance_names = Mock(
+            return_value=['instance-1', 'instance-2', 'instance-3']
+        )
 
         # Run
         launcher._update_gcp_instance_name_to_status()
@@ -177,7 +184,8 @@ class TestBenchmarkLauncher:
         # Assert
         assert launcher._instance_name_to_status == {
             'instance-1': 'running',
-            'instance-2': 'terminated',
+            'instance-2': 'completed',
+            'instance-3': 'stopped',
         }
 
     def test_update_instance_name_to_status(self):
@@ -411,8 +419,8 @@ class TestBenchmarkLauncher:
         mock_operation_2.result.assert_called_once_with()
         assert deleted_instances == ['instance-1', 'instance-2']
         assert launcher._instance_name_to_status == {
-            'instance-1': 'terminated',
-            'instance-2': 'terminated',
+            'instance-1': 'stopped',
+            'instance-2': 'stopped',
         }
         mock_print.assert_has_calls([
             call("Terminating GCP instance 'instance-1' (id=123, zone=us-central1-a)..."),

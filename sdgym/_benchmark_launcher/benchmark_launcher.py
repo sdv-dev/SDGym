@@ -87,8 +87,8 @@ class BenchmarkLauncher:
         for instance_name in self._get_all_instance_names():
             if instance_name in running_instance_names:
                 self._instance_name_to_status[instance_name] = 'running'
-            else:
-                self._instance_name_to_status[instance_name] = 'terminated'
+            elif self._instance_name_to_status.get(instance_name) == 'running':
+                self._instance_name_to_status[instance_name] = 'completed'
 
     def _update_instance_name_to_status(self):
         if self.compute_service == 'gcp':
@@ -200,7 +200,7 @@ class BenchmarkLauncher:
                 instance=instance['name'],
             )
             operation.result()
-            self._instance_name_to_status[instance['name']] = 'terminated'
+            self._instance_name_to_status[instance['name']] = 'stopped'
             deleted_instances.append(instance['name'])
 
         return deleted_instances
