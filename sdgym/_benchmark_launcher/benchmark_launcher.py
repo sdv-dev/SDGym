@@ -4,6 +4,8 @@ import logging
 import warnings
 
 import cloudpickle
+import pandas as pd
+from botocore.exceptions import ClientError
 
 from sdgym._benchmark_launcher._instance_manager import GCPInstanceManager
 from sdgym._benchmark_launcher.utils import (
@@ -12,6 +14,7 @@ from sdgym._benchmark_launcher.utils import (
     generate_ids,
     resolve_credentials,
 )
+from sdgym.s3 import get_s3_client, is_s3_path, parse_s3_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +55,7 @@ class BenchmarkLauncher:
         ])
         self._launch_to_instance_names = {}
         self._instance_name_to_status = {}
+        self._instance_name_to_jobs = {}
         self._instance_manager = self._build_instance_manager()
 
     def _build_instance_manager(self):
@@ -77,6 +81,16 @@ class BenchmarkLauncher:
             )
             self._launch_to_instance_names[launch_id].append(instance_name)
             self._instance_name_to_status[instance_name] = 'running'
+            jobs = []
+            for dataset in sdv_datasets:
+                for synthesizer in instance_job['synthesizers']:
+                    jobs.append({
+                        'dataset': dataset,
+                        'synthesizer': synthesizer,
+                        'output_destination': instance_job['output_destination'],
+                    })
+
+            self._instance_name_to_jobs[instance_name] = jobs
 
     def launch(self):
         """Run the BenchmarkConfig: validate it and then execute the specified benchmark method."""
@@ -124,8 +138,69 @@ class BenchmarkLauncher:
 
         return instances
 
+    def _validate_compute_service(self):
+        """Validate that the compute service is supported."""
+        if self.compute_service not in ('gcp',):
+            raise NotImplementedError(
+                f"Compute service '{self.compute_service}' is not supported. "
+                "Supported services: 'gcp'."
+            )
+
+    def _get_gcp_client(self):
+        """Build and return the GCP client and project id."""
+        credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
+        errors = _validate_gcp_credentials(credentials)
+        if errors:
+            error_message = '\n'.join(errors)
+            raise ValueError(f'Invalid GCP credentials:\n{error_message}')
+
+        project_id = credentials['gcp']['project_id']
+        gcp_credentials = service_account.Credentials.from_service_account_info(credentials['gcp'])
+        client = compute_v1.InstancesClient(credentials=gcp_credentials)
+
+        return client, project_id
+
+    def _terminate_gcp_instances(self, instance_names, verbose):
+        """Terminate GCP instances by their names."""
+        client, project_id = self._get_gcp_client()
+        running_instances = self._list_gcp_instances(client, project_id)
+        running_instances_by_name = {instance['name']: instance for instance in running_instances}
+        instances_to_delete = [
+            running_instances_by_name[name]
+            for name in instance_names
+            if name in running_instances_by_name
+        ]
+
+        not_running = sorted(set(instance_names) - set(running_instances_by_name))
+        if not_running:
+            not_running_str = "', '".join(not_running)
+            LOGGER.info(
+                f"Some provided instance names are not currently running: '{not_running_str}'."
+            )
+
+        deleted_instances = []
+        for instance in instances_to_delete:
+            if verbose:
+                message = (
+                    f"Terminating GCP instance '{instance['name']}' "
+                    f'(id={instance["id"]}, zone={instance["zone"]})...'
+                )
+                print(message)  # noqa: T201
+
+            operation = client.delete(
+                project=project_id,
+                zone=instance['zone'],
+                instance=instance['name'],
+            )
+            operation.result()
+            self._instance_name_to_status[instance['name']] = 'terminated'
+            deleted_instances.append(instance['name'])
+
+        return deleted_instances
+
     def _validate_inputs_and_get_instances(self, instance_names, verbose):
         """Validate terminate inputs and return the instance names to process."""
+        self._validate_compute_service()
         if not isinstance(verbose, bool):
             raise ValueError(f'`verbose` must be a boolean. Found: {verbose!r} ({type(verbose)}).')
 
@@ -171,32 +246,114 @@ class BenchmarkLauncher:
         if verbose:
             print(f'Terminated {len(deleted_instances)} GCP instance(s).')  # noqa: T201
 
-    def get_status(self, dataset_names=None, synthesizer_names=None, instance_ids=None):
-        """Get status of running benchmark instance jobs.
-
-        Indicates whether the instance_id is still running, has completed successfully,
-        or has failed.
+    def get_instance_status(self, instance_names=None):
+        """Get the status of benchmark instances.
 
         Args:
-            dataset_names (list of str, optional):
-                List of dataset names to get status for.
-                If None, gets status for all datasets. Default to None.
-            synthesizer_names (list of str, optional):
-                List of synthesizer names to get status for.
-                If None, gets status for all synthesizers. Default to None.
-            instance_ids (list of str, optional):
-                List of instance IDs to get status for.
-                If None, gets status for all instance jobs. Default to None.
+            instance_names (list of str, optional):
+                List of instance names to get status for.
+                If None, gets status for all launched instances. Defaults to None.
 
         Returns:
             pd.DataFrame:
-                A dataframe with one row per job (synthesizer-dataset combination) and columns:
-                - Dataset: The dataset used in the job.
-                - Synthesizer: The synthesizer used in the job.
-                - 'Instance_ID': The ID of the instance running the job.
-                - 'Status': The status of the job, which can be 'Running', 'Completed', or 'Failed'.
+                A dataframe with one row per instance and columns:
+                - Instance Name: The instance name tracked by the launcher.
+                - Status: The status of the instance.
         """
-        raise NotImplementedError
+        self._validate_compute_service()
+        instances = self._validate_instance_names(instance_names)
+        self._update_instance_name_to_status()
+        rows = []
+        for instance_name in instances:
+            internal_status = self._instance_name_to_status.get(instance_name)
+            rows.append({'Instance Name': instance_name, 'Status': internal_status.capitalize()})
+
+        return pd.DataFrame(rows)
+
+    def _s3_object_exists(self, s3_client, bucket_name, key):
+        """Return whether an object exists in S3."""
+        try:
+            s3_client.head_object(Bucket=bucket_name, Key=key)
+            return True
+        except ClientError as error:
+            error_code = error.response.get('Error', {}).get('Code')
+            if error_code in {'404', 'NoSuchKey', 'NotFound'}:
+                return False
+
+            raise
+
+    def _get_job_artifact_status(self, dataset, synthesizer, output_destination):
+        """Get the artifact-based status for a benchmark job."""
+        if not is_s3_path(output_destination):
+            raise ValueError(
+                f'`output_destination` must be an S3 path. Found: {output_destination!r}.'
+            )
+
+        credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
+        aws_credentials = credentials.get('aws', {})
+        s3_client = get_s3_client(
+            aws_access_key_id=aws_credentials.get('aws_access_key_id'),
+            aws_secret_access_key=aws_credentials.get('aws_secret_access_key'),
+        )
+        bucket_name, key_prefix = parse_s3_path(output_destination)
+        job_prefix = f'{key_prefix.rstrip("/")}/{dataset}/{synthesizer}'
+        benchmark_results_key = f'{job_prefix}/{synthesizer}_benchmark_results.csv'
+        synthetic_data_key = f'{job_prefix}/{synthesizer}_synthetic_data.csv'
+        synthesizer_key = f'{job_prefix}/{synthesizer}.pkl'
+        has_benchmark_results = self._s3_object_exists(
+            s3_client, bucket_name, benchmark_results_key
+        )
+        has_synthetic_data = self._s3_object_exists(s3_client, bucket_name, synthetic_data_key)
+        has_synthesizer = self._s3_object_exists(s3_client, bucket_name, synthesizer_key)
+
+        if has_benchmark_results and has_synthetic_data and has_synthesizer:
+            return 'Completed'
+
+        if has_benchmark_results and not has_synthetic_data and not has_synthesizer:
+            return 'Failed'
+
+        return 'Queued'
+
+    def get_job_status(self, dataset_names=None, synthesizer_names=None, instance_names=None):
+        """Get status of benchmark instance jobs."""
+        instances = self._validate_inputs_and_get_instances(instance_names, verbose=False)
+        self._update_instance_name_to_status()
+        active_instances = set(self._get_active_instance_names())
+        rows = []
+        for instance_name in instances:
+            jobs = self._instance_name_to_jobs.get(instance_name, [])
+            instance_rows = []
+            for job in jobs:
+                dataset = job['dataset']
+                synthesizer = job['synthesizer']
+                if dataset_names is not None and dataset not in dataset_names:
+                    continue
+
+                if synthesizer_names is not None and synthesizer not in synthesizer_names:
+                    continue
+
+                status = self._get_job_artifact_status(
+                    dataset=dataset,
+                    synthesizer=synthesizer,
+                    output_destination=job['output_destination'],
+                )
+                instance_rows.append({
+                    'Dataset': dataset,
+                    'Synthesizer': synthesizer,
+                    'Instance_Name': instance_name,
+                    'Status': status,
+                })
+
+            if instance_name in active_instances:
+                queued_indexes = [
+                    idx for idx, row in enumerate(instance_rows) if row['Status'] == 'Queued'
+                ]
+                if queued_indexes:
+                    instance_rows[queued_indexes[0]]['Status'] = 'Running'
+
+            rows.extend(instance_rows)
+
+        return pd.DataFrame(rows)
 
     def save(self, filepath):
         """Save the benchmark configuration to a file."""
