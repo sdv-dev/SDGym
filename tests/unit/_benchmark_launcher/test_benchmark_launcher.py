@@ -33,6 +33,8 @@ class TestBenchmarkLauncher:
         assert launcher.benchmark_config == benchmark_config
         assert launcher.method_to_run == _METHODS[('single_table', 'gcp')]
         assert launcher._benchmark_id == 'unique_id'
+        assert launcher._launch_to_instance_names == {}
+        assert launcher._instance_name_to_status == {}
 
     def test_launch_calls_validate_when_not_validated(self):
         """Test `launch` calls `validate` when `_is_validated` is False."""
@@ -43,7 +45,7 @@ class TestBenchmarkLauncher:
         config._is_validated = False
         config.validate = Mock()
         launcher = BenchmarkLauncher(config)
-        config.validate.reset_mock()  # Reset call count after __init__
+        config.validate.reset_mock()
         launcher._launch = Mock()
 
         # Run
@@ -51,6 +53,7 @@ class TestBenchmarkLauncher:
 
         # Assert
         config.validate.assert_called_once()
+        launcher._launch.assert_called_once_with()
 
     def test_launch_already_validated(self):
         """Test `launch` when config already validated."""
@@ -62,7 +65,7 @@ class TestBenchmarkLauncher:
         config._is_validated = True
         config.validate = Mock()
         launcher = BenchmarkLauncher(config)
-        config.validate.reset_mock()  # Reset call count after __init__
+        config.validate.reset_mock()
         launcher._launch = Mock()
 
         # Run
@@ -142,7 +145,55 @@ class TestBenchmarkLauncher:
         ]
         launcher.method_to_run.assert_has_calls(expected_calls, any_order=False)
         assert launcher.method_to_run.call_count == 2
-        assert launcher.launch_to_instance_ids == {'LAUNCH_ID_1': ['instance-1', 'instance-2']}
+        assert launcher._launch_to_instance_names == {'LAUNCH_ID_1': ['instance-1', 'instance-2']}
+        assert launcher._instance_name_to_status == {
+            'instance-1': 'running',
+            'instance-2': 'running',
+        }
+
+    def test_update_gcp_instance_name_to_status(self):
+        """Test the `_update_gcp_instance_name_to_status` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_gcp_client = Mock(return_value=(Mock(), 'test-project'))
+        launcher._list_gcp_instances = Mock(
+            return_value=[
+                {
+                    'id': '123',
+                    'name': 'instance-1',
+                    'zone': 'us-central1-a',
+                    'status': 'RUNNING',
+                }
+            ]
+        )
+        launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+
+        # Run
+        launcher._update_gcp_instance_name_to_status()
+
+        # Assert
+        assert launcher._instance_name_to_status == {
+            'instance-1': 'running',
+            'instance-2': 'terminated',
+        }
+
+    def test_update_instance_name_to_status(self):
+        """Test the `_update_instance_name_to_status` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._update_gcp_instance_name_to_status = Mock()
+
+        # Run
+        launcher._update_instance_name_to_status()
+
+        # Assert
+        launcher._update_gcp_instance_name_to_status.assert_called_once_with()
 
     def test_list_gcp_instances(self):
         """Test the `_list_gcp_instances` method."""
@@ -201,7 +252,7 @@ class TestBenchmarkLauncher:
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        launcher.launch_to_instance_ids = {
+        launcher._launch_to_instance_names = {
             'launch-1': ['instance-1', 'instance-2'],
             'launch-2': ['instance-3'],
         }
@@ -211,6 +262,25 @@ class TestBenchmarkLauncher:
 
         # Assert
         assert result == ['instance-1', 'instance-2', 'instance-3']
+
+    def test_get_active_instance_names(self):
+        """Test the `_get_active_instance_names` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._instance_name_to_status = {
+            'instance-1': 'running',
+            'instance-2': 'terminated',
+            'instance-3': 'running',
+        }
+
+        # Run
+        result = launcher._get_active_instance_names()
+
+        # Assert
+        assert result == ['instance-1', 'instance-3']
 
     def test_validate_instance_names(self):
         """Test the `_validate_instance_names` method."""
@@ -324,12 +394,13 @@ class TestBenchmarkLauncher:
         client.delete.side_effect = [mock_operation_1, mock_operation_2]
 
         # Run
-        launcher._terminate_gcp_instances(
+        deleted_instances = launcher._terminate_gcp_instances(
             instance_names=['instance-1', 'instance-2'],
             verbose=True,
         )
 
         # Assert
+        assert len(deleted_instances) == 2
         launcher._get_gcp_client.assert_called_once_with()
         launcher._list_gcp_instances.assert_called_once_with(client, 'test-project')
         assert client.delete.call_args_list == [
@@ -338,10 +409,14 @@ class TestBenchmarkLauncher:
         ]
         mock_operation_1.result.assert_called_once_with()
         mock_operation_2.result.assert_called_once_with()
+        assert deleted_instances == ['instance-1', 'instance-2']
+        assert launcher._instance_name_to_status == {
+            'instance-1': 'terminated',
+            'instance-2': 'terminated',
+        }
         mock_print.assert_has_calls([
             call("Terminating GCP instance 'instance-1' (id=123, zone=us-central1-a)..."),
             call("Terminating GCP instance 'instance-2' (id=456, zone=us-central1-b)..."),
-            call('Terminated 2 GCP instance(s).'),
         ])
 
     @patch('sdgym._benchmark_launcher.benchmark_launcher.LOGGER')
@@ -375,7 +450,8 @@ class TestBenchmarkLauncher:
             "Some provided instance names are not currently running: 'instance-2'."
         )
 
-    def test_terminate_mock(self):
+    @patch('builtins.print')
+    def test_terminate_mock(self, mock_print):
         """Test the `terminate` method with a mock."""
         # Setup
         benchmark_config = Mock()
@@ -383,16 +459,55 @@ class TestBenchmarkLauncher:
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
-        launcher._terminate_gcp_instances = Mock()
+        launcher._update_instance_name_to_status = Mock()
+        launcher._get_active_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        launcher._terminate_gcp_instances = Mock(return_value=['instance-1', 'instance-2'])
 
         # Run
-        launcher.terminate(instance_names=['instance-1', 'instance-2'], verbose=False)
+        launcher.terminate(instance_names=['instance-1', 'instance-2'], verbose=True)
 
         # Assert
         launcher._validate_instance_names.assert_called_once_with(['instance-1', 'instance-2'])
+        assert launcher._update_instance_name_to_status.call_count == 2
+        launcher._get_active_instance_names.assert_called_once_with()
         launcher._terminate_gcp_instances.assert_called_once_with(
-            ['instance-1', 'instance-2'], False
+            ['instance-1', 'instance-2'], True
         )
+        mock_print.assert_called_once_with('Terminated 2 GCP instance(s).')
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.LOGGER')
+    def test_terminate_logs_when_no_running_instances(self, mock_logger):
+        """Test the `terminate` method logs when there are no running instances to terminate."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._validate_instance_names = Mock(return_value=['instance-1'])
+        launcher._update_instance_name_to_status = Mock()
+        launcher._get_active_instance_names = Mock(return_value=[])
+
+        # Run
+        launcher.terminate(instance_names=None, verbose=False)
+
+        # Assert
+        mock_logger.info.assert_called_once_with('There are no running instances to terminate.')
+
+    def test_terminate_warns_when_all_requested_instances_are_terminated(self):
+        """Test `terminate` warns when all requested instances are terminated."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._validate_instance_names = Mock(return_value=['instance-1'])
+        launcher._update_instance_name_to_status = Mock()
+        launcher._get_active_instance_names = Mock(return_value=[])
+        expected_warning = re.escape('All provided instance names are already terminated.')
+
+        # Run and Assert
+        with pytest.warns(UserWarning, match=expected_warning):
+            launcher.terminate(instance_names=['instance-1'], verbose=False)
 
     def test_terminate_not_gcp(self):
         """Test the `terminate` method when not using GCP."""
@@ -401,16 +516,12 @@ class TestBenchmarkLauncher:
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
         launcher.compute_service = 'aws'
         expected_error = re.escape('`terminate()` is only implemented for GCP instances for now.')
 
-        # Run
+        # Run and Assert
         with pytest.raises(NotImplementedError, match=expected_error):
             launcher.terminate()
-
-        # Assert
-        launcher._validate_instance_names.assert_called_once_with(None)
 
     def test_get_status(self):
         """Test the `get_status` method."""
