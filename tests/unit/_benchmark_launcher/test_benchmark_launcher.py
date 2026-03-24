@@ -450,6 +450,66 @@ class TestBenchmarkLauncher:
             "Some provided instance names are not currently running: 'instance-2'."
         )
 
+    def test_validate_inputs_and_get_instances(self):
+        """Test the `_validate_inputs_and_get_instances` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+
+        # Run
+        result = launcher._validate_inputs_and_get_instances(
+            instance_names=['instance-1', 'instance-2'],
+            verbose=True,
+        )
+
+        # Assert
+        launcher._validate_instance_names.assert_called_once_with(['instance-1', 'instance-2'])
+        assert result == ['instance-1', 'instance-2']
+
+    @pytest.mark.parametrize(
+        ('compute_service', 'verbose', 'expected_error'),
+        [
+            (
+                'aws',
+                True,
+                NotImplementedError('`terminate()` is only implemented for GCP instances for now.'),
+            ),
+            (
+                'gcp',
+                1,
+                ValueError("`verbose` must be a boolean. Found: 1 (<class 'int'>)."),
+            ),
+            (
+                'gcp',
+                'yes',
+                ValueError("`verbose` must be a boolean. Found: 'yes' (<class 'str'>)."),
+            ),
+        ],
+    )
+    def test_validate_inputs_and_get_instances_invalid_cases(
+        self, compute_service, verbose, expected_error
+    ):
+        """Test `_validate_inputs_and_get_instances` raises errors for invalid inputs."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher.compute_service = compute_service
+        launcher._validate_instance_names = Mock(return_value=['instance-1'])
+
+        # Run and Assert
+        with pytest.raises(type(expected_error), match=re.escape(str(expected_error))):
+            launcher._validate_inputs_and_get_instances(
+                instance_names=['instance-1'],
+                verbose=verbose,
+            )
+
+        launcher._validate_instance_names.assert_not_called()
+
     @patch('builtins.print')
     def test_terminate_mock(self, mock_print):
         """Test the `terminate` method with a mock."""
@@ -458,7 +518,9 @@ class TestBenchmarkLauncher:
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        launcher._validate_inputs_and_get_instances = Mock(
+            return_value=['instance-1', 'instance-2']
+        )
         launcher._update_instance_name_to_status = Mock()
         launcher._get_active_instance_names = Mock(return_value=['instance-1', 'instance-2'])
         launcher._terminate_gcp_instances = Mock(return_value=['instance-1', 'instance-2'])
@@ -467,7 +529,9 @@ class TestBenchmarkLauncher:
         launcher.terminate(instance_names=['instance-1', 'instance-2'], verbose=True)
 
         # Assert
-        launcher._validate_instance_names.assert_called_once_with(['instance-1', 'instance-2'])
+        launcher._validate_inputs_and_get_instances.assert_called_once_with(
+            ['instance-1', 'instance-2'], True
+        )
         assert launcher._update_instance_name_to_status.call_count == 2
         launcher._get_active_instance_names.assert_called_once_with()
         launcher._terminate_gcp_instances.assert_called_once_with(

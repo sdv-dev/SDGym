@@ -205,6 +205,19 @@ class BenchmarkLauncher:
 
         return deleted_instances
 
+    def _validate_inputs_and_get_instances(self, instance_names, verbose):
+        """Validate terminate inputs and return the instance names to process."""
+        if self.compute_service != 'gcp':
+            raise NotImplementedError(
+                '`terminate()` is only implemented for GCP instances for now.'
+            )
+
+        if not isinstance(verbose, bool):
+            raise ValueError(f'`verbose` must be a boolean. Found: {verbose!r} ({type(verbose)}).')
+
+        instances = self._validate_instance_names(instance_names)
+        return instances
+
     def terminate(self, instance_names=None, verbose=True):
         """Terminate running benchmark instances.
 
@@ -215,12 +228,7 @@ class BenchmarkLauncher:
             verbose (bool):
                 Whether to print progress information. Defaults to True.
         """
-        if self.compute_service != 'gcp':
-            raise NotImplementedError(
-                '`terminate()` is only implemented for GCP instances for now.'
-            )
-
-        instances = self._validate_instance_names(instance_names)
+        instances = self._validate_inputs_and_get_instances(instance_names, verbose)
         self._update_instance_name_to_status()
         active_instances = set(self._get_active_instance_names())
         instances_to_terminate = [name for name in instances if name in active_instances]
@@ -231,6 +239,7 @@ class BenchmarkLauncher:
                 warnings.warn('All provided instance names are already terminated.')
 
             return
+
         already_terminated = sorted(set(instance_names or instances) - active_instances)
         if already_terminated:
             already_terminated_str = "', '".join(already_terminated)

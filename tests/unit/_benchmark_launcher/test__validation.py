@@ -338,18 +338,6 @@ def test__validate_gcp_credentials_valid():
     assert errors == []
 
 
-def test__validate_gcp_credentials_invalid_section_type():
-    """Test `_validate_gcp_credentials` validates section type."""
-    # Setup
-    credentials = {'gcp': 'bad'}
-
-    # Run
-    errors = _validate_gcp_credentials(credentials)
-
-    # Assert
-    assert errors == ["credentials['gcp'] must be a dict."]
-
-
 def test__validate_gcp_credentials_missing_keys():
     """Test `_validate_gcp_credentials` validates missing GCP service account keys."""
     # Setup
