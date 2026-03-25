@@ -7,10 +7,14 @@ import pytest
 
 from sdgym._benchmark_launcher.utils import (
     MODALITY_TO_CONFIG_FILE,
+    _add_dataset_suffix,
+    _build_job_artifact_keys,
     _deep_merge,
     _env,
     _get_env_credentials,
     _get_gcp_credentials_from_env,
+    _get_synthetic_data_extension,
+    _get_top_folder_prefix,
     _load_json_file,
     _load_merged_modality_config,
     _load_yaml_resource,
@@ -561,3 +565,124 @@ def test_generate_ids_returns_unique_ids():
     assert id1 != id2
     assert id1.startswith('COMPONENT1_COMPONENT2_')
     assert id2.startswith('COMPONENT1_COMPONENT2_')
+
+
+@patch('sdgym._benchmark_launcher.utils.datetime')
+def test__add_dataset_suffix(mock_datetime):
+    """Test the `_add_dataset_suffix` method."""
+    # Setup
+    mock_datetime.today.return_value.strftime.return_value = '03_25_2026'
+
+    # Run
+    result = _add_dataset_suffix('adult')
+
+    # Assert
+    assert result == 'adult_03_25_2026'
+
+
+@patch('sdgym._benchmark_launcher.utils.datetime')
+@patch('sdgym._benchmark_launcher.utils.parse_s3_path')
+def test__get_top_folder_prefix(mock_parse_s3_path, mock_datetime):
+    """Test the `_get_top_folder_prefix` method."""
+    # Setup
+    mock_parse_s3_path.return_value = ('my-bucket', 'Debug/Issue_570/')
+    mock_datetime.today.return_value.strftime.return_value = '03_25_2026'
+
+    # Run
+    result = _get_top_folder_prefix(
+        output_destination='s3://my-bucket/Debug/Issue_570/',
+        modality='single_table',
+    )
+
+    # Assert
+    mock_parse_s3_path.assert_called_once_with('s3://my-bucket/Debug/Issue_570/')
+    assert result == 'Debug/Issue_570/single_table/SDGym_results_03_25_2026'
+
+
+@patch('sdgym._benchmark_launcher.utils.datetime')
+@patch('sdgym._benchmark_launcher.utils.parse_s3_path')
+def test__get_top_folder_prefix_empty_key_prefix(mock_parse_s3_path, mock_datetime):
+    """Test `_get_top_folder_prefix` when the output destination has no key prefix."""
+    # Setup
+    mock_parse_s3_path.return_value = ('my-bucket', '')
+    mock_datetime.today.return_value.strftime.return_value = '03_25_2026'
+
+    # Run
+    result = _get_top_folder_prefix(
+        output_destination='s3://my-bucket',
+        modality='single_table',
+    )
+
+    # Assert
+    assert result == 'single_table/SDGym_results_03_25_2026'
+
+
+@pytest.mark.parametrize(
+    ('modality', 'expected'),
+    [
+        ('single_table', 'csv'),
+        ('multi_table', 'zip'),
+    ],
+)
+def test__get_synthetic_data_extension(modality, expected):
+    """Test the `_get_synthetic_data_extension` method."""
+    # Run
+    result = _get_synthetic_data_extension(modality)
+
+    # Assert
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ('artifact_key_prefix', 'artifact_dataset', 'artifact_synthesizer', 'modality', 'expected'),
+    [
+        (
+            'Debug/Issue_570/single_table/SDGym_results_03_25_2026',
+            'adult_03_25_2026',
+            'CTGANSynthesizer',
+            'single_table',
+            (
+                'Debug/Issue_570/single_table/SDGym_results_03_25_2026/'
+                'adult_03_25_2026/CTGANSynthesizer/CTGANSynthesizer_benchmark_result.csv',
+                'Debug/Issue_570/single_table/SDGym_results_03_25_2026/'
+                'adult_03_25_2026/CTGANSynthesizer/CTGANSynthesizer_synthetic_data.csv',
+                'Debug/Issue_570/single_table/SDGym_results_03_25_2026/'
+                'adult_03_25_2026/CTGANSynthesizer/CTGANSynthesizer.pkl',
+            ),
+        ),
+        (
+            'Debug/Issue_570/multi_table/SDGym_results_03_25_2026/',
+            'fake_hotels_03_25_2026',
+            'HMASynthesizer(1)',
+            'multi_table',
+            (
+                'Debug/Issue_570/multi_table/SDGym_results_03_25_2026/'
+                'fake_hotels_03_25_2026/HMASynthesizer(1)/'
+                'HMASynthesizer(1)_benchmark_result.csv',
+                'Debug/Issue_570/multi_table/SDGym_results_03_25_2026/'
+                'fake_hotels_03_25_2026/HMASynthesizer(1)/'
+                'HMASynthesizer(1)_synthetic_data.zip',
+                'Debug/Issue_570/multi_table/SDGym_results_03_25_2026/'
+                'fake_hotels_03_25_2026/HMASynthesizer(1)/HMASynthesizer(1).pkl',
+            ),
+        ),
+    ],
+)
+def test__build_job_artifact_keys(
+    artifact_key_prefix,
+    artifact_dataset,
+    artifact_synthesizer,
+    modality,
+    expected,
+):
+    """Test the `_build_job_artifact_keys` method."""
+    # Run
+    result = _build_job_artifact_keys(
+        artifact_key_prefix=artifact_key_prefix,
+        artifact_dataset=artifact_dataset,
+        artifact_synthesizer=artifact_synthesizer,
+        modality=modality,
+    )
+
+    # Assert
+    assert result == expected
