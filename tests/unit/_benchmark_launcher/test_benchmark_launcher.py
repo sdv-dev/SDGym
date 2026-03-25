@@ -92,6 +92,48 @@ class TestBenchmarkLauncher:
         assert result_no_suffix == 'CTGAN'
         assert result_with_suffix == 'CTGAN(2)'
 
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
+    def test_build_instance_jobs(self, mock_add_dataset_suffix, mock_get_top_folder_prefix):
+        """Test the `_build_instance_jobs` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        mock_get_top_folder_prefix.return_value = 'prefix'
+        mock_add_dataset_suffix.side_effect = ['dataset_1', 'dataset_2']
+
+        # Run
+        result = launcher._build_instance_jobs(
+            datasets=['dataset1', 'dataset2'],
+            synthesizers=['Synth1'],
+            output_destination='s3://bucket/path',
+            instance_idx=1,
+        )
+
+        # Assert
+        mock_get_top_folder_prefix.assert_called_once_with('s3://bucket/path', 'single_table')
+        assert mock_add_dataset_suffix.call_args_list == [call('dataset1'), call('dataset2')]
+        assert result == [
+            {
+                'dataset': 'dataset1',
+                'synthesizer': 'Synth1',
+                'artifact_dataset': 'dataset_1',
+                'artifact_synthesizer': 'Synth1(1)',
+                'artifact_key_prefix': 'prefix',
+                'output_destination': 's3://bucket/path',
+            },
+            {
+                'dataset': 'dataset2',
+                'synthesizer': 'Synth1',
+                'artifact_dataset': 'dataset_2',
+                'artifact_synthesizer': 'Synth1(1)',
+                'artifact_key_prefix': 'prefix',
+                'output_destination': 's3://bucket/path',
+            },
+        ]
+
     def test_launch_calls_validate_when_not_validated(self):
         """Test `launch` calls `validate` when `_is_validated` is False."""
         # Setup
@@ -140,8 +182,15 @@ class TestBenchmarkLauncher:
         'sdgym._benchmark_launcher.benchmark_launcher._resolve_datasets',
         side_effect=[['d1'], ['d2']],
     )
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
     def test_launch_internal_calls_method_for_each_job(
-        self, mock_resolve_datasets, mock_resolve_credentials, mock_generate_ids
+        self,
+        mock_add_dataset_suffix,
+        mock_get_top_folder_prefix,
+        mock_resolve_datasets,
+        mock_resolve_credentials,
+        mock_generate_benchmark_ids,
     ):
         """Test `_launch` calls the underlying benchmark method for each job."""
         # Setup
@@ -173,7 +222,9 @@ class TestBenchmarkLauncher:
         launcher = BenchmarkLauncher(config)
         launcher.method_to_run = Mock(name='method_to_run')
         launcher.method_to_run.side_effect = ['instance-1', 'instance-2']
-        mock_generate_ids.return_value = 'LAUNCH_ID_1'
+        mock_generate_benchmark_ids.return_value = 'LAUNCH_ID_1'
+        mock_get_top_folder_prefix.return_value = 'artifact-prefix'
+        mock_add_dataset_suffix.side_effect = ['d1_artifact', 'd2_artifact']
 
         # Run
         launcher._launch()
@@ -211,7 +262,9 @@ class TestBenchmarkLauncher:
                 {
                     'dataset': 'd1',
                     'synthesizer': 'Synth1',
+                    'artifact_dataset': 'd1_artifact',
                     'artifact_synthesizer': 'Synth1',
+                    'artifact_key_prefix': 'artifact-prefix',
                     'output_destination': output_destination,
                 }
             ],
@@ -219,7 +272,9 @@ class TestBenchmarkLauncher:
                 {
                     'dataset': 'd2',
                     'synthesizer': 'Synth2',
+                    'artifact_dataset': 'd2_artifact',
                     'artifact_synthesizer': 'Synth2(1)',
+                    'artifact_key_prefix': 'artifact-prefix',
                     'output_destination': output_destination,
                 }
             ],
@@ -748,7 +803,7 @@ class TestBenchmarkLauncher:
         ]
 
         # Run
-        existing_keys, key_prefix = launcher._get_s3_existing_keys('s3://bucket/prefix')
+        existing_keys = launcher._get_s3_existing_keys('s3://bucket/prefix')
 
         # Assert
         mock_get_s3_client.assert_called_once_with(
@@ -757,14 +812,14 @@ class TestBenchmarkLauncher:
         )
         mock_list_s3_bucket_contents.assert_called_once_with(s3_client, 'bucket', 'prefix')
         assert existing_keys == {'prefix/file1.csv', 'prefix/file2.csv'}
-        assert key_prefix == 'prefix'
 
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_artifact_keys')
     @pytest.mark.parametrize(
         ('existing_keys', 'expected_status'),
         [
             (
                 {
-                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_results.csv',
+                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_result.csv',
                     'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_synthetic_data.csv',
                     'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer.pkl',
                 },
@@ -772,7 +827,7 @@ class TestBenchmarkLauncher:
             ),
             (
                 {
-                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_results.csv',
+                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_result.csv',
                 },
                 'Failed',
             ),
@@ -782,24 +837,138 @@ class TestBenchmarkLauncher:
             ),
         ],
     )
-    def test_get_job_artifact_status(self, existing_keys, expected_status):
+    def test_get_job_artifact_status(
+        self, mock_build_job_artifact_keys, existing_keys, expected_status
+    ):
         """Test `_get_job_artifact_status` returns the expected status."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
+        mock_build_job_artifact_keys.return_value = (
+            'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_result.csv',
+            'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_synthetic_data.csv',
+            'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer.pkl',
+        )
 
         # Run
         result = launcher._get_job_artifact_status(
-            dataset='alarm',
-            synthesizer='CTGANSynthesizer',
-            key_prefix='prefix',
+            artifact_dataset='alarm_01_01_2026',
+            artifact_synthesizer='CTGANSynthesizer',
+            artifact_key_prefix='prefix',
             existing_keys=existing_keys,
         )
 
         # Assert
+        mock_build_job_artifact_keys.assert_called_once_with(
+            artifact_key_prefix='prefix',
+            artifact_dataset='alarm_01_01_2026',
+            artifact_synthesizer='CTGANSynthesizer',
+            modality='single_table',
+        )
         assert result == expected_status
+
+    def test_get_instance_job_rows(self):
+        """Test the `_get_instance_job_rows` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_job_artifact_status = Mock(side_effect=['Completed', 'Queued'])
+        jobs = [
+            {
+                'dataset': 'alarm',
+                'synthesizer': 'CTGAN',
+                'artifact_dataset': 'alarm_01_01_2026',
+                'artifact_synthesizer': 'CTGAN',
+                'artifact_key_prefix': 'artifact-prefix',
+                'output_destination': 's3://bucket/prefix',
+            },
+            {
+                'dataset': 'adult',
+                'synthesizer': 'TVAE',
+                'artifact_dataset': 'adult_01_01_2026',
+                'artifact_synthesizer': 'TVAE',
+                'artifact_key_prefix': 'artifact-prefix',
+                'output_destination': 's3://bucket/prefix',
+            },
+        ]
+        existing_keys_by_output = {
+            's3://bucket/prefix': {'file1', 'file2'},
+        }
+
+        # Run
+        result = launcher._get_instance_job_rows(
+            instance_name='instance-1',
+            jobs=jobs,
+            dataset_names=None,
+            synthesizer_names=None,
+            existing_keys_by_output=existing_keys_by_output,
+        )
+
+        # Assert
+        assert result == [
+            {
+                'Dataset': 'alarm',
+                'Synthesizer': 'CTGAN',
+                'Instance_Name': 'instance-1',
+                'Status': 'Completed',
+            },
+            {
+                'Dataset': 'adult',
+                'Synthesizer': 'TVAE',
+                'Instance_Name': 'instance-1',
+                'Status': 'Queued',
+            },
+        ]
+
+    def test_finalize_instance_job_rows_running(self):
+        """Test `_finalize_instance_job_rows` marks the first queued job as running."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        instance_rows = [
+            {'Status': 'Completed'},
+            {'Status': 'Queued'},
+            {'Status': 'Queued'},
+        ]
+
+        # Run
+        result = launcher._finalize_instance_job_rows(instance_rows, 'running')
+
+        # Assert
+        assert result == [
+            {'Status': 'Completed'},
+            {'Status': 'Running'},
+            {'Status': 'Queued'},
+        ]
+
+    def test_finalize_instance_job_rows_not_running(self):
+        """Test `_finalize_instance_job_rows` marks queued jobs as failed."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        instance_rows = [
+            {'Status': 'Completed'},
+            {'Status': 'Queued'},
+            {'Status': 'Queued'},
+        ]
+
+        # Run
+        result = launcher._finalize_instance_job_rows(instance_rows, 'completed')
+
+        # Assert
+        assert result == [
+            {'Status': 'Completed'},
+            {'Status': 'Failed'},
+            {'Status': 'Failed'},
+        ]
 
     @patch('sdgym._benchmark_launcher.benchmark_launcher.pd')
     def test_get_job_status(self, mock_pd):
@@ -811,26 +980,30 @@ class TestBenchmarkLauncher:
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
         launcher._update_instance_name_to_status = Mock()
-        launcher._get_active_instance_names = Mock(return_value=['instance-1'])
         launcher._get_all_output_destinations = Mock(return_value=['s3://bucket/prefix'])
-        launcher._get_s3_existing_keys = Mock(return_value=(set(), 'prefix'))
-        launcher._instance_name_to_jobs = {
-            'instance-1': [
+        launcher._get_s3_existing_keys = Mock(return_value={'file1', 'file2'})
+        launcher._instance_name_to_status = {'instance-1': 'running'}
+        launcher._instance_name_to_jobs = {'instance-1': ['job1']}
+        launcher._get_instance_job_rows = Mock(
+            return_value=[
                 {
-                    'dataset': 'alarm',
-                    'synthesizer': 'CTGAN',
-                    'artifact_synthesizer': 'CTGAN',
-                    'output_destination': 's3://bucket/prefix',
-                },
-                {
-                    'dataset': 'alarm',
-                    'synthesizer': 'TVAE',
-                    'artifact_synthesizer': 'TVAE',
-                    'output_destination': 's3://bucket/prefix',
-                },
+                    'Dataset': 'alarm',
+                    'Synthesizer': 'CTGAN',
+                    'Instance_Name': 'instance-1',
+                    'Status': 'Queued',
+                }
             ]
-        }
-        launcher._get_job_artifact_status = Mock(side_effect=['Completed', 'Queued'])
+        )
+        launcher._finalize_instance_job_rows = Mock(
+            return_value=[
+                {
+                    'Dataset': 'alarm',
+                    'Synthesizer': 'CTGAN',
+                    'Instance_Name': 'instance-1',
+                    'Status': 'Running',
+                }
+            ]
+        )
 
         # Run
         launcher.get_job_status()
@@ -838,65 +1011,32 @@ class TestBenchmarkLauncher:
         # Assert
         launcher._validate_inputs_and_get_instances.assert_called_once_with(None, verbose=False)
         launcher._update_instance_name_to_status.assert_called_once_with()
-        launcher._get_active_instance_names.assert_called_once_with()
         launcher._get_all_output_destinations.assert_called_once_with(['instance-1'])
         launcher._get_s3_existing_keys.assert_called_once_with('s3://bucket/prefix')
+        launcher._get_instance_job_rows.assert_called_once_with(
+            instance_name='instance-1',
+            jobs=['job1'],
+            dataset_names=None,
+            synthesizer_names=None,
+            existing_keys_by_output={'s3://bucket/prefix': {'file1', 'file2'}},
+        )
+        launcher._finalize_instance_job_rows.assert_called_once_with(
+            [
+                {
+                    'Dataset': 'alarm',
+                    'Synthesizer': 'CTGAN',
+                    'Instance_Name': 'instance-1',
+                    'Status': 'Queued',
+                }
+            ],
+            'running',
+        )
         mock_pd.DataFrame.assert_called_once_with([
             {
                 'Dataset': 'alarm',
                 'Synthesizer': 'CTGAN',
-                'Instance_Name': 'instance-1',
-                'Status': 'Completed',
-            },
-            {
-                'Dataset': 'alarm',
-                'Synthesizer': 'TVAE',
                 'Instance_Name': 'instance-1',
                 'Status': 'Running',
-            },
-        ])
-
-    @patch('sdgym._benchmark_launcher.benchmark_launcher.pd')
-    def test_get_job_status_filters(self, mock_pd):
-        """Test `get_job_status` applies dataset and synthesizer filters."""
-        # Setup
-        benchmark_config = Mock()
-        benchmark_config.modality = 'single_table'
-        benchmark_config.compute = {'service': 'gcp'}
-        launcher = BenchmarkLauncher(benchmark_config)
-        launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
-        launcher._update_instance_name_to_status = Mock()
-        launcher._get_active_instance_names = Mock(return_value=[])
-        launcher._get_all_output_destinations = Mock(return_value=['s3://bucket/prefix'])
-        launcher._get_s3_existing_keys = Mock(return_value=(set(), 'prefix'))
-        launcher._instance_name_to_jobs = {
-            'instance-1': [
-                {
-                    'dataset': 'alarm',
-                    'synthesizer': 'CTGAN',
-                    'artifact_synthesizer': 'CTGAN',
-                    'output_destination': 's3://bucket/prefix',
-                },
-                {
-                    'dataset': 'adult',
-                    'synthesizer': 'TVAE',
-                    'artifact_synthesizer': 'TVAE',
-                    'output_destination': 's3://bucket/prefix',
-                },
-            ]
-        }
-        launcher._get_job_artifact_status = Mock(return_value='Completed')
-
-        # Run
-        launcher.get_job_status(dataset_names=['alarm'], synthesizer_names=['CTGAN'])
-
-        # Assert
-        mock_pd.DataFrame.assert_called_once_with([
-            {
-                'Dataset': 'alarm',
-                'Synthesizer': 'CTGAN',
-                'Instance_Name': 'instance-1',
-                'Status': 'Completed',
             }
         ])
 

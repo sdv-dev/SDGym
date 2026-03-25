@@ -3,6 +3,7 @@
 import json
 import os
 import uuid
+from datetime import datetime
 from importlib.resources import files
 
 import yaml
@@ -11,6 +12,7 @@ from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
 )
+from sdgym.s3 import parse_s3_path
 
 _YAML_PKG = 'sdgym._benchmark_launcher'
 MODALITY_TO_CONFIG_FILE = {
@@ -182,3 +184,36 @@ def resolve_credentials(credentials_filepath=None):
 
     file_credentials = _load_json_file(credentials_filepath)
     return _lowercase_keys(_deep_merge(env_credentials, file_credentials))
+
+
+def _add_dataset_suffix(dataset):
+    """Return the dataset folder name used in artifact paths."""
+    today = datetime.today().strftime('%m_%d_%Y')
+    return f'{dataset}_{today}'
+
+
+def _get_top_folder_prefix(output_destination, modality):
+    """Return the top folder prefix used for benchmark artifacts."""
+    _, key_prefix = parse_s3_path(output_destination)
+    today = datetime.today().strftime('%m_%d_%Y')
+    modality_prefix = '/'.join([part for part in [key_prefix.rstrip('/'), modality] if part])
+    return f'{modality_prefix}/SDGym_results_{today}'
+
+
+def _get_synthetic_data_extension(modality):
+    """Return the synthetic data file extension for the given modality."""
+    return 'zip' if modality == 'multi_table' else 'csv'
+
+
+def _build_job_artifact_keys(artifact_key_prefix, artifact_dataset, artifact_synthesizer, modality):
+    """Build the expected artifact keys for a benchmark job."""
+    job_prefix = f'{artifact_key_prefix.rstrip("/")}/{artifact_dataset}/{artifact_synthesizer}'
+    synthetic_data_extension = _get_synthetic_data_extension(modality)
+
+    benchmark_result_key = f'{job_prefix}/{artifact_synthesizer}_benchmark_result.csv'
+    synthetic_data_key = (
+        f'{job_prefix}/{artifact_synthesizer}_synthetic_data.{synthetic_data_extension}'
+    )
+    synthesizer_key = f'{job_prefix}/{artifact_synthesizer}.pkl'
+
+    return benchmark_result_key, synthetic_data_key, synthesizer_key
