@@ -94,13 +94,20 @@ class TestBenchmarkLauncher:
 
     @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
-    def test_build_instance_jobs(self, mock_add_dataset_suffix, mock_get_top_folder_prefix):
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_output_destination')
+    def test_build_instance_jobs(
+        self, mock_build_job_output_destination, mock_add_dataset_suffix, mock_get_top_folder_prefix
+    ):
         """Test the `_build_instance_jobs` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
+        mock_build_job_output_destination.side_effect = [
+            's3://bucket/prefix/dataset_1/Synth1(1)/',
+            's3://bucket/prefix/dataset_2/Synth1(1)/',
+        ]
         mock_get_top_folder_prefix.return_value = 'prefix'
         mock_add_dataset_suffix.side_effect = ['dataset_1', 'dataset_2']
 
@@ -115,6 +122,20 @@ class TestBenchmarkLauncher:
         # Assert
         mock_get_top_folder_prefix.assert_called_once_with('s3://bucket/path', 'single_table')
         assert mock_add_dataset_suffix.call_args_list == [call('dataset1'), call('dataset2')]
+        assert mock_build_job_output_destination.call_args_list == [
+            call(
+                output_destination='s3://bucket/path',
+                artifact_key_prefix='prefix',
+                artifact_dataset='dataset_1',
+                artifact_synthesizer='Synth1(1)',
+            ),
+            call(
+                output_destination='s3://bucket/path',
+                artifact_key_prefix='prefix',
+                artifact_dataset='dataset_2',
+                artifact_synthesizer='Synth1(1)',
+            ),
+        ]
         assert result == [
             {
                 'dataset': 'dataset1',
@@ -123,6 +144,7 @@ class TestBenchmarkLauncher:
                 'artifact_synthesizer': 'Synth1(1)',
                 'artifact_key_prefix': 'prefix',
                 'output_destination': 's3://bucket/path',
+                'job_output_destination': 's3://bucket/prefix/dataset_1/Synth1(1)/',
             },
             {
                 'dataset': 'dataset2',
@@ -131,6 +153,7 @@ class TestBenchmarkLauncher:
                 'artifact_synthesizer': 'Synth1(1)',
                 'artifact_key_prefix': 'prefix',
                 'output_destination': 's3://bucket/path',
+                'job_output_destination': 's3://bucket/prefix/dataset_2/Synth1(1)/',
             },
         ]
 
@@ -186,8 +209,10 @@ class TestBenchmarkLauncher:
     )
     @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_output_destination')
     def test_launch_internal_calls_method_for_each_job(
         self,
+        mock_build_job_output_destination,
         mock_add_dataset_suffix,
         mock_get_top_folder_prefix,
         mock_resolve_datasets,
@@ -197,6 +222,8 @@ class TestBenchmarkLauncher:
         """Test `_launch` calls the underlying benchmark method for each job."""
         # Setup
         output_destination = 's3://bucket/prefix/'
+        output_destination_artifact_1 = 's3://bucket/prefix/dataset_1/Synth1(1)/'
+        output_destination_artifact_2 = 's3://bucket/prefix/dataset_2/Synth1(1)/'
         config = BenchmarkConfig.load_from_dict({
             'modality': 'single_table',
             'compute': {'service': 'gcp'},
@@ -227,7 +254,10 @@ class TestBenchmarkLauncher:
         mock_generate_ids.return_value = 'LAUNCH_ID_1'
         mock_get_top_folder_prefix.return_value = 'artifact-prefix'
         mock_add_dataset_suffix.side_effect = ['d1_artifact', 'd2_artifact']
-
+        mock_build_job_output_destination.side_effect = [
+            output_destination_artifact_1,
+            output_destination_artifact_2,
+        ]
         # Run
         launcher._launch()
 
@@ -268,6 +298,7 @@ class TestBenchmarkLauncher:
                     'artifact_synthesizer': 'Synth1',
                     'artifact_key_prefix': 'artifact-prefix',
                     'output_destination': output_destination,
+                    'job_output_destination': output_destination_artifact_1,
                 }
             ],
             'instance-2': [
@@ -278,6 +309,7 @@ class TestBenchmarkLauncher:
                     'artifact_synthesizer': 'Synth2(1)',
                     'artifact_key_prefix': 'artifact-prefix',
                     'output_destination': output_destination,
+                    'job_output_destination': output_destination_artifact_2,
                 }
             ],
         }
@@ -702,6 +734,7 @@ class TestBenchmarkLauncher:
                 'artifact_synthesizer': 'CTGAN',
                 'artifact_key_prefix': 'artifact-prefix',
                 'output_destination': 's3://bucket/prefix',
+                'job_output_destination': 's3://bucket/artifact-prefix/alarm_01_01_2026/CTGAN/',
             },
             {
                 'dataset': 'adult',
@@ -710,6 +743,7 @@ class TestBenchmarkLauncher:
                 'artifact_synthesizer': 'TVAE',
                 'artifact_key_prefix': 'artifact-prefix',
                 'output_destination': 's3://bucket/prefix',
+                'job_output_destination': 's3://bucket/artifact-prefix/adult_01_01_2026/TVAE/',
             },
         ]
         existing_keys_by_output = {
@@ -732,12 +766,14 @@ class TestBenchmarkLauncher:
                 'Synthesizer': 'CTGAN',
                 'Instance_Name': 'instance-1',
                 'Status': 'Completed',
+                'Output_Destination': 's3://bucket/artifact-prefix/alarm_01_01_2026/CTGAN/',
             },
             {
                 'Dataset': 'adult',
                 'Synthesizer': 'TVAE',
                 'Instance_Name': 'instance-1',
                 'Status': 'Queued',
+                'Output_Destination': 's3://bucket/artifact-prefix/adult_01_01_2026/TVAE/',
             },
         ]
 
@@ -808,6 +844,7 @@ class TestBenchmarkLauncher:
                     'Dataset': 'alarm',
                     'Synthesizer': 'CTGAN',
                     'Instance_Name': 'instance-1',
+                    'Output_Destination': 's3://bucket/artifact-prefix/alarm_01_01_2026/CTGAN/',
                     'Status': 'Queued',
                 }
             ]
@@ -818,6 +855,7 @@ class TestBenchmarkLauncher:
                     'Dataset': 'alarm',
                     'Synthesizer': 'CTGAN',
                     'Instance_Name': 'instance-1',
+                    'Output_Destination': 's3://bucket/artifact-prefix/alarm_01_01_2026/CTGAN/',
                     'Status': 'Running',
                 }
             ]
@@ -845,6 +883,7 @@ class TestBenchmarkLauncher:
                     'Dataset': 'alarm',
                     'Synthesizer': 'CTGAN',
                     'Instance_Name': 'instance-1',
+                    'Output_Destination': 's3://bucket/artifact-prefix/alarm_01_01_2026/CTGAN/',
                     'Status': 'Queued',
                 }
             ],
@@ -856,6 +895,7 @@ class TestBenchmarkLauncher:
                 'Synthesizer': 'CTGAN',
                 'Instance_Name': 'instance-1',
                 'Status': 'Running',
+                'Output_Destination': 's3://bucket/artifact-prefix/alarm_01_01_2026/CTGAN/',
             }
         ])
 

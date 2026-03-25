@@ -11,6 +11,7 @@ from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _add_dataset_suffix,
     _build_job_artifact_keys,
+    _build_job_output_destination,
     _get_top_folder_prefix,
     _resolve_datasets,
     generate_ids,
@@ -78,19 +79,25 @@ class BenchmarkLauncher:
         for dataset in datasets:
             artifact_dataset = _add_dataset_suffix(dataset)
             for synthesizer in synthesizers:
+                artifact_synthesizer = self._add_synthesizer_suffix(synthesizer, instance_idx)
                 jobs.append({
                     'dataset': dataset,
                     'synthesizer': synthesizer,
                     'artifact_dataset': artifact_dataset,
-                    'artifact_synthesizer': self._add_synthesizer_suffix(synthesizer, instance_idx),
+                    'artifact_synthesizer': artifact_synthesizer,
                     'artifact_key_prefix': artifact_key_prefix,
                     'output_destination': output_destination,
+                    'job_output_destination': _build_job_output_destination(
+                        output_destination=output_destination,
+                        artifact_key_prefix=artifact_key_prefix,
+                        artifact_dataset=artifact_dataset,
+                        artifact_synthesizer=artifact_synthesizer,
+                    ),
                 })
 
         return jobs
 
     def _launch(self):
-        """Launch the configured benchmark jobs."""
         launch_id = generate_ids(['LAUNCH_ID'])
         self._launch_to_instance_names[launch_id] = []
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
@@ -151,10 +158,10 @@ class BenchmarkLauncher:
     def _validate_instance_names(self, instance_names):
         """Validate instance names."""
         launched_instances = self._get_all_instance_names()
-        instances = launched_instances if instance_names is None else instance_names
-        unknown_instances = sorted(set(instances) - set(launched_instances))
+        instances = instance_names if instance_names is not None else launched_instances
+        unknown_instances = set(instances) - set(launched_instances)
         if unknown_instances:
-            unknown_instances_str = "', '".join(unknown_instances)
+            unknown_instances_str = "', '".join(sorted(unknown_instances))
             launched_instances_str = "', '".join(sorted(launched_instances))
             raise ValueError(
                 'Some provided instance names were not launched by this '
@@ -328,6 +335,7 @@ class BenchmarkLauncher:
                 'Dataset': dataset,
                 'Synthesizer': synthesizer,
                 'Instance_Name': instance_name,
+                'Output_Destination': job['job_output_destination'],
                 'Status': artifact_status,
             })
 
@@ -341,6 +349,7 @@ class BenchmarkLauncher:
             ]
             if queued_indexes:
                 instance_rows[queued_indexes[0]]['Status'] = 'Running'
+
             return instance_rows
 
         for row in instance_rows:
@@ -369,17 +378,16 @@ class BenchmarkLauncher:
                 - Dataset: The dataset used in the job.
                 - Synthesizer: The synthesizer used in the job.
                 - Instance_Name: The name of the instance running the job.
+                - Output_Destination: The output destination for the job artifacts.
                 - Status: The status of the job.
         """
         self._validate_compute_service()
         instances = self._validate_instance_names(instance_names)
         self._update_instance_statuses()
-
         existing_keys_by_output = {
             output_destination: self._get_s3_existing_keys(output_destination)
             for output_destination in self._get_all_output_destinations(instances)
         }
-
         rows = []
         for instance_name in instances:
             jobs = self._instance_name_to_jobs.get(instance_name, [])
