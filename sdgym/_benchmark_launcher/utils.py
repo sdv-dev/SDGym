@@ -217,3 +217,14 @@ def _build_job_artifact_keys(artifact_key_prefix, artifact_dataset, artifact_syn
     synthesizer_key = f'{job_prefix}/{artifact_synthesizer}.pkl'
 
     return benchmark_result_key, synthetic_data_key, synthesizer_key
+
+
+def _build_job_output_destination(
+    output_destination, artifact_key_prefix, artifact_dataset, artifact_synthesizer
+):
+    """Build the S3 folder path for a benchmark job artifacts."""
+    bucket_name, _ = parse_s3_path(output_destination)
+    return (
+        f's3://{bucket_name}/'
+        f'{artifact_key_prefix.rstrip("/")}/{artifact_dataset}/{artifact_synthesizer}/'
+    )

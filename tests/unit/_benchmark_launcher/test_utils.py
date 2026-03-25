@@ -9,6 +9,7 @@ from sdgym._benchmark_launcher.utils import (
     MODALITY_TO_CONFIG_FILE,
     _add_dataset_suffix,
     _build_job_artifact_keys,
+    _build_job_output_destination,
     _deep_merge,
     _env,
     _get_env_credentials,
@@ -686,3 +687,24 @@ def test__build_job_artifact_keys(
 
     # Assert
     assert result == expected
+
+
+def test_build_job_output_destination():
+    """Test the `_build_job_output_destination` method."""
+    # Setup
+    benchmark_config = Mock()
+    benchmark_config.modality = 'single_table'
+    benchmark_config.compute = {'service': 'gcp'}
+
+    # Run
+    result = _build_job_output_destination(
+        output_destination='s3://my-bucket/root/prefix/',
+        artifact_key_prefix='single_table/SDGym_results_03_25_2026',
+        artifact_dataset='adult_03_25_2026',
+        artifact_synthesizer='CTGANSynthesizer(1)',
+    )
+
+    # Assert
+    assert result == (
+        's3://my-bucket/single_table/SDGym_results_03_25_2026/adult_03_25_2026/CTGANSynthesizer(1)/'
+    )
