@@ -4,10 +4,8 @@ import logging
 import warnings
 
 import cloudpickle
-from google.cloud import compute_v1
-from google.oauth2 import service_account
 
-from sdgym._benchmark_launcher._validation import _validate_gcp_credentials
+from sdgym._benchmark_launcher._instance_manager import GCPInstanceManager
 from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _resolve_datasets,
@@ -54,6 +52,14 @@ class BenchmarkLauncher:
         ])
         self._launch_to_instance_names = {}
         self._instance_name_to_status = {}
+        self._instance_manager = self._build_instance_manager()
+
+    def _build_instance_manager(self):
+        """Build the instance manager for the configured compute service."""
+        if self.compute_service == 'gcp':
+            return GCPInstanceManager(self.benchmark_config.credentials_filepath)
+
+        raise NotImplementedError(f'Compute service {self.compute_service!r} is not supported.')
 
     def _launch(self):
         launch_id = generate_ids(['LAUNCH_ID'])
@@ -79,47 +85,12 @@ class BenchmarkLauncher:
 
         self._launch()
 
-    def _update_gcp_instance_name_to_status(self):
-        """Update local instance statuses using the current GCP state."""
-        client, project_id = self._get_gcp_client()
-        running_instances = self._list_gcp_instances(client, project_id)
-        running_instance_names = {instance['name'] for instance in running_instances}
-        for instance_name in self._get_all_instance_names():
-            if instance_name in running_instance_names:
-                self._instance_name_to_status[instance_name] = 'running'
-            elif self._instance_name_to_status.get(instance_name) == 'running':
-                self._instance_name_to_status[instance_name] = 'completed'
-
     def _update_instance_statuses(self):
-        if self.compute_service == 'gcp':
-            self._update_gcp_instance_name_to_status()
-            return
-
-        raise NotImplementedError(
-            f'`_update_instance_statuses()` is not implemented for {self.compute_service!r}.'
+        """Update instance statuses using the instance manager."""
+        self._instance_manager.update_instance_statuses(
+            self._get_all_instance_names(),
+            self._instance_name_to_status,
         )
-
-    def _list_gcp_instances(self, client, project_id):
-        """List all non-terminated GCP instances."""
-        instances = []
-        response = client.aggregated_list(project=project_id)
-        for _, scoped_list in response:
-            scoped_instances = getattr(scoped_list, 'instances', None)
-            if not scoped_instances:
-                continue
-
-            for instance in scoped_instances:
-                if instance.status == 'TERMINATED':
-                    continue
-
-                instances.append({
-                    'id': str(instance.id),
-                    'name': instance.name,
-                    'zone': instance.zone.split('/')[-1],
-                    'status': instance.status,
-                })
-
-        return instances
 
     def _get_all_instance_names(self):
         """Return all instance names launched."""
@@ -153,70 +124,12 @@ class BenchmarkLauncher:
 
         return instances
 
-    def _get_gcp_client(self):
-        """Build and return the GCP client and project id."""
-        credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
-        errors = _validate_gcp_credentials(credentials)
-        if errors:
-            error_message = '\n'.join(errors)
-            raise ValueError(f'Invalid GCP credentials:\n{error_message}')
-
-        project_id = credentials['gcp']['project_id']
-        gcp_credentials = service_account.Credentials.from_service_account_info(credentials['gcp'])
-        client = compute_v1.InstancesClient(credentials=gcp_credentials)
-
-        return client, project_id
-
-    def _terminate_gcp_instances(self, instance_names, verbose):
-        """Terminate GCP instances by their names."""
-        client, project_id = self._get_gcp_client()
-        running_instances = self._list_gcp_instances(client, project_id)
-        running_instances_by_name = {instance['name']: instance for instance in running_instances}
-        instances_to_delete = [
-            running_instances_by_name[name]
-            for name in instance_names
-            if name in running_instances_by_name
-        ]
-
-        not_running = sorted(set(instance_names) - set(running_instances_by_name))
-        if not_running:
-            not_running_str = "', '".join(not_running)
-            LOGGER.info(
-                f"Some provided instance names are not currently running: '{not_running_str}'."
-            )
-
-        deleted_instances = []
-        for instance in instances_to_delete:
-            if verbose:
-                message = (
-                    f"Terminating GCP instance '{instance['name']}' "
-                    f'(id={instance["id"]}, zone={instance["zone"]})...'
-                )
-                print(message)  # noqa: T201
-
-            operation = client.delete(
-                project=project_id,
-                zone=instance['zone'],
-                instance=instance['name'],
-            )
-            operation.result()
-            self._instance_name_to_status[instance['name']] = 'stopped'
-            deleted_instances.append(instance['name'])
-
-        return deleted_instances
-
     def _validate_inputs_and_get_instances(self, instance_names, verbose):
         """Validate terminate inputs and return the instance names to process."""
-        if self.compute_service != 'gcp':
-            raise NotImplementedError(
-                '`terminate()` is only implemented for GCP instances for now.'
-            )
-
         if not isinstance(verbose, bool):
             raise ValueError(f'`verbose` must be a boolean. Found: {verbose!r} ({type(verbose)}).')
 
-        instances = self._validate_instance_names(instance_names)
-        return instances
+        return self._validate_instance_names(instance_names)
 
     def terminate(self, instance_names=None, verbose=True):
         """Terminate running benchmark instances.
@@ -248,8 +161,13 @@ class BenchmarkLauncher:
                 already_terminated_str,
             )
 
-        deleted_instances = self._terminate_gcp_instances(instances_to_terminate, verbose)
-        self._update_instance_statuses()
+        deleted_instances = self._instance_manager.terminate_instances(
+            instances_to_terminate,
+            verbose,
+        )
+        for instance_name in deleted_instances:
+            self._instance_name_to_status[instance_name] = 'stopped'
+
         if verbose:
             print(f'Terminated {len(deleted_instances)} GCP instance(s).')  # noqa: T201
 
