@@ -4,7 +4,6 @@ import re
 from unittest.mock import Mock, call, mock_open, patch
 
 import pytest
-from botocore.exceptions import ClientError
 
 from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
 from sdgym._benchmark_launcher.benchmark_launcher import BenchmarkLauncher
@@ -75,6 +74,23 @@ class TestBenchmarkLauncher:
         # Run and Assert
         with pytest.raises(NotImplementedError, match=expected_error):
             launcher._build_instance_manager()
+        assert launcher._instance_name_to_jobs == {}
+
+    def test_add_synthesizer_suffix(self):
+        """Test the `_add_synthesizer_suffix` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+
+        # Run
+        result_no_suffix = launcher._add_synthesizer_suffix('CTGAN', 0)
+        result_with_suffix = launcher._add_synthesizer_suffix('CTGAN', 2)
+
+        # Assert
+        assert result_no_suffix == 'CTGAN'
+        assert result_with_suffix == 'CTGAN(2)'
 
     def test_launch_calls_validate_when_not_validated(self):
         """Test `launch` calls `validate` when `_is_validated` is False."""
@@ -190,9 +206,27 @@ class TestBenchmarkLauncher:
             'instance-1': 'running',
             'instance-2': 'running',
         }
+        assert launcher._instance_name_to_jobs == {
+            'instance-1': [
+                {
+                    'dataset': 'd1',
+                    'synthesizer': 'Synth1',
+                    'artifact_synthesizer': 'Synth1',
+                    'output_destination': output_destination,
+                }
+            ],
+            'instance-2': [
+                {
+                    'dataset': 'd2',
+                    'synthesizer': 'Synth2',
+                    'artifact_synthesizer': 'Synth2(1)',
+                    'output_destination': output_destination,
+                }
+            ],
+        }
 
-    def test_update_instance_statuses(self):
-        """Test the `_update_instance_statuses` method."""
+    def test_update_gcp_instance_name_to_status(self):
+        """Test the `_update_gcp_instance_name_to_status` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -272,7 +306,7 @@ class TestBenchmarkLauncher:
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._instance_name_to_status = {
             'instance-1': 'running',
-            'instance-2': 'terminated',
+            'instance-2': 'completed',
             'instance-3': 'running',
         }
 
@@ -297,22 +331,6 @@ class TestBenchmarkLauncher:
         # Assert
         assert result == ['instance-1']
 
-    def test_validate_instance_names_uses_all_when_none(self):
-        """Test `_validate_instance_names` returns all launched instances when None is passed."""
-        # Setup
-        benchmark_config = Mock()
-        benchmark_config.modality = 'single_table'
-        benchmark_config.compute = {'service': 'gcp'}
-        benchmark_config.credentials_filepath = 'creds.json'
-        launcher = BenchmarkLauncher(benchmark_config)
-        launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
-
-        # Run
-        result = launcher._validate_instance_names(None)
-
-        # Assert
-        assert result == ['instance-1', 'instance-2']
-
     def test_validate_instance_names_raises_error_for_unknown_instances(self):
         """Test `_validate_instance_names` raises an error for unknown instances."""
         # Setup
@@ -330,6 +348,141 @@ class TestBenchmarkLauncher:
         with pytest.raises(ValueError, match=expected_error):
             launcher._validate_instance_names(['instance-2'])
 
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.resolve_credentials')
+    @patch(
+        'sdgym._benchmark_launcher.benchmark_launcher.service_account.Credentials.from_service_account_info'
+    )
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.compute_v1.InstancesClient')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._validate_gcp_credentials')
+    def test_get_gcp_client(
+        self,
+        mock_validate_gcp_credentials,
+        mock_instances_client,
+        mock_from_service_account_info,
+        mock_resolve_credentials,
+    ):
+        """Test the `_get_gcp_client` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.credentials_filepath = 'creds.json'
+        launcher = BenchmarkLauncher(benchmark_config)
+
+        mock_resolve_credentials.return_value = {
+            'gcp': {
+                'project_id': 'test-project',
+                'client_email': 'test@test.com',
+                'token_uri': 'https://oauth2.googleapis.com/token',
+                'private_key_id': 'key-id',
+                'private_key': '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n',
+            }
+        }
+        mock_validate_gcp_credentials.return_value = []
+        mock_credentials = Mock()
+        mock_from_service_account_info.return_value = mock_credentials
+        mock_client = Mock()
+        mock_instances_client.return_value = mock_client
+
+        # Run
+        result_client, result_project_id = launcher._get_gcp_client()
+
+        # Assert
+        mock_resolve_credentials.assert_called_once_with('creds.json')
+        mock_validate_gcp_credentials.assert_called_once_with(mock_resolve_credentials.return_value)
+        mock_from_service_account_info.assert_called_once_with(
+            mock_resolve_credentials.return_value['gcp']
+        )
+        mock_instances_client.assert_called_once_with(credentials=mock_credentials)
+        assert result_client is mock_client
+        assert result_project_id == 'test-project'
+
+    @patch('builtins.print')
+    def test__terminate_gcp_instances(self, mock_print):
+        """Test the `_terminate_gcp_instances` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_gcp_client = Mock(return_value=(Mock(), 'test-project'))
+        launcher._list_gcp_instances = Mock(
+            return_value=[
+                {
+                    'id': '123',
+                    'name': 'instance-1',
+                    'zone': 'us-central1-a',
+                    'status': 'RUNNING',
+                },
+                {
+                    'id': '456',
+                    'name': 'instance-2',
+                    'zone': 'us-central1-b',
+                    'status': 'RUNNING',
+                },
+            ]
+        )
+        client = launcher._get_gcp_client.return_value[0]
+        mock_operation_1 = Mock()
+        mock_operation_2 = Mock()
+        client.delete.side_effect = [mock_operation_1, mock_operation_2]
+
+        # Run
+        deleted_instances = launcher._terminate_gcp_instances(
+            instance_names=['instance-1', 'instance-2'],
+            verbose=True,
+        )
+
+        # Assert
+        assert len(deleted_instances) == 2
+        launcher._get_gcp_client.assert_called_once_with()
+        launcher._list_gcp_instances.assert_called_once_with(client, 'test-project')
+        assert client.delete.call_args_list == [
+            call(project='test-project', zone='us-central1-a', instance='instance-1'),
+            call(project='test-project', zone='us-central1-b', instance='instance-2'),
+        ]
+        mock_operation_1.result.assert_called_once_with()
+        mock_operation_2.result.assert_called_once_with()
+        assert deleted_instances == ['instance-1', 'instance-2']
+        assert launcher._instance_name_to_status == {
+            'instance-1': 'stopped',
+            'instance-2': 'stopped',
+        }
+        mock_print.assert_has_calls([
+            call("Terminating GCP instance 'instance-1' (id=123, zone=us-central1-a)..."),
+            call("Terminating GCP instance 'instance-2' (id=456, zone=us-central1-b)..."),
+        ])
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.LOGGER')
+    def test__terminate_gcp_instances_for_not_running_instances(self, mock_logger):
+        """Test `_terminate_gcp_instances` logs a message for not running instances."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._get_gcp_client = Mock(return_value=(Mock(), 'test-project'))
+        launcher._list_gcp_instances = Mock(
+            return_value=[
+                {
+                    'id': '123',
+                    'name': 'instance-1',
+                    'zone': 'us-central1-a',
+                    'status': 'RUNNING',
+                },
+            ]
+        )
+
+        # Run
+        launcher._terminate_gcp_instances(
+            instance_names=['instance-1', 'instance-2'],
+            verbose=False,
+        )
+
+        # Assert
+        mock_logger.info.assert_called_once_with(
+            "Some provided instance names are not currently running: 'instance-2'."
+        )
 
     def test_validate_inputs_and_get_instances(self):
         """Test the `_validate_inputs_and_get_instances` method."""
@@ -362,10 +515,6 @@ class TestBenchmarkLauncher:
             ),
             (
                 'gcp',
-                1,
-                ValueError("`verbose` must be a boolean. Found: 1 (<class 'int'>)."),
-            ),
-            (
                 'yes',
                 ValueError("`verbose` must be a boolean. Found: 'yes' (<class 'str'>)."),
             ),
@@ -432,7 +581,7 @@ class TestBenchmarkLauncher:
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
-        launcher._update_instance_statuses = Mock()
+        launcher._update_instance_name_to_status = Mock()
         launcher._get_active_instance_names = Mock(return_value=[])
 
         # Run
@@ -449,7 +598,7 @@ class TestBenchmarkLauncher:
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
-        launcher._update_instance_statuses = Mock()
+        launcher._update_instance_name_to_status = Mock()
         launcher._get_active_instance_names = Mock(return_value=[])
         expected_warning = re.escape('All provided instance names are already terminated.')
 
@@ -533,102 +682,124 @@ class TestBenchmarkLauncher:
             },
         ])
 
-    def test_s3_object_exists(self):
-        """Test the `_s3_object_exists` method."""
+    def test_get_all_output_destinations(self):
+        """Test the `_get_all_output_destinations` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        s3_client = Mock()
+        launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        launcher._instance_name_to_jobs = {
+            'instance-1': [
+                {
+                    'dataset': 'alarm',
+                    'synthesizer': 'CTGAN',
+                    'artifact_synthesizer': 'CTGAN',
+                    'output_destination': 's3://bucket/prefix-a',
+                },
+            ],
+            'instance-2': [
+                {
+                    'dataset': 'adult',
+                    'synthesizer': 'TVAE',
+                    'artifact_synthesizer': 'TVAE(1)',
+                    'output_destination': 's3://bucket/prefix-a',
+                },
+                {
+                    'dataset': 'census',
+                    'synthesizer': 'CopulaGAN',
+                    'artifact_synthesizer': 'CopulaGAN(1)',
+                    'output_destination': 's3://bucket/prefix-b',
+                },
+            ],
+        }
 
         # Run
-        result = launcher._s3_object_exists(s3_client, 'bucket', 'key')
+        result = launcher._get_all_output_destinations()
 
         # Assert
-        s3_client.head_object.assert_called_once_with(Bucket='bucket', Key='key')
-        assert result is True
-
-    @pytest.mark.parametrize('error_code', ['404', 'NoSuchKey', 'NotFound'])
-    def test_s3_object_exists_returns_false(self, error_code):
-        """Test `_s3_object_exists` returns False when the object does not exist."""
-        # Setup
-        benchmark_config = Mock()
-        benchmark_config.modality = 'single_table'
-        benchmark_config.compute = {'service': 'gcp'}
-        launcher = BenchmarkLauncher(benchmark_config)
-        s3_client = Mock()
-        s3_client.head_object.side_effect = ClientError(
-            {'Error': {'Code': error_code}},
-            'HeadObject',
-        )
-
-        # Run
-        result = launcher._s3_object_exists(s3_client, 'bucket', 'key')
-
-        # Assert
-        assert result is False
+        assert result == ['s3://bucket/prefix-a', 's3://bucket/prefix-b']
 
     @patch('sdgym._benchmark_launcher.benchmark_launcher.resolve_credentials')
     @patch('sdgym._benchmark_launcher.benchmark_launcher.get_s3_client')
-    @pytest.mark.parametrize(
-        ('object_exists_side_effect', 'expected_status'),
-        [
-            ([True, True, True], 'Completed'),
-            ([True, False, False], 'Failed'),
-            ([False, False, False], 'Queued'),
-        ],
-    )
-    def test_get_job_artifact_status(
-        self,
-        mock_get_s3_client,
-        mock_resolve_credentials,
-        object_exists_side_effect,
-        expected_status,
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._list_s3_bucket_contents')
+    def test_get_s3_existing_keys(
+        self, mock_list_s3_bucket_contents, mock_get_s3_client, mock_resolve_credentials
     ):
-        """Test `_get_job_artifact_status` returns the expected status."""
+        """Test the `_get_s3_existing_keys` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         benchmark_config.credentials_filepath = 'creds.json'
         launcher = BenchmarkLauncher(benchmark_config)
-        launcher._s3_object_exists = Mock(side_effect=object_exists_side_effect)
-
         mock_resolve_credentials.return_value = {
             'aws': {
                 'aws_access_key_id': 'AKIA',
                 'aws_secret_access_key': 'SECRET',
             }
         }
-        mock_get_s3_client.return_value = Mock()
+        s3_client = Mock()
+        mock_get_s3_client.return_value = s3_client
+        mock_list_s3_bucket_contents.return_value = [
+            {'Key': 'prefix/file1.csv'},
+            {'Key': 'prefix/file2.csv'},
+        ]
 
         # Run
-        result = launcher._get_job_artifact_status(
-            dataset='alarm',
-            synthesizer='CTGANSynthesizer',
-            output_destination='s3://bucket/prefix',
-        )
+        existing_keys, key_prefix = launcher._get_s3_existing_keys('s3://bucket/prefix')
 
         # Assert
-        assert result == expected_status
+        mock_get_s3_client.assert_called_once_with(
+            aws_access_key_id='AKIA',
+            aws_secret_access_key='SECRET',
+        )
+        mock_list_s3_bucket_contents.assert_called_once_with(s3_client, 'bucket', 'prefix')
+        assert existing_keys == {'prefix/file1.csv', 'prefix/file2.csv'}
+        assert key_prefix == 'prefix'
 
-    def test_get_job_artifact_status_invalid_output_destination(self):
-        """Test `_get_job_artifact_status` validates the output destination."""
+    @pytest.mark.parametrize(
+        ('existing_keys', 'expected_status'),
+        [
+            (
+                {
+                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_results.csv',
+                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_synthetic_data.csv',
+                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer.pkl',
+                },
+                'Completed',
+            ),
+            (
+                {
+                    'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_results.csv',
+                },
+                'Failed',
+            ),
+            (
+                set(),
+                'Queued',
+            ),
+        ],
+    )
+    def test_get_job_artifact_status(self, existing_keys, expected_status):
+        """Test `_get_job_artifact_status` returns the expected status."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        expected_error = re.escape("`output_destination` must be an S3 path. Found: 'local/path'.")
 
-        # Run and Assert
-        with pytest.raises(ValueError, match=expected_error):
-            launcher._get_job_artifact_status(
-                dataset='alarm',
-                synthesizer='CTGANSynthesizer',
-                output_destination='local/path',
-            )
+        # Run
+        result = launcher._get_job_artifact_status(
+            dataset='alarm',
+            synthesizer='CTGANSynthesizer',
+            key_prefix='prefix',
+            existing_keys=existing_keys,
+        )
+
+        # Assert
+        assert result == expected_status
 
     @patch('sdgym._benchmark_launcher.benchmark_launcher.pd')
     def test_get_job_status(self, mock_pd):
@@ -641,16 +812,20 @@ class TestBenchmarkLauncher:
         launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
         launcher._update_instance_name_to_status = Mock()
         launcher._get_active_instance_names = Mock(return_value=['instance-1'])
+        launcher._get_all_output_destinations = Mock(return_value=['s3://bucket/prefix'])
+        launcher._get_s3_existing_keys = Mock(return_value=(set(), 'prefix'))
         launcher._instance_name_to_jobs = {
             'instance-1': [
                 {
                     'dataset': 'alarm',
                     'synthesizer': 'CTGAN',
+                    'artifact_synthesizer': 'CTGAN',
                     'output_destination': 's3://bucket/prefix',
                 },
                 {
                     'dataset': 'alarm',
                     'synthesizer': 'TVAE',
+                    'artifact_synthesizer': 'TVAE',
                     'output_destination': 's3://bucket/prefix',
                 },
             ]
@@ -664,6 +839,8 @@ class TestBenchmarkLauncher:
         launcher._validate_inputs_and_get_instances.assert_called_once_with(None, verbose=False)
         launcher._update_instance_name_to_status.assert_called_once_with()
         launcher._get_active_instance_names.assert_called_once_with()
+        launcher._get_all_output_destinations.assert_called_once_with(['instance-1'])
+        launcher._get_s3_existing_keys.assert_called_once_with('s3://bucket/prefix')
         mock_pd.DataFrame.assert_called_once_with([
             {
                 'Dataset': 'alarm',
@@ -690,16 +867,20 @@ class TestBenchmarkLauncher:
         launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
         launcher._update_instance_name_to_status = Mock()
         launcher._get_active_instance_names = Mock(return_value=[])
+        launcher._get_all_output_destinations = Mock(return_value=['s3://bucket/prefix'])
+        launcher._get_s3_existing_keys = Mock(return_value=(set(), 'prefix'))
         launcher._instance_name_to_jobs = {
             'instance-1': [
                 {
                     'dataset': 'alarm',
                     'synthesizer': 'CTGAN',
+                    'artifact_synthesizer': 'CTGAN',
                     'output_destination': 's3://bucket/prefix',
                 },
                 {
                     'dataset': 'adult',
                     'synthesizer': 'TVAE',
+                    'artifact_synthesizer': 'TVAE',
                     'output_destination': 's3://bucket/prefix',
                 },
             ]

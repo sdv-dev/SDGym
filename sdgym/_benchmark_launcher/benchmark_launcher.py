@@ -5,7 +5,6 @@ import warnings
 
 import cloudpickle
 import pandas as pd
-from botocore.exceptions import ClientError
 
 from sdgym._benchmark_launcher._instance_manager import GCPInstanceManager
 from sdgym._benchmark_launcher.utils import (
@@ -14,7 +13,7 @@ from sdgym._benchmark_launcher.utils import (
     generate_ids,
     resolve_credentials,
 )
-from sdgym.s3 import get_s3_client, is_s3_path, parse_s3_path
+from sdgym.s3 import _list_s3_bucket_contents, get_s3_client, is_s3_path, parse_s3_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -65,11 +64,26 @@ class BenchmarkLauncher:
 
         raise NotImplementedError(f'Compute service {self.compute_service!r} is not supported.')
 
+    def _add_synthesizer_suffix(self, synthesizer, suffix):
+        """Return the synthesizer name with the instance suffix."""
+        if suffix == 0:
+            return synthesizer
+
+        return f'{synthesizer}({suffix})'
+
+    def _add_synthesizer_suffix(self, synthesizer, suffix):
+        """Return the synthesizer name with the instance suffix."""
+        if suffix == 0:
+            return synthesizer
+
+        return f'{synthesizer}({suffix})'
+
     def _launch(self):
         launch_id = generate_ids(['LAUNCH_ID'])
         self._launch_to_instance_names[launch_id] = []
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
-        for instance_job in self.benchmark_config.instance_jobs:
+
+        for instance_idx, instance_job in enumerate(self.benchmark_config.instance_jobs):
             sdv_datasets = _resolve_datasets(instance_job['datasets'])
             instance_name = self.method_to_run(
                 output_destination=instance_job['output_destination'],
@@ -87,6 +101,9 @@ class BenchmarkLauncher:
                     jobs.append({
                         'dataset': dataset,
                         'synthesizer': synthesizer,
+                        'artifact_synthesizer': self._add_synthesizer_suffix(
+                            synthesizer, instance_idx
+                        ),
                         'output_destination': instance_job['output_destination'],
                     })
 
@@ -270,20 +287,21 @@ class BenchmarkLauncher:
 
         return pd.DataFrame(rows)
 
-    def _s3_object_exists(self, s3_client, bucket_name, key):
-        """Return whether an object exists in S3."""
-        try:
-            s3_client.head_object(Bucket=bucket_name, Key=key)
-            return True
-        except ClientError as error:
-            error_code = error.response.get('Error', {}).get('Code')
-            if error_code in {'404', 'NoSuchKey', 'NotFound'}:
-                return False
+    def _get_all_output_destinations(self, instance_names=None):
+        """Return all unique output destinations for the selected instances."""
+        instances = self._validate_instance_names(instance_names)
+        output_destinations = []
+        for instance_name in instances:
+            jobs = self._instance_name_to_jobs.get(instance_name, [])
+            for job in jobs:
+                output_destination = job['output_destination']
+                if output_destination not in output_destinations:
+                    output_destinations.append(output_destination)
 
-            raise
+        return output_destinations
 
-    def _get_job_artifact_status(self, dataset, synthesizer, output_destination):
-        """Get the artifact-based status for a benchmark job."""
+    def _get_s3_existing_keys(self, output_destination):
+        """Return the existing S3 keys under the output destination."""
         if not is_s3_path(output_destination):
             raise ValueError(
                 f'`output_destination` must be an S3 path. Found: {output_destination!r}.'
@@ -296,15 +314,21 @@ class BenchmarkLauncher:
             aws_secret_access_key=aws_credentials.get('aws_secret_access_key'),
         )
         bucket_name, key_prefix = parse_s3_path(output_destination)
+        contents = _list_s3_bucket_contents(s3_client, bucket_name, key_prefix)
+        existing_keys = {obj['Key'] for obj in contents}
+
+        return existing_keys, key_prefix
+
+    def _get_job_artifact_status(self, dataset, synthesizer, key_prefix, existing_keys):
+        """Get the artifact-based status for a benchmark job."""
         job_prefix = f'{key_prefix.rstrip("/")}/{dataset}/{synthesizer}'
         benchmark_results_key = f'{job_prefix}/{synthesizer}_benchmark_results.csv'
         synthetic_data_key = f'{job_prefix}/{synthesizer}_synthetic_data.csv'
         synthesizer_key = f'{job_prefix}/{synthesizer}.pkl'
-        has_benchmark_results = self._s3_object_exists(
-            s3_client, bucket_name, benchmark_results_key
-        )
-        has_synthetic_data = self._s3_object_exists(s3_client, bucket_name, synthetic_data_key)
-        has_synthesizer = self._s3_object_exists(s3_client, bucket_name, synthesizer_key)
+
+        has_benchmark_results = benchmark_results_key in existing_keys
+        has_synthetic_data = synthetic_data_key in existing_keys
+        has_synthesizer = synthesizer_key in existing_keys
 
         if has_benchmark_results and has_synthetic_data and has_synthesizer:
             return 'Completed'
@@ -315,10 +339,36 @@ class BenchmarkLauncher:
         return 'Queued'
 
     def get_job_status(self, dataset_names=None, synthesizer_names=None, instance_names=None):
-        """Get status of benchmark instance jobs."""
+        """Get status of benchmark instance jobs.
+
+        Args:
+            dataset_names (list of str, optional):
+                List of dataset names to get status for.
+                If None, gets status for all datasets. Defaults to None.
+            synthesizer_names (list of str, optional):
+                List of synthesizer names to get status for.
+                If None, gets status for all synthesizers. Defaults to None.
+            instance_names (list of str, optional):
+                List of instance names to get status for.
+                If None, gets status for all instance jobs. Defaults to None.
+
+        Returns:
+            pd.DataFrame:
+                A dataframe with one row per job and columns:
+                - Dataset: The dataset used in the job.
+                - Synthesizer: The synthesizer used in the job.
+                - Instance_Name: The name of the instance running the job.
+                - Status: The status of the job.
+        """
         instances = self._validate_inputs_and_get_instances(instance_names, verbose=False)
         self._update_instance_name_to_status()
         active_instances = set(self._get_active_instance_names())
+        output_destination_cache = {}
+        for output_destination in self._get_all_output_destinations(instances):
+            output_destination_cache[output_destination] = self._get_s3_existing_keys(
+                output_destination
+            )
+
         rows = []
         for instance_name in instances:
             jobs = self._instance_name_to_jobs.get(instance_name, [])
@@ -326,16 +376,21 @@ class BenchmarkLauncher:
             for job in jobs:
                 dataset = job['dataset']
                 synthesizer = job['synthesizer']
+                artifact_synthesizer = job['artifact_synthesizer']
+                output_destination = job['output_destination']
+
                 if dataset_names is not None and dataset not in dataset_names:
                     continue
 
                 if synthesizer_names is not None and synthesizer not in synthesizer_names:
                     continue
 
+                existing_keys, key_prefix = output_destination_cache[output_destination]
                 status = self._get_job_artifact_status(
                     dataset=dataset,
-                    synthesizer=synthesizer,
-                    output_destination=job['output_destination'],
+                    synthesizer=artifact_synthesizer,
+                    key_prefix=key_prefix,
+                    existing_keys=existing_keys,
                 )
                 instance_rows.append({
                     'Dataset': dataset,
