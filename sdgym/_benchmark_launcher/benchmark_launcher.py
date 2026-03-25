@@ -69,13 +69,6 @@ class BenchmarkLauncher:
 
     def _add_synthesizer_suffix(self, synthesizer, suffix):
         """Return the synthesizer name with the instance suffix."""
-        if suffix == 0:
-            return synthesizer
-
-        return f'{synthesizer}({suffix})'
-
-    def _add_synthesizer_suffix(self, synthesizer, suffix):
-        """Return the synthesizer name with the instance suffix."""
         return synthesizer if suffix == 0 else f'{synthesizer}({suffix})'
 
     def _build_instance_jobs(self, datasets, synthesizers, output_destination, instance_idx):
@@ -97,6 +90,7 @@ class BenchmarkLauncher:
         return jobs
 
     def _launch(self):
+        """Launch the configured benchmark jobs."""
         launch_id = generate_ids(['LAUNCH_ID'])
         self._launch_to_instance_names[launch_id] = []
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
@@ -178,58 +172,6 @@ class BenchmarkLauncher:
                 "Supported services: 'gcp'."
             )
 
-    def _get_gcp_client(self):
-        """Build and return the GCP client and project id."""
-        credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
-        errors = _validate_gcp_credentials(credentials)
-        if errors:
-            errors_str = '\n'.join(errors)
-            raise ValueError(f'Invalid GCP credentials:\n{errors_str}')
-
-        project_id = credentials['gcp']['project_id']
-        gcp_credentials = service_account.Credentials.from_service_account_info(credentials['gcp'])
-        client = compute_v1.InstancesClient(credentials=gcp_credentials)
-
-        return client, project_id
-
-    def _terminate_gcp_instances(self, instance_names, verbose):
-        """Terminate GCP instances by their names."""
-        client, project_id = self._get_gcp_client()
-        running_instances = self._list_gcp_instances(client, project_id)
-        running_instances_by_name = {instance['name']: instance for instance in running_instances}
-        instances_to_delete = [
-            running_instances_by_name[name]
-            for name in instance_names
-            if name in running_instances_by_name
-        ]
-
-        not_running = sorted(set(instance_names) - set(running_instances_by_name))
-        if not_running:
-            not_running_str = "', '".join(not_running)
-            LOGGER.info(
-                f"Some provided instance names are not currently running: '{not_running_str}'."
-            )
-
-        deleted_instances = []
-        for instance in instances_to_delete:
-            if verbose:
-                message = (
-                    f"Terminating GCP instance '{instance['name']}' "
-                    f'(id={instance["id"]}, zone={instance["zone"]})...'
-                )
-                print(message)  # noqa: T201
-
-            operation = client.delete(
-                project=project_id,
-                zone=instance['zone'],
-                instance=instance['name'],
-            )
-            operation.result()
-            self._instance_name_to_status[instance['name']] = 'terminated'
-            deleted_instances.append(instance['name'])
-
-        return deleted_instances
-
     def _validate_inputs_and_get_instances(self, instance_names, verbose):
         """Validate terminate inputs and return the instance names to process."""
         self._validate_compute_service()
@@ -294,7 +236,7 @@ class BenchmarkLauncher:
         """
         self._validate_compute_service()
         instances = self._validate_instance_names(instance_names)
-        self._update_instance_name_to_status()
+        self._update_instance_statuses()
 
         rows = [
             {
@@ -429,8 +371,9 @@ class BenchmarkLauncher:
                 - Instance_Name: The name of the instance running the job.
                 - Status: The status of the job.
         """
-        instances = self._validate_inputs_and_get_instances(instance_names, verbose=False)
-        self._update_instance_name_to_status()
+        self._validate_compute_service()
+        instances = self._validate_instance_names(instance_names)
+        self._update_instance_statuses()
 
         existing_keys_by_output = {
             output_destination: self._get_s3_existing_keys(output_destination)
