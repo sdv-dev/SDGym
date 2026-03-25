@@ -1,0 +1,166 @@
+modality: multi_table
+output_destination: &output_destination 's3://sdgym-benchmark/Benchmarks/'
+datasets_multi_table: &datasets_multi_table
+  - WebKP
+  - DCG
+  - UW_std
+  - Same_gen
+  - CORA
+  - got_families
+  - SalesDB
+  - UTube
+  - Student_loan
+  - Hepatitis_std
+  - Elti
+  - Bupa
+  - Toxicology
+  - imdb_ijs
+  - ftp
+  - imdb_small
+  - imdb_MovieLens
+  - Pima
+  - university
+  - legalActs
+  - Dunur
+  - Mesh
+  - world
+  - airbnb-simplified
+  - trains
+  - FNHK
+  - fake_hotels
+  - SAT
+  - genes
+  - Biodegradability
+  - Pyrimidine
+  - mutagenesis
+  - restbase
+  - Triazine
+  - Carcinogenesis
+  - fake_hotels_extended
+  - Mooney_Family
+  - PTE
+  - Facebook
+  - multi_table_ID_demo_dataset
+  - SAP
+  - Chess
+  - Countries
+  - NCAA
+  - Atherosclerosis
+  - nations
+  - TubePricing
+  - financial
+  - Accidents
+  - MuskSmall
+  - NBA
+  - AustralianFootball
+  - PremierLeague
+  - OMOP_CDM_dayz
+
+exclusions:
+  hma: &hma_exclude
+    - Accidents
+    - AustralianFootball
+    - Countries
+    - MuskSmall
+    - NBA
+    - OMOP_CDM_dayz
+    - PremierLeague
+    - SalesDB
+    - airbnb-simplified
+    - imdb_ijs
+    - legalActs
+    - SAP
+    - imdb_MovieLens
+
+instance_jobs:
+  - output_destination: *output_destination
+    synthesizers:
+      - HSAynthesizer
+      - IndependentSynthesizer
+    datasets:
+      include: *datasets_multi_table
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: *datasets_multi_table
+      exclude: *hma_exclude
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [Accidents]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [AustralianFootball]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [Countries]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [MuskSmall]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [NBA]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [OMOP_CDM_dayz]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [PremierLeague]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [SalesDB]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [airbnb-simplified]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [imdb_ijs]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [legalActs]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [SAP]
+
+  - output_destination: *output_destination
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include: [imdb_MovieLens]

@@ -1,0 +1,16 @@
+name: Run SDGym Benchmark from YAML Config file
+
+on:
+  workflow_dispatch:
+    inputs:
+      config_filepath:
+        description: "Path to the benchmark YAML file in the selected branch"
+        required: true
+        type: string
+
+jobs:
+  run:
+    uses: ./.github/workflows/_run_benchmark.yml
+    with:
+      config_filepath: ${{ inputs.config_filepath }}
+    secrets: inherit

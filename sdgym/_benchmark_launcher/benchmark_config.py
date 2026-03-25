@@ -1,0 +1,118 @@
+"""Define the BenchmarkConfig class, which represents the configuration for a benchmark."""
+
+import json
+from copy import deepcopy
+
+import yaml
+
+from sdgym._benchmark_launcher._validation import (
+    _format_sectioned_errors,
+    _validate_credentials,
+    _validate_instance_jobs,
+    _validate_method_params,
+    _validate_structure,
+)
+from sdgym._benchmark_launcher.utils import _METHODS, CONFIG_KEYS
+from sdgym.errors import BenchmarkConfigError
+
+
+class BenchmarkConfig:
+    """BenchmarkConfig class.
+
+    This class represents the configuration for a benchmark. It can be loaded from a YAML file
+    or a dictionary and provides methods for validation and conversion to different formats.
+    The expected structure of the config is as follows:
+    {
+        'modality': 'single_table' or 'multi_table',
+        'method_params': dict of parameters to pass to the benchmark method (e.g. timeout),
+        'credentials_filepath':
+            string specifying the path to the credentials file, if None,
+            credentials will be resolved from environment variables.
+        'compute': dict specifying the compute configuration (e.g. service: 'gcp'),
+        'instance_jobs': list of dicts, each specifying a combination of synthesizers
+        and datasets and output destination to run a benchmark job on. Each dict should
+        have the following structure:
+            [
+                {
+                    'synthesizers': ['synthesizer1', 'synthesizer2'],
+                    'datasets': ['dataset1', 'dataset2'] or {'include': [...], 'exclude': [...]},
+                    'output_destination': 's3://bucket/path'
+                },
+                ...
+            ]
+    }
+    """
+
+    def __init__(self):
+        self.modality = None
+        self.method_params = None
+        self.credentials_filepath = None
+        self.compute = {'service': None}
+        self.instance_jobs = []
+        self._is_validated = False
+
+    def to_dict(self):
+        """Return a python ``dict`` representation of the ``BenchmarkConfig``."""
+        config = {}
+        for key in CONFIG_KEYS:
+            value = getattr(self, f'{key}', None)
+            if value is not None:
+                config[key] = value
+
+        return deepcopy(config)
+
+    def __str__(self):
+        """Pretty print the ``BenchmarkConfig``."""
+        printed = json.dumps(self.to_dict(), indent=4)
+        return printed
+
+    def validate(self):
+        method_to_run = _METHODS[(self.modality, self.compute.get('service'))]
+        errors = _validate_structure(self)
+        if errors:
+            raise BenchmarkConfigError(_format_sectioned_errors({'structure': errors}))
+
+        section_errors = {
+            'method_params': _validate_method_params(self.method_params, method_to_run),
+            'credentials_filepath': _validate_credentials(self.credentials_filepath),
+            'instance_jobs': _validate_instance_jobs(self.instance_jobs),
+        }
+        if any(section_errors.values()):
+            raise BenchmarkConfigError(_format_sectioned_errors(section_errors))
+
+        self._is_validated = True
+
+    def _validate_no_extra_keys(self, config_dict):
+        """Validate that the config dictionary does not contain extra keys."""
+        extra_keys = set(config_dict.keys()).difference(CONFIG_KEYS)
+        if extra_keys:
+            extra_keys = "', '".join(sorted(extra_keys))
+            valid_keys = "', '".join(sorted(CONFIG_KEYS))
+            raise ValueError(
+                f"The config dictionary contains extra keys: '{extra_keys}'. "
+                f"Valid keys are: '{valid_keys}'."
+            )
+
+    @classmethod
+    def load_from_dict(cls, config_dict):
+        """Load the BenchmarkConfig from a dict."""
+        instance = cls()
+        instance._validate_no_extra_keys(config_dict)
+        for attribute_name, attribute_value in config_dict.items():
+            setattr(instance, attribute_name, attribute_value)
+
+        return instance
+
+    @classmethod
+    def load_from_yaml(cls, filepath):
+        """Load a config from a YAML file."""
+        with open(filepath, 'r') as f:
+            config_dict = yaml.safe_load(f)
+
+        return cls.load_from_dict(config_dict)
+
+    def save_to_yaml(self, filepath):
+        """Save the BenchmarkConfig in a YAML file."""
+        config_dict = self.to_dict()
+        with open(filepath, 'w') as file:
+            yaml.dump(config_dict, file)

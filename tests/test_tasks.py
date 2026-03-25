@@ -1,9 +1,12 @@
 """Tests for the ``tasks.py`` file."""
 
+from unittest.mock import Mock
+
 from tasks import (
     _get_extra_dependencies,
     _get_minimum_versions,
     _resolve_version_conflicts,
+    launch_benchmark,
 )
 
 
@@ -209,3 +212,45 @@ def test__resolve_version_conflicts_pointing_to_branch():
         'rdt==1.1.2',
         'copulas==0.12.0',
     ])
+
+
+def test_launch_benchmark():
+    """Test the ``launch_benchmark`` task."""
+    # Setup
+    c = Mock()
+
+    # Run
+    launch_benchmark.body(
+        c,
+        modality='single_table',
+        datasets='adult,asia',
+        synthesizers='ctgan,tvae',
+        num_instances=3,
+        output_destination='local',
+        timeout=120,
+    )
+
+    # Assert
+    c.run.assert_called_once_with(
+        'python sdgym/_benchmark_launcher/script.py '
+        '--modality single_table '
+        '--datasets adult,asia '
+        '--synthesizers ctgan,tvae '
+        '--num-instances 3 '
+        '--output-destination local '
+        '--timeout 120'
+    )
+
+
+def test_launch_benchmark_with_config_filepath():
+    """Test the ``launch_benchmark`` task with ``config_filepath``."""
+    # Setup
+    c = Mock()
+
+    # Run
+    launch_benchmark.body(c, config_filepath='config.yaml')
+
+    # Assert
+    c.run.assert_called_once_with(
+        'python sdgym/_benchmark_launcher/script.py --config-filepath config.yaml'
+    )
