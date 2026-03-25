@@ -406,7 +406,7 @@ def _benchmark_compute_gcp(
             sdmetrics=sdmetrics,
         )
 
-    _run_on_gcp(
+    instance_name = _run_on_gcp(
         output_destination=output_destination,
         synthesizers=synthesizers,
         s3_client=s3_client,
@@ -414,6 +414,8 @@ def _benchmark_compute_gcp(
         credentials=credentials,
         compute_config=compute_config,
     )
+
+    return instance_name
 
 
 def _benchmark_single_table_compute_gcp(

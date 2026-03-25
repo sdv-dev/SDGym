@@ -1,13 +1,19 @@
 """Define the BenchmarkLauncher class, which launches and manages benchmark executions."""
 
+import logging
+import warnings
+
 import cloudpickle
 
+from sdgym._benchmark_launcher._instance_manager import GCPInstanceManager
 from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _resolve_datasets,
-    generate_benchmark_id,
+    generate_ids,
     resolve_credentials,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 class BenchmarkLauncher:
@@ -39,13 +45,29 @@ class BenchmarkLauncher:
         self.modality = benchmark_config.modality
         self.compute_service = benchmark_config.compute.get('service')
         self.method_to_run = _METHODS[(self.modality, self.compute_service)]
-        self.benchmark_id = generate_benchmark_id(self)
+        self._benchmark_id = generate_ids([
+            'BENCMARK_ID',
+            self.modality,
+            self.compute_service,
+        ])
+        self._launch_to_instance_names = {}
+        self._instance_name_to_status = {}
+        self._instance_manager = self._build_instance_manager()
+
+    def _build_instance_manager(self):
+        """Build the instance manager for the configured compute service."""
+        if self.compute_service == 'gcp':
+            return GCPInstanceManager(self.benchmark_config.credentials_filepath)
+
+        raise NotImplementedError(f'Compute service {self.compute_service!r} is not supported.')
 
     def _launch(self):
+        launch_id = generate_ids(['LAUNCH_ID'])
+        self._launch_to_instance_names[launch_id] = []
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
         for instance_job in self.benchmark_config.instance_jobs:
             sdv_datasets = _resolve_datasets(instance_job['datasets'])
-            self.method_to_run(
+            instance_name = self.method_to_run(
                 output_destination=instance_job['output_destination'],
                 synthesizers=instance_job['synthesizers'],
                 sdv_datasets=sdv_datasets,
@@ -53,6 +75,8 @@ class BenchmarkLauncher:
                 compute_config=self.benchmark_config.compute,
                 **self.benchmark_config.method_params,
             )
+            self._launch_to_instance_names[launch_id].append(instance_name)
+            self._instance_name_to_status[instance_name] = 'running'
 
     def launch(self):
         """Run the BenchmarkConfig: validate it and then execute the specified benchmark method."""
@@ -61,15 +85,91 @@ class BenchmarkLauncher:
 
         self._launch()
 
-    def terminate(self, instance_ids=None):
-        """Terminate running benchmark instance jobs.
+    def _update_instance_statuses(self):
+        """Update instance statuses using the instance manager."""
+        self._instance_manager.update_instance_statuses(
+            self._get_all_instance_names(),
+            self._instance_name_to_status,
+        )
+
+    def _get_all_instance_names(self):
+        """Return all instance names launched."""
+        instance_names = []
+        for names in self._launch_to_instance_names.values():
+            instance_names.extend(names)
+
+        return instance_names
+
+    def _get_active_instance_names(self):
+        """Return instance names currently marked as running."""
+        return [
+            instance_name
+            for instance_name, status in self._instance_name_to_status.items()
+            if status == 'running'
+        ]
+
+    def _validate_instance_names(self, instance_names):
+        """Validate instance names."""
+        launched_instances = self._get_all_instance_names()
+        instances = instance_names if instance_names is not None else launched_instances
+        unknown_instances = set(instances) - set(launched_instances)
+        if unknown_instances:
+            unknown_instances_str = "', '".join(sorted(unknown_instances))
+            launched_instances_str = "', '".join(sorted(launched_instances))
+            raise ValueError(
+                'Some provided instance names were not launched by this '
+                f"BenchmarkLauncher. Unknown: '{unknown_instances_str}'. "
+                f"Launched instances: '{launched_instances_str}'."
+            )
+
+        return instances
+
+    def _validate_inputs_and_get_instances(self, instance_names, verbose):
+        """Validate terminate inputs and return the instance names to process."""
+        if not isinstance(verbose, bool):
+            raise ValueError(f'`verbose` must be a boolean. Found: {verbose!r} ({type(verbose)}).')
+
+        return self._validate_instance_names(instance_names)
+
+    def terminate(self, instance_names=None, verbose=True):
+        """Terminate running benchmark instances.
 
         Args:
-            instance_ids (list of str, optional):
-                List of instance IDs to terminate.
-                If None, terminates all instance jobs. Default to None.
+            instance_names (list of str, optional):
+                List of instance names to terminate.
+                If None, terminate all instances launched by this benchmark. Defaults to None.
+            verbose (bool):
+                Whether to print progress information. Defaults to True.
         """
-        raise NotImplementedError
+        instances = self._validate_inputs_and_get_instances(instance_names, verbose)
+        self._update_instance_statuses()
+        active_instances = set(self._get_active_instance_names())
+        instances_to_terminate = [name for name in instances if name in active_instances]
+        if not instances_to_terminate:
+            if instance_names is None:
+                LOGGER.info('There are no running instances to terminate.')
+            else:
+                warnings.warn('All provided instance names are already terminated.')
+
+            return
+
+        already_terminated = sorted(set(instance_names or instances) - active_instances)
+        if already_terminated:
+            already_terminated_str = "', '".join(already_terminated)
+            LOGGER.info(
+                "Some provided instance names are already terminated: '%s'.",
+                already_terminated_str,
+            )
+
+        deleted_instances = self._instance_manager.terminate_instances(
+            instances_to_terminate,
+            verbose,
+        )
+        for instance_name in deleted_instances:
+            self._instance_name_to_status[instance_name] = 'stopped'
+
+        if verbose:
+            print(f'Terminated {len(deleted_instances)} GCP instance(s).')  # noqa: T201
 
     def get_status(self, dataset_names=None, synthesizer_names=None, instance_ids=None):
         """Get status of running benchmark instance jobs.
@@ -109,7 +209,11 @@ class BenchmarkLauncher:
         with open(filepath, 'rb') as input_file:
             benchmark = cloudpickle.load(input_file)
 
-        if getattr(benchmark, '_synthesizer_id', None) is None:
-            benchmark.benchmark_id = generate_benchmark_id(benchmark)
+        if getattr(benchmark, '_benchmark_id', None) is None:
+            benchmark._benchmark_id = generate_ids([
+                'BENCMARK_ID',
+                benchmark.modality,
+                benchmark.compute_service,
+            ])
 
         return benchmark

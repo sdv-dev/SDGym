@@ -147,7 +147,7 @@ def _validate_instance_jobs(instance_jobs):
     return [f'{error_message}\nInvalid jobs:\n{invalid_jobs_str}']
 
 
-def _validate_resolved_credentials(credentials):
+def _validate_aws_credentials(credentials):
     errors = []
     aws = credentials.get('aws', {})
     if not isinstance(aws, dict):
@@ -159,6 +159,11 @@ def _validate_resolved_credentials(credentials):
                 if aws.get(key) in (None, ''):
                     errors.append(f"credentials['aws']['{key}'] is missing or empty.")
 
+    return sorted(errors)
+
+
+def _validate_sdv_enterprise_credentials(credentials):
+    errors = []
     sdv = credentials.get('sdv_enterprise', {})
     if not isinstance(sdv, dict):
         errors.append("credentials['sdv_enterprise'] must be a dict.")
@@ -173,6 +178,11 @@ def _validate_resolved_credentials(credentials):
         if bool(username) != bool(license_key):
             errors.append(message)
 
+    return sorted(errors)
+
+
+def _validate_gcp_credentials(credentials):
+    errors = []
     gcp = credentials.get('gcp', {})
     if not isinstance(gcp, dict):
         errors.append("credentials['gcp'] must be a dict.")
@@ -181,6 +191,15 @@ def _validate_resolved_credentials(credentials):
             for key in _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS:
                 if gcp.get(key) in (None, ''):
                     errors.append(f"credentials['gcp']['{key}'] is missing or empty.")
+
+    return sorted(errors)
+
+
+def _validate_resolved_credentials(credentials):
+    errors = []
+    errors.extend(_validate_aws_credentials(credentials))
+    errors.extend(_validate_sdv_enterprise_credentials(credentials))
+    errors.extend(_validate_gcp_credentials(credentials))
 
     return sorted(errors)
 
