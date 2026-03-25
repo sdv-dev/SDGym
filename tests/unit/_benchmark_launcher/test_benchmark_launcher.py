@@ -11,21 +11,21 @@ from sdgym._benchmark_launcher.utils import _METHODS
 
 
 class TestBenchmarkLauncher:
-    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_ids')
-    def test__init__(self, mock_generate_benchmark_ids):
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_ids')
+    def test__init__(self, mock_generate_ids):
         """Test the `__init__` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
-        mock_generate_benchmark_ids.return_value = 'unique_id'
+        mock_generate_ids.return_value = 'unique_id'
 
         # Run
         launcher = BenchmarkLauncher(benchmark_config)
 
         # Assert
         benchmark_config.validate.assert_called_once()
-        mock_generate_benchmark_ids.assert_called_once_with([
+        mock_generate_ids.assert_called_once_with([
             'BENCMARK_ID',
             'single_table',
             'gcp',
@@ -75,7 +75,7 @@ class TestBenchmarkLauncher:
         config.validate.assert_not_called()
         launcher._launch.assert_called_once_with()
 
-    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_ids')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_ids')
     @patch(
         'sdgym._benchmark_launcher.benchmark_launcher.resolve_credentials',
         return_value={'aws': {}, 'gcp': {}, 'sdv': {}},
@@ -85,7 +85,7 @@ class TestBenchmarkLauncher:
         side_effect=[['d1'], ['d2']],
     )
     def test_launch_internal_calls_method_for_each_job(
-        self, mock_resolve_datasets, mock_resolve_credentials, mock_generate_benchmark_ids
+        self, mock_resolve_datasets, mock_resolve_credentials, mock_generate_ids
     ):
         """Test `_launch` calls the underlying benchmark method for each job."""
         # Setup
@@ -117,7 +117,7 @@ class TestBenchmarkLauncher:
         launcher = BenchmarkLauncher(config)
         launcher.method_to_run = Mock(name='method_to_run')
         launcher.method_to_run.side_effect = ['instance-1', 'instance-2']
-        mock_generate_benchmark_ids.return_value = 'LAUNCH_ID_1'
+        mock_generate_ids.return_value = 'LAUNCH_ID_1'
 
         # Run
         launcher._launch()
@@ -188,8 +188,8 @@ class TestBenchmarkLauncher:
             'instance-3': 'stopped',
         }
 
-    def test_update_instance_name_to_status(self):
-        """Test the `_update_instance_name_to_status` method."""
+    def test_update_instance_statuses(self):
+        """Test the `_update_instance_statuses` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -198,7 +198,7 @@ class TestBenchmarkLauncher:
         launcher._update_gcp_instance_name_to_status = Mock()
 
         # Run
-        launcher._update_instance_name_to_status()
+        launcher._update_instance_statuses()
 
         # Assert
         launcher._update_gcp_instance_name_to_status.assert_called_once_with()
@@ -529,7 +529,7 @@ class TestBenchmarkLauncher:
         launcher._validate_inputs_and_get_instances = Mock(
             return_value=['instance-1', 'instance-2']
         )
-        launcher._update_instance_name_to_status = Mock()
+        launcher._update_instance_statuses = Mock()
         launcher._get_active_instance_names = Mock(return_value=['instance-1', 'instance-2'])
         launcher._terminate_gcp_instances = Mock(return_value=['instance-1', 'instance-2'])
 
@@ -540,7 +540,7 @@ class TestBenchmarkLauncher:
         launcher._validate_inputs_and_get_instances.assert_called_once_with(
             ['instance-1', 'instance-2'], True
         )
-        assert launcher._update_instance_name_to_status.call_count == 2
+        assert launcher._update_instance_statuses.call_count == 2
         launcher._get_active_instance_names.assert_called_once_with()
         launcher._terminate_gcp_instances.assert_called_once_with(
             ['instance-1', 'instance-2'], True
@@ -556,7 +556,7 @@ class TestBenchmarkLauncher:
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_instance_names = Mock(return_value=['instance-1'])
-        launcher._update_instance_name_to_status = Mock()
+        launcher._update_instance_statuses = Mock()
         launcher._get_active_instance_names = Mock(return_value=[])
 
         # Run
@@ -573,7 +573,7 @@ class TestBenchmarkLauncher:
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_instance_names = Mock(return_value=['instance-1'])
-        launcher._update_instance_name_to_status = Mock()
+        launcher._update_instance_statuses = Mock()
         launcher._get_active_instance_names = Mock(return_value=[])
         expected_warning = re.escape('All provided instance names are already terminated.')
 
@@ -642,12 +642,10 @@ class TestBenchmarkLauncher:
         mock_load.assert_called_once()
         assert result is benchmark
 
-    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_benchmark_ids')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_ids')
     @patch('sdgym._benchmark_launcher.benchmark_launcher.cloudpickle.load')
     @patch('builtins.open', new_callable=mock_open, read_data=b'test')
-    def test_load_generates_benchmark_id_if_missing(
-        self, mock_file, mock_load, mock_generate_benchmark_ids
-    ):
+    def test_load_generates_benchmark_id_if_missing(self, mock_file, mock_load, mock_generate_ids):
         """Test `load` generates a benchmark id if missing."""
         # Setup
         benchmark = Mock()
@@ -655,7 +653,7 @@ class TestBenchmarkLauncher:
         benchmark.modality = 'single_table'
         benchmark.compute_service = 'gcp'
         mock_load.return_value = benchmark
-        mock_generate_benchmark_ids.return_value = 'new-id'
+        mock_generate_ids.return_value = 'new-id'
 
         # Run
         result = BenchmarkLauncher.load('launcher.pkl')
@@ -663,7 +661,7 @@ class TestBenchmarkLauncher:
         # Assert
         mock_file.assert_called_once_with('launcher.pkl', 'rb')
         mock_load.assert_called_once()
-        mock_generate_benchmark_ids.assert_called_once_with([
+        mock_generate_ids.assert_called_once_with([
             'BENCMARK_ID',
             'single_table',
             'gcp',

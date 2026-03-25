@@ -114,7 +114,7 @@ def _deep_merge(base, override):
     return result
 
 
-def generate_benchmark_ids(prefixes):
+def generate_ids(prefixes):
     """Generate a unique identifier for the benchmark instance.
 
     This method creates a unique identifier by combining the modality, the compute

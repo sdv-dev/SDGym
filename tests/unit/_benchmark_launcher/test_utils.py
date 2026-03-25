@@ -16,7 +16,7 @@ from sdgym._benchmark_launcher.utils import (
     _load_yaml_resource,
     _resolve_datasets,
     _resolve_modality_config,
-    generate_benchmark_ids,
+    generate_ids,
     resolve_credentials,
 )
 
@@ -548,14 +548,14 @@ def test_resolve_credentials_env_mode(mock_env):
     assert credentials == expected_credentials
 
 
-def test_generate_benchmark_ids_returns_unique_ids():
-    """Test `generate_benchmark_ids` returns unique IDs."""
+def test_generate_ids_returns_unique_ids():
+    """Test `generate_ids` returns unique IDs."""
     # Setup
     components = ['COMPONENT1', 'COMPONENT2']
 
     # Run
-    id1 = generate_benchmark_ids(components)
-    id2 = generate_benchmark_ids(components)
+    id1 = generate_ids(components)
+    id2 = generate_ids(components)
 
     # Assert
     assert id1 != id2

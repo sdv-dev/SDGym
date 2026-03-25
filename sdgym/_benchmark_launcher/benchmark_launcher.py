@@ -11,7 +11,7 @@ from sdgym._benchmark_launcher._validation import _validate_gcp_credentials
 from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _resolve_datasets,
-    generate_benchmark_ids,
+    generate_ids,
     resolve_credentials,
 )
 
@@ -47,7 +47,7 @@ class BenchmarkLauncher:
         self.modality = benchmark_config.modality
         self.compute_service = benchmark_config.compute.get('service')
         self.method_to_run = _METHODS[(self.modality, self.compute_service)]
-        self._benchmark_id = generate_benchmark_ids([
+        self._benchmark_id = generate_ids([
             'BENCMARK_ID',
             self.modality,
             self.compute_service,
@@ -56,7 +56,7 @@ class BenchmarkLauncher:
         self._instance_name_to_status = {}
 
     def _launch(self):
-        launch_id = generate_benchmark_ids(['LAUNCH_ID'])
+        launch_id = generate_ids(['LAUNCH_ID'])
         self._launch_to_instance_names[launch_id] = []
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
         for instance_job in self.benchmark_config.instance_jobs:
@@ -90,13 +90,13 @@ class BenchmarkLauncher:
             elif self._instance_name_to_status.get(instance_name) == 'running':
                 self._instance_name_to_status[instance_name] = 'completed'
 
-    def _update_instance_name_to_status(self):
+    def _update_instance_statuses(self):
         if self.compute_service == 'gcp':
             self._update_gcp_instance_name_to_status()
             return
 
         raise NotImplementedError(
-            f'`_update_instance_name_to_status()` is not implemented for {self.compute_service!r}.'
+            f'`_update_instance_statuses()` is not implemented for {self.compute_service!r}.'
         )
 
     def _list_gcp_instances(self, client, project_id):
@@ -229,7 +229,7 @@ class BenchmarkLauncher:
                 Whether to print progress information. Defaults to True.
         """
         instances = self._validate_inputs_and_get_instances(instance_names, verbose)
-        self._update_instance_name_to_status()
+        self._update_instance_statuses()
         active_instances = set(self._get_active_instance_names())
         instances_to_terminate = [name for name in instances if name in active_instances]
         if not instances_to_terminate:
@@ -249,7 +249,7 @@ class BenchmarkLauncher:
             )
 
         deleted_instances = self._terminate_gcp_instances(instances_to_terminate, verbose)
-        self._update_instance_name_to_status()
+        self._update_instance_statuses()
         if verbose:
             print(f'Terminated {len(deleted_instances)} GCP instance(s).')  # noqa: T201
 
@@ -292,7 +292,7 @@ class BenchmarkLauncher:
             benchmark = cloudpickle.load(input_file)
 
         if getattr(benchmark, '_benchmark_id', None) is None:
-            benchmark._benchmark_id = generate_benchmark_ids([
+            benchmark._benchmark_id = generate_ids([
                 'BENCMARK_ID',
                 benchmark.modality,
                 benchmark.compute_service,
