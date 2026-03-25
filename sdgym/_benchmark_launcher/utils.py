@@ -5,6 +5,7 @@ import os
 import uuid
 from datetime import datetime
 from importlib.resources import files
+from urllib.parse import quote_plus
 
 import yaml
 
@@ -12,6 +13,7 @@ from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
 )
+from sdgym.run_benchmark.utils import get_s3_console_link
 from sdgym.s3 import parse_s3_path
 
 _YAML_PKG = 'sdgym._benchmark_launcher'
@@ -220,11 +222,12 @@ def _build_job_artifact_keys(artifact_key_prefix, artifact_dataset, artifact_syn
 
 
 def _build_job_output_destination(
-    output_destination, artifact_key_prefix, artifact_dataset, artifact_synthesizer
+    output_destination,
+    artifact_key_prefix,
+    artifact_dataset,
+    artifact_synthesizer,
 ):
-    """Build the S3 folder path for a benchmark job artifacts."""
-    bucket_name, _ = parse_s3_path(output_destination)
-    return (
-        f's3://{bucket_name}/'
-        f'{artifact_key_prefix.rstrip("/")}/{artifact_dataset}/{artifact_synthesizer}/'
-    )
+    """Build the S3 console URL for a benchmark job artifacts folder."""
+    bucket, _ = parse_s3_path(output_destination)
+    prefix = f'{artifact_key_prefix.rstrip("/")}/{artifact_dataset}/{artifact_synthesizer}/'
+    return get_s3_console_link(bucket, quote_plus(prefix))

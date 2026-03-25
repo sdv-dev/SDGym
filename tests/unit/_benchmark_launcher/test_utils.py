@@ -689,12 +689,17 @@ def test__build_job_artifact_keys(
     assert result == expected
 
 
-def test_build_job_output_destination():
+@patch('sdgym._benchmark_launcher.utils.get_s3_console_link')
+def test_build_job_output_destination(mock_get_s3_console_link):
     """Test the `_build_job_output_destination` method."""
     # Setup
     benchmark_config = Mock()
     benchmark_config.modality = 'single_table'
     benchmark_config.compute = {'service': 'gcp'}
+    mock_get_s3_console_link.return_value = (
+        'https://s3.console.aws.amazon.com/s3/buckets/my-bucket/'
+        'single_table/SDGym_results_03_25_2026/adult_03_25_2026/CTGANSynthesizer(1)/'
+    )
 
     # Run
     result = _build_job_output_destination(
@@ -705,6 +710,11 @@ def test_build_job_output_destination():
     )
 
     # Assert
+    mock_get_s3_console_link.assert_called_once_with(
+        'my-bucket',
+        'single_table%2FSDGym_results_03_25_2026%2Fadult_03_25_2026%2FCTGANSynthesizer%281%29%2F',
+    )
     assert result == (
-        's3://my-bucket/single_table/SDGym_results_03_25_2026/adult_03_25_2026/CTGANSynthesizer(1)/'
+        'https://s3.console.aws.amazon.com/s3/buckets/my-bucket/'
+        'single_table/SDGym_results_03_25_2026/adult_03_25_2026/CTGANSynthesizer(1)/'
     )
