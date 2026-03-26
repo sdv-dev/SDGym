@@ -430,7 +430,6 @@ class TestBenchmarkLauncher:
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        launcher._validate_compute_service = Mock()
         launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
 
         # Run
@@ -440,48 +439,25 @@ class TestBenchmarkLauncher:
         )
 
         # Assert
-        launcher._validate_compute_service.assert_called_once_with()
         launcher._validate_instance_names.assert_called_once_with(['instance-1', 'instance-2'])
         assert result == ['instance-1', 'instance-2']
 
-    @pytest.mark.parametrize(
-        ('compute_service', 'verbose', 'expected_error'),
-        [
-            (
-                'aws',
-                True,
-                NotImplementedError(
-                    "Compute service 'aws' is not supported. Supported services: 'gcp'."
-                ),
-            ),
-            (
-                'gcp',
-                'yes',
-                ValueError("`verbose` must be a boolean. Found: 'yes' (<class 'str'>)."),
-            ),
-        ],
-    )
-    def test_validate_inputs_and_get_instances_invalid_cases(
-        self, compute_service, verbose, expected_error
-    ):
-        """Test `_validate_inputs_and_get_instances` raises errors for invalid inputs."""
+    def test_validate_inputs_and_get_instances_invalid_verbose(self):
+        """Test `_validate_inputs_and_get_instances` raises errors for invalid verbose."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        launcher.compute_service = compute_service
         launcher._validate_compute_service = Mock()
         launcher._validate_instance_names = Mock(return_value=['instance-1'])
-
-        if compute_service == 'aws':
-            launcher._validate_compute_service.side_effect = expected_error
+        expected_error = re.escape("`verbose` must be a boolean. Found: 'yes' (<class 'str'>).")
 
         # Run and Assert
-        with pytest.raises(type(expected_error), match=re.escape(str(expected_error))):
+        with pytest.raises(ValueError, match=expected_error):
             launcher._validate_inputs_and_get_instances(
                 instance_names=['instance-1'],
-                verbose=verbose,
+                verbose='yes',
             )
 
     @patch('builtins.print')
@@ -628,10 +604,10 @@ class TestBenchmarkLauncher:
     @patch('sdgym._benchmark_launcher.benchmark_launcher.resolve_credentials')
     @patch('sdgym._benchmark_launcher.benchmark_launcher.get_s3_client')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._list_s3_bucket_contents')
-    def test_get_s3_existing_keys(
+    def test_get_s3_existing_filenames(
         self, mock_list_s3_bucket_contents, mock_get_s3_client, mock_resolve_credentials
     ):
-        """Test the `_get_s3_existing_keys` method."""
+        """Test the `_get_s3_existing_filenames` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -652,7 +628,7 @@ class TestBenchmarkLauncher:
         ]
 
         # Run
-        existing_keys = launcher._get_s3_existing_keys('s3://bucket/prefix')
+        existing_keys = launcher._get_s3_existing_filenames('s3://bucket/prefix')
 
         # Assert
         mock_get_s3_client.assert_called_once_with(
@@ -777,8 +753,8 @@ class TestBenchmarkLauncher:
             },
         ]
 
-    def test_finalize_instance_job_rows_running(self):
-        """Test `_finalize_instance_job_rows` marks the first queued job as running."""
+    def test_update_status_running_job_running(self):
+        """Test `_update_status_running_job` marks the first queued job as running."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -791,7 +767,7 @@ class TestBenchmarkLauncher:
         ]
 
         # Run
-        result = launcher._finalize_instance_job_rows(instance_rows, 'running')
+        result = launcher._update_status_running_job(instance_rows, 'running')
 
         # Assert
         assert result == [
@@ -800,8 +776,8 @@ class TestBenchmarkLauncher:
             {'Status': 'Queued'},
         ]
 
-    def test_finalize_instance_job_rows_not_running(self):
-        """Test `_finalize_instance_job_rows` marks queued jobs as failed."""
+    def test_update_status_running_job_not_running(self):
+        """Test `_update_status_running_job` marks queued jobs as failed."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -814,7 +790,7 @@ class TestBenchmarkLauncher:
         ]
 
         # Run
-        result = launcher._finalize_instance_job_rows(instance_rows, 'completed')
+        result = launcher._update_status_running_job(instance_rows, 'completed')
 
         # Assert
         assert result == [
@@ -831,11 +807,10 @@ class TestBenchmarkLauncher:
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
         launcher = BenchmarkLauncher(benchmark_config)
-        launcher._validate_compute_service = Mock()
         launcher._validate_instance_names = Mock(return_value=['instance-1'])
         launcher._update_instance_statuses = Mock()
         launcher._get_all_output_destinations = Mock(return_value=['s3://bucket/prefix'])
-        launcher._get_s3_existing_keys = Mock(return_value={'file1', 'file2'})
+        launcher._get_s3_existing_filenames = Mock(return_value={'file1', 'file2'})
         launcher._instance_name_to_status = {'instance-1': 'running'}
         launcher._instance_name_to_jobs = {'instance-1': ['job1']}
         launcher._get_instance_job_rows = Mock(
@@ -849,7 +824,7 @@ class TestBenchmarkLauncher:
                 }
             ]
         )
-        launcher._finalize_instance_job_rows = Mock(
+        launcher._update_status_running_job = Mock(
             return_value=[
                 {
                     'Dataset': 'alarm',
@@ -865,11 +840,10 @@ class TestBenchmarkLauncher:
         launcher.get_job_status()
 
         # Assert
-        launcher._validate_compute_service.assert_called_once_with()
         launcher._validate_instance_names.assert_called_once_with(None)
         launcher._update_instance_statuses.assert_called_once_with()
         launcher._get_all_output_destinations.assert_called_once_with(['instance-1'])
-        launcher._get_s3_existing_keys.assert_called_once_with('s3://bucket/prefix')
+        launcher._get_s3_existing_filenames.assert_called_once_with('s3://bucket/prefix')
         launcher._get_instance_job_rows.assert_called_once_with(
             instance_name='instance-1',
             jobs=['job1'],
@@ -877,7 +851,7 @@ class TestBenchmarkLauncher:
             synthesizer_names=None,
             existing_keys_by_output={'s3://bucket/prefix': {'file1', 'file2'}},
         )
-        launcher._finalize_instance_job_rows.assert_called_once_with(
+        launcher._update_status_running_job.assert_called_once_with(
             [
                 {
                     'Dataset': 'alarm',

@@ -16,6 +16,7 @@ from sdgym._benchmark_launcher.utils import (
     _get_gcp_credentials_from_env,
     _get_synthetic_data_extension,
     _get_top_folder_prefix,
+    _is_unique_string_list,
     _load_json_file,
     _load_merged_modality_config,
     _load_yaml_resource,
@@ -718,3 +719,24 @@ def test_build_job_output_destination(mock_get_s3_console_link):
         'https://s3.console.aws.amazon.com/s3/buckets/my-bucket/'
         'single_table/SDGym_results_03_25_2026/adult_03_25_2026/CTGANSynthesizer(1)/'
     )
+
+
+def test_is_unique_string_list():
+    """Test the `_is_unique_string_list` method."""
+    # Setup
+    valid_list = ['a', 'b', 'c']
+    duplicate_list = ['a', 'b', 'a']
+    non_string_list = ['a', 1, 'c']
+    not_a_list = 'abc'
+
+    # Run
+    valid_result = _is_unique_string_list(valid_list)
+    duplicate_result = _is_unique_string_list(duplicate_list)
+    non_string_result = _is_unique_string_list(non_string_list)
+    not_a_list_result = _is_unique_string_list(not_a_list)
+
+    # Assert
+    assert valid_result is True
+    assert duplicate_result is False
+    assert non_string_result is False
+    assert not_a_list_result is False
