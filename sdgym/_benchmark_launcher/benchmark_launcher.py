@@ -320,6 +320,7 @@ class BenchmarkLauncher:
         for job in jobs:
             dataset = job['dataset']
             synthesizer = job['synthesizer']
+            synthesizer_with_suffix = job['artifact_synthesizer']
             if dataset_names is not None and dataset not in dataset_names:
                 continue
             if synthesizer_names is not None and synthesizer not in synthesizer_names:
@@ -327,13 +328,13 @@ class BenchmarkLauncher:
 
             artifact_status = self._get_job_artifact_status(
                 artifact_dataset=job['artifact_dataset'],
-                artifact_synthesizer=job['artifact_synthesizer'],
+                artifact_synthesizer=synthesizer_with_suffix,
                 artifact_key_prefix=job['artifact_key_prefix'],
                 existing_keys=existing_keys_by_output[job['output_destination']],
             )
             rows.append({
                 'Dataset': dataset,
-                'Synthesizer': synthesizer,
+                'Synthesizer': synthesizer_with_suffix,
                 'Instance_Name': instance_name,
                 'Output_Destination': job['job_output_destination'],
                 'Status': artifact_status,

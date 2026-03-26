@@ -230,8 +230,8 @@ def test__validate_instance_jobs_invalid():
     # Assert
     assert errors == [
         "Each job in 'instance_jobs' must be a dict with an 'output_destination' (string), "
-        "'synthesizers' (list of strings), and 'datasets' (list of strings or dict with "
-        "'include' and optional 'exclude').\nInvalid jobs:\nnot-a-dict\n{'synthesizer': "
+        "'synthesizers' (list of unique strings), and 'datasets' (list of unique strings or "
+        "dict with 'include' and optional 'exclude').\nInvalid jobs:\nnot-a-dict\n{'synthesizer': "
         "['synth1'], 'datasets': ['adult']}\n{'synthesizers': ['synth1']}\n{'synthesizers':"
         " 'not-a-list', 'datasets': ['adult']}\n{'synthesizers': ['synth1'], 'datasets': [1, 2]}\n"
         "{'synthesizers': ['synth1'], 'datasets': {'include': 'adult'}}\n"

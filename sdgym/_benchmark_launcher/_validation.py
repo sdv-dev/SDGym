@@ -95,8 +95,8 @@ def _validate_method_params(method_params, method_to_run):
 def _validate_instance_jobs(instance_jobs):
     error_message = (
         "Each job in 'instance_jobs' must be a dict with an 'output_destination' (string), "
-        "'synthesizers' (list of strings), and 'datasets' (list of strings or dict with "
-        "'include' and optional 'exclude')."
+        "'synthesizers' (list of unique strings), and 'datasets' (list of unique strings or "
+        "dict with 'include' and optional 'exclude')."
     )
     invalid_jobs = []
     for job in instance_jobs:
@@ -109,7 +109,11 @@ def _validate_instance_jobs(instance_jobs):
             continue
 
         synthesizers = job['synthesizers']
-        if not isinstance(synthesizers, list) or not all(isinstance(s, str) for s in synthesizers):
+        if (
+            not isinstance(synthesizers, list)
+            or not all(isinstance(s, str) for s in synthesizers)
+            or len(synthesizers) != len(set(synthesizers))
+        ):
             invalid_jobs.append(job)
             continue
 
@@ -120,19 +124,25 @@ def _validate_instance_jobs(instance_jobs):
 
         datasets = job['datasets']
         if isinstance(datasets, list):
-            if not all(isinstance(d, str) for d in datasets):
+            if not all(isinstance(d, str) for d in datasets) or len(datasets) != len(set(datasets)):
                 invalid_jobs.append(job)
             continue
 
         if isinstance(datasets, dict):
             include = datasets.get('include')
             exclude = datasets.get('exclude')
-            if not isinstance(include, list) or not all(isinstance(d, str) for d in include):
+            if (
+                not isinstance(include, list)
+                or not all(isinstance(d, str) for d in include)
+                or len(include) != len(set(include))
+            ):
                 invalid_jobs.append(job)
                 continue
 
             if exclude is not None and (
-                not isinstance(exclude, list) or not all(isinstance(d, str) for d in exclude)
+                not isinstance(exclude, list)
+                or not all(isinstance(d, str) for d in exclude)
+                or len(exclude) != len(set(exclude))
             ):
                 invalid_jobs.append(job)
             continue
