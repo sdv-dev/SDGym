@@ -5,7 +5,8 @@ import warnings
 
 import cloudpickle
 import pandas as pd
-
+import yaml
+import io
 from sdgym._benchmark_launcher._instance_manager import GCPInstanceManager
 from sdgym._benchmark_launcher._storage_manager import S3StorageManager
 from sdgym._benchmark_launcher.utils import (
@@ -401,6 +402,64 @@ class BenchmarkLauncher:
             rows.extend(self._update_status_running_job(instance_rows, instance_status))
 
         return pd.DataFrame(rows)
+
+    def _finalize_instance_results(self, instance_name, existing_keys_by_output):
+        jobs = self._instance_name_to_jobs.get(instance_name, [])
+        if not jobs:
+            return pd.DataFrame()
+
+        output_destination = jobs[0]['output_destination']
+        existing_keys = existing_keys_by_output[output_destination]
+        result_filename = self._instance_name_to_result_filename[instance_name]
+        artifact_key_prefix = jobs[0]['artifact_key_prefix']
+        aggregate_result_key = f'{artifact_key_prefix}/{result_filename}'
+        instance_status = self._instance_name_to_status.get(instance_name)
+
+        # If instance completed and aggregate file already exists, just load it
+        if instance_status == 'completed' and aggregate_result_key in existing_keys:
+            s3_client, bucket_name = self._get_s3_resources(output_destination)
+            response = s3_client.get_object(Bucket=bucket_name, Key=aggregate_result_key)
+            result_df = pd.read_csv(io.BytesIO(response['Body'].read()))
+            self._update_result_columns(result_df)
+            return result_df
+
+        # Otherwise rebuild from individual job benchmark_result.csv files
+        s3_client, bucket_name = self._get_s3_resources(output_destination)
+        frames = []
+        for job in jobs:
+            if job['benchmark_result_key'] in existing_keys:
+                job_result = self._load_job_result(job, s3_client, bucket_name)
+                self._update_result_columns(job_result)
+                frames.append(job_result)
+            else:
+                frames.append(self._build_missing_result_row(job))
+
+        return self._align_result_frames(frames)
+
+    def _finalize(self):
+        self._validate_compute_service()
+        self._update_instance_statuses()
+        output_destinations = self._get_all_output_destinations()
+        # Look for instances with status completed and check they have their corresping result(i).csv
+
+        # Then for the remaining one (Stopped or still Running)
+        # Check if they have a result(i).csv but they should not
+        # Build the result(i).csv by looking at the file like
+        # s3://sdgym-benchmark/Benchmarks/single_table/SDGym_results_03_01_2026/intrusion_03_01_2026/BootstrapSynthesizer(4)/BootstrapSynthesizer(4)_benchmark_result.csv
+        # If the file exist concat, if not as a row for the job with 'Instance Error' in the Error columns, the dataset and synthesizer name and the other columns as empty
+        # Upload the missing result(i).csv files
+        # Terminate all the remaining running instances .terminate()
+        existing_keys_by_output = {
+            output_destination: self._get_s3_existing_keys(output_destination)
+            for output_destination in output_destinations
+        }
+        for instance_name in self._get_all_instance_names():
+            instance_results = self._finalize_instance_results(
+                instance_name=instance_name,
+                existing_keys_by_output=existing_keys_by_output,
+            )
+            self._upload_instance_results(instance_name, instance_results)
+            self._update_instance_metainfo(instance_name)
 
     def save(self, filepath):
         """Save the benchmark configuration to a file."""
