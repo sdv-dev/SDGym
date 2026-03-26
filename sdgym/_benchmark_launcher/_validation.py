@@ -1,6 +1,7 @@
 from sdgym._benchmark_launcher.utils import (
     _AWS_CREDENTIAL_KEYS,
     _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS,
+    _is_unique_string_list,
     resolve_credentials,
 )
 
@@ -109,11 +110,7 @@ def _validate_instance_jobs(instance_jobs):
             continue
 
         synthesizers = job['synthesizers']
-        if (
-            not isinstance(synthesizers, list)
-            or not all(isinstance(s, str) for s in synthesizers)
-            or len(synthesizers) != len(set(synthesizers))
-        ):
+        if not _is_unique_string_list(synthesizers):
             invalid_jobs.append(job)
             continue
 
@@ -124,26 +121,18 @@ def _validate_instance_jobs(instance_jobs):
 
         datasets = job['datasets']
         if isinstance(datasets, list):
-            if not all(isinstance(d, str) for d in datasets) or len(datasets) != len(set(datasets)):
+            if not _is_unique_string_list(datasets):
                 invalid_jobs.append(job)
             continue
 
         if isinstance(datasets, dict):
             include = datasets.get('include')
             exclude = datasets.get('exclude')
-            if (
-                not isinstance(include, list)
-                or not all(isinstance(d, str) for d in include)
-                or len(include) != len(set(include))
-            ):
+            if not _is_unique_string_list(include):
                 invalid_jobs.append(job)
                 continue
 
-            if exclude is not None and (
-                not isinstance(exclude, list)
-                or not all(isinstance(d, str) for d in exclude)
-                or len(exclude) != len(set(exclude))
-            ):
+            if exclude is not None and not _is_unique_string_list(exclude):
                 invalid_jobs.append(job)
             continue
 

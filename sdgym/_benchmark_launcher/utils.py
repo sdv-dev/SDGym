@@ -231,3 +231,11 @@ def _build_job_output_destination(
     bucket, _ = parse_s3_path(output_destination)
     prefix = f'{artifact_key_prefix.rstrip("/")}/{artifact_dataset}/{artifact_synthesizer}/'
     return get_s3_console_link(bucket, quote_plus(prefix))
+
+
+def _is_unique_string_list(value):
+    return (
+        isinstance(value, list)
+        and all(isinstance(item, str) for item in value)
+        and len(value) == len(set(value))
+    )

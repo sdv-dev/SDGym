@@ -50,6 +50,7 @@ class BenchmarkLauncher:
         self.benchmark_config = benchmark_config
         self.modality = benchmark_config.modality
         self.compute_service = benchmark_config.compute.get('service')
+        self._validate_compute_service()
         self.method_to_run = _METHODS[(self.modality, self.compute_service)]
         self._benchmark_id = generate_ids([
             'BENCMARK_ID',
@@ -181,7 +182,6 @@ class BenchmarkLauncher:
 
     def _validate_inputs_and_get_instances(self, instance_names, verbose):
         """Validate terminate inputs and return the instance names to process."""
-        self._validate_compute_service()
         if not isinstance(verbose, bool):
             raise ValueError(f'`verbose` must be a boolean. Found: {verbose!r} ({type(verbose)}).')
 
@@ -266,7 +266,7 @@ class BenchmarkLauncher:
 
         return output_destinations
 
-    def _get_s3_existing_keys(self, output_destination):
+    def _get_s3_existing_filenames(self, output_destination):
         """Return the existing S3 keys under the output destination."""
         if not is_s3_path(output_destination):
             raise ValueError(
@@ -342,8 +342,8 @@ class BenchmarkLauncher:
 
         return rows
 
-    def _finalize_instance_job_rows(self, instance_rows, instance_status):
-        """Adjust queued job statuses based on the instance status."""
+    def _update_status_running_job(self, instance_rows, instance_status):
+        """Determine the running job for the instance."""
         if instance_status == 'running':
             queued_indexes = [
                 idx for idx, row in enumerate(instance_rows) if row['Status'] == 'Queued'
@@ -382,11 +382,10 @@ class BenchmarkLauncher:
                 - Output_Destination: The output destination for the job artifacts.
                 - Status: The status of the job.
         """
-        self._validate_compute_service()
         instances = self._validate_instance_names(instance_names)
         self._update_instance_statuses()
         existing_keys_by_output = {
-            output_destination: self._get_s3_existing_keys(output_destination)
+            output_destination: self._get_s3_existing_filenames(output_destination)
             for output_destination in self._get_all_output_destinations(instances)
         }
         rows = []
@@ -400,7 +399,7 @@ class BenchmarkLauncher:
                 existing_keys_by_output=existing_keys_by_output,
             )
             instance_status = self._instance_name_to_status.get(instance_name)
-            rows.extend(self._finalize_instance_job_rows(instance_rows, instance_status))
+            rows.extend(self._update_status_running_job(instance_rows, instance_status))
 
         return pd.DataFrame(rows)
 
