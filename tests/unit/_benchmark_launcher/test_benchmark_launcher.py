@@ -13,7 +13,10 @@ from sdgym._benchmark_launcher.utils import _METHODS
 class TestBenchmarkLauncher:
     @patch('sdgym._benchmark_launcher.benchmark_launcher.generate_ids')
     @patch('sdgym._benchmark_launcher.benchmark_launcher.GCPInstanceManager')
-    def test__init__(self, mock_instance_manager, mock_generate_ids):
+    @patch(
+        'sdgym._benchmark_launcher.benchmark_launcher.BenchmarkLauncher._validate_compute_service'
+    )
+    def test__init__(self, mock_validate_compute_service, mock_instance_manager, mock_generate_ids):
         """Test the `__init__` method."""
         # Setup
         benchmark_config = Mock()
@@ -28,6 +31,7 @@ class TestBenchmarkLauncher:
         launcher = BenchmarkLauncher(benchmark_config)
 
         # Assert
+        mock_validate_compute_service.assert_called_once_with()
         benchmark_config.validate.assert_called_once()
         mock_generate_ids.assert_called_once_with([
             'BENCMARK_ID',
