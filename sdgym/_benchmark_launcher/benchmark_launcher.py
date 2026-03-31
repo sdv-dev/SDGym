@@ -1,12 +1,12 @@
 """Define the BenchmarkLauncher class, which launches and manages benchmark executions."""
 
+import io
 import logging
 import warnings
 
 import cloudpickle
 import pandas as pd
-import yaml
-import io
+
 from sdgym._benchmark_launcher._instance_manager import GCPInstanceManager
 from sdgym._benchmark_launcher._storage_manager import S3StorageManager
 from sdgym._benchmark_launcher.utils import (
