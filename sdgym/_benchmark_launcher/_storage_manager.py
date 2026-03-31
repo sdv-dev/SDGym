@@ -2,6 +2,16 @@ from sdgym._benchmark_launcher.utils import resolve_credentials
 from sdgym.s3 import _list_s3_bucket_contents, get_s3_client, is_s3_path, parse_s3_path
 
 
+def _validate_s3_output_destinations(instance_jobs):
+    """Validate that all output destinations are S3 paths."""
+    for instance_job in instance_jobs:
+        output_destination = instance_job['output_destination']
+        if not is_s3_path(output_destination):
+            raise ValueError(
+                f'Only S3 storage is currently supported. Found: {output_destination!r}.'
+            )
+
+
 class BaseStorageManager:
     """Base class for storage-specific managers."""
 
@@ -21,7 +31,8 @@ class BaseStorageManager:
 class S3StorageManager(BaseStorageManager):
     """Manage benchmark artifacts stored in S3."""
 
-    def __init__(self, credentials_filepath):
+    def __init__(self, credentials_filepath, instance_jobs):
+        _validate_s3_output_destinations(instance_jobs)
         self.credentials_filepath = credentials_filepath
 
     def handles_destination(self, output_destination):

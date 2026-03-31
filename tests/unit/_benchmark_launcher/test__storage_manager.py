@@ -1,13 +1,53 @@
 """Unit tests for the storage manager classes."""
 
-from unittest.mock import Mock, patch
+import re
+from unittest.mock import Mock, call, patch
 
 import pytest
 
 from sdgym._benchmark_launcher._storage_manager import (
     BaseStorageManager,
     S3StorageManager,
+    _validate_s3_output_destinations,
 )
+
+
+@patch('sdgym._benchmark_launcher._storage_manager.is_s3_path')
+def test_validate_s3_output_destinations(mock_is_s3_path):
+    """Test `_validate_s3_output_destinations` with valid S3 destinations."""
+    # Setup
+    instance_jobs = [
+        {'output_destination': 's3://bucket/path1'},
+        {'output_destination': 's3://bucket/path2'},
+    ]
+    mock_is_s3_path.return_value = True
+
+    # Run
+    _validate_s3_output_destinations(instance_jobs)
+
+    # Assert
+    assert mock_is_s3_path.call_args_list == [
+        call('s3://bucket/path1'),
+        call('s3://bucket/path2'),
+    ]
+
+
+@patch('sdgym._benchmark_launcher._storage_manager.is_s3_path')
+def test_validate_s3_output_destinations_invalid_path(mock_is_s3_path):
+    """Test `_validate_s3_output_destinations` raises an error for invalid paths."""
+    # Setup
+    instance_jobs = [
+        {'output_destination': 's3://bucket/path1'},
+        {'output_destination': '/tmp/local-path'},
+    ]
+    mock_is_s3_path.side_effect = [True, False]
+    expected_message = re.escape(
+        "Only S3 storage is currently supported. Found: '/tmp/local-path'."
+    )
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _validate_s3_output_destinations(instance_jobs)
 
 
 class TestBaseStorageManager:
@@ -40,15 +80,18 @@ class TestBaseStorageManager:
 
 
 class TestS3StorageManager:
-    def test__init__(self):
+    @patch('sdgym._benchmark_launcher._storage_manager._validate_s3_output_destinations')
+    def test__init__(self, mock_validate_s3_output_destinations):
         """Test the `__init__` method."""
         # Setup
         credentials_filepath = 'creds.json'
+        instance_jobs = [{'output_destination': 's3://bucket/path'}]
 
         # Run
-        storage_manager = S3StorageManager(credentials_filepath)
+        storage_manager = S3StorageManager(credentials_filepath, instance_jobs)
 
         # Assert
+        mock_validate_s3_output_destinations.assert_called_once_with(instance_jobs)
         assert storage_manager.credentials_filepath == credentials_filepath
 
     @patch('sdgym._benchmark_launcher._storage_manager.resolve_credentials')
@@ -56,7 +99,7 @@ class TestS3StorageManager:
     def test_get_client(self, mock_get_s3_client, mock_resolve_credentials):
         """Test the `_get_client` method."""
         # Setup
-        storage_manager = S3StorageManager('creds.json')
+        storage_manager = S3StorageManager('creds.json', [])
         mock_resolve_credentials.return_value = {
             'aws': {
                 'aws_access_key_id': 'AKIA',
@@ -81,7 +124,7 @@ class TestS3StorageManager:
     def test_handles_destination(self, mock_is_s3_path):
         """Test the `handles_destination` method."""
         # Setup
-        storage_manager = S3StorageManager('creds.json')
+        storage_manager = S3StorageManager('creds.json', [])
         mock_is_s3_path.return_value = True
 
         # Run
@@ -96,7 +139,7 @@ class TestS3StorageManager:
     def test_list_files(self, mock_parse_s3_path, mock_list_s3_bucket_contents):
         """Test the `list_files` method."""
         # Setup
-        storage_manager = S3StorageManager('creds.json')
+        storage_manager = S3StorageManager('creds.json', [])
         storage_manager._get_client = Mock(return_value='s3-client')
         storage_manager.handles_destination = Mock(return_value=True)
         mock_parse_s3_path.return_value = ('bucket', 'prefix')
@@ -121,14 +164,14 @@ class TestS3StorageManager:
     def test_list_files_invalid_destination(self):
         """Test `list_files` raises an error for unsupported destinations."""
         # Setup
-        storage_manager = S3StorageManager('creds.json')
+        storage_manager = S3StorageManager('creds.json', [])
         storage_manager.handles_destination = Mock(return_value=False)
+        expected_message = re.escape(
+            "S3StorageManager only supports S3 paths. Found: 'not-a-valid-path'."
+        )
 
         # Run and Assert
-        with pytest.raises(
-            ValueError,
-            match=r"S3StorageManager only supports S3 paths. Found: 'not-a-valid-path'\.",
-        ):
+        with pytest.raises(ValueError, match=expected_message):
             storage_manager.list_files('not-a-valid-path')
 
         storage_manager.handles_destination.assert_called_once_with('not-a-valid-path')
@@ -136,7 +179,7 @@ class TestS3StorageManager:
     def test_get_existing_filenames(self):
         """Test the `get_existing_filenames` method."""
         # Setup
-        storage_manager = S3StorageManager('creds.json')
+        storage_manager = S3StorageManager('creds.json', [])
         storage_manager.list_files = Mock(
             return_value=[
                 {'Key': 'prefix/file1.csv'},

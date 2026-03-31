@@ -16,16 +16,26 @@ class TestBenchmarkLauncher:
     @patch(
         'sdgym._benchmark_launcher.benchmark_launcher.BenchmarkLauncher._validate_compute_service'
     )
-    def test__init__(self, mock_validate_compute_service, mock_instance_manager, mock_generate_ids):
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.S3StorageManager')
+    def test__init__(
+        self,
+        mock_s3_storage_manager,
+        mock_validate_compute_service,
+        mock_instance_manager,
+        mock_generate_ids,
+    ):
         """Test the `__init__` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = [{'output_destination': 's3://bucket/path'}]
         benchmark_config.credentials_filepath = 'creds.json'
         mock_generate_ids.return_value = 'unique_id'
         instance_manager = Mock()
         mock_instance_manager.return_value = instance_manager
+        storage_manager = Mock()
+        mock_s3_storage_manager.return_value = storage_manager
 
         # Run
         launcher = BenchmarkLauncher(benchmark_config)
@@ -46,6 +56,7 @@ class TestBenchmarkLauncher:
         assert launcher._instance_name_to_status == {}
         assert launcher._instance_name_to_jobs == {}
         assert launcher._instance_manager is instance_manager
+        assert launcher._storage_manager is storage_manager
 
     @patch('sdgym._benchmark_launcher.benchmark_launcher.GCPInstanceManager')
     def test_build_instance_manager(self, mock_instance_manager):
@@ -54,6 +65,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         benchmark_config.credentials_filepath = 'creds.json'
         launcher = BenchmarkLauncher(benchmark_config)
         mock_instance_manager.reset_mock()
@@ -71,6 +83,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         benchmark_config.credentials_filepath = 'creds.json'
         launcher = BenchmarkLauncher(benchmark_config)
         launcher.compute_service = 'aws'
@@ -80,12 +93,57 @@ class TestBenchmarkLauncher:
         with pytest.raises(NotImplementedError, match=expected_error):
             launcher._build_instance_manager()
 
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.S3StorageManager')
+    def test_build_storage_manager(self, mock_s3_storage_manager):
+        """Test the `_build_storage_manager` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.credentials_filepath = 'creds.json'
+        benchmark_config.instance_jobs = [{'output_destination': 's3://bucket/path'}]
+        launcher = BenchmarkLauncher(benchmark_config)
+        mock_s3_storage_manager.reset_mock()
+
+        # Run
+        result = launcher._build_storage_manager()
+
+        # Assert
+        mock_s3_storage_manager.assert_called_once_with(
+            credentials_filepath='creds.json',
+            instance_jobs=[{'output_destination': 's3://bucket/path'}],
+        )
+        assert result == mock_s3_storage_manager.return_value
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.S3StorageManager')
+    def test_build_storage_manager_not_supported(self, mock_s3_storage_manager):
+        """Test `_build_storage_manager` raises an error for unsupported storage."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.credentials_filepath = 'creds.json'
+        benchmark_config.instance_jobs = [{'output_destination': '/tmp/output'}]
+        launcher = BenchmarkLauncher(benchmark_config)
+        mock_s3_storage_manager.side_effect = ValueError(
+            "Only S3 storage is currently supported. Found: '/tmp/output'."
+        )
+        expected_error = re.escape(
+            'Failed to initialize storage manager. Only S3 storage is currently supported. '
+            "Error details: Only S3 storage is currently supported. Found: '/tmp/output'."
+        )
+
+        # Run and Assert
+        with pytest.raises(NotImplementedError, match=expected_error):
+            launcher._build_storage_manager()
+
     def test_add_synthesizer_suffix(self):
         """Test the `_add_synthesizer_suffix` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
 
         # Run
@@ -107,6 +165,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         mock_build_job_output_destination.side_effect = [
             's3://bucket/prefix/dataset_1/Synth1(1)/',
@@ -168,6 +227,7 @@ class TestBenchmarkLauncher:
         config.modality = 'single_table'
         config.compute = {'service': 'gcp'}
         config.credentials_filepath = 'creds.json'
+        config.instance_jobs = []
         config._is_validated = False
         config.validate = Mock()
         launcher = BenchmarkLauncher(config)
@@ -190,6 +250,7 @@ class TestBenchmarkLauncher:
         })
         config.credentials_filepath = 'creds.json'
         config._is_validated = True
+        config.instance_jobs = []
         config.validate = Mock()
         launcher = BenchmarkLauncher(config)
         config.validate.reset_mock()
@@ -324,6 +385,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         benchmark_config.credentials_filepath = 'creds.json'
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._instance_manager = Mock()
@@ -348,6 +410,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._launch_to_instance_names = {
             'launch-1': ['instance-1', 'instance-2'],
@@ -366,6 +429,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._instance_name_to_status = {
             'instance-1': 'running',
@@ -385,6 +449,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
 
@@ -400,6 +465,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._get_all_instance_names = Mock(return_value=['instance-1'])
         expected_error = re.escape(
@@ -417,6 +483,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher.compute_service = 'aws'
         expected_error = re.escape(
@@ -433,6 +500,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
 
@@ -452,6 +520,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_compute_service = Mock()
         launcher._validate_instance_names = Mock(return_value=['instance-1'])
@@ -471,6 +540,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_inputs_and_get_instances = Mock(
             return_value=['instance-1', 'instance-2']
@@ -505,6 +575,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
         launcher._update_instance_statuses = Mock()
@@ -522,6 +593,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_inputs_and_get_instances = Mock(return_value=['instance-1'])
         launcher._update_instance_statuses = Mock()
@@ -539,6 +611,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_compute_service = Mock()
         launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
@@ -572,6 +645,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
         launcher._instance_name_to_jobs = {
@@ -637,6 +711,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         mock_build_job_artifact_keys.return_value = (
             'prefix/alarm/CTGANSynthesizer/CTGANSynthesizer_benchmark_result.csv',
@@ -667,6 +742,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._get_job_artifact_status = Mock(side_effect=['Completed', 'Queued'])
         jobs = [
@@ -726,6 +802,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         instance_rows = [
             {'Status': 'Completed'},
@@ -749,6 +826,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         instance_rows = [
             {'Status': 'Completed'},
@@ -773,6 +851,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_instance_names = Mock(return_value=['instance-1'])
         launcher._update_instance_statuses = Mock()
@@ -848,6 +927,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
 
         # Run and Assert
@@ -862,6 +942,7 @@ class TestBenchmarkLauncher:
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
         benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
 
         # Run

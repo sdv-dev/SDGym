@@ -65,7 +65,17 @@ class BenchmarkLauncher:
 
     def _build_storage_manager(self):
         """Build the storage manager."""
-        return S3StorageManager(self.benchmark_config.credentials_filepath)
+        try:
+            return S3StorageManager(
+                credentials_filepath=self.benchmark_config.credentials_filepath,
+                instance_jobs=self.benchmark_config.instance_jobs,
+            )
+
+        except ValueError as e:
+            raise NotImplementedError(
+                f'Failed to initialize storage manager. Only S3 storage is currently supported. '
+                f'Error details: {e}'
+            ) from e
 
     def _build_instance_manager(self):
         """Build the instance manager for the configured compute service."""
