@@ -7,6 +7,7 @@ import cloudpickle
 import pandas as pd
 
 from sdgym._benchmark_launcher._instance_manager import GCPInstanceManager
+from sdgym._benchmark_launcher._storage_manager import S3StorageManager
 from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _add_dataset_suffix,
@@ -17,7 +18,6 @@ from sdgym._benchmark_launcher.utils import (
     generate_ids,
     resolve_credentials,
 )
-from sdgym.s3 import _list_s3_bucket_contents, get_s3_client, is_s3_path, parse_s3_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +61,11 @@ class BenchmarkLauncher:
         self._instance_name_to_status = {}
         self._instance_name_to_jobs = {}
         self._instance_manager = self._build_instance_manager()
+        self._storage_manager = self._build_storage_manager()
+
+    def _build_storage_manager(self):
+        """Build the storage manager."""
+        return S3StorageManager(self.benchmark_config.credentials_filepath)
 
     def _build_instance_manager(self):
         """Build the instance manager for the configured compute service."""
@@ -266,23 +271,9 @@ class BenchmarkLauncher:
 
         return output_destinations
 
-    def _get_s3_existing_filenames(self, output_destination):
-        """Return the existing S3 keys under the output destination."""
-        if not is_s3_path(output_destination):
-            raise ValueError(
-                f'`output_destination` must be an S3 path. Found: {output_destination!r}.'
-            )
-
-        credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
-        aws_credentials = credentials.get('aws', {})
-        s3_client = get_s3_client(
-            aws_access_key_id=aws_credentials.get('aws_access_key_id'),
-            aws_secret_access_key=aws_credentials.get('aws_secret_access_key'),
-        )
-        bucket_name, key_prefix = parse_s3_path(output_destination)
-        contents = _list_s3_bucket_contents(s3_client, bucket_name, key_prefix)
-
-        return {obj['Key'] for obj in contents}
+    def _get_existing_filenames(self, output_destination):
+        """Return the existing filenames for the output destination."""
+        return self._storage_manager.get_existing_filenames(output_destination)
 
     def _get_job_artifact_status(
         self, artifact_dataset, artifact_synthesizer, artifact_key_prefix, existing_keys
@@ -385,7 +376,7 @@ class BenchmarkLauncher:
         instances = self._validate_instance_names(instance_names)
         self._update_instance_statuses()
         existing_keys_by_output = {
-            output_destination: self._get_s3_existing_filenames(output_destination)
+            output_destination: self._get_existing_filenames(output_destination)
             for output_destination in self._get_all_output_destinations(instances)
         }
         rows = []
