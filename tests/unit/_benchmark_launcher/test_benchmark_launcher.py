@@ -605,30 +605,6 @@ class TestBenchmarkLauncher:
         # Assert
         assert result == ['s3://bucket/prefix-a', 's3://bucket/prefix-b']
 
-    def test_get_existing_filenames(self):
-        """Test the `_get_existing_filenames` method."""
-        # Setup
-        benchmark_config = Mock()
-        benchmark_config.modality = 'single_table'
-        benchmark_config.compute = {'service': 'gcp'}
-        benchmark_config.credentials_filepath = 'creds.json'
-        benchmark_config.validate = Mock()
-        launcher = BenchmarkLauncher(benchmark_config)
-        launcher._storage_manager = Mock()
-        launcher._storage_manager.get_existing_filenames.return_value = {
-            'prefix/file1.csv',
-            'prefix/file2.csv',
-        }
-
-        # Run
-        existing_keys = launcher._get_existing_filenames('s3://bucket/prefix')
-
-        # Assert
-        launcher._storage_manager.get_existing_filenames.assert_called_once_with(
-            's3://bucket/prefix'
-        )
-        assert existing_keys == {'prefix/file1.csv', 'prefix/file2.csv'}
-
     @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_artifact_keys')
     @pytest.mark.parametrize(
         ('existing_keys', 'expected_status'),
@@ -801,7 +777,7 @@ class TestBenchmarkLauncher:
         launcher._validate_instance_names = Mock(return_value=['instance-1'])
         launcher._update_instance_statuses = Mock()
         launcher._get_all_output_destinations = Mock(return_value=['s3://bucket/prefix'])
-        launcher._get_existing_filenames = Mock(return_value={'file1', 'file2'})
+        launcher._storage_manager.get_existing_filenames = Mock(return_value={'file1', 'file2'})
         launcher._instance_name_to_status = {'instance-1': 'running'}
         launcher._instance_name_to_jobs = {'instance-1': ['job1']}
         launcher._get_instance_job_rows = Mock(
@@ -834,7 +810,9 @@ class TestBenchmarkLauncher:
         launcher._validate_instance_names.assert_called_once_with(None)
         launcher._update_instance_statuses.assert_called_once_with()
         launcher._get_all_output_destinations.assert_called_once_with(['instance-1'])
-        launcher._get_existing_filenames.assert_called_once_with('s3://bucket/prefix')
+        launcher._storage_manager.get_existing_filenames.assert_called_once_with(
+            's3://bucket/prefix'
+        )
         launcher._get_instance_job_rows.assert_called_once_with(
             instance_name='instance-1',
             jobs=['job1'],

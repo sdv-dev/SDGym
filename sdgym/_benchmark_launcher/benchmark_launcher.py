@@ -271,10 +271,6 @@ class BenchmarkLauncher:
 
         return output_destinations
 
-    def _get_existing_filenames(self, output_destination):
-        """Return the existing filenames for the output destination."""
-        return self._storage_manager.get_existing_filenames(output_destination)
-
     def _get_job_artifact_status(
         self, artifact_dataset, artifact_synthesizer, artifact_key_prefix, existing_keys
     ):
@@ -376,7 +372,7 @@ class BenchmarkLauncher:
         instances = self._validate_instance_names(instance_names)
         self._update_instance_statuses()
         existing_keys_by_output = {
-            output_destination: self._get_existing_filenames(output_destination)
+            output_destination: self._storage_manager.get_existing_filenames(output_destination)
             for output_destination in self._get_all_output_destinations(instances)
         }
         rows = []

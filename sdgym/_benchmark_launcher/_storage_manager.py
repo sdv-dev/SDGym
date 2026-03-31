@@ -14,7 +14,7 @@ class BaseStorageManager:
         raise NotImplementedError
 
     def get_existing_filenames(self, output_destination):
-        """Return the existing storage keys under the given destination."""
+        """Return the existing filenames for the given destination."""
         raise NotImplementedError
 
 
@@ -49,5 +49,5 @@ class S3StorageManager(BaseStorageManager):
         return _list_s3_bucket_contents(s3_client, bucket_name, key_prefix)
 
     def get_existing_filenames(self, output_destination):
-        """Return the existing S3 keys under the provided output destination."""
+        """Return the existing filenames for the given destination."""
         return {obj['Key'] for obj in self.list_files(output_destination)}
