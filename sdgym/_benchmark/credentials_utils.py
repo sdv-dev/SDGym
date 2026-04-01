@@ -3,7 +3,7 @@ import textwrap
 
 def sdv_install_cmd(credentials):
     """Return the shell command to install sdv-enterprise using sdv-installer."""
-    sdv_creds = credentials.get('sdv') or {}
+    sdv_creds = credentials.get('sdv_enterprise') or {}
     username = sdv_creds.get('sdv_enterprise_username')
     license_key = sdv_creds.get('sdv_enterprise_license_key')
     if not (username and license_key):
