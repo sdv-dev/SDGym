@@ -143,11 +143,13 @@ namespaces = false
     'make.bat',
     '*.jpg',
     '*.png',
-    '*.gif'
+    '*.gif',
+    '*.yaml'
 ]
 'sdgym' = [
     'leaderboard.csv',
-    'synthesizer_descriptions.yaml'
+    'synthesizer_descriptions.yaml',
+    '_benchmark_launcher/*.yaml',
 ]
 
 [tool.setuptools.exclude-package-data]
@@ -161,7 +163,7 @@ namespaces = false
 version = {attr = 'sdgym.__version__'}
 
 [tool.bumpversion]
-current_version = "0.14.1"
+current_version = "0.14.2.dev1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.(?P<release>[a-z]+)(?P<candidate>\d+))?'
 serialize = [
     '{major}.{minor}.{patch}.{release}{candidate}',

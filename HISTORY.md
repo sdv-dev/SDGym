@@ -1,5 +1,15 @@
 # History
 
+## v0.14.2 - 2026-04-01
+
+### Internal
+
+* Define the get_instance_status and get_job_status() methods of the BenchmarkLauncher - Issue [#570](https://github.com/sdv-dev/SDGym/issues/570) by @R-Palazzo
+* Define the terminate() method of the BenchmarkLauncher - Issue [#568](https://github.com/sdv-dev/SDGym/issues/568) by @R-Palazzo
+* Define workflows to be able to run from a config file or some given parameters - Issue [#547](https://github.com/sdv-dev/SDGym/issues/547) by @R-Palazzo
+* Add a script that launches a benchmark from a yaml file or a set of parameters - Issue [#546](https://github.com/sdv-dev/SDGym/issues/546) by @R-Palazzo
+* Move the current benchmark configs to yaml files - Issue [#545](https://github.com/sdv-dev/SDGym/issues/545) by @R-Palazzo
+
 ## v0.14.1 - 2026-03-23
 
 ### Internal

@@ -9,7 +9,7 @@ from sdgym._benchmark.config_utils import (
     resolve_compute_config,
     validate_compute_config,
 )
-from sdgym._benchmark.credentials_utils import get_credentials, sdv_install_cmd
+from sdgym._benchmark.credentials_utils import sdv_install_cmd
 from sdgym.benchmark import (
     DEFAULT_MULTI_TABLE_DATASETS,
     DEFAULT_MULTI_TABLE_SYNTHESIZERS,
@@ -349,7 +349,7 @@ def _run_on_gcp(
 
 def _benchmark_compute_gcp(
     output_destination,
-    credential_filepath,
+    credentials,
     compute_config,
     synthesizers,
     sdv_datasets,
@@ -364,7 +364,6 @@ def _benchmark_compute_gcp(
 ):
     """Run the SDGym benchmark on datasets for the given modality."""
     compute_config = resolve_compute_config('gcp', compute_config)
-    credentials = get_credentials(credential_filepath)
     validate_compute_config(compute_config)
 
     s3_client = _validate_output_destination(
@@ -407,7 +406,7 @@ def _benchmark_compute_gcp(
             sdmetrics=sdmetrics,
         )
 
-    _run_on_gcp(
+    instance_name = _run_on_gcp(
         output_destination=output_destination,
         synthesizers=synthesizers,
         s3_client=s3_client,
@@ -416,10 +415,12 @@ def _benchmark_compute_gcp(
         compute_config=compute_config,
     )
 
+    return instance_name
+
 
 def _benchmark_single_table_compute_gcp(
     output_destination,
-    credential_filepath,
+    credentials,
     compute_config=None,
     synthesizers=DEFAULT_SINGLE_TABLE_SYNTHESIZERS,
     sdv_datasets=DEFAULT_SINGLE_TABLE_DATASETS,
@@ -436,8 +437,8 @@ def _benchmark_single_table_compute_gcp(
     Args:
         output_destination (str):
             The S3 URI where results will be stored.
-        credential_filepath (str or Path):
-            Path to the credentials file for AWS, GCP and SDV-Enterprise.
+        credentials (dict):
+            The credentials for AWS, GCP and SDV-Enterprise.
         compute_config (dict, optional):
             The compute configuration for the GCP instance. If None, default settings will be used.
         synthesizers (list of dict, optional):
@@ -461,7 +462,7 @@ def _benchmark_single_table_compute_gcp(
     """
     return _benchmark_compute_gcp(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=credentials,
         compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
@@ -478,7 +479,7 @@ def _benchmark_single_table_compute_gcp(
 
 def _benchmark_multi_table_compute_gcp(
     output_destination,
-    credential_filepath,
+    credentials,
     compute_config=None,
     synthesizers=DEFAULT_MULTI_TABLE_SYNTHESIZERS,
     sdv_datasets=DEFAULT_MULTI_TABLE_DATASETS,
@@ -494,8 +495,8 @@ def _benchmark_multi_table_compute_gcp(
     Args:
         output_destination (str):
             The S3 URI where results will be stored.
-        credential_filepath (str or Path):
-            Path to the credentials file for AWS, GCP and SDV-Enterprise.
+        credentials (dict):
+            The credentials for AWS, GCP and SDV-Enterprise.
         compute_config (dict, optional):
             The compute configuration for the GCP instance. If None, default settings will be used.
         synthesizers (list of dict, optional):
@@ -517,7 +518,7 @@ def _benchmark_multi_table_compute_gcp(
     """
     return _benchmark_compute_gcp(
         output_destination=output_destination,
-        credential_filepath=credential_filepath,
+        credentials=credentials,
         compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,

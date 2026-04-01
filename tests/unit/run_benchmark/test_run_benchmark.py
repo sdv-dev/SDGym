@@ -1,18 +1,12 @@
 import json
 from datetime import datetime, timezone
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from botocore.exceptions import ClientError
 
-from sdgym._benchmark.benchmark import (
-    _benchmark_multi_table_compute_gcp,
-    _benchmark_single_table_compute_gcp,
-)
 from sdgym.run_benchmark.run_benchmark import (
-    MULTI_TABLE_DATASETS,
-    SINGLE_TABLE_DATASETS,
-    _get_benchmark_setup,
+    _get_config,
     append_benchmark_run,
     main,
 )
@@ -113,136 +107,54 @@ def test_append_benchmark_run_new_file(
     )
 
 
-def test__get_benchmark_setup_single_table():
-    """Test the `_get_benchmark_setup` method for single_table modality."""
+@patch('sdgym.run_benchmark.run_benchmark._resolve_modality_config')
+@patch('sdgym.run_benchmark.run_benchmark.BenchmarkConfig.load_from_dict')
+def test__get_config(
+    mock_load_from_dict,
+    mock_resolve_modality_config,
+):
+    """Test the `_get_config` method."""
     # Setup
-    gan_not_excluded = [
-        dataset for dataset in SINGLE_TABLE_DATASETS if dataset not in ['covtype', 'intrusion']
-    ]
-    expected_job_split = [
-        (['ColumnSynthesizer', 'GaussianCopulaSynthesizer'], SINGLE_TABLE_DATASETS),
-        (['TVAESynthesizer'], SINGLE_TABLE_DATASETS),
-        (['SegmentSynthesizer'], SINGLE_TABLE_DATASETS),
-        (['XGCSynthesizer'], SINGLE_TABLE_DATASETS),
-        (['BootstrapSynthesizer'], SINGLE_TABLE_DATASETS),
-        (['CTGANSynthesizer'], gan_not_excluded),
-        (['CopulaGANSynthesizer'], gan_not_excluded),
-        (['RealTabFormerSynthesizer'], ['adult', 'alarm', 'child', 'insurance', 'news']),
-        (['RealTabFormerSynthesizer'], ['covtype']),
-        (['RealTabFormerSynthesizer'], ['intrusion']),
-        (['RealTabFormerSynthesizer'], ['expedia_hotel_logs']),
-        (['RealTabFormerSynthesizer'], ['census']),
-        (['CTGANSynthesizer'], ['covtype']),
-        (['CopulaGANSynthesizer'], ['covtype']),
-        (['CTGANSynthesizer'], ['intrusion']),
-        (['CopulaGANSynthesizer'], ['intrusion']),
-    ]
+    modality = 'single_table'
+    config_dict = {'modality': modality}
+    mock_resolve_modality_config.return_value = config_dict
+    config_obj = Mock()
+    mock_load_from_dict.return_value = config_obj
 
     # Run
-    setup = _get_benchmark_setup('single_table')
+    config = _get_config(modality)
 
     # Assert
-    assert setup['method'] == _benchmark_single_table_compute_gcp
-    assert len(setup['job_split']) == len(expected_job_split) == 16
-    for expected, actual in zip(expected_job_split, setup['job_split']):
-        assert expected[0] == actual[0]
-        assert set(expected[1]) == set(actual[1])
+    mock_resolve_modality_config.assert_called_once_with(modality)
+    mock_load_from_dict.assert_called_once_with(config_dict)
+    config.validate.assert_called_once()
+    assert config == config_obj
 
 
-def test__get_benchmark_setup_multi_table():
-    """Test the `_get_benchmark_setup` method for multi_table modality."""
-    # Setup
-    hma_not_excluded = [
-        dataset
-        for dataset in MULTI_TABLE_DATASETS
-        if dataset
-        not in [
-            'Accidents',
-            'AustralianFootball',
-            'Countries',
-            'MuskSmall',
-            'NBA',
-            'OMOP_CDM_dayz',
-            'PremierLeague',
-            'SalesDB',
-            'airbnb-simplified',
-            'imdb_ijs',
-            'legalActs',
-            'SAP',
-            'imdb_MovieLens',
-        ]
-    ]
-    expected_job_split = [
-        (['HSASynthesizer', 'IndependentSynthesizer'], MULTI_TABLE_DATASETS),
-        (['HMASynthesizer'], hma_not_excluded),
-        (['HMASynthesizer'], ['Accidents']),
-        (['HMASynthesizer'], ['AustralianFootball']),
-        (['HMASynthesizer'], ['Countries']),
-        (['HMASynthesizer'], ['MuskSmall']),
-        (['HMASynthesizer'], ['NBA']),
-        (['HMASynthesizer'], ['OMOP_CDM_dayz']),
-        (['HMASynthesizer'], ['PremierLeague']),
-        (['HMASynthesizer'], ['SalesDB']),
-        (['HMASynthesizer'], ['airbnb-simplified']),
-        (['HMASynthesizer'], ['imdb_ijs']),
-        (['HMASynthesizer'], ['legalActs']),
-        (['HMASynthesizer'], ['SAP']),
-        (['HMASynthesizer'], ['imdb_MovieLens']),
-    ]
-
-    # Run
-    setup = _get_benchmark_setup('multi_table')
-
-    # Assert
-    assert setup['method'] == _benchmark_multi_table_compute_gcp
-    assert len(setup['job_split']) == len(expected_job_split) == 15
-    for expected, actual in zip(expected_job_split, setup['job_split']):
-        assert expected[0] == actual[0]
-        assert set(expected[1]) == set(actual[1])
-
-
-@pytest.mark.parametrize(
-    'modality, benchmark_setup',
-    [
-        (
-            'single_table',
-            {
-                'method': Mock(name='mock_single_method'),
-                'job_split': [
-                    (['GaussianCopulaSynthesizer', 'ColumnSynthesizer'], ['dataset1', 'dataset2']),
-                    (['TVAESynthesizer'], ['dataset3', 'dataset2']),
-                ],
-            },
-        ),
-        (
-            'multi_table',
-            {
-                'method': Mock(name='mock_multi_method'),
-                'job_split': [
-                    (['HSASynthesizer', 'IndependentSynthesizer'], ['datasetA', 'datasetB']),
-                    (['HMASynthesizer'], ['datasetC', 'datasetD']),
-                ],
-            },
-        ),
-    ],
-)
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
 @patch('sdgym.run_benchmark.run_benchmark.post_benchmark_launch_message')
 @patch('sdgym.run_benchmark.run_benchmark.append_benchmark_run')
 @patch('sdgym.run_benchmark.run_benchmark.os.getenv')
 @patch('sdgym.run_benchmark.run_benchmark._parse_args')
-@patch('sdgym.run_benchmark.run_benchmark._get_benchmark_setup')
+@patch('sdgym.run_benchmark.run_benchmark._get_config')
+@patch('sdgym.run_benchmark.run_benchmark.BenchmarkLauncher')
+@patch('sdgym.run_benchmark.run_benchmark._get_s3_client')
+@patch('sdgym.run_benchmark.run_benchmark.S3ResultsWriter')
+@patch('sdgym.run_benchmark.run_benchmark.get_result_folder_name')
 def test_main(
-    mock_get_benchmark_setup,
+    mock_get_result_folder_name,
+    mock_s3_results_writer,
+    mock__get_s3_client,
+    mock_benchmark_launcher,
+    mock_get_config,
     mock_parse_args,
     mock_getenv,
     mock_append_benchmark_run,
     mock_post_benchmark_launch_message,
     modality,
-    benchmark_setup,
 ):
     """Test the `main` function with both single_table and multi_table modalities."""
     # Setup
-    mock_get_benchmark_setup.return_value = benchmark_setup
     mock_parse_args.return_value = Mock(modality=modality)
     mock_getenv.side_effect = lambda key: {
         'AWS_ACCESS_KEY_ID': 'my_access_key',
@@ -250,23 +162,35 @@ def test_main(
         'CREDENTIALS_FILEPATH': '/path/to/creds.json',
     }.get(key)
     date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    config = Mock()
+    mock_get_config.return_value = config
+    launcher = Mock()
+    mock_benchmark_launcher.return_value = launcher
+    mock_launch = Mock()
+    launcher.launch = mock_launch
+    s3_client = Mock()
+    mock__get_s3_client.return_value = s3_client
+    mock_results_writer = Mock()
+    mock_s3_results_writer.return_value = mock_results_writer
+    folder_name = f'SDGym_results_{date}'
+    mock_get_result_folder_name.return_value = folder_name
 
     # Run
     main()
 
     # Assert
-    expected_calls = [
-        call(
-            output_destination=OUTPUT_DESTINATION_AWS,
-            credential_filepath='/path/to/creds.json',
-            synthesizers=group[0],
-            sdv_datasets=group[1],
-            timeout=345600,
-        )
-        for group in benchmark_setup['job_split']
-    ]
-    benchmark_setup['method'].assert_has_calls(expected_calls)
-    mock_get_benchmark_setup.assert_called_once_with(modality)
+    mock__get_s3_client.assert_called_once_with(
+        aws_access_key_id='my_access_key',
+        aws_secret_access_key='my_secret_key',
+        output_destination=OUTPUT_DESTINATION_AWS,
+    )
+    mock_s3_results_writer.assert_called_once_with(s3_client)
+    mock_results_writer.write_pickle.assert_called_once_with(
+        launcher, f'{OUTPUT_DESTINATION_AWS}{modality}/{folder_name}/_BENCHMARK_LAUNCHER.pkl'
+    )
+
+    mock_benchmark_launcher.assert_called_once_with(config)
+    launcher.launch.assert_called_once()
     mock_append_benchmark_run.assert_called_once_with(
         'my_access_key',
         'my_secret_key',
