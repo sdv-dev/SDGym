@@ -10,7 +10,7 @@ from sdgym._benchmark.credentials_utils import (
     [
         (
             {
-                'sdv': {
+                'sdv_enterprise': {
                     'sdv_enterprise_username': 'test_user',
                     'sdv_enterprise_license_key': 'test_key',
                 }
