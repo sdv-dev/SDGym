@@ -1310,12 +1310,7 @@ def _store_job_args_in_s3(output_destination, job_args_list, s3_client):
 
 
 def _get_s3_script_content(
-    access_key,
-    secret_key,
-    region_name,
-    bucket_name,
-    job_args_key,
-    synthesizers,
+    access_key, secret_key, region_name, bucket_name, job_args_key, synthesizers
 ):
     return f"""
 import boto3
@@ -1323,10 +1318,6 @@ import cloudpickle
 import gzip
 from sdgym.benchmark import _run_jobs, _write_metainfo_file, _update_metainfo_file
 from sdgym.result_writer import S3ResultsWriter
-from sdgym.synthesizers.sdv import (
-    _get_all_sdv_synthesizers,
-    create_sdv_synthesizer_class,
-)
 
 s3_client = boto3.client(
     's3',
@@ -1338,11 +1329,6 @@ response = s3_client.get_object(Bucket='{bucket_name}', Key='{job_args_key}')
 blob = response['Body'].read()
 if blob[:2] == b'\\x1f\\x8b':
     blob = gzip.decompress(blob)
-
-sdv_synthesizers = set(_get_all_sdv_synthesizers())
-for synthesizer in {{s['name'] for s in {synthesizers}}}:
-    if synthesizer in sdv_synthesizers:
-        create_sdv_synthesizer_class(synthesizer)
 
 job_args_list = cloudpickle.loads(blob)
 modality = job_args_list[0].modality
