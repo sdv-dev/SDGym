@@ -323,7 +323,7 @@ class TestResultsHandler:
         )
 
         # Run
-        processed_results = ResultsHandler._process_results(handler, results)
+        processed_results, missing_columns = ResultsHandler._process_results(handler, results)
         with pytest.raises(ValueError, match=expected_error_message):
             ResultsHandler._process_results(handler, invalid_results)
 
@@ -359,6 +359,7 @@ class TestResultsHandler:
             'Adjusted_Quality_Score': [0.1, 0.7, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.9],
         })
         pd.testing.assert_frame_equal(processed_results, expected_results, check_dtype=False)
+        assert missing_columns == []
 
     def test_summarize(self):
         """Test the `summarize` method."""
@@ -391,7 +392,7 @@ class TestResultsHandler:
             'Synthesizer': ['Synth1'],
         }).set_index('Synthesizer')
         handler._get_summarize_table = Mock(return_value=result)
-        handler._process_results = Mock(return_value=aggregated_results)
+        handler._process_results = Mock(return_value=(aggregated_results, []))
 
         # Run
         summary, benchmark_result = ResultsHandler.summarize(handler, folder_name)
