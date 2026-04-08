@@ -1,6 +1,7 @@
 from sdgym._benchmark_launcher.utils import resolve_credentials
 from sdgym.s3 import _list_s3_bucket_contents, get_s3_client, is_s3_path, parse_s3_path
-
+import pandas as pd
+import io
 
 def _validate_s3_output_destinations(instance_jobs):
     """Validate that all output destinations are S3 paths."""
@@ -62,3 +63,29 @@ class S3StorageManager(BaseStorageManager):
     def get_existing_filenames(self, output_destination):
         """Return the existing filenames for the given destination."""
         return {obj['Key'] for obj in self.list_files(output_destination)}
+
+    def build_instance_result_key(self, jobs, result_filename):
+        artifact_key_prefix = jobs[0]['artifact_key_prefix']
+        return f'{artifact_key_prefix}/{result_filename}'
+
+    def file_exists(self, output_destination, key):
+        existing_keys = self.get_existing_filenames(output_destination)
+        return key in existing_keys
+
+    def read_csv(self, output_destination, key):
+        s3_client, bucket_name = self._get_s3_resources(output_destination)
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+        return pd.read_csv(io.BytesIO(response['Body'].read()))
+
+    def write_csv(self, result, output_destination, key):
+        s3_client, bucket_name = self._get_s3_resources(output_destination)
+        body = result.to_csv(index=False).encode()
+        s3_client.put_object(Body=body, Bucket=bucket_name, Key=key)
+
+    def write_instance_result(self, result, instance_name, jobs, result_filename):
+        if not jobs:
+            return
+
+        output_destination = jobs[0]['output_destination']
+        key = self.build_instance_result_key(jobs, result_filename)
+        self.write_csv(result, output_destination, key)
