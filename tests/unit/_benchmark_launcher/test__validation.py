@@ -9,6 +9,8 @@ from sdgym._benchmark_launcher._validation import (
     _as_errors,
     _format_sectioned_errors,
     _validate_aws_credentials,
+    _validate_compute,
+    _validate_compute_gcp,
     _validate_credentials,
     _validate_gcp_credentials,
     _validate_instance_jobs,
@@ -104,7 +106,7 @@ def test__validate_structure_invalid():
         modality='bad_modality',
         method_params=[],
         credentials_filepath=None,
-        compute={'service': 'aws'},
+        compute={'not service': 'aws'},
         instance_jobs={},
     )
 
@@ -113,11 +115,83 @@ def test__validate_structure_invalid():
 
     # Assert
     assert errors == [
-        "compute.service: must be 'gcp'. Found: 'aws'",
+        'compute.service: is required but missing.',
         "instance_jobs: must be a list. Found: <class 'dict'>",
         "method_params: must be a dict. Found: <class 'list'>",
         "modality: must be 'single_table' or 'multi_table'. Found: 'bad_modality'",
     ]
+
+
+def test__validate_compute_gcp_valid():
+    """Test `_validate_compute_gcp` returns no errors for valid GCP compute config."""
+    # Setup
+    compute = {
+        'service': 'gcp',
+        'instance_type': 'n1-standard-4',
+        'boot_image': 'projects/debian-cloud/global/images/family/debian-10',
+        'root_disk_gb': 50,
+    }
+
+    # Run
+    errors = _validate_compute_gcp(compute)
+
+    # Assert
+    assert errors == []
+
+
+def test__validate_compute_gcp_missing_keys():
+    """Test `_validate_compute_gcp` validates missing required keys."""
+    # Setup
+    compute = {
+        'service': 'gcp',
+        'instance_type': 'n1-standard-4',
+    }
+
+    # Run
+    errors = _validate_compute_gcp(compute)
+
+    # Assert
+    assert errors == [
+        'compute.boot_image is required for GCP compute.',
+        'compute.root_disk_gb is required for GCP compute.',
+    ]
+
+
+def test__validate_compute_invalid_service():
+    """Test `_validate_compute` validates invalid compute service."""
+    # Setup
+    compute = {
+        'service': 'aws',
+        'instance_type': 't2.medium',
+        'boot_image': 'ami-12345678',
+        'root_disk_gb': 50,
+    }
+
+    # Run
+    errors = _validate_compute(compute)
+
+    # Assert
+    assert errors == ["compute.service: must be 'gcp'. Found: 'aws'"]
+
+
+@patch('sdgym._benchmark_launcher._validation._validate_compute_gcp')
+def test__validate_compute(mock_validate_compute_gcp):
+    """Test `_validate_compute` method."""
+    # Setup
+    compute = {
+        'service': 'gcp',
+        'instance_type': 'n1-standard-4',
+        'boot_image': 'projects/debian-cloud/global/images/family/debian-10',
+        'root_disk_gb': 50,
+    }
+    mock_validate_compute_gcp.return_value = ['gcp error']
+
+    # Run
+    errors = _validate_compute(compute)
+
+    # Assert
+    mock_validate_compute_gcp.assert_called_once_with(compute)
+    assert errors == ['gcp error']
 
 
 def test__validate_method_params_valid():

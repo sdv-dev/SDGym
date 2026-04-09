@@ -335,7 +335,7 @@ class TestBenchmarkLauncher:
                 synthesizers=['Synth1'],
                 sdv_datasets=['d1'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute_config=config.compute,
+                compute=config.compute,
                 **config.method_params,
             ),
             call(
@@ -343,7 +343,7 @@ class TestBenchmarkLauncher:
                 synthesizers=['Synth2'],
                 sdv_datasets=['d2'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute_config=config.compute,
+                compute=config.compute,
                 **config.method_params,
             ),
         ]
