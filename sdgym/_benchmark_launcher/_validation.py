@@ -74,6 +74,10 @@ def _validate_compute_gcp(compute):
         if not compute.get(key):
             errors.append(f'compute.{key} is required for GCP compute.')
 
+    gpu_count = int(compute.get('gpu_count') or 0)
+    if gpu_count > 0 and not compute.get('gpu_type'):
+        errors.append('compute.gpu_type is required when compute.gpu_count > 0.')
+
     return sorted(errors)
 
 

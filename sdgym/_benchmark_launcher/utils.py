@@ -47,25 +47,6 @@ _GCP_COMPUTE_REQUIRED_KEYS = (
     'boot_image',
     'root_disk_gb',
 )
-_KEYMAP_COMPUTE_SERVICE = {
-    'root_disk_gb': {
-        'aws': 'volume_size_gb',
-        'gcp': 'disk_size_gb',
-    },
-    'compute_type': {
-        'aws': 'instance_type',
-        'gcp': 'machine_type',
-    },
-    'boot_image': {
-        'aws': 'ami',
-        'gcp': 'source_image',
-    },
-}
-_REQUIRED_CANONICAL_KEYS = (
-    'compute_type',
-    'boot_image',
-    'root_disk_gb',
-)
 
 _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS = (
     'type',
@@ -85,9 +66,9 @@ _GCP_SERVICE_ACCOUNT_JSON_FILEPATH = 'GCP_SERVICE_ACCOUNT_JSON_FILEPATH'
 
 _GCP_COMPUTE_REQUIRED_KEYS = (
     'service',
-    'instance_type',
-    'boot_image',
-    'root_disk_gb',
+    'machine_type',
+    'source_image',
+    'disk_size_gb',
 )
 
 _REQUIRED_CANONICAL_KEYS = (
@@ -97,32 +78,27 @@ _REQUIRED_CANONICAL_KEYS = (
 )
 
 
-def _validate_required_keys(config, required_keys, service):
+def _validate_required_keys(config, required_keys, config_name):
     """Validate that the required keys exist and are not None."""
     missing = [key for key in required_keys if key not in config or config[key] is None]
     if missing:
         missing_str = ', '.join(sorted(missing))
-        raise ValueError(f'Missing required keys in {service} config: {missing_str}')
+        raise ValueError(f'Missing required keys in {config_name}: {missing_str}')
 
 
-def _to_gcp_compute_config(config):
-    """Translate canonical compute config into GCP-specific compute config."""
-    service = config.get('service')
-    if service != 'gcp':
-        raise ValueError(f"_to_gcp_compute_config only supports service='gcp'. Got: {service!r}")
+def _resolve_compute_gcp(config):
+    """Convert canonical compute config keys to GCP-specific keys."""
+    result = dict(config)
+    result['machine_type'] = result.pop('instance_type')
+    result['source_image'] = result.pop('boot_image')
+    result['disk_size_gb'] = result.pop('root_disk_gb')
 
-    _validate_required_keys(
-        config,
-        _GCP_COMPUTE_REQUIRED_KEYS,
-        service='gcp',
-    )
+    return result
 
-    out = dict(config)
-    out['machine_type'] = config['instance_type']
-    out['source_image'] = config['boot_image']
-    out['disk_size_gb'] = config['root_disk_gb']
 
-    return out
+def resolve_compute(compute):
+    """Resolve the compute configuration based on the benchmark config."""
+    return _resolve_compute_gcp(compute)
 
 
 def _load_merged_modality_config(modality):
@@ -155,11 +131,6 @@ def _resolve_datasets(datasets_spec):
         return [dataset for dataset in include if dataset not in exclude]
 
     raise ValueError(f"'datasets' must be a list or dict. Found: {type(datasets_spec)}")
-
-
-def resolve_compute(compute):
-    """Resolve the compute configuration based on the 'compute' specification in the config."""
-    return _to_gcp_compute_config(compute)
 
 
 def _load_yaml_resource(filename: str) -> dict:

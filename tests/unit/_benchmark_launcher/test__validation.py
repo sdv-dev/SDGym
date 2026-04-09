@@ -127,9 +127,9 @@ def test__validate_compute_gcp_valid():
     # Setup
     compute = {
         'service': 'gcp',
-        'instance_type': 'n1-standard-4',
-        'boot_image': 'projects/debian-cloud/global/images/family/debian-10',
-        'root_disk_gb': 50,
+        'machine_type': 'n1-standard-4',
+        'source_image': 'projects/debian-cloud/global/images/family/debian-10',
+        'disk_size_gb': 50,
     }
 
     # Run
@@ -152,8 +152,9 @@ def test__validate_compute_gcp_missing_keys():
 
     # Assert
     assert errors == [
-        'compute.boot_image is required for GCP compute.',
-        'compute.root_disk_gb is required for GCP compute.',
+        'compute.disk_size_gb is required for GCP compute.',
+        'compute.machine_type is required for GCP compute.',
+        'compute.source_image is required for GCP compute.',
     ]
 
 

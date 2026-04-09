@@ -6,7 +6,7 @@ method_params:
 compute:
   service: gcp
   instance_type: n1-highmem-16
-  boot_image: projects/deeplearning-platform-release/global/images/family/common-cu128-ubuntu-2404-nvidia-570
+  boot_image: projects/deeplearning-platform-release/global/images/family/common-cu128-ubuntu-2204-nvidia-570
   root_disk_gb: 300
   gpu_type: nvidia-tesla-t4
   gpu_count: 1
@@ -14,6 +14,5 @@ compute:
   name_prefix: sdgym-run
   gpu_wait_seconds: 600
   gpu_wait_interval_seconds: 10
-
 
 credentials_filepath: null
