@@ -174,23 +174,6 @@ def test__validate_compute_canonical_missing_gpu_type():
     ]
 
 
-def test__validate_compute_invalid_service():
-    """Test `_validate_compute` validates invalid compute service."""
-    # Setup
-    compute = {
-        'service': 'aws',
-        'instance_type': 't2.medium',
-        'boot_image': 'ami-12345678',
-        'root_disk_gb': 50,
-    }
-
-    # Run
-    errors = _validate_compute(compute)
-
-    # Assert
-    assert errors == ["compute.service: must be 'gcp'. Found: 'aws'"]
-
-
 @patch('sdgym._benchmark_launcher._validation._validate_compute_canonical')
 def test__validate_compute(mock_validate_compute_canonical):
     """Test `_validate_compute` method."""

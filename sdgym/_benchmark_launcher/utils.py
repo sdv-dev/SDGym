@@ -65,14 +65,6 @@ _REQUIRED_CANONICAL_KEYS = (
 )
 
 
-def _validate_required_keys(config, required_keys, config_name):
-    """Validate that the required keys exist and are not None."""
-    missing = [key for key in required_keys if key not in config or config[key] is None]
-    if missing:
-        missing_str = ', '.join(sorted(missing))
-        raise ValueError(f'Missing required keys in {config_name}: {missing_str}')
-
-
 def _resolve_compute_gcp(config):
     """Convert canonical compute config keys to GCP-specific keys."""
     result = dict(config)

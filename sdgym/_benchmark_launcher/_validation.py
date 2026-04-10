@@ -82,10 +82,10 @@ def _validate_compute_canonical(compute):
 
 
 def _validate_compute(compute):
-    service = compute.get('service')
-    if service != 'gcp':
-        return [f"compute.service: must be 'gcp'. Found: {service!r}"]
+    """Validate the 'compute' section of the config.
 
+    This includes validating the canonical compute keys and any service-specific requirements.
+    """
     return _validate_compute_canonical(compute)
 
 
