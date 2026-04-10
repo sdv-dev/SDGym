@@ -10,7 +10,7 @@ from sdgym._benchmark_launcher._validation import (
     _format_sectioned_errors,
     _validate_aws_credentials,
     _validate_compute,
-    _validate_compute_gcp,
+    _validate_compute_canonical,
     _validate_credentials,
     _validate_gcp_credentials,
     _validate_instance_jobs,
@@ -122,39 +122,55 @@ def test__validate_structure_invalid():
     ]
 
 
-def test__validate_compute_gcp_valid():
-    """Test `_validate_compute_gcp` returns no errors for valid GCP compute config."""
+def test__validate_compute_canonical_valid():
+    """Test `_validate_compute_canonical` returns no errors for valid compute config."""
     # Setup
     compute = {
-        'service': 'gcp',
-        'machine_type': 'n1-standard-4',
-        'source_image': 'projects/debian-cloud/global/images/family/debian-10',
-        'disk_size_gb': 50,
+        'instance_type': 'n1-standard-4',
+        'boot_image': 'projects/debian-cloud/global/images/family/debian-10',
+        'root_disk_gb': 50,
     }
 
     # Run
-    errors = _validate_compute_gcp(compute)
+    errors = _validate_compute_canonical(compute)
 
     # Assert
     assert errors == []
 
 
-def test__validate_compute_gcp_missing_keys():
-    """Test `_validate_compute_gcp` validates missing required keys."""
+def test__validate_compute_canonical_missing_keys():
+    """Test `_validate_compute_canonical` validates missing required canonical keys."""
     # Setup
     compute = {
-        'service': 'gcp',
         'instance_type': 'n1-standard-4',
     }
 
     # Run
-    errors = _validate_compute_gcp(compute)
+    errors = _validate_compute_canonical(compute)
 
     # Assert
     assert errors == [
-        'compute.disk_size_gb is required for GCP compute.',
-        'compute.machine_type is required for GCP compute.',
-        'compute.source_image is required for GCP compute.',
+        'compute.boot_image is required but missing.',
+        'compute.root_disk_gb is required but missing.',
+    ]
+
+
+def test__validate_compute_canonical_missing_gpu_type():
+    """Test `_validate_compute_canonical` validates missing gpu_type when gpu_count is positive."""
+    # Setup
+    compute = {
+        'instance_type': 'n1-standard-4',
+        'boot_image': 'projects/debian-cloud/global/images/family/debian-10',
+        'root_disk_gb': 50,
+        'gpu_count': 1,
+    }
+
+    # Run
+    errors = _validate_compute_canonical(compute)
+
+    # Assert
+    assert errors == [
+        'compute.gpu_type is required when compute.gpu_count > 0.',
     ]
 
 
@@ -175,8 +191,8 @@ def test__validate_compute_invalid_service():
     assert errors == ["compute.service: must be 'gcp'. Found: 'aws'"]
 
 
-@patch('sdgym._benchmark_launcher._validation._validate_compute_gcp')
-def test__validate_compute(mock_validate_compute_gcp):
+@patch('sdgym._benchmark_launcher._validation._validate_compute_canonical')
+def test__validate_compute(mock_validate_compute_canonical):
     """Test `_validate_compute` method."""
     # Setup
     compute = {
@@ -185,14 +201,14 @@ def test__validate_compute(mock_validate_compute_gcp):
         'boot_image': 'projects/debian-cloud/global/images/family/debian-10',
         'root_disk_gb': 50,
     }
-    mock_validate_compute_gcp.return_value = ['gcp error']
+    mock_validate_compute_canonical.return_value = ['canonical error']
 
     # Run
     errors = _validate_compute(compute)
 
     # Assert
-    mock_validate_compute_gcp.assert_called_once_with(compute)
-    assert errors == ['gcp error']
+    mock_validate_compute_canonical.assert_called_once_with(compute)
+    assert errors == ['canonical error']
 
 
 def test__validate_method_params_valid():

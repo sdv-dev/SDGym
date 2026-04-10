@@ -1,5 +1,5 @@
 modality: single_table
-output_destination: &output_destination 's3://sdgym-benchmark/Debug/Issue_586/'
+output_destination: &output_destination 's3://sdgym-benchmark/Benchmarks/'
 datasets_single_table: &datasets_single_table
   - adult
   - alarm

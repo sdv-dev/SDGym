@@ -1,7 +1,7 @@
 from sdgym._benchmark_launcher.utils import (
     _AWS_CREDENTIAL_KEYS,
-    _GCP_COMPUTE_REQUIRED_KEYS,
     _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS,
+    _REQUIRED_CANONICAL_KEYS,
     _is_unique_string_list,
     resolve_credentials,
 )
@@ -68,11 +68,11 @@ def _validate_structure(config):
     return sorted(errors)
 
 
-def _validate_compute_gcp(compute):
+def _validate_compute_canonical(compute):
     errors = []
-    for key in _GCP_COMPUTE_REQUIRED_KEYS:
+    for key in _REQUIRED_CANONICAL_KEYS:
         if not compute.get(key):
-            errors.append(f'compute.{key} is required for GCP compute.')
+            errors.append(f'compute.{key} is required but missing.')
 
     gpu_count = int(compute.get('gpu_count') or 0)
     if gpu_count > 0 and not compute.get('gpu_type'):
@@ -83,10 +83,10 @@ def _validate_compute_gcp(compute):
 
 def _validate_compute(compute):
     service = compute.get('service')
-    if service == 'gcp':
-        return _validate_compute_gcp(compute)
+    if service != 'gcp':
+        return [f"compute.service: must be 'gcp'. Found: {service!r}"]
 
-    return [f"compute.service: must be 'gcp'. Found: {service!r}"]
+    return _validate_compute_canonical(compute)
 
 
 def _validate_method_params(method_params, method_to_run):

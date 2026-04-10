@@ -1,5 +1,5 @@
 modality: multi_table
-output_destination: &output_destination 's3://sdgym-benchmark/Debug/Issue_586/'
+output_destination: &output_destination 's3://sdgym-benchmark/Benchmarks/'
 datasets_multi_table: &datasets_multi_table
   - WebKP
   - DCG

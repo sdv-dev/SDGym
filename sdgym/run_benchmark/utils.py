@@ -14,7 +14,7 @@ from sdgym.s3 import parse_s3_path
 
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
-SLACK_CHANNEL = None
+SLACK_CHANNEL = 'sdgym'
 KEY_DATE_FILE = '_BENCHMARK_DATES.json'
 KEY_BENCHMARK_LAUNCHER = '_BENCHMARK_LAUNCHER.pkl'
 PLOTLY_MARKERS = [

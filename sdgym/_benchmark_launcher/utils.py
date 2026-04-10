@@ -41,12 +41,6 @@ _SDV_ENTERPRISE_CREDENTIAL_KEYS = (
     'SDV_ENTERPRISE_USERNAME',
     'SDV_ENTERPRISE_LICENSE_KEY',
 )
-_GCP_COMPUTE_REQUIRED_KEYS = (
-    'service',
-    'instance_type',
-    'boot_image',
-    'root_disk_gb',
-)
 
 _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS = (
     'type',
@@ -63,13 +57,6 @@ _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS = (
 
 _GCP_SERVICE_ACCOUNT_JSON = 'GCP_SERVICE_ACCOUNT_JSON'
 _GCP_SERVICE_ACCOUNT_JSON_FILEPATH = 'GCP_SERVICE_ACCOUNT_JSON_FILEPATH'
-
-_GCP_COMPUTE_REQUIRED_KEYS = (
-    'service',
-    'machine_type',
-    'source_image',
-    'disk_size_gb',
-)
 
 _REQUIRED_CANONICAL_KEYS = (
     'instance_type',
