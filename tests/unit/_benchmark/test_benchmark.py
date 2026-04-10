@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,6 +10,7 @@ from sdgym._benchmark.benchmark import (
     _benchmark_single_table_compute_gcp,
     _get_user_data_script,
     _gpu_wait_block,
+    _make_instance_name,
     _run_on_gcp,
     _terminate_instance,
     _upload_logs,
@@ -32,6 +35,25 @@ def base_credentials():
             'gcp_zone': 'us-central1-a',
         },
     }
+
+
+@patch('sdgym._benchmark.benchmark.datetime')
+@patch('sdgym._benchmark.benchmark.uuid')
+def test__make_instance_name(mock_uuid, mock_datetime):
+    """Test `_make_instance_name` method."""
+    # Setup
+    prefix = 'sdgym-run'
+    mock_datetime.now.return_value = datetime(2024, 1, 1, 0, 0, 0)
+    mock_uuid.uuid4.return_value = uuid.UUID('abcdefabcdefabcdefabcdefabcdefab')
+    expected_result = 'sdgym-run-20240101-0000-abcdef'
+
+    # Run
+    name = _make_instance_name(prefix)
+
+    # Assert
+    mock_datetime.now.assert_called_once()
+    mock_uuid.uuid4.assert_called_once()
+    assert name == expected_result
 
 
 def test__terminate_instance_aws():

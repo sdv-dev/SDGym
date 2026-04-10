@@ -12,7 +12,5 @@ compute:
   gpu_count: 1
   swap_gb: 64
   name_prefix: sdgym-run
-  gpu_wait_seconds: 600
-  gpu_wait_interval_seconds: 10
 
 credentials_filepath: null

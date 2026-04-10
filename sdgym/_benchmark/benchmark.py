@@ -228,7 +228,7 @@ def _run_on_gcp(
 ):
     """Launch a GCP Compute Engine instance to run a benchmark.
 
-    This method creates and configures a VM using the provided compute_config settings,
+    This method creates and configures a VM using the provided compute settings,
     prepares a startup script with the benchmark configuration, and starts execution
     automatically when the instance boots. It waits for the instance to be created
     and raises an error if provisioning fails.
@@ -245,7 +245,7 @@ def _run_on_gcp(
         credentials (dict):
             The credentials for AWS and GCP.
         compute_config (dict):
-            The compute_config configuration for the GCP instance.
+            The compute configuration for the GCP instance.
     """
     script_content = _prepare_script_content(
         output_destination,
