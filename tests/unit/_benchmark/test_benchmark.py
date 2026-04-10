@@ -232,7 +232,7 @@ def test__run_on_gcp(
         s3_client=Mock(),
         job_args_list=[{'job': 1}],
         credentials=credentials,
-        compute=resolved_config,
+        compute_config=resolved_config,
     )
 
     # Assert
@@ -333,7 +333,7 @@ def test__benchmark_compute_gcp(
     _benchmark_compute_gcp(
         output_destination='s3://bucket/output',
         credentials=credentials,
-        compute=config,
+        compute_config=config,
         synthesizers=['Synth'],
         sdv_datasets=['dataset'],
         additional_datasets_folder=None,
@@ -371,7 +371,7 @@ def test__benchmark_compute_gcp(
         s3_client=s3_client,
         job_args_list=[{'job': 1}],
         credentials=credentials,
-        compute=config,
+        compute_config=config,
     )
 
 
@@ -382,7 +382,7 @@ def test__benchmark_single_table_compute_gcp(mock_benchmark_compute, base_creden
     synthesizers = ['SynthA', 'SynthB']
     output_destination = 's3://bucket/single_table_output'
     timeout = 7200
-    compute = 'compute_config_single'
+    compute_config = 'compute_config_single'
     sdv_datasets = ['single_dataset1', 'single_dataset2']
     additional_datasets_folder = '/path/to/single_additional_datasets'
     limit_dataset_size = 5000
@@ -394,7 +394,7 @@ def test__benchmark_single_table_compute_gcp(mock_benchmark_compute, base_creden
     _benchmark_single_table_compute_gcp(
         output_destination=output_destination,
         credentials=base_credentials,
-        compute=compute,
+        compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
@@ -409,7 +409,7 @@ def test__benchmark_single_table_compute_gcp(mock_benchmark_compute, base_creden
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
         credentials=base_credentials,
-        compute=compute,
+        compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
@@ -439,7 +439,7 @@ def test__benchmark_single_table_compute_gcp_defaults(mock_benchmark_compute, ba
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
         credentials=base_credentials,
-        compute=None,
+        compute_config=None,
         synthesizers=DEFAULT_SINGLE_TABLE_SYNTHESIZERS,
         sdv_datasets=DEFAULT_SINGLE_TABLE_DATASETS,
         additional_datasets_folder=None,
@@ -460,7 +460,7 @@ def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute, base_credent
     synthesizers = ['Synth1', 'Synth2']
     output_destination = 's3://bucket/output'
     timeout = 3600
-    compute = 'compute'
+    compute_config = 'compute_config'
     sdv_datasets = ['dataset1', 'dataset2']
     additional_datasets_folder = '/path/to/additional_datasets'
     limit_dataset_size = 10000
@@ -472,7 +472,7 @@ def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute, base_credent
     _benchmark_multi_table_compute_gcp(
         output_destination=output_destination,
         credentials=base_credentials,
-        compute=compute,
+        compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
@@ -487,7 +487,7 @@ def test__benchmark_multi_table_compute_gcp(mock_benchmark_compute, base_credent
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
         credentials=base_credentials,
-        compute=compute,
+        compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
@@ -517,7 +517,7 @@ def test__benchmark_multi_table_compute_gcp_defaults(mock_benchmark_compute, bas
     mock_benchmark_compute.assert_called_once_with(
         output_destination=output_destination,
         credentials=base_credentials,
-        compute=None,
+        compute_config=None,
         synthesizers=DEFAULT_MULTI_TABLE_SYNTHESIZERS,
         sdv_datasets=DEFAULT_MULTI_TABLE_DATASETS,
         additional_datasets_folder=None,

@@ -130,7 +130,7 @@ class BenchmarkLauncher:
                 synthesizers=synthesizers,
                 sdv_datasets=datasets,
                 credentials=credentials,
-                compute=compute,
+                compute_config=compute,
                 **self.benchmark_config.method_params,
             )
 

@@ -223,10 +223,12 @@ EOF
     ).strip()
 
 
-def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, credentials, compute):
+def _run_on_gcp(
+    output_destination, synthesizers, s3_client, job_args_list, credentials, compute_config
+):
     """Launch a GCP Compute Engine instance to run a benchmark.
 
-    This method creates and configures a VM using the provided compute settings,
+    This method creates and configures a VM using the provided compute_config settings,
     prepares a startup script with the benchmark configuration, and starts execution
     automatically when the instance boots. It waits for the instance to be created
     and raises an error if provisioning fails.
@@ -242,8 +244,8 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
             The list of job arguments for each dataset.
         credentials (dict):
             The credentials for AWS and GCP.
-        compute (dict):
-            The compute configuration for the GCP instance.
+        compute_config (dict):
+            The compute_config configuration for the GCP instance.
     """
     script_content = _prepare_script_content(
         output_destination,
@@ -259,23 +261,23 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         credentials['gcp'],
     )
 
-    instance_name = _make_instance_name(compute['name_prefix'])
+    instance_name = _make_instance_name(compute_config['name_prefix'])
     print(  # noqa: T201
         f'Launching instance: {instance_name} (service=gcp project={gcp_project} zone={gcp_zone})'
     )
     startup_script = _get_user_data_script(
         credentials,
         script_content,
-        compute,
+        compute_config,
         instance_name,
         output_destination,
     )
 
-    machine_type = f'zones/{gcp_zone}/machineTypes/{compute["machine_type"]}'
-    source_disk_image = compute['source_image']
+    machine_type = f'zones/{gcp_zone}/machineTypes/{compute_config["machine_type"]}'
+    source_disk_image = compute_config['source_image']
     gpu = compute_v1.AcceleratorConfig(
-        accelerator_type=(f'zones/{gcp_zone}/acceleratorTypes/{compute["gpu_type"]}'),
-        accelerator_count=int(compute['gpu_count']),
+        accelerator_type=(f'zones/{gcp_zone}/acceleratorTypes/{compute_config["gpu_type"]}'),
+        accelerator_count=int(compute_config['gpu_count']),
     )
 
     boot_disk = compute_v1.AttachedDisk(
@@ -283,7 +285,7 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
         boot=True,
         initialize_params=compute_v1.AttachedDiskInitializeParams(
             source_image=source_disk_image,
-            disk_size_gb=int(compute['disk_size_gb']),
+            disk_size_gb=int(compute_config['disk_size_gb']),
         ),
     )
 
@@ -297,7 +299,7 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
     ]
 
     items = [compute_v1.Items(key='startup-script', value=startup_script)]
-    if compute.get('install_nvidia_driver', True):
+    if compute_config.get('install_nvidia_driver', True):
         items.append(
             compute_v1.Items(key='install-nvidia-driver', value='true'),
         )
@@ -350,7 +352,7 @@ def _run_on_gcp(output_destination, synthesizers, s3_client, job_args_list, cred
 def _benchmark_compute_gcp(
     output_destination,
     credentials,
-    compute,
+    compute_config,
     synthesizers,
     sdv_datasets,
     additional_datasets_folder,
@@ -409,7 +411,7 @@ def _benchmark_compute_gcp(
         s3_client=s3_client,
         job_args_list=job_args_list,
         credentials=credentials,
-        compute=compute,
+        compute_config=compute_config,
     )
 
     return instance_name
@@ -418,7 +420,7 @@ def _benchmark_compute_gcp(
 def _benchmark_single_table_compute_gcp(
     output_destination,
     credentials,
-    compute=None,
+    compute_config=None,
     synthesizers=DEFAULT_SINGLE_TABLE_SYNTHESIZERS,
     sdv_datasets=DEFAULT_SINGLE_TABLE_DATASETS,
     additional_datasets_folder=None,
@@ -436,7 +438,7 @@ def _benchmark_single_table_compute_gcp(
             The S3 URI where results will be stored.
         credentials (dict):
             The credentials for AWS, GCP and SDV-Enterprise.
-        compute (dict, optional):
+        compute_config (dict, optional):
             The compute configuration for the GCP instance. If None, default settings will be used.
         synthesizers (list of dict, optional):
             The synthesizers to use in the benchmark. Defaults to DEFAULT_SINGLE_TABLE_SYNTHESIZERS.
@@ -451,7 +453,7 @@ def _benchmark_single_table_compute_gcp(
         compute_diagnostic_score (bool, optional):
             Whether to compute the diagnostic score. Defaults to True.
         compute_privacy_score (bool, optional):
-            Whether to compute the privacy score. Defaults to True.
+            Whether to compute the privacy score. Defaults to False.
         sdmetrics (list of str, optional):
             The sdmetrics to use for evaluation. If None, default metrics will be used.
         timeout (int, optional):
@@ -460,7 +462,7 @@ def _benchmark_single_table_compute_gcp(
     return _benchmark_compute_gcp(
         output_destination=output_destination,
         credentials=credentials,
-        compute=compute,
+        compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
@@ -477,7 +479,7 @@ def _benchmark_single_table_compute_gcp(
 def _benchmark_multi_table_compute_gcp(
     output_destination,
     credentials,
-    compute=None,
+    compute_config=None,
     synthesizers=DEFAULT_MULTI_TABLE_SYNTHESIZERS,
     sdv_datasets=DEFAULT_MULTI_TABLE_DATASETS,
     additional_datasets_folder=None,
@@ -494,7 +496,7 @@ def _benchmark_multi_table_compute_gcp(
             The S3 URI where results will be stored.
         credentials (dict):
             The credentials for AWS, GCP and SDV-Enterprise.
-        compute (dict, optional):
+        compute_config (dict, optional):
             The compute configuration for the GCP instance. If None, default settings will be used.
         synthesizers (list of dict, optional):
             The synthesizers to use in the benchmark. Defaults to DEFAULT_MULTI_TABLE_SYNTHESIZERS.
@@ -516,7 +518,7 @@ def _benchmark_multi_table_compute_gcp(
     return _benchmark_compute_gcp(
         output_destination=output_destination,
         credentials=credentials,
-        compute=compute,
+        compute_config=compute_config,
         synthesizers=synthesizers,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,

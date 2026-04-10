@@ -351,7 +351,7 @@ class TestBenchmarkLauncher:
                 synthesizers=['Synth1'],
                 sdv_datasets=['d1'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute=mock_resolve_compute.return_value,
+                compute_config=mock_resolve_compute.return_value,
                 **config.method_params,
             ),
             call(
@@ -359,7 +359,7 @@ class TestBenchmarkLauncher:
                 synthesizers=['Synth2'],
                 sdv_datasets=['d2'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute=mock_resolve_compute.return_value,
+                compute_config=mock_resolve_compute.return_value,
                 **config.method_params,
             ),
         ]
