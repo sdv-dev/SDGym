@@ -96,6 +96,17 @@ def test_resolve_compute(mock_resolve_compute_gcp):
     assert resolved == expected_compute
 
 
+def test_resolve_compute_unsupported_service():
+    """Test `resolve_compute` raises for unsupported services."""
+    # Setup
+    compute = {'service': 'unsupported'}
+    expected_message = "compute.service must be one of: 'gcp'. Found: unsupported"
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        resolve_compute(compute)
+
+
 @patch('sdgym._benchmark_launcher.utils._load_merged_modality_config')
 def test__resolve_modality_config_mock(mock_load_modality_config):
     """Test `_resolve_modality_config` merges configs and filters to CONFIG_KEYS."""

@@ -77,7 +77,11 @@ def _resolve_compute_gcp(config):
 
 def resolve_compute(compute):
     """Resolve the compute configuration based on the benchmark config."""
-    return _resolve_compute_gcp(compute)
+    service = compute.get('service')
+    if service == 'gcp':
+        return _resolve_compute_gcp(compute)
+
+    raise ValueError(f"compute.service must be one of: 'gcp'. Found: {service}")
 
 
 def _load_merged_modality_config(modality):
