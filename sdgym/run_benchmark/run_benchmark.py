@@ -9,7 +9,6 @@ from botocore.exceptions import ClientError
 from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
 from sdgym._benchmark_launcher.benchmark_launcher import BenchmarkLauncher
 from sdgym._benchmark_launcher.utils import _resolve_modality_config
-from sdgym.result_writer import S3ResultsWriter
 from sdgym.run_benchmark.utils import (
     KEY_BENCHMARK_LAUNCHER,
     KEY_DATE_FILE,
@@ -18,7 +17,7 @@ from sdgym.run_benchmark.utils import (
     get_result_folder_name,
     post_benchmark_launch_message,
 )
-from sdgym.s3 import _get_s3_client, get_s3_client, parse_s3_path
+from sdgym.s3 import get_s3_client, parse_s3_path
 
 
 def append_benchmark_run(
@@ -64,19 +63,12 @@ def main():
     date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    s3_client = _get_s3_client(
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        output_destination=OUTPUT_DESTINATION_AWS,
-    )
-    result_writer = S3ResultsWriter(s3_client)
 
     config = _get_config(modality)
     launcher = BenchmarkLauncher(config)
     launcher.launch()
-    result_writer.write_pickle(
-        launcher,
-        f'{OUTPUT_DESTINATION_AWS}{modality}/{get_result_folder_name(date_str)}/{KEY_BENCHMARK_LAUNCHER}',
+    launcher._save_from_storage_manager(
+        f'{OUTPUT_DESTINATION_AWS}{modality}/{get_result_folder_name(date_str)}/{KEY_BENCHMARK_LAUNCHER}'
     )
 
     append_benchmark_run(aws_access_key_id, aws_secret_access_key, date_str, modality=modality)

@@ -651,14 +651,15 @@ def test__get_top_folder_prefix(mock_parse_s3_path, mock_datetime):
     mock_datetime.today.return_value.strftime.return_value = '03_25_2026'
 
     # Run
-    result = _get_top_folder_prefix(
+    prefix, modality_prefix = _get_top_folder_prefix(
         output_destination='s3://my-bucket/Debug/Issue_570/',
         modality='single_table',
     )
 
     # Assert
     mock_parse_s3_path.assert_called_once_with('s3://my-bucket/Debug/Issue_570/')
-    assert result == 'Debug/Issue_570/single_table/SDGym_results_03_25_2026'
+    assert prefix == 'Debug/Issue_570/single_table/SDGym_results_03_25_2026'
+    assert modality_prefix == 'Debug/Issue_570/single_table'
 
 
 @patch('sdgym._benchmark_launcher.utils.datetime')
@@ -670,13 +671,14 @@ def test__get_top_folder_prefix_empty_key_prefix(mock_parse_s3_path, mock_dateti
     mock_datetime.today.return_value.strftime.return_value = '03_25_2026'
 
     # Run
-    result = _get_top_folder_prefix(
+    prefix, modality_prefix = _get_top_folder_prefix(
         output_destination='s3://my-bucket',
         modality='single_table',
     )
 
     # Assert
-    assert result == 'single_table/SDGym_results_03_25_2026'
+    assert prefix == 'single_table/SDGym_results_03_25_2026'
+    assert modality_prefix == 'single_table'
 
 
 @pytest.mark.parametrize(

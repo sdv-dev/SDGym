@@ -224,7 +224,7 @@ def _get_top_folder_prefix(output_destination, modality):
     _, key_prefix = parse_s3_path(output_destination)
     today = datetime.today().strftime('%m_%d_%Y')
     modality_prefix = '/'.join([part for part in [key_prefix.rstrip('/'), modality] if part])
-    return f'{modality_prefix}/SDGym_results_{today}'
+    return (f'{modality_prefix}/SDGym_results_{today}', modality_prefix)
 
 
 def _get_synthetic_data_extension(modality):

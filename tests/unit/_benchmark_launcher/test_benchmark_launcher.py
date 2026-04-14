@@ -3,6 +3,7 @@
 import re
 from unittest.mock import Mock, call, mock_open, patch
 
+import pandas as pd
 import pytest
 
 from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
@@ -171,7 +172,7 @@ class TestBenchmarkLauncher:
             's3://bucket/prefix/dataset_1/Synth1(1)/',
             's3://bucket/prefix/dataset_2/Synth1(1)/',
         ]
-        mock_get_top_folder_prefix.return_value = 'prefix'
+        mock_get_top_folder_prefix.side_effect = [('prefix', 'prefix_job')]
         mock_add_dataset_suffix.side_effect = ['dataset_1', 'dataset_2']
 
         # Run
@@ -203,6 +204,7 @@ class TestBenchmarkLauncher:
             'result_key': 'prefix/results(1).csv',
             'metainfo_key': 'prefix/metainfo(1).yaml',
             'output_destination': 's3://bucket/path',
+            'job_arg_key': 'prefix_job/job_args_list_metainfo(1).pkl.gz',
             'jobs': [
                 {
                     'dataset': 'dataset1',
@@ -338,7 +340,7 @@ class TestBenchmarkLauncher:
         launcher.method_to_run = Mock(name='method_to_run')
         launcher.method_to_run.side_effect = ['instance-1', 'instance-2']
         mock_generate_ids.return_value = 'LAUNCH_ID_1'
-        mock_get_top_folder_prefix.return_value = 'artifact-prefix'
+        mock_get_top_folder_prefix.return_value = ('artifact-prefix', 'modality_prefix')
         mock_add_dataset_suffix.side_effect = ['d1_artifact', 'd2_artifact']
         mock_build_job_output_destination.side_effect = [
             output_destination_artifact_1,
@@ -389,6 +391,7 @@ class TestBenchmarkLauncher:
                 'output_destination': output_destination,
                 'metainfo_key': 'artifact-prefix/metainfo.yaml',
                 'result_key': 'artifact-prefix/results.csv',
+                'job_arg_key': 'modality_prefix/job_args_list_metainfo.pkl.gz',
                 'jobs': [
                     {
                         'dataset': 'd1',
@@ -411,6 +414,7 @@ class TestBenchmarkLauncher:
                 'output_destination': output_destination,
                 'metainfo_key': 'artifact-prefix/metainfo(1).yaml',
                 'result_key': 'artifact-prefix/results(1).csv',
+                'job_arg_key': 'modality_prefix/job_args_list_metainfo(1).pkl.gz',
                 'jobs': [
                     {
                         'dataset': 'd2',
@@ -1050,3 +1054,247 @@ class TestBenchmarkLauncher:
             'gcp',
         ])
         assert result._benchmark_id == 'new-id'
+
+    def test_build_missing_result_row(self):
+        """Test the `_build_missing_result_row` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        job = {
+            'dataset': 'adult',
+            'synthesizer': 'CTGAN',
+        }
+        expected = pd.DataFrame([
+            {
+                'Dataset': 'adult',
+                'Synthesizer': 'CTGAN',
+                'Dataset_Size_MB': None,
+                'Train_Time': None,
+                'Peak_Memory_MB': None,
+                'Synthesizer_Size_MB': None,
+                'Sample_Time': None,
+                'Evaluate_Time': None,
+                'Error': 'Instance Stopped',
+            }
+        ])
+
+        # Run
+        result = launcher._build_missing_result_row(job)
+
+        # Assert
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_build_or_load_instance_results_no_jobs(self):
+        """Test `_build_or_load_instance_results` when there are no jobs."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'jobs': [],
+            }
+        }
+
+        # Run
+        result = launcher._build_or_load_instance_results('instance-1')
+
+        # Assert
+        assert result.empty
+
+    def test_build_or_load_instance_results_loads_existing_results_file(self):
+        """Test `_build_or_load_instance_results` loads the results file when it exists."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        expected = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN'}])
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = True
+        launcher._storage_manager.load_results.return_value = expected
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
+                'result_key': 'prefix/results.csv',
+                'output_destination': 's3://bucket/path',
+            }
+        }
+
+        # Run
+        result = launcher._build_or_load_instance_results('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path',
+            'prefix/results.csv',
+        )
+        launcher._storage_manager.load_results.assert_called_once_with(
+            output_destination='s3://bucket/path',
+            result_filename='prefix/results.csv',
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_build_or_load_instance_results_builds_results_from_job_files(self):
+        """Test `_build_or_load_instance_results` builds results from individual job outputs."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = False
+        result_df = pd.DataFrame([{'score': 0.9}])
+        launcher._storage_manager.load_job_result.side_effect = [
+            result_df,
+            None,
+        ]
+        launcher._update_result_columns = Mock(
+            return_value=pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9}])
+        )
+        launcher._build_missing_result_row = Mock(
+            return_value=pd.DataFrame([
+                {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'Error': 'Instance Stopped'}
+            ])
+        )
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'jobs': [
+                    {
+                        'dataset': 'adult',
+                        'synthesizer': 'CTGAN',
+                        'benchmark_result_key': 'adult/CTGAN/result.csv',
+                    },
+                    {
+                        'dataset': 'alarm',
+                        'synthesizer': 'TVAE',
+                        'benchmark_result_key': 'alarm/TVAE/result.csv',
+                    },
+                ],
+                'result_key': 'prefix/results.csv',
+                'output_destination': 's3://bucket/path',
+            }
+        }
+        expected = pd.DataFrame([
+            {'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9, 'Error': None},
+            {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'score': None, 'Error': 'Instance Stopped'},
+        ])
+
+        # Run
+        result = launcher._build_or_load_instance_results('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path',
+            'prefix/results.csv',
+        )
+        assert launcher._storage_manager.load_job_result.call_args_list == [
+            call(
+                output_destination='s3://bucket/path',
+                filename='adult/CTGAN/result.csv',
+            ),
+            call(
+                output_destination='s3://bucket/path',
+                filename='alarm/TVAE/result.csv',
+            ),
+        ]
+        launcher._update_result_columns.assert_called_once_with(
+            result_df,
+            {
+                'dataset': 'adult',
+                'synthesizer': 'CTGAN',
+                'benchmark_result_key': 'adult/CTGAN/result.csv',
+            },
+        )
+        launcher._build_missing_result_row.assert_called_once_with({
+            'dataset': 'alarm',
+            'synthesizer': 'TVAE',
+            'benchmark_result_key': 'alarm/TVAE/result.csv',
+        })
+        pd.testing.assert_frame_equal(result, expected)
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.pd.Timestamp')
+    def test_update_instance_metainfo(self, mock_timestamp):
+        """Test the `_update_instance_metainfo` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'metainfo_key': 'prefix/metainfo.yaml',
+                'output_destination': 's3://bucket/path',
+            }
+        }
+        mock_timestamp.now.return_value.strftime.return_value = '14_04_2026 12:00:00'
+
+        # Run
+        launcher._update_instance_metainfo('instance-1')
+
+        # Assert
+        launcher._storage_manager.update_metainfo.assert_called_once_with(
+            's3://bucket/path',
+            'prefix/metainfo.yaml',
+            {'completed_date': '14_04_2026 12:00:00'},
+        )
+
+    def test_finalize(self):
+        """Test the `_finalize` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._validate_compute_service = Mock()
+        launcher._update_instance_statuses = Mock()
+        launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        result_df = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN'}])
+        launcher._build_or_load_instance_results = Mock(return_value=result_df)
+        launcher._update_instance_metainfo = Mock()
+        launcher.terminate = Mock()
+        launcher._storage_manager = Mock()
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
+                'output_destination': 's3://bucket/path',
+                'result_key': 'prefix/results.csv',
+                'job_arg_key': 'single_table/job_args_list_metainfo.yaml',
+            },
+            'instance-2': {
+                'jobs': [],
+                'output_destination': 's3://bucket/other-path',
+                'result_key': 'prefix/results(1).csv',
+                'job_arg_key': 'single_table/job_args_list_metainfo(1).yaml',
+            },
+        }
+
+        # Run
+        launcher._finalize()
+
+        # Assert
+        launcher._validate_compute_service.assert_called_once_with()
+        launcher._update_instance_statuses.assert_called_once_with()
+        launcher._get_all_instance_names.assert_called_once_with()
+        launcher._build_or_load_instance_results.assert_called_once_with('instance-1')
+        launcher._storage_manager.write_results.assert_called_once_with(
+            result=result_df,
+            output_destination='s3://bucket/path',
+            result_filename='prefix/results.csv',
+        )
+        launcher._storage_manager.delete.assert_called_once_with(
+            's3://bucket/path',
+            'single_table/job_args_list_metainfo.yaml',
+        )
+        launcher._update_instance_metainfo.assert_called_once_with('instance-1')
+        launcher.terminate.assert_called_once_with(verbose=True)
