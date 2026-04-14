@@ -38,27 +38,27 @@ class BaseStorageManager:
         """Return the existing filenames for the given destination."""
         raise NotImplementedError
 
-    def file_exists(self, output_destination, key):
+    def file_exists(self, output_destination, filename):
         """Return whether the provided key exists in the destination."""
         raise NotImplementedError
 
-    def read_csv(self, output_destination, key):
+    def read_csv(self, output_destination, filename):
         """Read a CSV artifact from storage."""
         raise NotImplementedError
 
-    def write_csv(self, result, output_destination, key):
+    def write_csv(self, result, output_destination, filename):
         """Write a CSV artifact to storage."""
         raise NotImplementedError
 
-    def load_job_result(self, output_destination, key):
+    def load_job_result(self, output_destination, filename):
         """Load a per-job result CSV if it exists, otherwise return None."""
         raise NotImplementedError
 
-    def update_metainfo(self, output_destination, key, content):
+    def update_metainfo(self, output_destination, filename, content):
         """Update metainfo for an artifact."""
         raise NotImplementedError
 
-    def delete(self, output_destination, key):
+    def delete(self, output_destination, filename):
         """Delete an artifact from storage."""
         raise NotImplementedError
 

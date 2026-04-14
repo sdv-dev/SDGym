@@ -470,7 +470,7 @@ class BenchmarkLauncher:
             if job_result is None:
                 frames.append(self._build_missing_result_row(job))
             else:
-                frames.append(self._update_result_columns(job_result, job))
+                frames.append(job_result)
 
         return pd.concat(frames, ignore_index=True)
 
@@ -508,7 +508,7 @@ class BenchmarkLauncher:
             self._storage_manager.write_csv(
                 result=result_df,
                 output_destination=output_destination,
-                result_filename=result_filename,
+                filename=result_filename,
             )
             self._storage_manager.delete(output_destination, job_arg_key)
             self._update_instance_metainfo(instance_name)
