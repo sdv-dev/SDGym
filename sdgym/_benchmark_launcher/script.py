@@ -156,7 +156,7 @@ def _split_instance_jobs(instance_job):
     raise ValueError('Cannot split the instance job any further.')
 
 
-def _build_instance_jobs(datasets, synthesizers, num_instances, output_destination):
+def _build_instance_artifacts(datasets, synthesizers, num_instances, output_destination):
     """Build exactly ``num_instances`` instance jobs."""
     max_jobs = len(synthesizers) * len(datasets)
     if num_instances > max_jobs:
@@ -223,7 +223,7 @@ def build_dict_from_args(args):
     num_instances = num_instances if num_instances is not None else DEFAULT_NUM_INSTANCES
     return {
         'method_params': method_params,
-        'instance_jobs': _build_instance_jobs(
+        'instance_jobs': _build_instance_artifacts(
             datasets=datasets,
             synthesizers=synthesizers,
             num_instances=num_instances,

@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from sdgym._benchmark_launcher.script import (
-    _build_instance_jobs,
+    _build_instance_artifacts,
     _get_default_datasets_and_synthesizers,
     _instance_job_size,
     _parse_args,
@@ -197,8 +197,8 @@ def test__split_instance_jobs_error():
         _split_instance_jobs(instance_job)
 
 
-def test__build_instance_jobs():
-    """Test `_build_instance_jobs` method."""
+def test__build_instance_artifacts():
+    """Test `_build_instance_artifacts` method."""
     # Setup
     datasets = ['adult', 'alarm']
     synthesizers = ['CTGANSynthesizer', 'TVAESynthesizer', 'GaussianCopulaSynthesizer']
@@ -206,7 +206,9 @@ def test__build_instance_jobs():
     num_instances = 3
 
     # Run
-    instance_jobs = _build_instance_jobs(datasets, synthesizers, num_instances, output_destination)
+    instance_jobs = _build_instance_artifacts(
+        datasets, synthesizers, num_instances, output_destination
+    )
 
     # Assert
     assert instance_jobs == [
@@ -228,8 +230,8 @@ def test__build_instance_jobs():
     ]
 
 
-def test__build_instance_jobs_warns_and_caps_num_instances():
-    """Test `_build_instance_jobs` warns and caps num_instances to the maximum."""
+def test__build_instance_artifacts_warns_and_caps_num_instances():
+    """Test `_build_instance_artifacts` warns and caps num_instances to the maximum."""
     # Setup
     datasets = ['adult', 'alarm']
     synthesizers = ['CTGANSynthesizer']
@@ -241,7 +243,7 @@ def test__build_instance_jobs_warns_and_caps_num_instances():
 
     # Run
     with pytest.warns(UserWarning, match=expected_message):
-        instance_jobs = _build_instance_jobs(
+        instance_jobs = _build_instance_artifacts(
             datasets, synthesizers, num_instances, 's3://bucket/prefix/'
         )
 
@@ -323,11 +325,11 @@ def test_build_dict_from_args_uses_default_modality_config(mock_resolve_modality
     }
 
 
-@patch('sdgym._benchmark_launcher.script._build_instance_jobs')
+@patch('sdgym._benchmark_launcher.script._build_instance_artifacts')
 @patch('sdgym._benchmark_launcher.script._get_default_datasets_and_synthesizers')
 def test_build_dict_from_args_uses_defaults_for_missing_values(
     mock_get_default_datasets_and_synthesizers,
-    mock_build_instance_jobs,
+    mock_build_instance_artifacts,
 ):
     """Test `build_dict_from_args` fills missing values with defaults."""
     # Setup
@@ -343,14 +345,14 @@ def test_build_dict_from_args_uses_defaults_for_missing_values(
         ['adult', 'alarm'],
         ['TVAESynthesizer'],
     )
-    mock_build_instance_jobs.return_value = [{'some': 'job'}]
+    mock_build_instance_artifacts.return_value = [{'some': 'job'}]
 
     # Run
     config = build_dict_from_args(args)
 
     # Assert
     mock_get_default_datasets_and_synthesizers.assert_called_once_with('single_table')
-    mock_build_instance_jobs.assert_called_once_with(
+    mock_build_instance_artifacts.assert_called_once_with(
         datasets=['adult', 'alarm'],
         synthesizers=['CTGANSynthesizer'],
         num_instances=1,
@@ -362,8 +364,8 @@ def test_build_dict_from_args_uses_defaults_for_missing_values(
     }
 
 
-@patch('sdgym._benchmark_launcher.script._build_instance_jobs')
-def test_build_dict_from_args_builds_expected_override_dict(mock_build_instance_jobs):
+@patch('sdgym._benchmark_launcher.script._build_instance_artifacts')
+def test_build_dict_from_args_builds_expected_override_dict(mock_build_instance_artifacts):
     """Test `build_dict_from_args` builds the expected config override dict."""
     # Setup
     args = Namespace(
@@ -374,7 +376,7 @@ def test_build_dict_from_args_builds_expected_override_dict(mock_build_instance_
         timeout=3600,
         output_destination='s3://sdgym-benchmark/Debug/test/',
     )
-    mock_build_instance_jobs.return_value = [
+    mock_build_instance_artifacts.return_value = [
         {
             'synthesizers': ['CTGANSynthesizer'],
             'datasets': ['adult', 'alarm'],
@@ -391,7 +393,7 @@ def test_build_dict_from_args_builds_expected_override_dict(mock_build_instance_
     config = build_dict_from_args(args)
 
     # Assert
-    mock_build_instance_jobs.assert_called_once_with(
+    mock_build_instance_artifacts.assert_called_once_with(
         datasets=['adult', 'alarm'],
         synthesizers=['CTGANSynthesizer', 'TVAESynthesizer'],
         num_instances=2,
@@ -416,8 +418,8 @@ def test_build_dict_from_args_builds_expected_override_dict(mock_build_instance_
     }
 
 
-@patch('sdgym._benchmark_launcher.script._build_instance_jobs', return_value=[])
-def test_build_dict_from_args_without_timeout(mock_build_instance_jobs):
+@patch('sdgym._benchmark_launcher.script._build_instance_artifacts', return_value=[])
+def test_build_dict_from_args_without_timeout(mock_build_instance_artifacts):
     """Test `build_dict_from_args` omits timeout when it is not provided."""
     # Setup
     args = Namespace(
@@ -433,7 +435,7 @@ def test_build_dict_from_args_without_timeout(mock_build_instance_jobs):
     config = build_dict_from_args(args)
 
     # Assert
-    mock_build_instance_jobs.assert_called_once_with(
+    mock_build_instance_artifacts.assert_called_once_with(
         datasets=['adult'],
         synthesizers=['CTGANSynthesizer'],
         num_instances=1,

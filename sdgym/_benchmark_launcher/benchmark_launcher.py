@@ -1,6 +1,5 @@
 """Define the BenchmarkLauncher class, which launches and manages benchmark executions."""
 
-import io
 import logging
 import warnings
 
@@ -61,7 +60,7 @@ class BenchmarkLauncher:
         ])
         self._launch_to_instance_names = {}
         self._instance_name_to_status = {}
-        self._instance_name_to_jobs = {}
+        self._instance_name_to_artifacts = {}
         self._instance_manager = self._build_instance_manager()
         self._storage_manager = self._build_storage_manager()
 
@@ -86,26 +85,26 @@ class BenchmarkLauncher:
 
         raise NotImplementedError(f'Compute service {self.compute_service!r} is not supported.')
 
-    def _add_synthesizer_suffix(self, synthesizer, suffix):
-        """Return the synthesizer name with the instance suffix."""
-        return synthesizer if suffix == 0 else f'{synthesizer}({suffix})'
+    def _add_filename_suffix(self, filename, suffix):
+        """Return the filename with the instance suffix."""
+        return filename if suffix == 0 else f'{filename}({suffix})'
 
-    def _build_instance_jobs(self, datasets, synthesizers, output_destination, instance_idx):
-        """Build the job metadata for a launched instance."""
+    def _build_instance_artifacts(self, datasets, synthesizers, output_destination, instance_idx):
+        """Build the artifact information for one instance."""
         artifact_key_prefix = _get_top_folder_prefix(output_destination, self.modality)
         jobs = []
 
         for dataset in datasets:
             artifact_dataset = _add_dataset_suffix(dataset)
             for synthesizer in synthesizers:
-                artifact_synthesizer = self._add_synthesizer_suffix(synthesizer, instance_idx)
+                artifact_synthesizer = self._add_filename_suffix(synthesizer, instance_idx)
                 job_output_destination = _build_job_output_destination(
                     output_destination=output_destination,
                     artifact_key_prefix=artifact_key_prefix,
                     artifact_dataset=artifact_dataset,
                     artifact_synthesizer=artifact_synthesizer,
                 )
-                benchmark_result_key, synthetic_data_key, synthesizer_key = _build_job_artifact_keys(
+                benchmark_result_k, synthetic_data_k, synthesizer_k = _build_job_artifact_keys(
                     artifact_key_prefix=artifact_key_prefix,
                     artifact_dataset=artifact_dataset,
                     artifact_synthesizer=artifact_synthesizer,
@@ -118,14 +117,22 @@ class BenchmarkLauncher:
                     'artifact_dataset': artifact_dataset,
                     'artifact_synthesizer': artifact_synthesizer,
                     'artifact_key_prefix': artifact_key_prefix,
-                    'output_destination': output_destination,
                     'job_output_destination': job_output_destination,
-                    'benchmark_result_key': benchmark_result_key,
-                    'synthetic_data_key': synthetic_data_key,
-                    'synthesizer_key': synthesizer_key,
+                    'benchmark_result_key': benchmark_result_k,
+                    'synthetic_data_key': synthetic_data_k,
+                    'synthesizer_key': synthesizer_k,
                 })
 
-        return jobs
+        metainfo_name = self._add_filename_suffix('metainfo', instance_idx)
+        results_name = self._add_filename_suffix('results', instance_idx)
+        results = {
+            'jobs': jobs,
+            'output_destination': output_destination,
+            'metainfo_key': f'{artifact_key_prefix}/{metainfo_name}.yaml',
+            'result_key': f'{artifact_key_prefix}/{results_name}.csv',
+        }
+
+        return results
 
     def _launch(self):
         launch_id = generate_ids(['LAUNCH_ID'])
@@ -146,10 +153,9 @@ class BenchmarkLauncher:
                 compute_config=compute,
                 **self.benchmark_config.method_params,
             )
-
             self._launch_to_instance_names[launch_id].append(instance_name)
             self._instance_name_to_status[instance_name] = 'running'
-            self._instance_name_to_jobs[instance_name] = self._build_instance_jobs(
+            self._instance_name_to_artifacts[instance_name] = self._build_instance_artifacts(
                 datasets=datasets,
                 synthesizers=synthesizers,
                 output_destination=output_destination,
@@ -289,10 +295,10 @@ class BenchmarkLauncher:
         instances = self._validate_instance_names(instance_names)
         output_destinations = []
         for instance_name in instances:
-            for job in self._instance_name_to_jobs.get(instance_name, []):
-                output_destination = job['output_destination']
-                if output_destination not in output_destinations:
-                    output_destinations.append(output_destination)
+            instance_artifacts = self._instance_name_to_artifacts.get(instance_name, {})
+            output_destination = instance_artifacts.get('output_destination')
+            if output_destination not in output_destinations:
+                output_destinations.append(output_destination)
 
         return output_destinations
 
@@ -402,7 +408,7 @@ class BenchmarkLauncher:
         }
         rows = []
         for instance_name in instances:
-            jobs = self._instance_name_to_jobs.get(instance_name, [])
+            jobs = self._instance_name_to_artifacts.get(instance_name, {}).get('jobs', [])
             instance_rows = self._get_instance_job_rows(
                 instance_name=instance_name,
                 jobs=jobs,
@@ -417,129 +423,72 @@ class BenchmarkLauncher:
 
     def _build_missing_result_row(self, job):
         """Build a result row for a job missing its benchmark_result.csv."""
-        return pd.DataFrame([{
-            'Dataset': job['dataset'],
-            'Synthesizer': job['synthesizer'],
-            'Error': 'Instance Error',
-        }])
+        return pd.DataFrame([
+            {
+                'Dataset': job['dataset'],
+                'Synthesizer': job['synthesizer'],
+                'Dataset_Size_MB': None,
+                'Train_Time': None,
+                'Peak_Memory_MB': None,
+                'Synthesizer_Size_MB': None,
+                'Sample_Time': None,
+                'Evaluate_Time': None,
+            }
+        ])
 
     def _build_or_load_instance_results(self, instance_name):
-        jobs = self._instance_name_to_jobs.get(instance_name, [])
+        jobs = self._instance_name_to_artifacts.get(instance_name, {}).get('jobs', [])
         if not jobs:
             return pd.DataFrame()
 
-        result_filename = self._instance_name_to_result_filename[instance_name]
-        instance_status = self._instance_name_to_status.get(instance_name)
-
-        aggregate_result_key = self._storage_manager.build_instance_result_key(
-            jobs=jobs,
-            result_filename=result_filename,
-        )
-
-        output_destination = jobs[0]['output_destination']
-        if (
-            instance_status == 'completed'
-            and self._storage_manager.file_exists(output_destination, aggregate_result_key)
-        ):
-            return self._storage_manager.read_csv(output_destination, aggregate_result_key)
+        results_filename = self._instance_name_to_artifacts[instance_name]['result_key']
+        output_destination = self._instance_name_to_artifacts[instance_name]['output_destination']
+        if self._storage_manager.file_exists(output_destination, results_filename):
+            return self._storage_manager.load_results(
+                output_destination=output_destination, result_filename=results_filename
+            )
 
         frames = []
         for job in jobs:
-            if self._storage_manager.file_exists(output_destination, job['benchmark_result_key']):
-                job_result = self._storage_manager.read_csv(
-                    output_destination,
-                    job['benchmark_result_key'],
-                )
-                job_result = self._update_result_columns(job_result, job)
-                frames.append(job_result)
-            else:
+            job_result = self._storage_manager.load_job_result(
+                output_destination=output_destination,
+                filename=job['benchmark_result_key'],
+            )
+            if job_result is None:
                 frames.append(self._build_missing_result_row(job))
+            else:
+                frames.append(self._update_result_columns(job_result, job))
 
         return pd.concat(frames, ignore_index=True)
 
-    def _finalize_instance_results(self, instance_name, existing_keys_by_output):
-        jobs = self._instance_name_to_jobs.get(instance_name, [])
-        if not jobs:
-            return pd.DataFrame()
-
-        output_destination = jobs[0]['output_destination']
-        existing_keys = existing_keys_by_output[output_destination]
-        result_filename = self._instance_name_to_result_filename[instance_name]
-        artifact_key_prefix = jobs[0]['artifact_key_prefix']
-        aggregate_result_key = f'{artifact_key_prefix}/{result_filename}'
-        instance_status = self._instance_name_to_status.get(instance_name)
-        s3_client, bucket_name = self._get_s3_resources(output_destination)
-
-        # If instance completed and aggregate file already exists, just load it
-        if instance_status == 'completed' and aggregate_result_key in existing_keys:
-            response = s3_client.get_object(Bucket=bucket_name, Key=aggregate_result_key)
-            result_df = pd.read_csv(io.BytesIO(response['Body'].read()))
-            return result_df
-
-        # Otherwise rebuild from individual job benchmark_result.csv files
-        frames = []
-        for job in jobs:
-            if job['benchmark_result_key'] in existing_keys:
-                job_result = self._load_job_result(job, s3_client, bucket_name)
-                self._update_result_columns(job_result)
-                frames.append(job_result)
-            else:
-                frames.append(self._build_missing_result_row(job))
-        
-        result_df = pd.concat(frames, ignore_index=True)
-
-        return result_df
-
-    def _upload_instance_results(self, instance_name, result_df):
-        jobs = self._instance_name_to_jobs.get(instance_name, [])
-        if not jobs:
-            return
-
-        output_destination = jobs[0]['output_destination']
-        s3_client, bucket_name = self._get_s3_resources(output_destination)
-        result_filename = self._instance_name_to_result_filename[instance_name]
-        artifact_key_prefix = jobs[0]['artifact_key_prefix']
-        aggregate_result_key = f'{artifact_key_prefix}/{result_filename}'
-
-        csv_buffer = result_df.to_csv(index=False).encode()
-        s3_client.put_object(Body=csv_buffer, Bucket=bucket_name, Key=aggregate_result_key)
-
     def _update_instance_metainfo(self, instance_name):
         # Update the instance metadata with the result file key and the final status
-        jobs = self._instance_name_to_jobs.get(instance_name, [])
-        if not jobs:
-            return
-
-        output_destination = jobs[0]['output_destination']
-        result_filename = self._instance_name_to_result_filename[instance_name]
-        artifact_key_prefix = jobs[0]['artifact_key_prefix']
-        aggregate_result_key = f'{artifact_key_prefix}/{result_filename}'
-        self._storage_manager.update_instance_metadata(
-            instance_name,
-            {
-                'result_file_key': aggregate_result_key,
-                'final_status': self._instance_name_to_status.get(instance_name),
-            },
-        )
+        metainfo_key = self._instance_name_to_artifacts[instance_name]['metainfo_key']
+        output_destination = self._instance_name_to_artifacts[instance_name]['output_destination']
+        content = {'completed_date': pd.Timestamp.now().strftime('%d_%m_%Y %H:%M:%S')}
+        self._storage_manager.update_metainfo(output_destination, metainfo_key, content)
 
     def _finalize(self):
         """Build missing instance result files, update metainfo, and stop remaining instances."""
         self._validate_compute_service()
         self._update_instance_statuses()
         for instance_name in self._get_all_instance_names():
-            result_df = self._build_or_load_instance_results(instance_name)
-            jobs = self._instance_name_to_jobs.get(instance_name, [])
-            result_filename = self._instance_name_to_result_filename[instance_name]
+            instance_artifacts = self._instance_name_to_artifacts.get(instance_name, {})
+            jobs = instance_artifacts.get('jobs', [])
+            if not jobs:
+                continue
 
-            self._storage_manager.write_instance_result(
+            output_destination = instance_artifacts['output_destination']
+            result_filename = instance_artifacts['result_key']
+            result_df = self._build_or_load_instance_results(instance_name)
+            self._storage_manager.write_results(
                 result=result_df,
-                instance_name=instance_name,
-                jobs=jobs,
+                output_destination=output_destination,
                 result_filename=result_filename,
             )
             self._update_instance_metainfo(instance_name)
 
-        self.terminate(verbose=False)
+        self.terminate(verbose=True)
 
     def save(self, filepath):
         """Save the benchmark configuration to a file."""
