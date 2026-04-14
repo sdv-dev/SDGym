@@ -654,15 +654,17 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
 @patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
+@patch('sdgym.run_benchmark.upload_benchmark_results.pd.Timestamp.now')
 def test_get_result_explorer_exits_and_sets_skip_upload_true(
+    mock_timestamp,
     mock_output_destination_aws,
     mock_logger,
     mock_results_explorer,
     tmp_path,
 ):
-    """Test the `get_result_explorer` exits when runs are not complete and writes env file."""
+    """Test `get_result_explorer` exits when runs are not complete and timeout has not expired."""
     # Setup
-    folder_name = 'SDGym_results_10_01_2023'
+    folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
     modality = 'single_table'
     aws_access_key_id = 'access'
     aws_secret_access_key = 'secret'
@@ -671,17 +673,96 @@ def test_get_result_explorer_exits_and_sets_skip_upload_true(
     explorer_instance = mock_results_explorer.return_value
     explorer_instance.all_runs_complete.return_value = False
 
+    launcher = Mock()
+    launcher.benchmark_config.method_params = {'timeout': 345600}
+    launcher._timestamp = pd.Timestamp('2026-04-10 00:00:00')
+    explorer_instance.load_synthesizer.return_value = launcher
+
+    mock_timestamp.return_value = pd.Timestamp('2026-04-12 00:00:00')
+
     # Run and Assert
     with pytest.raises(SystemExit, match='0'):
         get_result_explorer(
-            folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env
+            folder_infos, modality, aws_access_key_id, aws_secret_access_key, github_env
         )
 
-    mock_logger.warning.assert_called_once_with(f'Run {folder_name} is not complete yet. Exiting.')
-    explorer_instance.all_runs_complete.assert_called_once_with(folder_name)
+    # Assert
+    mock_results_explorer.assert_called_once_with(
+        mock_output_destination_aws,
+        modality=modality,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
+    explorer_instance.all_runs_complete.assert_called_once_with(folder_infos['folder_name'])
+    explorer_instance.load_synthesizer.assert_called_once_with(
+        f'{mock_output_destination_aws}{modality}/{folder_infos["date"]}/_BENCHMARK_LAUNCHER.pkl'
+    )
+    launcher._finalize.assert_not_called()
+    mock_logger.warning.assert_called_once_with(
+        f'Run {folder_infos["folder_name"]} is not complete yet. Exiting.'
+    )
 
     env_content = Path(github_env).read_text()
     assert env_content == 'SKIP_UPLOAD=true\n'
+
+
+@patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
+@patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
+@patch('sdgym.run_benchmark.upload_benchmark_results.pd.Timestamp.now')
+def test_get_result_explorer_finalizes_when_timeout_expires(
+    mock_timestamp,
+    mock_output_destination_aws,
+    mock_logger,
+    mock_results_explorer,
+    tmp_path,
+):
+    """Test `get_result_explorer` when runs are incomplete and timeout expired."""
+    # Setup
+    folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
+    modality = 'single_table'
+    aws_access_key_id = 'access'
+    aws_secret_access_key = 'secret'
+    github_env = str(tmp_path / 'github.env')
+
+    explorer_instance = mock_results_explorer.return_value
+    explorer_instance.all_runs_complete.return_value = False
+
+    launcher = Mock()
+    launcher.benchmark_config.method_params = {'timeout': 345600}
+    launcher._timestamp = pd.Timestamp('2026-04-01 00:00:00')
+    explorer_instance.load_synthesizer.return_value = launcher
+
+    mock_timestamp.return_value = pd.Timestamp('2026-04-10 00:00:00')
+
+    # Run
+    result = get_result_explorer(
+        folder_infos, modality, aws_access_key_id, aws_secret_access_key, github_env
+    )
+
+    # Assert
+    assert result == explorer_instance
+    mock_results_explorer.assert_called_once_with(
+        mock_output_destination_aws,
+        modality=modality,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
+    explorer_instance.all_runs_complete.assert_called_once_with(folder_infos['folder_name'])
+    explorer_instance.load_synthesizer.assert_called_once_with(
+        f'{mock_output_destination_aws}{modality}/{folder_infos["date"]}/_BENCHMARK_LAUNCHER.pkl'
+    )
+    launcher._finalize.assert_called_once_with()
+    mock_logger.warning.assert_called_once_with(
+        f'Run {folder_infos["folder_name"]} is not complete yet, and the timeout has expired. '
+        'Remaining instances will be terminated.'
+    )
+    mock_logger.info.assert_called_once_with(
+        f'Run {folder_infos["folder_name"]} is complete! Proceeding with summarization...'
+    )
+
+    env_content = Path(github_env).read_text()
+    assert env_content == (f'SKIP_UPLOAD=false\nFOLDER_NAME={folder_infos["folder_name"]}\n')
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
@@ -695,7 +776,7 @@ def test_get_result_explorer_returns_explorer_and_writes_env(
 ):
     """Test the `get_result_explorer` method returns explorer and writes env vars when complete."""
     # Setup
-    folder_name = 'SDGym_results_10_01_2023'
+    folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
     modality = 'single_table'
     aws_access_key_id = 'access'
     aws_secret_access_key = 'secret'
@@ -706,18 +787,18 @@ def test_get_result_explorer_returns_explorer_and_writes_env(
 
     # Run
     out = get_result_explorer(
-        folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env
+        folder_infos, modality, aws_access_key_id, aws_secret_access_key, github_env
     )
 
     # Assert
     assert out == explorer_instance
     mock_logger.info.assert_called_once_with(
-        f'Run {folder_name} is complete! Proceeding with summarization...'
+        f'Run {folder_infos["folder_name"]} is complete! Proceeding with summarization...'
     )
-    explorer_instance.all_runs_complete.assert_called_once_with(folder_name)
+    explorer_instance.all_runs_complete.assert_called_once_with(folder_infos['folder_name'])
 
     env_content = Path(github_env).read_text()
-    assert env_content == f'SKIP_UPLOAD=false\nFOLDER_NAME={folder_name}\n'
+    assert env_content == f'SKIP_UPLOAD=false\nFOLDER_NAME={folder_infos["folder_name"]}\n'
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
@@ -836,30 +917,23 @@ def test_upload_results(
     mock_get_df_to_plot.assert_called_once_with(result_details)
 
 
-@patch('sdgym.run_benchmark.upload_benchmark_results.ResultsExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results.get_result_explorer')
 @patch('sdgym.run_benchmark.upload_benchmark_results.write_uploaded_marker')
-@patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
-@patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
 def test_upload_results_not_all_runs_complete(
-    mock_output_destination_aws,
-    mock_logger,
     mock_write_uploaded_marker,
-    mock_sdgym_results_explorer,
+    mock_get_result_explorer,
 ):
     """Test the `upload_results` when not all runs are complete."""
     # Setup
     aws_access_key_id = 'my_access_key'
     aws_secret_access_key = 'my_secret_key'
     folder_infos = {'folder_name': 'SDGym_results_10_01_2023', 'date': '10_01_2023'}
-    run_name = folder_infos['folder_name']
     s3_client = Mock()
     bucket = 'bucket'
     prefix = 'prefix'
-    result_explorer_instance = mock_sdgym_results_explorer.return_value
-    result_explorer_instance.all_runs_complete.return_value = False
-    result_explorer_instance.summarize.return_value = ('summary', 'results')
+    mock_get_result_explorer.side_effect = SystemExit(0)
 
-    # Run
+    # Run and Assert
     with pytest.raises(SystemExit, match='0'):
         upload_results(
             aws_access_key_id,
@@ -872,15 +946,13 @@ def test_upload_results_not_all_runs_complete(
         )
 
     # Assert
-    mock_logger.warning.assert_called_once_with(f'Run {run_name} is not complete yet. Exiting.')
-    mock_sdgym_results_explorer.assert_called_once_with(
-        mock_output_destination_aws,
-        modality='single_table',
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
+    mock_get_result_explorer.assert_called_once_with(
+        folder_infos,
+        'single_table',
+        aws_access_key_id,
+        aws_secret_access_key,
+        None,
     )
-    result_explorer_instance.all_runs_complete.assert_called_once_with(run_name)
-    result_explorer_instance.summarize.assert_not_called()
     mock_write_uploaded_marker.assert_not_called()
 
 
@@ -936,7 +1008,7 @@ def test_upload_results_mock(
 
     # Assert
     mock_get_result_explorer.assert_called_once_with(
-        'SDGym_results_10_01_2023', 'single_table', aws_access_key_id, aws_secret_access_key, None
+        folder_infos, 'single_table', aws_access_key_id, aws_secret_access_key, None
     )
     mock_get_all_results.assert_called_once_with(
         result_explorer_instance,
