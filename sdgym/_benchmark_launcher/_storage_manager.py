@@ -50,14 +50,6 @@ class BaseStorageManager:
         """Write a CSV artifact to storage."""
         raise NotImplementedError
 
-    def load_results(self, output_destination, result_filename):
-        """Load an aggregate results CSV."""
-        raise NotImplementedError
-
-    def write_results(self, result, output_destination, result_filename):
-        """Write an aggregate results CSV."""
-        raise NotImplementedError
-
     def load_job_result(self, output_destination, key):
         """Load a per-job result CSV if it exists, otherwise return None."""
         raise NotImplementedError
@@ -155,14 +147,6 @@ class S3StorageManager(BaseStorageManager):
         bucket_name, _ = parse_s3_path(output_destination)
         file_path = f's3://{bucket_name}/{filename}'
         self._get_writer().write_dataframe(result, file_path, index=False)
-
-    def load_results(self, output_destination, result_filename):
-        """Load an aggregate results CSV."""
-        return self.read_csv(output_destination, result_filename)
-
-    def write_results(self, result, output_destination, result_filename):
-        """Write an aggregate results CSV."""
-        self.write_csv(result, output_destination, result_filename)
 
     def load_job_result(self, output_destination, filename):
         """Load a per-job result CSV if it exists, otherwise return None."""
