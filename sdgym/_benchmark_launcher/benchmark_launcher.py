@@ -63,6 +63,7 @@ class BenchmarkLauncher:
         self._instance_name_to_artifacts = {}
         self._instance_manager = self._build_instance_manager()
         self._storage_manager = self._build_storage_manager()
+        self._timestamp = None
 
     def _build_storage_manager(self):
         """Build the storage manager."""
@@ -164,6 +165,8 @@ class BenchmarkLauncher:
                 output_destination=output_destination,
                 instance_idx=instance_idx,
             )
+
+        self._timestamp = pd.Timestamp.now().strftime('%d_%m_%Y %H:%M:%S')
 
     def launch(self):
         """Run the BenchmarkConfig: validate it and then execute the specified benchmark method."""

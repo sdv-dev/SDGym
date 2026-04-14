@@ -22,6 +22,7 @@ from sdgym.datasets import SDV_DATASETS_PRIVATE_BUCKET, SDV_DATASETS_PUBLIC_BUCK
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import (
+    KEY_BENCHMARK_LAUNCHER,
     OUTPUT_DESTINATION_AWS,
     _extract_google_file_id,
     _get_filename_to_gdrive_link,
@@ -457,7 +458,7 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
 
 
 def get_result_explorer(
-    folder_name, modality, aws_access_key_id, aws_secret_access_key, github_env
+    folder_infos, modality, aws_access_key_id, aws_secret_access_key, github_env
 ):
     """Get the ResultsExplorer instance after checking if all runs are complete.
 
@@ -471,8 +472,8 @@ def get_result_explorer(
     This method returns a `ResultsExplorer` instance for further processing (summarization etc.).
 
     Args:
-        folder_name (str):
-            The folder name of the benchmark run.
+        folder_infos (dict):
+            Dictionary containing folder information such as 'folder_name' and 'date'.
         modality (str):
             The benchmark modality.
         aws_access_key_id (str):
@@ -482,6 +483,8 @@ def get_result_explorer(
         github_env (str or None):
             Path to the GitHub environment file, or None if not running in GitHub Actions.
     """
+    folder_name = folder_infos['folder_name']
+    date_str = folder_infos['date']
     result_explorer = ResultsExplorer(
         OUTPUT_DESTINATION_AWS,
         modality=modality,
@@ -489,12 +492,26 @@ def get_result_explorer(
         aws_secret_access_key=aws_secret_access_key,
     )
     if not result_explorer.all_runs_complete(folder_name):
-        LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
-        if github_env:
-            with open(github_env, 'a') as env_file:
-                env_file.write('SKIP_UPLOAD=true\n')
+        launcher = result_explorer.load_synthesizer(
+            f'{OUTPUT_DESTINATION_AWS}{modality}/{date_str}/{KEY_BENCHMARK_LAUNCHER}'
+        )
+        timeout = launcher.benchmark_config.method_params.get('timeout')
+        # Adding a buffer since the timeout is defined per job and not per instance currently.
+        launch_deadline = launcher._timestamp + 1.5 * pd.Timedelta(seconds=timeout)
+        has_timed_out = pd.Timestamp.now() >= launch_deadline
+        if not has_timed_out:
+            LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
+            if github_env:
+                with open(github_env, 'a') as env_file:
+                    env_file.write('SKIP_UPLOAD=true\n')
 
-        sys.exit(0)
+            sys.exit(0)
+
+        LOGGER.warning(
+            f'Run {folder_name} is not complete yet, and the timeout has expired. '
+            'Remaining instances will be terminated.'
+        )
+        launcher._finalize()
 
     LOGGER.info(f'Run {folder_name} is complete! Proceeding with summarization...')
     if github_env:
@@ -539,7 +556,7 @@ def upload_results(
     folder_name = folder_infos['folder_name']
     run_date = folder_infos['date']
     result_explorer = get_result_explorer(
-        folder_name,
+        folder_infos,
         modality,
         aws_access_key_id,
         aws_secret_access_key,
