@@ -62,8 +62,16 @@ class BaseStorageManager:
         """Load a per-job result CSV if it exists, otherwise return None."""
         raise NotImplementedError
 
-    def update_metainfo(self, filename, content):
+    def update_metainfo(self, output_destination, key, content):
         """Update metainfo for an artifact."""
+        raise NotImplementedError
+
+    def delete(self, output_destination, key):
+        """Delete an artifact from storage."""
+        raise NotImplementedError
+
+    def save_pickle(self, object, filepath):
+        """Save a picklable object to storage."""
         raise NotImplementedError
 
 
@@ -167,3 +175,14 @@ class S3StorageManager(BaseStorageManager):
         """Update metainfo for an artifact."""
         file_path = _build_s3_uri(output_destination, filename)
         self._get_writer().write_yaml(data=content, file_path=file_path, append=True)
+
+    def delete(self, output_destination, key):
+        """Delete an artifact from storage."""
+        s3_client, bucket_name = self._get_s3_resources(output_destination)
+        s3_client.delete_object(Bucket=bucket_name, Key=key)
+
+    def save_pickle(self, object, filepath):
+        """Save a picklable object to S3."""
+        bucket_name, key = parse_s3_path(filepath)
+        file_path = f's3://{bucket_name}/{key}'
+        self._get_writer().write_pickle(object, file_path)

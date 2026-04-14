@@ -91,7 +91,9 @@ class BenchmarkLauncher:
 
     def _build_instance_artifacts(self, datasets, synthesizers, output_destination, instance_idx):
         """Build the artifact information for one instance."""
-        artifact_key_prefix = _get_top_folder_prefix(output_destination, self.modality)
+        artifact_key_prefix, modality_prefix = _get_top_folder_prefix(
+            output_destination, self.modality
+        )
         jobs = []
 
         for dataset in datasets:
@@ -130,6 +132,7 @@ class BenchmarkLauncher:
             'output_destination': output_destination,
             'metainfo_key': f'{artifact_key_prefix}/{metainfo_name}.yaml',
             'result_key': f'{artifact_key_prefix}/{results_name}.csv',
+            'job_arg_key': f'{modality_prefix}/job_args_list_{metainfo_name}.pkl.gz',
         }
 
         return results
@@ -433,6 +436,7 @@ class BenchmarkLauncher:
                 'Synthesizer_Size_MB': None,
                 'Sample_Time': None,
                 'Evaluate_Time': None,
+                'Error': 'Instance Stopped',
             }
         ])
 
@@ -480,15 +484,21 @@ class BenchmarkLauncher:
 
             output_destination = instance_artifacts['output_destination']
             result_filename = instance_artifacts['result_key']
+            job_arg_key = instance_artifacts['job_arg_key']
             result_df = self._build_or_load_instance_results(instance_name)
             self._storage_manager.write_results(
                 result=result_df,
                 output_destination=output_destination,
                 result_filename=result_filename,
             )
+            self._storage_manager.delete(output_destination, job_arg_key)
             self._update_instance_metainfo(instance_name)
 
         self.terminate(verbose=True)
+
+    def _save_from_storage_manager(self, filepath):
+        """Save the benchmark launcher to a file using the storage manager."""
+        self._storage_manager.save_pickle(self, filepath)
 
     def save(self, filepath):
         """Save the benchmark configuration to a file."""
