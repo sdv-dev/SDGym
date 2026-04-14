@@ -1,14 +1,11 @@
 import textwrap
+import uuid
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from google.cloud import compute_v1
 from google.oauth2 import service_account
 
-from sdgym._benchmark.config_utils import (
-    _make_instance_name,
-    resolve_compute_config,
-    validate_compute_config,
-)
 from sdgym._benchmark.credentials_utils import sdv_install_cmd
 from sdgym.benchmark import (
     DEFAULT_MULTI_TABLE_DATASETS,
@@ -24,6 +21,12 @@ from sdgym.benchmark import (
     _store_job_args_in_s3,
     _validate_output_destination,
 )
+
+
+def _make_instance_name(prefix):
+    day = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')
+    suffix = uuid.uuid4().hex[:6]
+    return f'{prefix}-{day}-{suffix}'
 
 
 def _get_logs_s3_uri(output_destination, instance_name):
@@ -144,12 +147,11 @@ def _get_user_data_script(
         or int(config.get('gpu_count', 0)) > 0
         or bool(config.get('gpu_type'))
     )
-    upload_logs = bool(config.get('upload_logs', True))
 
     aws_key = credentials['aws']['aws_access_key_id']
     aws_secret = credentials['aws']['aws_secret_access_key']
 
-    log_uri = _get_logs_s3_uri(output_destination, instance_name) if upload_logs else ''
+    log_uri = _get_logs_s3_uri(output_destination, instance_name)
 
     sdv_install = sdv_install_cmd(credentials).rstrip()
     sdv_install = textwrap.indent(sdv_install, '        ') if sdv_install else ''
@@ -363,9 +365,6 @@ def _benchmark_compute_gcp(
     modality,
 ):
     """Run the SDGym benchmark on datasets for the given modality."""
-    compute_config = resolve_compute_config('gcp', compute_config)
-    validate_compute_config(compute_config)
-
     s3_client = _validate_output_destination(
         output_destination,
         aws_keys={
@@ -454,7 +453,7 @@ def _benchmark_single_table_compute_gcp(
         compute_diagnostic_score (bool, optional):
             Whether to compute the diagnostic score. Defaults to True.
         compute_privacy_score (bool, optional):
-            Whether to compute the privacy score. Defaults to True.
+            Whether to compute the privacy score. Defaults to False.
         sdmetrics (list of str, optional):
             The sdmetrics to use for evaluation. If None, default metrics will be used.
         timeout (int, optional):

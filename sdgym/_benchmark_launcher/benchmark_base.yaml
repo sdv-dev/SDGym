@@ -4,6 +4,13 @@ method_params:
   compute_diagnostic_score: true
 
 compute:
-  service: 'gcp'
+  service: gcp
+  instance_type: n1-highmem-16
+  boot_image: projects/deeplearning-platform-release/global/images/family/common-cu128-ubuntu-2204-nvidia-570
+  root_disk_gb: 300
+  gpu_type: nvidia-tesla-t4
+  gpu_count: 1
+  swap_gb: 64
+  name_prefix: sdgym-run
 
 credentials_filepath: null

@@ -20,9 +20,11 @@ from sdgym._benchmark_launcher.utils import (
     _load_json_file,
     _load_merged_modality_config,
     _load_yaml_resource,
+    _resolve_compute_gcp,
     _resolve_datasets,
     _resolve_modality_config,
     generate_ids,
+    resolve_compute,
     resolve_credentials,
 )
 
@@ -45,6 +47,64 @@ def test__load_merged_modality_config_calls_load_yaml_resource(mock_load_yaml):
         call(MODALITY_TO_CONFIG_FILE[modality]),
     ])
     assert merged == {'a': 1, 'b': {'x': 1, 'y': 2}, 'c': 3}
+
+
+def test__resolve_compute_gcp():
+    """Test `_resolve_compute_gcp` method."""
+    # Setup
+    compute = {
+        'service': 'gcp',
+        'instance_type': 'n1-highmem-16',
+        'root_disk_gb': 300,
+        'gpu_count': 1,
+        'boot_image': 'example-image',
+    }
+
+    # Run
+    results = _resolve_compute_gcp(compute)
+
+    # Assert
+    assert results == {
+        'service': 'gcp',
+        'machine_type': 'n1-highmem-16',
+        'disk_size_gb': 300,
+        'gpu_count': 1,
+        'source_image': 'example-image',
+    }
+
+
+@patch('sdgym._benchmark_launcher.utils._resolve_compute_gcp')
+def test_resolve_compute(mock_resolve_compute_gcp):
+    """Test `resolve_compute` method."""
+    # Setup
+    compute = {
+        'service': 'gcp',
+        'instance_type': 'n1-highmem-16',
+        'boot_image': 'projects/example/global/images/family/example',
+    }
+    expected_compute = {
+        'machine_type': 'n1-highmem-16',
+        'source_image': 'projects/example/global/images/family/example',
+    }
+    mock_resolve_compute_gcp.return_value = expected_compute
+
+    # Run
+    resolved = resolve_compute(compute)
+
+    # Assert
+    mock_resolve_compute_gcp.assert_called_once_with(compute)
+    assert resolved == expected_compute
+
+
+def test_resolve_compute_unsupported_service():
+    """Test `resolve_compute` raises for unsupported services."""
+    # Setup
+    compute = {'service': 'unsupported'}
+    expected_message = "compute.service must be one of: 'gcp'. Found: unsupported"
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        resolve_compute(compute)
 
 
 @patch('sdgym._benchmark_launcher.utils._load_merged_modality_config')

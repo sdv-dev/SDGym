@@ -65,10 +65,12 @@ class TestBenchmarkConfig:
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_method_params', return_value=[])
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_credentials', return_value=[])
     @patch('sdgym._benchmark_launcher.benchmark_config._validate_instance_jobs', return_value=[])
+    @patch('sdgym._benchmark_launcher.benchmark_config._validate_compute', return_value=[])
     @patch('sdgym._benchmark_launcher.benchmark_config._format_sectioned_errors')
     def test_validate(
         self,
         mock_format_errors,
+        mock_validate_compute,
         mock_validate_jobs,
         mock_validate_creds,
         mock_validate_method_params,
@@ -95,6 +97,7 @@ class TestBenchmarkConfig:
         # Assert
         assert config._is_validated is True
         mock_format_errors.assert_not_called()
+        mock_validate_compute.assert_called_once_with(config.compute)
         mock_validate_structure.assert_called_once_with(config)
         mock_validate_method_params.assert_called_once_with(config.method_params, method_to_run)
         mock_validate_creds.assert_called_once_with(config.credentials_filepath)

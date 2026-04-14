@@ -16,6 +16,7 @@ from sdgym._benchmark_launcher.utils import (
     _get_top_folder_prefix,
     _resolve_datasets,
     generate_ids,
+    resolve_compute,
     resolve_credentials,
 )
 
@@ -117,6 +118,7 @@ class BenchmarkLauncher:
         launch_id = generate_ids(['LAUNCH_ID'])
         self._launch_to_instance_names[launch_id] = []
         credentials = resolve_credentials(self.benchmark_config.credentials_filepath)
+        compute = resolve_compute(self.benchmark_config.compute)
 
         for instance_idx, instance_job in enumerate(self.benchmark_config.instance_jobs):
             datasets = _resolve_datasets(instance_job['datasets'])
@@ -128,7 +130,7 @@ class BenchmarkLauncher:
                 synthesizers=synthesizers,
                 sdv_datasets=datasets,
                 credentials=credentials,
-                compute_config=self.benchmark_config.compute,
+                compute_config=compute,
                 **self.benchmark_config.method_params,
             )
 

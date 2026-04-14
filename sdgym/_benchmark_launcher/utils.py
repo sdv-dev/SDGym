@@ -58,6 +58,31 @@ _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS = (
 _GCP_SERVICE_ACCOUNT_JSON = 'GCP_SERVICE_ACCOUNT_JSON'
 _GCP_SERVICE_ACCOUNT_JSON_FILEPATH = 'GCP_SERVICE_ACCOUNT_JSON_FILEPATH'
 
+_REQUIRED_CANONICAL_KEYS = (
+    'instance_type',
+    'boot_image',
+    'root_disk_gb',
+)
+
+
+def _resolve_compute_gcp(config):
+    """Convert canonical compute config keys to GCP-specific keys."""
+    result = dict(config)
+    result['machine_type'] = result.pop('instance_type')
+    result['source_image'] = result.pop('boot_image')
+    result['disk_size_gb'] = result.pop('root_disk_gb')
+
+    return result
+
+
+def resolve_compute(compute):
+    """Resolve the compute configuration based on the benchmark config."""
+    service = compute.get('service')
+    if service == 'gcp':
+        return _resolve_compute_gcp(compute)
+
+    raise ValueError(f"compute.service must be one of: 'gcp'. Found: {service}")
+
 
 def _load_merged_modality_config(modality):
     """Load and merge the base and modality-specific benchmark configs."""

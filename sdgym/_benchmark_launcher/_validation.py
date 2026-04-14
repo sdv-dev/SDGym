@@ -1,6 +1,7 @@
 from sdgym._benchmark_launcher.utils import (
     _AWS_CREDENTIAL_KEYS,
     _GCP_SERVICE_ACCOUNT_REQUIRED_KEYS,
+    _REQUIRED_CANONICAL_KEYS,
     _is_unique_string_list,
     resolve_credentials,
 )
@@ -9,7 +10,7 @@ _INJECTED_PARAMS = {
     'credentials',
     'synthesizers',
     'sdv_datasets',
-    'compute_config',
+    'compute',
     'output_destination',
 }
 
@@ -61,10 +62,31 @@ def _validate_structure(config):
     compute = getattr(config, 'compute', None)
     if isinstance(compute, dict):
         service = compute.get('service')
-        if service not in ('gcp',):
-            errors.append(f"compute.service: must be 'gcp'. Found: {service!r}")
+        if service is None:
+            errors.append('compute.service: is required but missing.')
 
     return sorted(errors)
+
+
+def _validate_compute_canonical(compute):
+    errors = []
+    for key in _REQUIRED_CANONICAL_KEYS:
+        if not compute.get(key):
+            errors.append(f'compute.{key} is required but missing.')
+
+    gpu_count = int(compute.get('gpu_count') or 0)
+    if gpu_count > 0 and not compute.get('gpu_type'):
+        errors.append('compute.gpu_type is required when compute.gpu_count > 0.')
+
+    return sorted(errors)
+
+
+def _validate_compute(compute):
+    """Validate the 'compute' section of the config.
+
+    This includes validating the canonical compute keys and any service-specific requirements.
+    """
+    return _validate_compute_canonical(compute)
 
 
 def _validate_method_params(method_params, method_to_run):

@@ -272,6 +272,7 @@ class TestBenchmarkLauncher:
         'sdgym._benchmark_launcher.benchmark_launcher._resolve_datasets',
         side_effect=[['d1'], ['d2']],
     )
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.resolve_compute')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_output_destination')
@@ -280,6 +281,7 @@ class TestBenchmarkLauncher:
         mock_build_job_output_destination,
         mock_add_dataset_suffix,
         mock_get_top_folder_prefix,
+        mock_resolve_compute,
         mock_resolve_datasets,
         mock_resolve_credentials,
         mock_generate_ids,
@@ -291,7 +293,13 @@ class TestBenchmarkLauncher:
         output_destination_artifact_2 = 's3://bucket/prefix/dataset_2/Synth1(1)/'
         config = BenchmarkConfig.load_from_dict({
             'modality': 'single_table',
-            'compute': {'service': 'gcp'},
+            'compute': {
+                'service': 'gcp',
+                'instance_type': 'n1-highmem-16',
+                'root_disk_gb': 300,
+                'gpu_count': 1,
+                'boot_image': 'example-image',
+            },
             'method_params': {
                 'timeout': 10,
                 'compute_quality_score': True,
@@ -323,6 +331,14 @@ class TestBenchmarkLauncher:
             output_destination_artifact_1,
             output_destination_artifact_2,
         ]
+        mock_resolve_compute.return_value = {
+            'service': 'gcp',
+            'machine_type': 'n1-highmem-16',
+            'disk_size_gb': 300,
+            'gpu_count': 1,
+            'source_image': 'example-image',
+        }
+
         # Run
         launcher._launch()
 
@@ -335,7 +351,7 @@ class TestBenchmarkLauncher:
                 synthesizers=['Synth1'],
                 sdv_datasets=['d1'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute_config=config.compute,
+                compute_config=mock_resolve_compute.return_value,
                 **config.method_params,
             ),
             call(
@@ -343,10 +359,11 @@ class TestBenchmarkLauncher:
                 synthesizers=['Synth2'],
                 sdv_datasets=['d2'],
                 credentials={'aws': {}, 'gcp': {}, 'sdv': {}},
-                compute_config=config.compute,
+                compute_config=mock_resolve_compute.return_value,
                 **config.method_params,
             ),
         ]
+        mock_resolve_compute.assert_called_with(config.compute)
         launcher.method_to_run.assert_has_calls(expected_calls, any_order=False)
         assert launcher.method_to_run.call_count == 2
         assert launcher._launch_to_instance_names == {'LAUNCH_ID_1': ['instance-1', 'instance-2']}
