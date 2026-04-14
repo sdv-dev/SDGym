@@ -444,6 +444,12 @@ class BenchmarkLauncher:
         ])
 
     def _build_or_load_instance_results(self, instance_name):
+        """Get instance result table.
+
+        If the instance's result file exists in storage, load and return it.
+        Otherwise, build the result table by loading each job's result file if it exists,
+        or adding a row with an error if it doesn't.
+        """
         jobs = self._instance_name_to_artifacts.get(instance_name, {}).get('jobs', [])
         if not jobs:
             return pd.DataFrame()
@@ -451,8 +457,8 @@ class BenchmarkLauncher:
         results_filename = self._instance_name_to_artifacts[instance_name]['result_key']
         output_destination = self._instance_name_to_artifacts[instance_name]['output_destination']
         if self._storage_manager.file_exists(output_destination, results_filename):
-            return self._storage_manager.load_results(
-                output_destination=output_destination, result_filename=results_filename
+            return self._storage_manager.read_csv(
+                output_destination=output_destination, filename=results_filename
             )
 
         frames = []
@@ -476,7 +482,17 @@ class BenchmarkLauncher:
         self._storage_manager.update_metainfo(output_destination, metainfo_key, content)
 
     def _finalize(self):
-        """Build missing instance result files, update metainfo, and stop remaining instances."""
+        """Finalize the benchmark using the results available so far.
+
+        This method is used for an early stop scenario. For each launched instance,
+        it builds or loads the instance-level results file from the available job
+        artifacts, updates the metainfo file, and removes temporary job argument
+        artifacts. Missing job results are preserved as incomplete or failed entries
+        in the final output.
+
+        Once the available artifacts have been saved, all remaining running
+        instances are terminated.
+        """
         self._validate_compute_service()
         self._update_instance_statuses()
         for instance_name in self._get_all_instance_names():
@@ -489,7 +505,7 @@ class BenchmarkLauncher:
             result_filename = instance_artifacts['result_key']
             job_arg_key = instance_artifacts['job_arg_key']
             result_df = self._build_or_load_instance_results(instance_name)
-            self._storage_manager.write_results(
+            self._storage_manager.write_csv(
                 result=result_df,
                 output_destination=output_destination,
                 result_filename=result_filename,

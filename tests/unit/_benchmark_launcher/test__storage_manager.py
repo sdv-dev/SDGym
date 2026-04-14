@@ -121,24 +121,6 @@ class TestBaseStorageManager:
         with pytest.raises(NotImplementedError):
             storage_manager.write_csv(Mock(), 's3://bucket/prefix', 'file.csv')
 
-    def test_load_results(self):
-        """Test the `load_results` method."""
-        # Setup
-        storage_manager = BaseStorageManager()
-
-        # Run and Assert
-        with pytest.raises(NotImplementedError):
-            storage_manager.load_results('s3://bucket/prefix', 'results.csv')
-
-    def test_write_results(self):
-        """Test the `write_results` method."""
-        # Setup
-        storage_manager = BaseStorageManager()
-
-        # Run and Assert
-        with pytest.raises(NotImplementedError):
-            storage_manager.write_results(Mock(), 's3://bucket/prefix', 'results.csv')
-
     def test_load_job_result(self):
         """Test the `load_job_result` method."""
         # Setup
@@ -443,36 +425,6 @@ class TestS3StorageManager:
             result,
             's3://bucket/path/file.csv',
             index=False,
-        )
-
-    def test_load_results(self):
-        """Test the `load_results` method."""
-        # Setup
-        storage_manager = S3StorageManager('creds.json', [])
-        storage_manager.read_csv = Mock(return_value='dataframe')
-
-        # Run
-        result = storage_manager.load_results('s3://bucket/prefix', 'results.csv')
-
-        # Assert
-        storage_manager.read_csv.assert_called_once_with('s3://bucket/prefix', 'results.csv')
-        assert result == 'dataframe'
-
-    def test_write_results(self):
-        """Test the `write_results` method."""
-        # Setup
-        storage_manager = S3StorageManager('creds.json', [])
-        storage_manager.write_csv = Mock()
-        result = pd.DataFrame({'a': [1]})
-
-        # Run
-        storage_manager.write_results(result, 's3://bucket/prefix', 'results.csv')
-
-        # Assert
-        storage_manager.write_csv.assert_called_once_with(
-            result,
-            's3://bucket/prefix',
-            'results.csv',
         )
 
     def test_load_job_result_when_file_exists(self):

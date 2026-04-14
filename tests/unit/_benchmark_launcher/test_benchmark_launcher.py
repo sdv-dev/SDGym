@@ -1012,6 +1012,23 @@ class TestBenchmarkLauncher:
         mock_dump.assert_called_once()
         assert mock_dump.call_args[0][0] is launcher
 
+    def test__save_from_storage_manager(self):
+        """Test the `_save_from_storage_manager` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.save_pickle.return_value = 'launcher.pkl'
+
+        # Run
+        launcher._save_from_storage_manager('launcher.pkl')
+
+        # Assert
+        launcher._storage_manager.save_pickle.assert_called_once_with(launcher, 'launcher.pkl')
+
     @patch('sdgym._benchmark_launcher.benchmark_launcher.cloudpickle.load')
     @patch('builtins.open', new_callable=mock_open, read_data=b'test')
     def test_load(self, mock_file, mock_load):
@@ -1118,7 +1135,7 @@ class TestBenchmarkLauncher:
         expected = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN'}])
         launcher._storage_manager = Mock()
         launcher._storage_manager.file_exists.return_value = True
-        launcher._storage_manager.load_results.return_value = expected
+        launcher._storage_manager.read_csv.return_value = expected
         launcher._instance_name_to_artifacts = {
             'instance-1': {
                 'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
@@ -1135,9 +1152,9 @@ class TestBenchmarkLauncher:
             's3://bucket/path',
             'prefix/results.csv',
         )
-        launcher._storage_manager.load_results.assert_called_once_with(
+        launcher._storage_manager.read_csv.assert_called_once_with(
             output_destination='s3://bucket/path',
-            result_filename='prefix/results.csv',
+            filename='prefix/results.csv',
         )
         pd.testing.assert_frame_equal(result, expected)
 
@@ -1287,7 +1304,7 @@ class TestBenchmarkLauncher:
         launcher._update_instance_statuses.assert_called_once_with()
         launcher._get_all_instance_names.assert_called_once_with()
         launcher._build_or_load_instance_results.assert_called_once_with('instance-1')
-        launcher._storage_manager.write_results.assert_called_once_with(
+        launcher._storage_manager.write_csv.assert_called_once_with(
             result=result_df,
             output_destination='s3://bucket/path',
             result_filename='prefix/results.csv',
