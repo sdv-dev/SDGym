@@ -29,7 +29,7 @@ from sdgym.run_benchmark.utils import (
     _parse_args,
     get_df_to_plot,
 )
-from sdgym.s3 import S3_REGION, parse_s3_path
+from sdgym.s3 import S3_REGION, load_pickle_from_s3, parse_s3_path
 from sdgym.utils import _set_column_width
 
 LOGGER = logging.getLogger(__name__)
@@ -490,8 +490,10 @@ def get_result_explorer(
         aws_secret_access_key=aws_secret_access_key,
     )
     if not result_explorer.all_runs_complete(folder_name):
-        launcher = result_explorer._handler.load_synthesizer(
-            f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}'
+        launcher = load_pickle_from_s3(
+            result_explorer._handler.s3_client,
+            result_explorer._handler.bucket_name,
+            f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
         )
         timeout = launcher.benchmark_config.method_params.get('timeout')
         launch_timestamp = pd.to_datetime(launcher._timestamp, format='%d_%m_%Y %H:%M:%S')
