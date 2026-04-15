@@ -50,7 +50,7 @@ class BaseStorageManager:
         """Write a CSV artifact to storage."""
         raise NotImplementedError
 
-    def load_job_result(self, output_destination, filename):
+    def _load_job_result(self, output_destination, filename):
         """Load a per-job result CSV if it exists, otherwise return None."""
         raise NotImplementedError
 
@@ -87,7 +87,7 @@ class S3StorageManager(BaseStorageManager):
         self.__dict__.update(state)
 
     def _get_writer(self):
-        """Build the results writer lazily."""
+        """Build the results writer."""
         if self._writer is None:
             self._writer = S3ResultsWriter(self._get_client())
 
@@ -148,7 +148,7 @@ class S3StorageManager(BaseStorageManager):
         file_path = f's3://{bucket_name}/{filename}'
         self._get_writer().write_dataframe(result, file_path, index=False)
 
-    def load_job_result(self, output_destination, filename):
+    def _load_job_result(self, output_destination, filename):
         """Load a per-job result CSV if it exists, otherwise return None."""
         if not self.file_exists(output_destination, filename):
             return None
