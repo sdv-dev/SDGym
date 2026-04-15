@@ -1168,14 +1168,11 @@ class TestBenchmarkLauncher:
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._storage_manager = Mock()
         launcher._storage_manager.file_exists.return_value = False
-        result_df = pd.DataFrame([{'score': 0.9}])
+        result_df = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9}])
         launcher._storage_manager.load_job_result.side_effect = [
             result_df,
             None,
         ]
-        launcher._update_result_columns = Mock(
-            return_value=pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9}])
-        )
         launcher._build_missing_result_row = Mock(
             return_value=pd.DataFrame([
                 {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'Error': 'Instance Stopped'}
@@ -1222,14 +1219,6 @@ class TestBenchmarkLauncher:
                 filename='alarm/TVAE/result.csv',
             ),
         ]
-        launcher._update_result_columns.assert_called_once_with(
-            result_df,
-            {
-                'dataset': 'adult',
-                'synthesizer': 'CTGAN',
-                'benchmark_result_key': 'adult/CTGAN/result.csv',
-            },
-        )
         launcher._build_missing_result_row.assert_called_once_with({
             'dataset': 'alarm',
             'synthesizer': 'TVAE',
@@ -1307,7 +1296,7 @@ class TestBenchmarkLauncher:
         launcher._storage_manager.write_csv.assert_called_once_with(
             result=result_df,
             output_destination='s3://bucket/path',
-            result_filename='prefix/results.csv',
+            filename='prefix/results.csv',
         )
         launcher._storage_manager.delete.assert_called_once_with(
             's3://bucket/path',
