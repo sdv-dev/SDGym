@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import boto3
 import botocore
+import cloudpickle
 import pandas as pd
 import yaml
 
@@ -274,3 +275,9 @@ def _validate_s3_url(s3_url):
         raise ValueError(error_msg)
 
     return bucket_name
+
+
+def load_pickle_from_s3(s3_client, bucket_name, key):
+    """Load a pickle file from S3."""
+    response = s3_client.get_object(Bucket=bucket_name, Key=key)
+    return cloudpickle.loads(response['Body'].read())

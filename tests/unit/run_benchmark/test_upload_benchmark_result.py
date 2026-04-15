@@ -656,7 +656,9 @@ def test_upload_all_results_writes_and_uploads_and_uploads_to_drive(
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
 @patch('sdgym.run_benchmark.upload_benchmark_results.pd.Timestamp.now')
+@patch('sdgym.run_benchmark.upload_benchmark_results.load_pickle_from_s3')
 def test_get_result_explorer_exits_and_sets_skip_upload_true(
+    mock_load_pickle_from_s3,
     mock_timestamp_now,
     mock_output_destination_aws,
     mock_logger,
@@ -677,7 +679,7 @@ def test_get_result_explorer_exits_and_sets_skip_upload_true(
     launcher = Mock()
     launcher.benchmark_config.method_params = {'timeout': 345600}
     launcher._timestamp = '10_04_2026 00:00:00'
-    explorer_instance._handler.load_synthesizer.return_value = launcher
+    mock_load_pickle_from_s3.return_value = launcher
 
     mock_timestamp_now.return_value = pd.Timestamp('2026-04-12 00:00:00')
 
@@ -695,8 +697,10 @@ def test_get_result_explorer_exits_and_sets_skip_upload_true(
         aws_secret_access_key=aws_secret_access_key,
     )
     explorer_instance.all_runs_complete.assert_called_once_with(folder_name)
-    explorer_instance._handler.load_synthesizer.assert_called_once_with(
-        f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}'
+    mock_load_pickle_from_s3.assert_called_once_with(
+        explorer_instance._handler.s3_client,
+        explorer_instance._handler.bucket_name,
+        f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
     )
     launcher._finalize.assert_not_called()
     mock_logger.warning.assert_called_once_with(f'Run {folder_name} is not complete yet. Exiting.')
@@ -709,7 +713,9 @@ def test_get_result_explorer_exits_and_sets_skip_upload_true(
 @patch('sdgym.run_benchmark.upload_benchmark_results.LOGGER')
 @patch('sdgym.run_benchmark.upload_benchmark_results.OUTPUT_DESTINATION_AWS')
 @patch('sdgym.run_benchmark.upload_benchmark_results.pd.Timestamp.now')
+@patch('sdgym.run_benchmark.upload_benchmark_results.load_pickle_from_s3')
 def test_get_result_explorer_finalizes_when_timeout_expires(
+    mock_load_pickle_from_s3,
     mock_timestamp_now,
     mock_output_destination_aws,
     mock_logger,
@@ -730,7 +736,7 @@ def test_get_result_explorer_finalizes_when_timeout_expires(
     launcher = Mock()
     launcher.benchmark_config.method_params = {'timeout': 345600}
     launcher._timestamp = '01_04_2026 00:00:00'
-    explorer_instance._handler.load_synthesizer.return_value = launcher
+    mock_load_pickle_from_s3.return_value = launcher
 
     mock_timestamp_now.return_value = pd.Timestamp('2026-04-10 00:00:00')
 
@@ -748,8 +754,10 @@ def test_get_result_explorer_finalizes_when_timeout_expires(
         aws_secret_access_key=aws_secret_access_key,
     )
     explorer_instance.all_runs_complete.assert_called_once_with(folder_name)
-    explorer_instance._handler.load_synthesizer.assert_called_once_with(
-        f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}'
+    mock_load_pickle_from_s3.assert_called_once_with(
+        explorer_instance._handler.s3_client,
+        explorer_instance._handler.bucket_name,
+        f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
     )
     launcher._finalize.assert_called_once_with()
     mock_logger.warning.assert_called_once_with(

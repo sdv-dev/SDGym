@@ -17,6 +17,7 @@ from sdgym.s3 import (
     _upload_dataframe_to_s3,
     _upload_pickle_to_s3,
     is_s3_path,
+    load_pickle_from_s3,
     parse_s3_path,
     write_csv,
     write_file,
@@ -421,3 +422,23 @@ def test_load_yaml_metainfo_from_s3_empty_yaml(yaml_mock, read_mock):
     read_mock.assert_called_once()
     yaml_mock.assert_called_once()
     assert result == {}
+
+
+def test_load_pickle_from_s3():
+    """Test the `load_pickle_from_s3` method."""
+    # Setup
+    s3_client = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/object.pkl'
+    expected_obj = {'foo': 'bar'}
+    buffer = io.BytesIO()
+    pickle.dump(expected_obj, buffer)
+    buffer.seek(0)
+    s3_client.get_object.return_value = {'Body': buffer}
+
+    # Run
+    result = load_pickle_from_s3(s3_client, bucket_name, key)
+
+    # Assert
+    s3_client.get_object.assert_called_once_with(Bucket=bucket_name, Key=key)
+    assert result == expected_obj
