@@ -492,8 +492,7 @@ def get_result_explorer(
     if not result_explorer.all_runs_complete(folder_name):
         launcher = load_pickle_from_s3(
             result_explorer._handler.s3_client,
-            result_explorer._handler.bucket_name,
-            f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
+            f'{OUTPUT_DESTINATION_AWS}{modality}/{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
         )
         timeout = launcher.benchmark_config.method_params.get('timeout')
         launch_timestamp = pd.to_datetime(launcher._timestamp, format='%d_%m_%Y %H:%M:%S')
