@@ -232,18 +232,67 @@ def _get_synthetic_data_extension(modality):
     return 'zip' if modality == 'multi_table' else 'csv'
 
 
+def _build_s3_uri(output_destination, key):
+    """Build a full S3 URI from an output destination and key."""
+    bucket_name, _ = parse_s3_path(output_destination)
+    return f's3://{bucket_name}/{key}'
+
+
 def _build_job_artifact_keys(artifact_key_prefix, artifact_dataset, artifact_synthesizer, modality):
     """Build the expected artifact keys for a benchmark job."""
     job_prefix = f'{artifact_key_prefix.rstrip("/")}/{artifact_dataset}/{artifact_synthesizer}'
     synthetic_data_extension = _get_synthetic_data_extension(modality)
 
-    benchmark_result_key = f'{job_prefix}/{artifact_synthesizer}_benchmark_result.csv'
-    synthetic_data_key = (
+    benchmark_result_filepath = f'{job_prefix}/{artifact_synthesizer}_benchmark_result.csv'
+    synthetic_data_filepath = (
         f'{job_prefix}/{artifact_synthesizer}_synthetic_data.{synthetic_data_extension}'
     )
-    synthesizer_key = f'{job_prefix}/{artifact_synthesizer}.pkl'
+    synthesizer_filepath = f'{job_prefix}/{artifact_synthesizer}.pkl'
 
-    return benchmark_result_key, synthetic_data_key, synthesizer_key
+    return benchmark_result_filepath, synthetic_data_filepath, synthesizer_filepath
+
+
+def _build_job_artifact_filepaths(
+    artifact_key_prefix,
+    artifact_dataset,
+    artifact_synthesizer,
+    modality,
+    output_destination,
+):
+    """Build the expected artifact filepaths for a benchmark job."""
+    benchmark_result_k, synthetic_data_k, synthesizer_k = _build_job_artifact_keys(
+        artifact_key_prefix=artifact_key_prefix,
+        artifact_dataset=artifact_dataset,
+        artifact_synthesizer=artifact_synthesizer,
+        modality=modality,
+    )
+
+    return (
+        _build_s3_uri(output_destination, benchmark_result_k),
+        _build_s3_uri(output_destination, synthetic_data_k),
+        _build_s3_uri(output_destination, synthesizer_k),
+    )
+
+
+def _build_instance_artifact_filepaths(
+    output_destination,
+    artifact_key_prefix,
+    modality_prefix,
+    metainfo_name,
+    results_name,
+):
+    """Build the expected instance-level artifact filepaths."""
+    return {
+        'metainfo_key': _build_s3_uri(
+            output_destination, f'{artifact_key_prefix}/{metainfo_name}.yaml'
+        ),
+        'result_key': _build_s3_uri(
+            output_destination, f'{artifact_key_prefix}/{results_name}.csv'
+        ),
+        'job_arg_key': _build_s3_uri(
+            output_destination, f'{modality_prefix}/job_args_list_{metainfo_name}.pkl.gz'
+        ),
+    }
 
 
 def _build_job_output_destination(

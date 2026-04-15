@@ -10,6 +10,7 @@ from sdgym._benchmark_launcher.utils import (
     _add_dataset_suffix,
     _build_job_artifact_keys,
     _build_job_output_destination,
+    _build_s3_uri,
     _deep_merge,
     _env,
     _get_env_credentials,
@@ -802,3 +803,17 @@ def test_is_unique_string_list():
     assert duplicate_result is False
     assert non_string_result is False
     assert not_a_list_result is False
+
+
+@patch('sdgym._benchmark_launcher.utils.parse_s3_path')
+def test_build_s3_uri(mock_parse_s3_path):
+    """Test the `_build_s3_uri` method."""
+    # Setup
+    mock_parse_s3_path.return_value = ('my-bucket', 'prefix')
+
+    # Run
+    result = _build_s3_uri('s3://my-bucket/prefix', 'path/to/file.csv')
+
+    # Assert
+    mock_parse_s3_path.assert_called_once_with('s3://my-bucket/prefix')
+    assert result == 's3://my-bucket/path/to/file.csv'
