@@ -439,7 +439,7 @@ class BenchmarkLauncher:
                 'Synthesizer_Size_MB': None,
                 'Sample_Time': None,
                 'Evaluate_Time': None,
-                'Error': 'Instance Stopped',
+                'Error': 'Instance Error',
             }
         ])
 
@@ -450,10 +450,7 @@ class BenchmarkLauncher:
         Otherwise, build the result table by loading each job's result file if it exists,
         or adding a row with an error if it doesn't.
         """
-        jobs = self._instance_name_to_artifacts.get(instance_name, {}).get('jobs', [])
-        if not jobs:
-            return pd.DataFrame()
-
+        jobs = self._instance_name_to_artifacts[instance_name]['jobs']
         results_filename = self._instance_name_to_artifacts[instance_name]['result_key']
         output_destination = self._instance_name_to_artifacts[instance_name]['output_destination']
         if self._storage_manager.file_exists(output_destination, results_filename):
@@ -463,7 +460,7 @@ class BenchmarkLauncher:
 
         frames = []
         for job in jobs:
-            job_result = self._storage_manager.load_job_result(
+            job_result = self._storage_manager._load_job_result(
                 output_destination=output_destination,
                 filename=job['benchmark_result_key'],
             )
@@ -475,7 +472,7 @@ class BenchmarkLauncher:
         return pd.concat(frames, ignore_index=True)
 
     def _update_instance_metainfo(self, instance_name):
-        # Update the instance metadata with the result file key and the final status
+        """Update the instance metainfo file with the completion date."""
         metainfo_key = self._instance_name_to_artifacts[instance_name]['metainfo_key']
         output_destination = self._instance_name_to_artifacts[instance_name]['output_destination']
         content = {'completed_date': pd.Timestamp.now().strftime('%d_%m_%Y %H:%M:%S')}

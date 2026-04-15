@@ -121,14 +121,14 @@ class TestBaseStorageManager:
         with pytest.raises(NotImplementedError):
             storage_manager.write_csv(Mock(), 's3://bucket/prefix', 'file.csv')
 
-    def test_load_job_result(self):
-        """Test the `load_job_result` method."""
+    def test__load_job_result(self):
+        """Test the `_load_job_result` method."""
         # Setup
         storage_manager = BaseStorageManager()
 
         # Run and Assert
         with pytest.raises(NotImplementedError):
-            storage_manager.load_job_result('s3://bucket/prefix', 'job_result.csv')
+            storage_manager._load_job_result('s3://bucket/prefix', 'job_result.csv')
 
     def test_update_metainfo(self):
         """Test the `update_metainfo` method."""
@@ -427,30 +427,30 @@ class TestS3StorageManager:
             index=False,
         )
 
-    def test_load_job_result_when_file_exists(self):
-        """Test the `load_job_result` method when the file exists."""
+    def test__load_job_result_when_file_exists(self):
+        """Test the `_load_job_result` method when the file exists."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
         storage_manager.file_exists = Mock(return_value=True)
         storage_manager.read_csv = Mock(return_value='job_result_df')
 
         # Run
-        result = storage_manager.load_job_result('s3://bucket/prefix', 'job.csv')
+        result = storage_manager._load_job_result('s3://bucket/prefix', 'job.csv')
 
         # Assert
         storage_manager.file_exists.assert_called_once_with('s3://bucket/prefix', 'job.csv')
         storage_manager.read_csv.assert_called_once_with('s3://bucket/prefix', 'job.csv')
         assert result == 'job_result_df'
 
-    def test_load_job_result_when_file_does_not_exist(self):
-        """Test the `load_job_result` method when the file does not exist."""
+    def test__load_job_result_when_file_does_not_exist(self):
+        """Test the `_load_job_result` method when the file does not exist."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
         storage_manager.file_exists = Mock(return_value=False)
         storage_manager.read_csv = Mock()
 
         # Run
-        result = storage_manager.load_job_result('s3://bucket/prefix', 'job.csv')
+        result = storage_manager._load_job_result('s3://bucket/prefix', 'job.csv')
 
         # Assert
         storage_manager.file_exists.assert_called_once_with('s3://bucket/prefix', 'job.csv')

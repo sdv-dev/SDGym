@@ -1094,7 +1094,7 @@ class TestBenchmarkLauncher:
                 'Synthesizer_Size_MB': None,
                 'Sample_Time': None,
                 'Evaluate_Time': None,
-                'Error': 'Instance Stopped',
+                'Error': 'Instance Error',
             }
         ])
 
@@ -1103,26 +1103,6 @@ class TestBenchmarkLauncher:
 
         # Assert
         pd.testing.assert_frame_equal(result, expected)
-
-    def test_build_or_load_instance_results_no_jobs(self):
-        """Test `_build_or_load_instance_results` when there are no jobs."""
-        # Setup
-        benchmark_config = Mock()
-        benchmark_config.modality = 'single_table'
-        benchmark_config.compute = {'service': 'gcp'}
-        benchmark_config.instance_jobs = []
-        launcher = BenchmarkLauncher(benchmark_config)
-        launcher._instance_name_to_artifacts = {
-            'instance-1': {
-                'jobs': [],
-            }
-        }
-
-        # Run
-        result = launcher._build_or_load_instance_results('instance-1')
-
-        # Assert
-        assert result.empty
 
     def test_build_or_load_instance_results_loads_existing_results_file(self):
         """Test `_build_or_load_instance_results` loads the results file when it exists."""
@@ -1169,13 +1149,13 @@ class TestBenchmarkLauncher:
         launcher._storage_manager = Mock()
         launcher._storage_manager.file_exists.return_value = False
         result_df = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9}])
-        launcher._storage_manager.load_job_result.side_effect = [
+        launcher._storage_manager._load_job_result.side_effect = [
             result_df,
             None,
         ]
         launcher._build_missing_result_row = Mock(
             return_value=pd.DataFrame([
-                {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'Error': 'Instance Stopped'}
+                {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'Error': 'Instance Error'}
             ])
         )
         launcher._instance_name_to_artifacts = {
@@ -1198,7 +1178,7 @@ class TestBenchmarkLauncher:
         }
         expected = pd.DataFrame([
             {'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9, 'Error': None},
-            {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'score': None, 'Error': 'Instance Stopped'},
+            {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'score': None, 'Error': 'Instance Error'},
         ])
 
         # Run
@@ -1209,7 +1189,7 @@ class TestBenchmarkLauncher:
             's3://bucket/path',
             'prefix/results.csv',
         )
-        assert launcher._storage_manager.load_job_result.call_args_list == [
+        assert launcher._storage_manager._load_job_result.call_args_list == [
             call(
                 output_destination='s3://bucket/path',
                 filename='adult/CTGAN/result.csv',

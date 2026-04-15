@@ -494,9 +494,9 @@ def get_result_explorer(
             f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}'
         )
         timeout = launcher.benchmark_config.method_params.get('timeout')
-        # Adding a buffer since the timeout is defined per job and not per instance currently.
         launch_timestamp = pd.to_datetime(launcher._timestamp, format='%d_%m_%Y %H:%M:%S')
-        launch_deadline = launch_timestamp + 1.5 * pd.Timedelta(seconds=timeout)
+        # Add a 1-day grace period to the timeout
+        launch_deadline = launch_timestamp + pd.Timedelta(seconds=timeout) + pd.Timedelta(days=1)
         has_timed_out = pd.Timestamp.now() >= launch_deadline
         if not has_timed_out:
             LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
