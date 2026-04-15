@@ -11,6 +11,8 @@ from sdgym._benchmark_launcher._storage_manager import S3StorageManager
 from sdgym._benchmark_launcher.utils import (
     _METHODS,
     _add_dataset_suffix,
+    _build_instance_artifact_filepaths,
+    _build_job_artifact_filepaths,
     _build_job_artifact_keys,
     _build_job_output_destination,
     _get_top_folder_prefix,
@@ -107,11 +109,12 @@ class BenchmarkLauncher:
                     artifact_dataset=artifact_dataset,
                     artifact_synthesizer=artifact_synthesizer,
                 )
-                benchmark_result_k, synthetic_data_k, synthesizer_k = _build_job_artifact_keys(
+                benchmark_fp, synthetic_data_fp, synthesizer_fp = _build_job_artifact_filepaths(
                     artifact_key_prefix=artifact_key_prefix,
                     artifact_dataset=artifact_dataset,
                     artifact_synthesizer=artifact_synthesizer,
                     modality=self.modality,
+                    output_destination=output_destination,
                 )
 
                 jobs.append({
@@ -121,9 +124,9 @@ class BenchmarkLauncher:
                     'artifact_synthesizer': artifact_synthesizer,
                     'artifact_key_prefix': artifact_key_prefix,
                     'job_output_destination': job_output_destination,
-                    'benchmark_result_key': benchmark_result_k,
-                    'synthetic_data_key': synthetic_data_k,
-                    'synthesizer_key': synthesizer_k,
+                    'benchmark_result_filepath': benchmark_fp,
+                    'synthetic_data_filepath': synthetic_data_fp,
+                    'synthesizer_filepath': synthesizer_fp,
                 })
 
         metainfo_name = self._add_filename_suffix('metainfo', instance_idx)
@@ -131,9 +134,13 @@ class BenchmarkLauncher:
         results = {
             'jobs': jobs,
             'output_destination': output_destination,
-            'metainfo_key': f'{artifact_key_prefix}/{metainfo_name}.yaml',
-            'result_key': f'{artifact_key_prefix}/{results_name}.csv',
-            'job_arg_key': f'{modality_prefix}/job_args_list_{metainfo_name}.pkl.gz',
+            **_build_instance_artifact_filepaths(
+                output_destination=output_destination,
+                artifact_key_prefix=artifact_key_prefix,
+                modality_prefix=modality_prefix,
+                metainfo_name=metainfo_name,
+                results_name=results_name,
+            ),
         }
 
         return results
@@ -451,19 +458,13 @@ class BenchmarkLauncher:
         or adding a row with an error if it doesn't.
         """
         jobs = self._instance_name_to_artifacts[instance_name]['jobs']
-        results_filename = self._instance_name_to_artifacts[instance_name]['result_key']
-        output_destination = self._instance_name_to_artifacts[instance_name]['output_destination']
-        if self._storage_manager.file_exists(output_destination, results_filename):
-            return self._storage_manager.read_csv(
-                output_destination=output_destination, filename=results_filename
-            )
+        results_filepath = self._instance_name_to_artifacts[instance_name]['result_filepath']
+        if self._storage_manager.file_exists(results_filepath):
+            return self._storage_manager.read_csv(results_filepath)
 
         frames = []
         for job in jobs:
-            job_result = self._storage_manager._load_job_result(
-                output_destination=output_destination,
-                filename=job['benchmark_result_key'],
-            )
+            job_result = self._storage_manager._load_job_result(job['benchmark_result_filepath'])
             if job_result is None:
                 frames.append(self._build_missing_result_row(job))
             else:
@@ -473,10 +474,9 @@ class BenchmarkLauncher:
 
     def _update_instance_metainfo(self, instance_name):
         """Update the instance metainfo file with the completion date."""
-        metainfo_key = self._instance_name_to_artifacts[instance_name]['metainfo_key']
-        output_destination = self._instance_name_to_artifacts[instance_name]['output_destination']
+        metainfo_filepath = self._instance_name_to_artifacts[instance_name]['metainfo_filepath']
         content = {'completed_date': pd.Timestamp.now().strftime('%d_%m_%Y %H:%M:%S')}
-        self._storage_manager.update_metainfo(output_destination, metainfo_key, content)
+        self._storage_manager.update_metainfo(metainfo_filepath, content)
 
     def _finalize(self):
         """Finalize the benchmark using the results available so far.
@@ -493,21 +493,12 @@ class BenchmarkLauncher:
         self._validate_compute_service()
         self._update_instance_statuses()
         for instance_name in self._get_all_instance_names():
-            instance_artifacts = self._instance_name_to_artifacts.get(instance_name, {})
-            jobs = instance_artifacts.get('jobs', [])
-            if not jobs:
-                continue
-
-            output_destination = instance_artifacts['output_destination']
-            result_filename = instance_artifacts['result_key']
-            job_arg_key = instance_artifacts['job_arg_key']
+            instance_artifacts = self._instance_name_to_artifacts[instance_name]
+            result_filepath = instance_artifacts['result_filepath']
+            job_arg_filepath = instance_artifacts['job_arg_filepath']
             result_df = self._build_or_load_instance_results(instance_name)
-            self._storage_manager.write_csv(
-                result=result_df,
-                output_destination=output_destination,
-                filename=result_filename,
-            )
-            self._storage_manager.delete(output_destination, job_arg_key)
+            self._storage_manager.write_csv(result=result_df, filepath=result_filepath)
+            self._storage_manager.delete(job_arg_filepath)
             self._update_instance_metainfo(instance_name)
 
         self.terminate(verbose=True)

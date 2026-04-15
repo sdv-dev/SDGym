@@ -1,6 +1,7 @@
 import io
 
 import pandas as pd
+from botocore.exceptions import ClientError
 
 from sdgym._benchmark_launcher.utils import resolve_credentials
 from sdgym.result_writer import S3ResultsWriter
@@ -15,12 +16,6 @@ def _validate_s3_output_destinations(instance_jobs):
             raise ValueError(
                 f'Only S3 storage is currently supported. Found: {output_destination!r}.'
             )
-
-
-def _build_s3_uri(output_destination, key):
-    """Build a full S3 URI from an output destination and key."""
-    bucket_name, _ = parse_s3_path(output_destination)
-    return f's3://{bucket_name}/{key}'
 
 
 class BaseStorageManager:
@@ -38,27 +33,27 @@ class BaseStorageManager:
         """Return the existing filenames for the given destination."""
         raise NotImplementedError
 
-    def file_exists(self, output_destination, filename):
+    def file_exists(self, filepath):
         """Return whether the provided key exists in the destination."""
         raise NotImplementedError
 
-    def read_csv(self, output_destination, filename):
+    def read_csv(self, filepath):
         """Read a CSV artifact from storage."""
         raise NotImplementedError
 
-    def write_csv(self, result, output_destination, filename):
+    def write_csv(self, result, filepath):
         """Write a CSV artifact to storage."""
         raise NotImplementedError
 
-    def _load_job_result(self, output_destination, filename):
+    def _load_job_result(self, filepath):
         """Load a per-job result CSV if it exists, otherwise return None."""
         raise NotImplementedError
 
-    def update_metainfo(self, output_destination, filename, content):
+    def update_metainfo(self, filepath, content):
         """Update metainfo for an artifact."""
         raise NotImplementedError
 
-    def delete(self, output_destination, filename):
+    def delete(self, filepath):
         """Delete an artifact from storage."""
         raise NotImplementedError
 
@@ -106,16 +101,14 @@ class S3StorageManager(BaseStorageManager):
             aws_secret_access_key=aws_credentials.get('aws_secret_access_key'),
         )
 
-    def _get_s3_resources(self, output_destination):
+    def _get_s3_resources(self, filepath):
         """Return the S3 client and bucket name for a destination."""
-        if not self.handles_destination(output_destination):
-            raise ValueError(
-                f'S3StorageManager only supports S3 paths. Found: {output_destination!r}.'
-            )
+        if not is_s3_path(filepath):
+            raise ValueError(f'S3StorageManager only supports S3 paths. Found: {filepath!r}.')
 
         s3_client = self._get_client()
-        bucket_name, _ = parse_s3_path(output_destination)
-        return s3_client, bucket_name
+        bucket_name, key = parse_s3_path(filepath)
+        return s3_client, bucket_name, key
 
     def list_files(self, output_destination):
         """List files under the provided S3 output destination."""
@@ -132,41 +125,42 @@ class S3StorageManager(BaseStorageManager):
         """Return the existing filenames for the given destination."""
         return {obj['Key'] for obj in self.list_files(output_destination)}
 
-    def file_exists(self, output_destination, key):
-        """Return whether the provided key exists."""
-        return key in self.get_existing_filenames(output_destination)
+    def file_exists(self, filepath):
+        """Check if a file exists in S3."""
+        s3_client, bucket_name, key = self._get_s3_resources(filepath)
+        try:
+            s3_client.head_object(Bucket=bucket_name, Key=key)
+            return True
+        except ClientError as error:
+            if error.response['Error']['Code'] == '404':
+                return False
 
-    def read_csv(self, output_destination, filename):
+            raise
+
+    def read_csv(self, filepath):
         """Read a CSV artifact from S3."""
-        s3_client, bucket_name = self._get_s3_resources(output_destination)
-        response = s3_client.get_object(Bucket=bucket_name, Key=filename)
+        s3_client, bucket_name, key = self._get_s3_resources(filepath)
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
         return pd.read_csv(io.BytesIO(response['Body'].read()))
 
-    def write_csv(self, result, output_destination, filename):
-        """Write a CSV artifact to S3."""
-        bucket_name, _ = parse_s3_path(output_destination)
-        file_path = f's3://{bucket_name}/{filename}'
-        self._get_writer().write_dataframe(result, file_path, index=False)
+    def write_csv(self, result, filepath):
+        self._get_writer().write_dataframe(result, filepath, index=False)
 
-    def _load_job_result(self, output_destination, filename):
-        """Load a per-job result CSV if it exists, otherwise return None."""
-        if not self.file_exists(output_destination, filename):
+    def _load_job_result(self, filepath):
+        if not self.file_exists(filepath):
             return None
 
-        return self.read_csv(output_destination, filename)
+        return self.read_csv(filepath)
 
-    def update_metainfo(self, output_destination, filename, content):
+    def update_metainfo(self, filepath, content):
         """Update metainfo for an artifact."""
-        file_path = _build_s3_uri(output_destination, filename)
-        self._get_writer().write_yaml(data=content, file_path=file_path, append=True)
+        self._get_writer().write_yaml(data=content, file_path=filepath, append=True)
 
-    def delete(self, output_destination, key):
+    def delete(self, filepath):
         """Delete an artifact from storage."""
-        s3_client, bucket_name = self._get_s3_resources(output_destination)
+        s3_client, bucket_name, key = self._get_s3_resources(filepath)
         s3_client.delete_object(Bucket=bucket_name, Key=key)
 
     def save_pickle(self, object, filepath):
         """Save a picklable object to S3."""
-        bucket_name, key = parse_s3_path(filepath)
-        file_path = f's3://{bucket_name}/{key}'
-        self._get_writer().write_pickle(object, file_path)
+        self._get_writer().write_pickle(object, filepath)

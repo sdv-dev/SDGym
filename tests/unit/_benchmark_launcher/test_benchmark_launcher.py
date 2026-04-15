@@ -155,11 +155,18 @@ class TestBenchmarkLauncher:
         assert result_no_suffix == 'CTGAN'
         assert result_with_suffix == 'CTGAN(2)'
 
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_instance_artifact_filepaths')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_artifact_filepaths')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_output_destination')
     def test_build_instance_artifacts(
-        self, mock_build_job_output_destination, mock_add_dataset_suffix, mock_get_top_folder_prefix
+        self,
+        mock_build_job_output_destination,
+        mock_add_dataset_suffix,
+        mock_get_top_folder_prefix,
+        mock_build_job_artifact_filepaths,
+        mock_build_instance_artifact_filepaths,
     ):
         """Test the `_build_instance_artifacts` method."""
         # Setup
@@ -172,8 +179,25 @@ class TestBenchmarkLauncher:
             's3://bucket/prefix/dataset_1/Synth1(1)/',
             's3://bucket/prefix/dataset_2/Synth1(1)/',
         ]
-        mock_get_top_folder_prefix.side_effect = [('prefix', 'prefix_job')]
+        mock_get_top_folder_prefix.return_value = ('prefix', 'prefix_job')
         mock_add_dataset_suffix.side_effect = ['dataset_1', 'dataset_2']
+        mock_build_job_artifact_filepaths.side_effect = [
+            (
+                's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_benchmark_result.csv',
+                's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_synthetic_data.csv',
+                's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1).pkl',
+            ),
+            (
+                's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_benchmark_result.csv',
+                's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_synthetic_data.csv',
+                's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1).pkl',
+            ),
+        ]
+        mock_build_instance_artifact_filepaths.return_value = {
+            'metainfo_filepath': 's3://bucket/prefix/metainfo(1).yaml',
+            'result_filepath': 's3://bucket/prefix/results(1).csv',
+            'job_arg_filepath': 's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
+        }
 
         # Run
         result = launcher._build_instance_artifacts(
@@ -200,11 +224,34 @@ class TestBenchmarkLauncher:
                 artifact_synthesizer='Synth1(1)',
             ),
         ]
+        assert mock_build_job_artifact_filepaths.call_args_list == [
+            call(
+                artifact_key_prefix='prefix',
+                artifact_dataset='dataset_1',
+                artifact_synthesizer='Synth1(1)',
+                modality='single_table',
+                output_destination='s3://bucket/path',
+            ),
+            call(
+                artifact_key_prefix='prefix',
+                artifact_dataset='dataset_2',
+                artifact_synthesizer='Synth1(1)',
+                modality='single_table',
+                output_destination='s3://bucket/path',
+            ),
+        ]
+        mock_build_instance_artifact_filepaths.assert_called_once_with(
+            output_destination='s3://bucket/path',
+            artifact_key_prefix='prefix',
+            modality_prefix='prefix_job',
+            metainfo_name='metainfo(1)',
+            results_name='results(1)',
+        )
         assert result == {
-            'result_key': 'prefix/results(1).csv',
-            'metainfo_key': 'prefix/metainfo(1).yaml',
             'output_destination': 's3://bucket/path',
-            'job_arg_key': 'prefix_job/job_args_list_metainfo(1).pkl.gz',
+            'metainfo_filepath': 's3://bucket/prefix/metainfo(1).yaml',
+            'result_filepath': 's3://bucket/prefix/results(1).csv',
+            'job_arg_filepath': 's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
             'jobs': [
                 {
                     'dataset': 'dataset1',
@@ -213,11 +260,13 @@ class TestBenchmarkLauncher:
                     'artifact_synthesizer': 'Synth1(1)',
                     'artifact_key_prefix': 'prefix',
                     'job_output_destination': 's3://bucket/prefix/dataset_1/Synth1(1)/',
-                    'benchmark_result_key': (
-                        'prefix/dataset_1/Synth1(1)/Synth1(1)_benchmark_result.csv'
+                    'benchmark_result_filepath': (
+                        's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_benchmark_result.csv'
                     ),
-                    'synthetic_data_key': 'prefix/dataset_1/Synth1(1)/Synth1(1)_synthetic_data.csv',
-                    'synthesizer_key': 'prefix/dataset_1/Synth1(1)/Synth1(1).pkl',
+                    'synthetic_data_filepath': (
+                        's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_synthetic_data.csv'
+                    ),
+                    'synthesizer_filepath': 's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1).pkl',
                 },
                 {
                     'dataset': 'dataset2',
@@ -226,11 +275,13 @@ class TestBenchmarkLauncher:
                     'artifact_synthesizer': 'Synth1(1)',
                     'artifact_key_prefix': 'prefix',
                     'job_output_destination': 's3://bucket/prefix/dataset_2/Synth1(1)/',
-                    'benchmark_result_key': (
-                        'prefix/dataset_2/Synth1(1)/Synth1(1)_benchmark_result.csv'
+                    'benchmark_result_filepath': (
+                        's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_benchmark_result.csv'
                     ),
-                    'synthetic_data_key': 'prefix/dataset_2/Synth1(1)/Synth1(1)_synthetic_data.csv',
-                    'synthesizer_key': 'prefix/dataset_2/Synth1(1)/Synth1(1).pkl',
+                    'synthetic_data_filepath': (
+                        's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_synthetic_data.csv'
+                    ),
+                    'synthesizer_filepath': 's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1).pkl',
                 },
             ],
         }
@@ -288,6 +339,8 @@ class TestBenchmarkLauncher:
         side_effect=[['d1'], ['d2']],
     )
     @patch('sdgym._benchmark_launcher.benchmark_launcher.resolve_compute')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_instance_artifact_filepaths')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_artifact_filepaths')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_output_destination')
@@ -296,6 +349,8 @@ class TestBenchmarkLauncher:
         mock_build_job_output_destination,
         mock_add_dataset_suffix,
         mock_get_top_folder_prefix,
+        mock_build_job_artifact_filepaths,
+        mock_build_instance_artifact_filepaths,
         mock_resolve_compute,
         mock_resolve_datasets,
         mock_resolve_credentials,
@@ -304,8 +359,8 @@ class TestBenchmarkLauncher:
         """Test `_launch` calls the underlying benchmark method for each job."""
         # Setup
         output_destination = 's3://bucket/prefix/'
-        output_destination_artifact_1 = 's3://bucket/prefix/dataset_1/Synth1(1)/'
-        output_destination_artifact_2 = 's3://bucket/prefix/dataset_2/Synth1(1)/'
+        output_destination_artifact_1 = 's3://bucket/prefix/d1_artifact/Synth1/'
+        output_destination_artifact_2 = 's3://bucket/prefix/d2_artifact/Synth2(1)/'
         config = BenchmarkConfig.load_from_dict({
             'modality': 'single_table',
             'compute': {
@@ -345,6 +400,32 @@ class TestBenchmarkLauncher:
         mock_build_job_output_destination.side_effect = [
             output_destination_artifact_1,
             output_destination_artifact_2,
+        ]
+        mock_build_job_artifact_filepaths.side_effect = [
+            (
+                's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1_benchmark_result.csv',
+                's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1_synthetic_data.csv',
+                's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1.pkl',
+            ),
+            (
+                's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1)_benchmark_result.csv',
+                's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1)_synthetic_data.csv',
+                's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1).pkl',
+            ),
+        ]
+        mock_build_instance_artifact_filepaths.side_effect = [
+            {
+                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo.yaml',
+                'result_filepath': 's3://bucket/artifact-prefix/results.csv',
+                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
+            },
+            {
+                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo(1).yaml',
+                'result_filepath': 's3://bucket/artifact-prefix/results(1).csv',
+                'job_arg_filepath': (
+                    's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz'
+                ),
+            },
         ]
         mock_resolve_compute.return_value = {
             'service': 'gcp',
@@ -389,9 +470,9 @@ class TestBenchmarkLauncher:
         assert launcher._instance_name_to_artifacts == {
             'instance-1': {
                 'output_destination': output_destination,
-                'metainfo_key': 'artifact-prefix/metainfo.yaml',
-                'result_key': 'artifact-prefix/results.csv',
-                'job_arg_key': 'modality_prefix/job_args_list_metainfo.pkl.gz',
+                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo.yaml',
+                'result_filepath': 's3://bucket/artifact-prefix/results.csv',
+                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
                 'jobs': [
                     {
                         'dataset': 'd1',
@@ -400,21 +481,25 @@ class TestBenchmarkLauncher:
                         'artifact_synthesizer': 'Synth1',
                         'artifact_key_prefix': 'artifact-prefix',
                         'job_output_destination': output_destination_artifact_1,
-                        'benchmark_result_key': (
-                            'artifact-prefix/d1_artifact/Synth1/Synth1_benchmark_result.csv'
+                        'benchmark_result_filepath': (
+                            's3://bucket/artifact-prefix/d1_artifact/Synth1/'
+                            'Synth1_benchmark_result.csv'
                         ),
-                        'synthetic_data_key': (
-                            'artifact-prefix/d1_artifact/Synth1/Synth1_synthetic_data.csv'
+                        'synthetic_data_filepath': (
+                            's3://bucket/artifact-prefix/d1_artifact/Synth1/'
+                            'Synth1_synthetic_data.csv'
                         ),
-                        'synthesizer_key': ('artifact-prefix/d1_artifact/Synth1/Synth1.pkl'),
+                        'synthesizer_filepath': (
+                            's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1.pkl'
+                        ),
                     }
                 ],
             },
             'instance-2': {
                 'output_destination': output_destination,
-                'metainfo_key': 'artifact-prefix/metainfo(1).yaml',
-                'result_key': 'artifact-prefix/results(1).csv',
-                'job_arg_key': 'modality_prefix/job_args_list_metainfo(1).pkl.gz',
+                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo(1).yaml',
+                'result_filepath': 's3://bucket/artifact-prefix/results(1).csv',
+                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz',
                 'jobs': [
                     {
                         'dataset': 'd2',
@@ -423,13 +508,17 @@ class TestBenchmarkLauncher:
                         'artifact_synthesizer': 'Synth2(1)',
                         'artifact_key_prefix': 'artifact-prefix',
                         'job_output_destination': output_destination_artifact_2,
-                        'benchmark_result_key': (
-                            'artifact-prefix/d2_artifact/Synth2(1)/Synth2(1)_benchmark_result.csv'
+                        'benchmark_result_filepath': (
+                            's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/'
+                            'Synth2(1)_benchmark_result.csv'
                         ),
-                        'synthetic_data_key': (
-                            'artifact-prefix/d2_artifact/Synth2(1)/Synth2(1)_synthetic_data.csv'
+                        'synthetic_data_filepath': (
+                            's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/'
+                            'Synth2(1)_synthetic_data.csv'
                         ),
-                        'synthesizer_key': ('artifact-prefix/d2_artifact/Synth2(1)/Synth2(1).pkl'),
+                        'synthesizer_filepath': (
+                            's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1).pkl'
+                        ),
                     }
                 ],
             },
@@ -1119,8 +1208,7 @@ class TestBenchmarkLauncher:
         launcher._instance_name_to_artifacts = {
             'instance-1': {
                 'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
-                'result_key': 'prefix/results.csv',
-                'output_destination': 's3://bucket/path',
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
             }
         }
 
@@ -1129,12 +1217,10 @@ class TestBenchmarkLauncher:
 
         # Assert
         launcher._storage_manager.file_exists.assert_called_once_with(
-            's3://bucket/path',
-            'prefix/results.csv',
+            's3://bucket/path/prefix/results.csv',
         )
         launcher._storage_manager.read_csv.assert_called_once_with(
-            output_destination='s3://bucket/path',
-            filename='prefix/results.csv',
+            's3://bucket/path/prefix/results.csv',
         )
         pd.testing.assert_frame_equal(result, expected)
 
@@ -1164,16 +1250,15 @@ class TestBenchmarkLauncher:
                     {
                         'dataset': 'adult',
                         'synthesizer': 'CTGAN',
-                        'benchmark_result_key': 'adult/CTGAN/result.csv',
+                        'benchmark_result_filepath': 's3://bucket/adult/CTGAN/result.csv',
                     },
                     {
                         'dataset': 'alarm',
                         'synthesizer': 'TVAE',
-                        'benchmark_result_key': 'alarm/TVAE/result.csv',
+                        'benchmark_result_filepath': 's3://bucket/alarm/TVAE/result.csv',
                     },
                 ],
-                'result_key': 'prefix/results.csv',
-                'output_destination': 's3://bucket/path',
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
             }
         }
         expected = pd.DataFrame([
@@ -1186,23 +1271,16 @@ class TestBenchmarkLauncher:
 
         # Assert
         launcher._storage_manager.file_exists.assert_called_once_with(
-            's3://bucket/path',
-            'prefix/results.csv',
+            's3://bucket/path/prefix/results.csv',
         )
         assert launcher._storage_manager._load_job_result.call_args_list == [
-            call(
-                output_destination='s3://bucket/path',
-                filename='adult/CTGAN/result.csv',
-            ),
-            call(
-                output_destination='s3://bucket/path',
-                filename='alarm/TVAE/result.csv',
-            ),
+            call('s3://bucket/adult/CTGAN/result.csv'),
+            call('s3://bucket/alarm/TVAE/result.csv'),
         ]
         launcher._build_missing_result_row.assert_called_once_with({
             'dataset': 'alarm',
             'synthesizer': 'TVAE',
-            'benchmark_result_key': 'alarm/TVAE/result.csv',
+            'benchmark_result_filepath': 's3://bucket/alarm/TVAE/result.csv',
         })
         pd.testing.assert_frame_equal(result, expected)
 
@@ -1218,8 +1296,7 @@ class TestBenchmarkLauncher:
         launcher._storage_manager = Mock()
         launcher._instance_name_to_artifacts = {
             'instance-1': {
-                'metainfo_key': 'prefix/metainfo.yaml',
-                'output_destination': 's3://bucket/path',
+                'metainfo_filepath': 's3://bucket/path/prefix/metainfo.yaml',
             }
         }
         mock_timestamp.now.return_value.strftime.return_value = '14_04_2026 12:00:00'
@@ -1229,8 +1306,7 @@ class TestBenchmarkLauncher:
 
         # Assert
         launcher._storage_manager.update_metainfo.assert_called_once_with(
-            's3://bucket/path',
-            'prefix/metainfo.yaml',
+            's3://bucket/path/prefix/metainfo.yaml',
             {'completed_date': '14_04_2026 12:00:00'},
         )
 
@@ -1253,15 +1329,15 @@ class TestBenchmarkLauncher:
         launcher._instance_name_to_artifacts = {
             'instance-1': {
                 'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
-                'output_destination': 's3://bucket/path',
-                'result_key': 'prefix/results.csv',
-                'job_arg_key': 'single_table/job_args_list_metainfo.yaml',
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+                'job_arg_filepath': 's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz',
             },
             'instance-2': {
                 'jobs': [],
-                'output_destination': 's3://bucket/other-path',
-                'result_key': 'prefix/results(1).csv',
-                'job_arg_key': 'single_table/job_args_list_metainfo(1).yaml',
+                'result_filepath': 's3://bucket/other-path/prefix/results(1).csv',
+                'job_arg_filepath': (
+                    's3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'
+                ),
             },
         }
 
@@ -1272,15 +1348,20 @@ class TestBenchmarkLauncher:
         launcher._validate_compute_service.assert_called_once_with()
         launcher._update_instance_statuses.assert_called_once_with()
         launcher._get_all_instance_names.assert_called_once_with()
-        launcher._build_or_load_instance_results.assert_called_once_with('instance-1')
-        launcher._storage_manager.write_csv.assert_called_once_with(
-            result=result_df,
-            output_destination='s3://bucket/path',
-            filename='prefix/results.csv',
-        )
-        launcher._storage_manager.delete.assert_called_once_with(
-            's3://bucket/path',
-            'single_table/job_args_list_metainfo.yaml',
-        )
-        launcher._update_instance_metainfo.assert_called_once_with('instance-1')
+        assert launcher._build_or_load_instance_results.call_args_list == [
+            call('instance-1'),
+            call('instance-2'),
+        ]
+        assert launcher._storage_manager.write_csv.call_args_list == [
+            call(result=result_df, filepath='s3://bucket/path/prefix/results.csv'),
+            call(result=result_df, filepath='s3://bucket/other-path/prefix/results(1).csv'),
+        ]
+        assert launcher._storage_manager.delete.call_args_list == [
+            call('s3://bucket/path/single_table/job_args_list_metainfo.pkl.gz'),
+            call('s3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'),
+        ]
+        assert launcher._update_instance_metainfo.call_args_list == [
+            call('instance-1'),
+            call('instance-2'),
+        ]
         launcher.terminate.assert_called_once_with(verbose=True)

@@ -5,11 +5,11 @@ from unittest.mock import Mock, call, patch
 
 import pandas as pd
 import pytest
+from botocore.exceptions import ClientError
 
 from sdgym._benchmark_launcher._storage_manager import (
     BaseStorageManager,
     S3StorageManager,
-    _build_s3_uri,
     _validate_s3_output_destinations,
 )
 
@@ -52,20 +52,6 @@ def test_validate_s3_output_destinations_invalid_path(mock_is_s3_path):
         _validate_s3_output_destinations(instance_jobs)
 
 
-@patch('sdgym._benchmark_launcher._storage_manager.parse_s3_path')
-def test_build_s3_uri(mock_parse_s3_path):
-    """Test the `_build_s3_uri` method."""
-    # Setup
-    mock_parse_s3_path.return_value = ('my-bucket', 'prefix')
-
-    # Run
-    result = _build_s3_uri('s3://my-bucket/prefix', 'path/to/file.csv')
-
-    # Assert
-    mock_parse_s3_path.assert_called_once_with('s3://my-bucket/prefix')
-    assert result == 's3://my-bucket/path/to/file.csv'
-
-
 class TestBaseStorageManager:
     def test_list_files(self):
         """Test the `list_files` method."""
@@ -101,7 +87,7 @@ class TestBaseStorageManager:
 
         # Run and Assert
         with pytest.raises(NotImplementedError):
-            storage_manager.file_exists('s3://bucket/prefix', 'file.csv')
+            storage_manager.file_exists('s3://bucket/prefix/file.csv')
 
     def test_read_csv(self):
         """Test the `read_csv` method."""
@@ -110,7 +96,7 @@ class TestBaseStorageManager:
 
         # Run and Assert
         with pytest.raises(NotImplementedError):
-            storage_manager.read_csv('s3://bucket/prefix', 'file.csv')
+            storage_manager.read_csv('s3://bucket/prefix/file.csv')
 
     def test_write_csv(self):
         """Test the `write_csv` method."""
@@ -119,7 +105,7 @@ class TestBaseStorageManager:
 
         # Run and Assert
         with pytest.raises(NotImplementedError):
-            storage_manager.write_csv(Mock(), 's3://bucket/prefix', 'file.csv')
+            storage_manager.write_csv(Mock(), 's3://bucket/prefix/file.csv')
 
     def test__load_job_result(self):
         """Test the `_load_job_result` method."""
@@ -128,7 +114,7 @@ class TestBaseStorageManager:
 
         # Run and Assert
         with pytest.raises(NotImplementedError):
-            storage_manager._load_job_result('s3://bucket/prefix', 'job_result.csv')
+            storage_manager._load_job_result('s3://bucket/prefix/job_result.csv')
 
     def test_update_metainfo(self):
         """Test the `update_metainfo` method."""
@@ -137,7 +123,7 @@ class TestBaseStorageManager:
 
         # Run and Assert
         with pytest.raises(NotImplementedError):
-            storage_manager.update_metainfo('s3://bucket/prefix', 'metainfo.yaml', {'a': 1})
+            storage_manager.update_metainfo('s3://bucket/prefix/metainfo.yaml', {'a': 1})
 
     def test_delete(self):
         """Test the `delete` method."""
@@ -146,7 +132,7 @@ class TestBaseStorageManager:
 
         # Run and Assert
         with pytest.raises(NotImplementedError):
-            storage_manager.delete('s3://bucket/prefix', 'file.csv')
+            storage_manager.delete('s3://bucket/prefix/file.csv')
 
     def test_save_pickle(self):
         """Test the `save_pickle` method."""
@@ -333,29 +319,31 @@ class TestS3StorageManager:
         mock_s3_results_writer.assert_not_called()
         assert result == storage_manager._writer
 
+    @patch('sdgym._benchmark_launcher._storage_manager.is_s3_path')
     @patch('sdgym._benchmark_launcher._storage_manager.parse_s3_path')
-    def test_get_s3_resources(self, mock_parse_s3_path):
+    def test_get_s3_resources(self, mock_parse_s3_path, mock_is_s3_path):
         """Test the `_get_s3_resources` method."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
-        storage_manager.handles_destination = Mock(return_value=True)
         storage_manager._get_client = Mock(return_value='s3-client')
-        mock_parse_s3_path.return_value = ('bucket', 'prefix')
+        mock_is_s3_path.return_value = True
+        mock_parse_s3_path.return_value = ('bucket', 'prefix/file.csv')
 
         # Run
-        result = storage_manager._get_s3_resources('s3://bucket/prefix')
+        result = storage_manager._get_s3_resources('s3://bucket/prefix/file.csv')
 
         # Assert
-        storage_manager.handles_destination.assert_called_once_with('s3://bucket/prefix')
+        mock_is_s3_path.assert_called_once_with('s3://bucket/prefix/file.csv')
         storage_manager._get_client.assert_called_once_with()
-        mock_parse_s3_path.assert_called_once_with('s3://bucket/prefix')
-        assert result == ('s3-client', 'bucket')
+        mock_parse_s3_path.assert_called_once_with('s3://bucket/prefix/file.csv')
+        assert result == ('s3-client', 'bucket', 'prefix/file.csv')
 
-    def test_get_s3_resources_invalid_destination(self):
+    @patch('sdgym._benchmark_launcher._storage_manager.is_s3_path')
+    def test_get_s3_resources_invalid_destination(self, mock_is_s3_path):
         """Test `_get_s3_resources` raises an error for unsupported destinations."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
-        storage_manager.handles_destination = Mock(return_value=False)
+        mock_is_s3_path.return_value = False
         expected_message = re.escape(
             "S3StorageManager only supports S3 paths. Found: 'not-a-valid-path'."
         )
@@ -364,25 +352,75 @@ class TestS3StorageManager:
         with pytest.raises(ValueError, match=expected_message):
             storage_manager._get_s3_resources('not-a-valid-path')
 
-        storage_manager.handles_destination.assert_called_once_with('not-a-valid-path')
+        mock_is_s3_path.assert_called_once_with('not-a-valid-path')
 
     def test_file_exists(self):
         """Test the `file_exists` method."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
-        storage_manager.get_existing_filenames = Mock(return_value={'a.csv', 'b.csv'})
+        s3_client = Mock()
+        storage_manager._get_s3_resources = Mock(
+            return_value=(s3_client, 'bucket', 'prefix/file.csv')
+        )
 
         # Run
-        result = storage_manager.file_exists('s3://bucket/prefix', 'a.csv')
-        result_false = storage_manager.file_exists('s3://bucket/prefix', 'c.csv')
+        result = storage_manager.file_exists('s3://bucket/prefix/file.csv')
 
         # Assert
+        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix/file.csv')
+        s3_client.head_object.assert_called_once_with(
+            Bucket='bucket',
+            Key='prefix/file.csv',
+        )
         assert result is True
-        assert result_false is False
-        assert storage_manager.get_existing_filenames.call_args_list == [
-            call('s3://bucket/prefix'),
-            call('s3://bucket/prefix'),
-        ]
+
+    def test_file_exists_returns_false_for_404(self):
+        """Test the `file_exists` method when the file does not exist."""
+        # Setup
+        storage_manager = S3StorageManager('creds.json', [])
+        s3_client = Mock()
+        s3_client.head_object.side_effect = ClientError(
+            error_response={'Error': {'Code': '404'}},
+            operation_name='HeadObject',
+        )
+        storage_manager._get_s3_resources = Mock(
+            return_value=(s3_client, 'bucket', 'prefix/file.csv')
+        )
+
+        # Run
+        result = storage_manager.file_exists('s3://bucket/prefix/file.csv')
+
+        # Assert
+        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix/file.csv')
+        s3_client.head_object.assert_called_once_with(
+            Bucket='bucket',
+            Key='prefix/file.csv',
+        )
+        assert result is False
+
+    def test_file_exists_raises_unexpected_client_error(self):
+        """Test the `file_exists` method re-raises unexpected client errors."""
+        # Setup
+        storage_manager = S3StorageManager('creds.json', [])
+        s3_client = Mock()
+        error = ClientError(
+            error_response={'Error': {'Code': '403'}},
+            operation_name='HeadObject',
+        )
+        s3_client.head_object.side_effect = error
+        storage_manager._get_s3_resources = Mock(
+            return_value=(s3_client, 'bucket', 'prefix/file.csv')
+        )
+
+        # Run and Assert
+        with pytest.raises(ClientError, match='HeadObject'):
+            storage_manager.file_exists('s3://bucket/prefix/file.csv')
+
+        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix/file.csv')
+        s3_client.head_object.assert_called_once_with(
+            Bucket='bucket',
+            Key='prefix/file.csv',
+        )
 
     @patch('sdgym._benchmark_launcher._storage_manager.pd.read_csv')
     def test_read_csv(self, mock_read_csv):
@@ -393,33 +431,32 @@ class TestS3StorageManager:
         body.read.return_value = b'col1,col2\n1,2\n'
         s3_client = Mock()
         s3_client.get_object.return_value = {'Body': body}
-        storage_manager._get_s3_resources = Mock(return_value=(s3_client, 'bucket'))
+        storage_manager._get_s3_resources = Mock(
+            return_value=(s3_client, 'bucket', 'prefix/file.csv')
+        )
         mock_df = Mock()
         mock_read_csv.return_value = mock_df
 
         # Run
-        result = storage_manager.read_csv('s3://bucket/prefix', 'prefix/file.csv')
+        result = storage_manager.read_csv('s3://bucket/prefix/file.csv')
 
         # Assert
-        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix')
+        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix/file.csv')
         s3_client.get_object.assert_called_once_with(Bucket='bucket', Key='prefix/file.csv')
         mock_read_csv.assert_called_once()
         assert result is mock_df
 
-    @patch('sdgym._benchmark_launcher._storage_manager.parse_s3_path')
-    def test_write_csv(self, mock_parse_s3_path):
+    def test_write_csv(self):
         """Test the `write_csv` method."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
         storage_manager._get_writer = Mock()
         result = pd.DataFrame({'a': [1]})
-        mock_parse_s3_path.return_value = ('bucket', 'prefix')
 
         # Run
-        storage_manager.write_csv(result, 's3://bucket/prefix', 'path/file.csv')
+        storage_manager.write_csv(result, 's3://bucket/path/file.csv')
 
         # Assert
-        mock_parse_s3_path.assert_called_once_with('s3://bucket/prefix')
         storage_manager._get_writer.assert_called_once_with()
         storage_manager._get_writer.return_value.write_dataframe.assert_called_once_with(
             result,
@@ -435,11 +472,11 @@ class TestS3StorageManager:
         storage_manager.read_csv = Mock(return_value='job_result_df')
 
         # Run
-        result = storage_manager._load_job_result('s3://bucket/prefix', 'job.csv')
+        result = storage_manager._load_job_result('s3://bucket/prefix/job.csv')
 
         # Assert
-        storage_manager.file_exists.assert_called_once_with('s3://bucket/prefix', 'job.csv')
-        storage_manager.read_csv.assert_called_once_with('s3://bucket/prefix', 'job.csv')
+        storage_manager.file_exists.assert_called_once_with('s3://bucket/prefix/job.csv')
+        storage_manager.read_csv.assert_called_once_with('s3://bucket/prefix/job.csv')
         assert result == 'job_result_df'
 
     def test__load_job_result_when_file_does_not_exist(self):
@@ -450,30 +487,24 @@ class TestS3StorageManager:
         storage_manager.read_csv = Mock()
 
         # Run
-        result = storage_manager._load_job_result('s3://bucket/prefix', 'job.csv')
+        result = storage_manager._load_job_result('s3://bucket/prefix/job.csv')
 
         # Assert
-        storage_manager.file_exists.assert_called_once_with('s3://bucket/prefix', 'job.csv')
+        storage_manager.file_exists.assert_called_once_with('s3://bucket/prefix/job.csv')
         storage_manager.read_csv.assert_not_called()
         assert result is None
 
-    @patch('sdgym._benchmark_launcher._storage_manager._build_s3_uri')
-    def test_update_metainfo(self, mock_build_s3_uri):
+    def test_update_metainfo(self):
         """Test the `update_metainfo` method."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
         storage_manager._get_writer = Mock()
-        mock_build_s3_uri.return_value = 's3://bucket/prefix/metainfo.yaml'
         content = {'completed_date': '01_01_2026 10:00:00'}
 
         # Run
-        storage_manager.update_metainfo('s3://bucket/prefix', 'prefix/metainfo.yaml', content)
+        storage_manager.update_metainfo('s3://bucket/prefix/metainfo.yaml', content)
 
         # Assert
-        mock_build_s3_uri.assert_called_once_with(
-            's3://bucket/prefix',
-            'prefix/metainfo.yaml',
-        )
         storage_manager._get_writer.assert_called_once_with()
         storage_manager._get_writer.return_value.write_yaml.assert_called_once_with(
             data=content,
@@ -486,32 +517,31 @@ class TestS3StorageManager:
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
         s3_client = Mock()
-        storage_manager._get_s3_resources = Mock(return_value=(s3_client, 'bucket'))
+        storage_manager._get_s3_resources = Mock(
+            return_value=(s3_client, 'bucket', 'prefix/file.csv')
+        )
 
         # Run
-        storage_manager.delete('s3://bucket/prefix', 'prefix/file.csv')
+        storage_manager.delete('s3://bucket/prefix/file.csv')
 
         # Assert
-        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix')
+        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix/file.csv')
         s3_client.delete_object.assert_called_once_with(
             Bucket='bucket',
             Key='prefix/file.csv',
         )
 
-    @patch('sdgym._benchmark_launcher._storage_manager.parse_s3_path')
-    def test_save_pickle(self, mock_parse_s3_path):
+    def test_save_pickle(self):
         """Test the `save_pickle` method."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
         storage_manager._get_writer = Mock()
-        mock_parse_s3_path.return_value = ('bucket', 'prefix/file.pkl')
         obj = {'a': 1}
 
         # Run
         storage_manager.save_pickle(obj, 's3://bucket/prefix/file.pkl')
 
         # Assert
-        mock_parse_s3_path.assert_called_once_with('s3://bucket/prefix/file.pkl')
         storage_manager._get_writer.assert_called_once_with()
         storage_manager._get_writer.return_value.write_pickle.assert_called_once_with(
             obj,
