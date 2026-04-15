@@ -699,8 +699,7 @@ def test_get_result_explorer_exits_and_sets_skip_upload_true(
     explorer_instance.all_runs_complete.assert_called_once_with(folder_name)
     mock_load_pickle_from_s3.assert_called_once_with(
         explorer_instance._handler.s3_client,
-        explorer_instance._handler.bucket_name,
-        f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
+        f'{mock_output_destination_aws}{modality}/{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
     )
     launcher._finalize.assert_not_called()
     mock_logger.warning.assert_called_once_with(f'Run {folder_name} is not complete yet. Exiting.')
@@ -756,8 +755,7 @@ def test_get_result_explorer_finalizes_when_timeout_expires(
     explorer_instance.all_runs_complete.assert_called_once_with(folder_name)
     mock_load_pickle_from_s3.assert_called_once_with(
         explorer_instance._handler.s3_client,
-        explorer_instance._handler.bucket_name,
-        f'{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
+        f'{mock_output_destination_aws}{modality}/{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
     )
     launcher._finalize.assert_called_once_with()
     mock_logger.warning.assert_called_once_with(

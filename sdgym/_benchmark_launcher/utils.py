@@ -282,17 +282,13 @@ def _build_instance_artifact_filepaths(
     results_name,
 ):
     """Build the expected instance-level artifact filepaths."""
-    return {
-        'metainfo_key': _build_s3_uri(
-            output_destination, f'{artifact_key_prefix}/{metainfo_name}.yaml'
-        ),
-        'result_key': _build_s3_uri(
-            output_destination, f'{artifact_key_prefix}/{results_name}.csv'
-        ),
-        'job_arg_key': _build_s3_uri(
+    return (
+        _build_s3_uri(output_destination, f'{artifact_key_prefix}/{metainfo_name}.yaml'),
+        _build_s3_uri(output_destination, f'{artifact_key_prefix}/{results_name}.csv'),
+        _build_s3_uri(
             output_destination, f'{modality_prefix}/job_args_list_{metainfo_name}.pkl.gz'
         ),
-    }
+    )
 
 
 def _build_job_output_destination(

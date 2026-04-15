@@ -505,7 +505,9 @@ class S3ResultsHandler(ResultsHandler):
 
     def load_synthesizer(self, file_path):
         """Load a synthesizer from S3."""
-        return load_pickle_from_s3(self.s3_client, self.bucket_name, f'{self.prefix}{file_path}')
+        return load_pickle_from_s3(
+            self.s3_client, f's3://{self.bucket_name}/{self.prefix}{file_path}'
+        )
 
     def load_synthetic_data(self, file_path):
         """Load synthetic data from S3."""

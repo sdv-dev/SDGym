@@ -193,11 +193,11 @@ class TestBenchmarkLauncher:
                 's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1).pkl',
             ),
         ]
-        mock_build_instance_artifact_filepaths.return_value = {
-            'metainfo_filepath': 's3://bucket/prefix/metainfo(1).yaml',
-            'result_filepath': 's3://bucket/prefix/results(1).csv',
-            'job_arg_filepath': 's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
-        }
+        mock_build_instance_artifact_filepaths.return_value = (
+            's3://bucket/prefix/metainfo(1).yaml',
+            's3://bucket/prefix/results(1).csv',
+            's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
+        )
 
         # Run
         result = launcher._build_instance_artifacts(
@@ -414,18 +414,16 @@ class TestBenchmarkLauncher:
             ),
         ]
         mock_build_instance_artifact_filepaths.side_effect = [
-            {
-                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo.yaml',
-                'result_filepath': 's3://bucket/artifact-prefix/results.csv',
-                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
-            },
-            {
-                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo(1).yaml',
-                'result_filepath': 's3://bucket/artifact-prefix/results(1).csv',
-                'job_arg_filepath': (
-                    's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz'
-                ),
-            },
+            (
+                's3://bucket/artifact-prefix/metainfo.yaml',
+                's3://bucket/artifact-prefix/results.csv',
+                's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
+            ),
+            (
+                's3://bucket/artifact-prefix/metainfo(1).yaml',
+                's3://bucket/artifact-prefix/results(1).csv',
+                's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz',
+            ),
         ]
         mock_resolve_compute.return_value = {
             'service': 'gcp',

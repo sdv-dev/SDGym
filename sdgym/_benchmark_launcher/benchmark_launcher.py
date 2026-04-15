@@ -131,16 +131,19 @@ class BenchmarkLauncher:
 
         metainfo_name = self._add_filename_suffix('metainfo', instance_idx)
         results_name = self._add_filename_suffix('results', instance_idx)
+        metainfo_fp, result_fp, job_arg_fp = _build_instance_artifact_filepaths(
+            output_destination=output_destination,
+            artifact_key_prefix=artifact_key_prefix,
+            modality_prefix=modality_prefix,
+            metainfo_name=metainfo_name,
+            results_name=results_name,
+        )
         results = {
             'jobs': jobs,
             'output_destination': output_destination,
-            **_build_instance_artifact_filepaths(
-                output_destination=output_destination,
-                artifact_key_prefix=artifact_key_prefix,
-                modality_prefix=modality_prefix,
-                metainfo_name=metainfo_name,
-                results_name=results_name,
-            ),
+            'result_filepath': result_fp,
+            'metainfo_filepath': metainfo_fp,
+            'job_arg_filepath': job_arg_fp,
         }
 
         return results
