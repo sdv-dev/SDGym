@@ -1181,7 +1181,7 @@ class TestBenchmarkLauncher:
                 'Synthesizer_Size_MB': None,
                 'Sample_Time': None,
                 'Evaluate_Time': None,
-                'Error': 'Instance Error',
+                'Error': 'Instance Deadline Error',
             }
         ])
 
@@ -1239,7 +1239,7 @@ class TestBenchmarkLauncher:
         ]
         launcher._build_missing_result_row = Mock(
             return_value=pd.DataFrame([
-                {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'Error': 'Instance Error'}
+                {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'Error': 'Instance Deadline Error'}
             ])
         )
         launcher._instance_name_to_artifacts = {
@@ -1261,7 +1261,12 @@ class TestBenchmarkLauncher:
         }
         expected = pd.DataFrame([
             {'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9, 'Error': None},
-            {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'score': None, 'Error': 'Instance Error'},
+            {
+                'Dataset': 'alarm',
+                'Synthesizer': 'TVAE',
+                'score': None,
+                'Error': 'Instance Deadline Error',
+            },
         ])
 
         # Run

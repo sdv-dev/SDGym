@@ -1,11 +1,14 @@
 import io
+import logging
 
 import pandas as pd
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from sdgym._benchmark_launcher.utils import resolve_credentials
 from sdgym.result_writer import S3ResultsWriter
 from sdgym.s3 import _list_s3_bucket_contents, get_s3_client, is_s3_path, parse_s3_path
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _validate_s3_output_destinations(instance_jobs):
@@ -159,7 +162,13 @@ class S3StorageManager(BaseStorageManager):
     def delete(self, filepath):
         """Delete an artifact from storage."""
         s3_client, bucket_name, key = self._get_s3_resources(filepath)
-        s3_client.delete_object(Bucket=bucket_name, Key=key)
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=key)
+            LOGGER.info(f'Deleted S3 object {filepath} successfully.')
+
+        except (ClientError, BotoCoreError):
+            LOGGER.exception(f'Failed to delete S3 object {filepath}.')
+            raise
 
     def save_pickle(self, object, filepath):
         """Save a picklable object to S3."""

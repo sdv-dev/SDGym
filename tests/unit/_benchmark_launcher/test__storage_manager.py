@@ -512,7 +512,8 @@ class TestS3StorageManager:
             append=True,
         )
 
-    def test_delete(self):
+    @patch('sdgym._benchmark_launcher._storage_manager.LOGGER')
+    def test_delete(self, mock_logger):
         """Test the `delete` method."""
         # Setup
         storage_manager = S3StorageManager('creds.json', [])
@@ -525,6 +526,37 @@ class TestS3StorageManager:
         storage_manager.delete('s3://bucket/prefix/file.csv')
 
         # Assert
+        mock_logger.info.assert_called_once_with(
+            'Deleted S3 object s3://bucket/prefix/file.csv successfully.'
+        )
+        storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix/file.csv')
+        s3_client.delete_object.assert_called_once_with(
+            Bucket='bucket',
+            Key='prefix/file.csv',
+        )
+
+    @patch('sdgym._benchmark_launcher._storage_manager.LOGGER')
+    def test_delete_handles_client_error(self, mock_logger):
+        """Test the `delete` method handles client errors."""
+        # Setup
+        storage_manager = S3StorageManager('creds.json', [])
+        s3_client = Mock()
+        error = ClientError(
+            error_response={'Error': {'Code': '403'}},
+            operation_name='DeleteObject',
+        )
+        s3_client.delete_object.side_effect = error
+        storage_manager._get_s3_resources = Mock(
+            return_value=(s3_client, 'bucket', 'prefix/file.csv')
+        )
+
+        # Run and Assert
+        with pytest.raises(ClientError, match='DeleteObject'):
+            storage_manager.delete('s3://bucket/prefix/file.csv')
+
+        mock_logger.exception.assert_called_once_with(
+            'Failed to delete S3 object s3://bucket/prefix/file.csv.'
+        )
         storage_manager._get_s3_resources.assert_called_once_with('s3://bucket/prefix/file.csv')
         s3_client.delete_object.assert_called_once_with(
             Bucket='bucket',

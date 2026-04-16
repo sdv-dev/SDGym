@@ -449,7 +449,7 @@ class BenchmarkLauncher:
                 'Synthesizer_Size_MB': None,
                 'Sample_Time': None,
                 'Evaluate_Time': None,
-                'Error': 'Instance Error',
+                'Error': 'Instance Deadline Error',
             }
         ])
 
