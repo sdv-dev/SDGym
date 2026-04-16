@@ -67,7 +67,7 @@ def main():
     config = _get_config(modality)
     launcher = BenchmarkLauncher(config)
     launcher.launch()
-    launcher._save_from_storage_manager(
+    launcher.save_to_cloud(
         f'{OUTPUT_DESTINATION_AWS}{modality}/{get_result_folder_name(date_str)}/{KEY_BENCHMARK_LAUNCHER}'
     )
 

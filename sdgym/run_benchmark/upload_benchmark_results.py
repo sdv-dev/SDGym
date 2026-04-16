@@ -511,7 +511,7 @@ def get_result_explorer(
             f'Run {folder_name} is not complete yet, and the timeout has expired. '
             'Remaining instances will be terminated.'
         )
-        launcher._finalize()
+        launcher.finalize()
 
     LOGGER.info(f'Run {folder_name} is complete! Proceeding with summarization...')
     if github_env:

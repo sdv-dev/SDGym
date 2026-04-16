@@ -171,7 +171,7 @@ def test_main(
     main()
 
     # Assert
-    launcher._save_from_storage_manager.assert_called_once_with(
+    launcher.save_to_cloud.assert_called_once_with(
         f'{OUTPUT_DESTINATION_AWS}{modality}/{folder_name}/_BENCHMARK_LAUNCHER.pkl'
     )
     mock_benchmark_launcher.assert_called_once_with(config)

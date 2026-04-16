@@ -481,7 +481,7 @@ class BenchmarkLauncher:
         content = {'completed_date': pd.Timestamp.now().strftime('%d_%m_%Y %H:%M:%S')}
         self._storage_manager.update_metainfo(metainfo_filepath, content)
 
-    def _finalize(self):
+    def finalize(self):
         """Finalize the benchmark using the results available so far.
 
         This method is used for an early stop scenario. For each launched instance,
@@ -506,8 +506,8 @@ class BenchmarkLauncher:
 
         self.terminate(verbose=True)
 
-    def _save_from_storage_manager(self, filepath):
-        """Save the benchmark launcher to a file using the storage manager."""
+    def save_to_cloud(self, filepath):
+        """Save the benchmark launcher in the cloud using the storage manager."""
         self._storage_manager.save_pickle(self, filepath)
 
     def save(self, filepath):

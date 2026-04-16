@@ -701,7 +701,7 @@ def test_get_result_explorer_exits_and_sets_skip_upload_true(
         explorer_instance._handler.s3_client,
         f'{mock_output_destination_aws}{modality}/{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
     )
-    launcher._finalize.assert_not_called()
+    launcher.finalize.assert_not_called()
     mock_logger.warning.assert_called_once_with(f'Run {folder_name} is not complete yet. Exiting.')
 
     env_content = Path(github_env).read_text()
@@ -757,7 +757,7 @@ def test_get_result_explorer_finalizes_when_timeout_expires(
         explorer_instance._handler.s3_client,
         f'{mock_output_destination_aws}{modality}/{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
     )
-    launcher._finalize.assert_called_once_with()
+    launcher.finalize.assert_called_once_with()
     mock_logger.warning.assert_called_once_with(
         f'Run {folder_name} is not complete yet, and the timeout has expired. '
         'Remaining instances will be terminated.'

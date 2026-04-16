@@ -1099,8 +1099,8 @@ class TestBenchmarkLauncher:
         mock_dump.assert_called_once()
         assert mock_dump.call_args[0][0] is launcher
 
-    def test__save_from_storage_manager(self):
-        """Test the `_save_from_storage_manager` method."""
+    def test_save_to_cloud(self):
+        """Test the `save_to_cloud` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -1111,7 +1111,7 @@ class TestBenchmarkLauncher:
         launcher._storage_manager.save_pickle.return_value = 'launcher.pkl'
 
         # Run
-        launcher._save_from_storage_manager('launcher.pkl')
+        launcher.save_to_cloud('launcher.pkl')
 
         # Assert
         launcher._storage_manager.save_pickle.assert_called_once_with(launcher, 'launcher.pkl')
@@ -1314,7 +1314,7 @@ class TestBenchmarkLauncher:
         )
 
     def test_finalize(self):
-        """Test the `_finalize` method."""
+        """Test the `finalize` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -1345,7 +1345,7 @@ class TestBenchmarkLauncher:
         }
 
         # Run
-        launcher._finalize()
+        launcher.finalize()
 
         # Assert
         launcher._validate_compute_service.assert_called_once_with()
