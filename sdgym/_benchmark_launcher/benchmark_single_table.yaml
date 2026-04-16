@@ -1,5 +1,5 @@
 modality: single_table
-output_destination: &output_destination 's3://sdgym-benchmark/Benchmarks/'
+output_destination: &output_destination 's3://sdgym-benchmark/Debug/Issue_584/'
 datasets_single_table: &datasets_single_table
   - adult
   - alarm
@@ -37,32 +37,7 @@ instance_jobs:
 
   - output_destination: *output_destination
     synthesizers:
-      - SegmentSynthesizer
-    datasets:
-      include: *datasets_single_table
-
-  - output_destination: *output_destination
-    synthesizers:
-      - XGCSynthesizer
-    datasets:
-      include: *datasets_single_table
-
-  - output_destination: *output_destination
-    synthesizers:
-      - BootstrapSynthesizer
-    datasets:
-      include: *datasets_single_table
-
-  - output_destination: *output_destination
-    synthesizers:
       - CTGANSynthesizer
-    datasets:
-      include: *datasets_single_table
-      exclude: *gan_exclude
-
-  - output_destination: *output_destination
-    synthesizers:
-      - CopulaGANSynthesizer
     datasets:
       include: *datasets_single_table
       exclude: *gan_exclude
@@ -73,59 +48,3 @@ instance_jobs:
     datasets:
       include: *datasets_single_table
       exclude: *rtf_exclude
-
-  - output_destination: *output_destination
-    synthesizers:
-      - RealTabFormerSynthesizer
-    datasets:
-      include:
-        - covtype
-
-  - output_destination: *output_destination
-    synthesizers:
-      - RealTabFormerSynthesizer
-    datasets:
-      include:
-        - intrusion
-
-  - output_destination: *output_destination
-    synthesizers:
-      - RealTabFormerSynthesizer
-    datasets:
-      include:
-        - expedia_hotel_logs
-
-  - output_destination: *output_destination
-    synthesizers:
-      - RealTabFormerSynthesizer
-    datasets:
-      include:
-        - census
-
-  - output_destination: *output_destination
-    synthesizers:
-      - CTGANSynthesizer
-    datasets:
-      include:
-        - covtype
-
-  - output_destination: *output_destination
-    synthesizers:
-      - CopulaGANSynthesizer
-    datasets:
-      include:
-        - covtype
-
-  - output_destination: *output_destination
-    synthesizers:
-      - CTGANSynthesizer
-    datasets:
-      include:
-        - intrusion
-
-  - output_destination: *output_destination
-    synthesizers:
-      - CopulaGANSynthesizer
-    datasets:
-      include:
-        - intrusion

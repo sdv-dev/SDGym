@@ -497,7 +497,7 @@ def get_result_explorer(
         timeout = launcher.benchmark_config.method_params.get('timeout')
         launch_timestamp = pd.to_datetime(launcher._timestamp, format='%d_%m_%Y %H:%M:%S')
         # Add a 1-day grace period to the timeout
-        launch_deadline = launch_timestamp + pd.Timedelta(seconds=timeout) + pd.Timedelta(days=1)
+        launch_deadline = launch_timestamp + pd.Timedelta(seconds=timeout)  # + pd.Timedelta(days=1)
         has_timed_out = pd.Timestamp.now() >= launch_deadline
         if not has_timed_out:
             LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
