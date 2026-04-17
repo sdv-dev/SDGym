@@ -14,6 +14,7 @@ from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
 from sdgym.benchmark import TIMEOUT, _add_adjusted_scores
+from sdgym.s3 import load_pickle_from_s3
 from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
@@ -504,10 +505,9 @@ class S3ResultsHandler(ResultsHandler):
 
     def load_synthesizer(self, file_path):
         """Load a synthesizer from S3."""
-        response = self.s3_client.get_object(
-            Bucket=self.bucket_name, Key=f'{self.prefix}{file_path}'
+        return load_pickle_from_s3(
+            self.s3_client, f's3://{self.bucket_name}/{self.prefix}{file_path}'
         )
-        return cloudpickle.loads(response['Body'].read())
 
     def load_synthetic_data(self, file_path):
         """Load synthetic data from S3."""

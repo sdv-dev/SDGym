@@ -3,6 +3,7 @@
 import re
 from unittest.mock import Mock, call, mock_open, patch
 
+import pandas as pd
 import pytest
 
 from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
@@ -54,7 +55,7 @@ class TestBenchmarkLauncher:
         assert launcher._benchmark_id == 'unique_id'
         assert launcher._launch_to_instance_names == {}
         assert launcher._instance_name_to_status == {}
-        assert launcher._instance_name_to_jobs == {}
+        assert launcher._instance_name_to_artifacts == {}
         assert launcher._instance_manager is instance_manager
         assert launcher._storage_manager is storage_manager
 
@@ -137,8 +138,8 @@ class TestBenchmarkLauncher:
         with pytest.raises(NotImplementedError, match=expected_error):
             launcher._build_storage_manager()
 
-    def test_add_synthesizer_suffix(self):
-        """Test the `_add_synthesizer_suffix` method."""
+    def test__add_filename_suffix(self):
+        """Test the `_add_filename_suffix` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -147,20 +148,27 @@ class TestBenchmarkLauncher:
         launcher = BenchmarkLauncher(benchmark_config)
 
         # Run
-        result_no_suffix = launcher._add_synthesizer_suffix('CTGAN', 0)
-        result_with_suffix = launcher._add_synthesizer_suffix('CTGAN', 2)
+        result_no_suffix = launcher._add_filename_suffix('CTGAN', 0)
+        result_with_suffix = launcher._add_filename_suffix('CTGAN', 2)
 
         # Assert
         assert result_no_suffix == 'CTGAN'
         assert result_with_suffix == 'CTGAN(2)'
 
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_instance_artifact_filepaths')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_artifact_filepaths')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_output_destination')
-    def test_build_instance_jobs(
-        self, mock_build_job_output_destination, mock_add_dataset_suffix, mock_get_top_folder_prefix
+    def test_build_instance_artifacts(
+        self,
+        mock_build_job_output_destination,
+        mock_add_dataset_suffix,
+        mock_get_top_folder_prefix,
+        mock_build_job_artifact_filepaths,
+        mock_build_instance_artifact_filepaths,
     ):
-        """Test the `_build_instance_jobs` method."""
+        """Test the `_build_instance_artifacts` method."""
         # Setup
         benchmark_config = Mock()
         benchmark_config.modality = 'single_table'
@@ -171,11 +179,28 @@ class TestBenchmarkLauncher:
             's3://bucket/prefix/dataset_1/Synth1(1)/',
             's3://bucket/prefix/dataset_2/Synth1(1)/',
         ]
-        mock_get_top_folder_prefix.return_value = 'prefix'
+        mock_get_top_folder_prefix.return_value = ('prefix', 'prefix_job')
         mock_add_dataset_suffix.side_effect = ['dataset_1', 'dataset_2']
+        mock_build_job_artifact_filepaths.side_effect = [
+            (
+                's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_benchmark_result.csv',
+                's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_synthetic_data.csv',
+                's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1).pkl',
+            ),
+            (
+                's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_benchmark_result.csv',
+                's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_synthetic_data.csv',
+                's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1).pkl',
+            ),
+        ]
+        mock_build_instance_artifact_filepaths.return_value = (
+            's3://bucket/prefix/metainfo(1).yaml',
+            's3://bucket/prefix/results(1).csv',
+            's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
+        )
 
         # Run
-        result = launcher._build_instance_jobs(
+        result = launcher._build_instance_artifacts(
             datasets=['dataset1', 'dataset2'],
             synthesizers=['Synth1'],
             output_destination='s3://bucket/path',
@@ -199,26 +224,67 @@ class TestBenchmarkLauncher:
                 artifact_synthesizer='Synth1(1)',
             ),
         ]
-        assert result == [
-            {
-                'dataset': 'dataset1',
-                'synthesizer': 'Synth1',
-                'artifact_dataset': 'dataset_1',
-                'artifact_synthesizer': 'Synth1(1)',
-                'artifact_key_prefix': 'prefix',
-                'output_destination': 's3://bucket/path',
-                'job_output_destination': 's3://bucket/prefix/dataset_1/Synth1(1)/',
-            },
-            {
-                'dataset': 'dataset2',
-                'synthesizer': 'Synth1',
-                'artifact_dataset': 'dataset_2',
-                'artifact_synthesizer': 'Synth1(1)',
-                'artifact_key_prefix': 'prefix',
-                'output_destination': 's3://bucket/path',
-                'job_output_destination': 's3://bucket/prefix/dataset_2/Synth1(1)/',
-            },
+        assert mock_build_job_artifact_filepaths.call_args_list == [
+            call(
+                artifact_key_prefix='prefix',
+                artifact_dataset='dataset_1',
+                artifact_synthesizer='Synth1(1)',
+                modality='single_table',
+                output_destination='s3://bucket/path',
+            ),
+            call(
+                artifact_key_prefix='prefix',
+                artifact_dataset='dataset_2',
+                artifact_synthesizer='Synth1(1)',
+                modality='single_table',
+                output_destination='s3://bucket/path',
+            ),
         ]
+        mock_build_instance_artifact_filepaths.assert_called_once_with(
+            output_destination='s3://bucket/path',
+            artifact_key_prefix='prefix',
+            modality_prefix='prefix_job',
+            metainfo_name='metainfo(1)',
+            results_name='results(1)',
+        )
+        assert result == {
+            'output_destination': 's3://bucket/path',
+            'metainfo_filepath': 's3://bucket/prefix/metainfo(1).yaml',
+            'result_filepath': 's3://bucket/prefix/results(1).csv',
+            'job_arg_filepath': 's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
+            'jobs': [
+                {
+                    'dataset': 'dataset1',
+                    'synthesizer': 'Synth1',
+                    'artifact_dataset': 'dataset_1',
+                    'artifact_synthesizer': 'Synth1(1)',
+                    'artifact_key_prefix': 'prefix',
+                    'job_output_destination': 's3://bucket/prefix/dataset_1/Synth1(1)/',
+                    'benchmark_result_filepath': (
+                        's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_benchmark_result.csv'
+                    ),
+                    'synthetic_data_filepath': (
+                        's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1)_synthetic_data.csv'
+                    ),
+                    'synthesizer_filepath': 's3://bucket/prefix/dataset_1/Synth1(1)/Synth1(1).pkl',
+                },
+                {
+                    'dataset': 'dataset2',
+                    'synthesizer': 'Synth1',
+                    'artifact_dataset': 'dataset_2',
+                    'artifact_synthesizer': 'Synth1(1)',
+                    'artifact_key_prefix': 'prefix',
+                    'job_output_destination': 's3://bucket/prefix/dataset_2/Synth1(1)/',
+                    'benchmark_result_filepath': (
+                        's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_benchmark_result.csv'
+                    ),
+                    'synthetic_data_filepath': (
+                        's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1)_synthetic_data.csv'
+                    ),
+                    'synthesizer_filepath': 's3://bucket/prefix/dataset_2/Synth1(1)/Synth1(1).pkl',
+                },
+            ],
+        }
 
     def test_launch_calls_validate_when_not_validated(self):
         """Test `launch` calls `validate` when `_is_validated` is False."""
@@ -273,6 +339,8 @@ class TestBenchmarkLauncher:
         side_effect=[['d1'], ['d2']],
     )
     @patch('sdgym._benchmark_launcher.benchmark_launcher.resolve_compute')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_instance_artifact_filepaths')
+    @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_artifact_filepaths')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._get_top_folder_prefix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._add_dataset_suffix')
     @patch('sdgym._benchmark_launcher.benchmark_launcher._build_job_output_destination')
@@ -281,6 +349,8 @@ class TestBenchmarkLauncher:
         mock_build_job_output_destination,
         mock_add_dataset_suffix,
         mock_get_top_folder_prefix,
+        mock_build_job_artifact_filepaths,
+        mock_build_instance_artifact_filepaths,
         mock_resolve_compute,
         mock_resolve_datasets,
         mock_resolve_credentials,
@@ -289,8 +359,8 @@ class TestBenchmarkLauncher:
         """Test `_launch` calls the underlying benchmark method for each job."""
         # Setup
         output_destination = 's3://bucket/prefix/'
-        output_destination_artifact_1 = 's3://bucket/prefix/dataset_1/Synth1(1)/'
-        output_destination_artifact_2 = 's3://bucket/prefix/dataset_2/Synth1(1)/'
+        output_destination_artifact_1 = 's3://bucket/prefix/d1_artifact/Synth1/'
+        output_destination_artifact_2 = 's3://bucket/prefix/d2_artifact/Synth2(1)/'
         config = BenchmarkConfig.load_from_dict({
             'modality': 'single_table',
             'compute': {
@@ -325,11 +395,35 @@ class TestBenchmarkLauncher:
         launcher.method_to_run = Mock(name='method_to_run')
         launcher.method_to_run.side_effect = ['instance-1', 'instance-2']
         mock_generate_ids.return_value = 'LAUNCH_ID_1'
-        mock_get_top_folder_prefix.return_value = 'artifact-prefix'
+        mock_get_top_folder_prefix.return_value = ('artifact-prefix', 'modality_prefix')
         mock_add_dataset_suffix.side_effect = ['d1_artifact', 'd2_artifact']
         mock_build_job_output_destination.side_effect = [
             output_destination_artifact_1,
             output_destination_artifact_2,
+        ]
+        mock_build_job_artifact_filepaths.side_effect = [
+            (
+                's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1_benchmark_result.csv',
+                's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1_synthetic_data.csv',
+                's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1.pkl',
+            ),
+            (
+                's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1)_benchmark_result.csv',
+                's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1)_synthetic_data.csv',
+                's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1).pkl',
+            ),
+        ]
+        mock_build_instance_artifact_filepaths.side_effect = [
+            (
+                's3://bucket/artifact-prefix/metainfo.yaml',
+                's3://bucket/artifact-prefix/results.csv',
+                's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
+            ),
+            (
+                's3://bucket/artifact-prefix/metainfo(1).yaml',
+                's3://bucket/artifact-prefix/results(1).csv',
+                's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz',
+            ),
         ]
         mock_resolve_compute.return_value = {
             'service': 'gcp',
@@ -371,29 +465,61 @@ class TestBenchmarkLauncher:
             'instance-1': 'running',
             'instance-2': 'running',
         }
-        assert launcher._instance_name_to_jobs == {
-            'instance-1': [
-                {
-                    'dataset': 'd1',
-                    'synthesizer': 'Synth1',
-                    'artifact_dataset': 'd1_artifact',
-                    'artifact_synthesizer': 'Synth1',
-                    'artifact_key_prefix': 'artifact-prefix',
-                    'output_destination': output_destination,
-                    'job_output_destination': output_destination_artifact_1,
-                }
-            ],
-            'instance-2': [
-                {
-                    'dataset': 'd2',
-                    'synthesizer': 'Synth2',
-                    'artifact_dataset': 'd2_artifact',
-                    'artifact_synthesizer': 'Synth2(1)',
-                    'artifact_key_prefix': 'artifact-prefix',
-                    'output_destination': output_destination,
-                    'job_output_destination': output_destination_artifact_2,
-                }
-            ],
+        assert launcher._instance_name_to_artifacts == {
+            'instance-1': {
+                'output_destination': output_destination,
+                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo.yaml',
+                'result_filepath': 's3://bucket/artifact-prefix/results.csv',
+                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
+                'jobs': [
+                    {
+                        'dataset': 'd1',
+                        'synthesizer': 'Synth1',
+                        'artifact_dataset': 'd1_artifact',
+                        'artifact_synthesizer': 'Synth1',
+                        'artifact_key_prefix': 'artifact-prefix',
+                        'job_output_destination': output_destination_artifact_1,
+                        'benchmark_result_filepath': (
+                            's3://bucket/artifact-prefix/d1_artifact/Synth1/'
+                            'Synth1_benchmark_result.csv'
+                        ),
+                        'synthetic_data_filepath': (
+                            's3://bucket/artifact-prefix/d1_artifact/Synth1/'
+                            'Synth1_synthetic_data.csv'
+                        ),
+                        'synthesizer_filepath': (
+                            's3://bucket/artifact-prefix/d1_artifact/Synth1/Synth1.pkl'
+                        ),
+                    }
+                ],
+            },
+            'instance-2': {
+                'output_destination': output_destination,
+                'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo(1).yaml',
+                'result_filepath': 's3://bucket/artifact-prefix/results(1).csv',
+                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz',
+                'jobs': [
+                    {
+                        'dataset': 'd2',
+                        'synthesizer': 'Synth2',
+                        'artifact_dataset': 'd2_artifact',
+                        'artifact_synthesizer': 'Synth2(1)',
+                        'artifact_key_prefix': 'artifact-prefix',
+                        'job_output_destination': output_destination_artifact_2,
+                        'benchmark_result_filepath': (
+                            's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/'
+                            'Synth2(1)_benchmark_result.csv'
+                        ),
+                        'synthetic_data_filepath': (
+                            's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/'
+                            'Synth2(1)_synthetic_data.csv'
+                        ),
+                        'synthesizer_filepath': (
+                            's3://bucket/artifact-prefix/d2_artifact/Synth2(1)/Synth2(1).pkl'
+                        ),
+                    }
+                ],
+            },
         }
 
     def test_update_instance_statuses(self):
@@ -665,29 +791,32 @@ class TestBenchmarkLauncher:
         benchmark_config.instance_jobs = []
         launcher = BenchmarkLauncher(benchmark_config)
         launcher._validate_instance_names = Mock(return_value=['instance-1', 'instance-2'])
-        launcher._instance_name_to_jobs = {
-            'instance-1': [
-                {
-                    'dataset': 'alarm',
-                    'synthesizer': 'CTGAN',
-                    'artifact_synthesizer': 'CTGAN',
-                    'output_destination': 's3://bucket/prefix-a',
-                },
-            ],
-            'instance-2': [
-                {
-                    'dataset': 'adult',
-                    'synthesizer': 'TVAE',
-                    'artifact_synthesizer': 'TVAE(1)',
-                    'output_destination': 's3://bucket/prefix-a',
-                },
-                {
-                    'dataset': 'census',
-                    'synthesizer': 'CopulaGAN',
-                    'artifact_synthesizer': 'CopulaGAN(1)',
-                    'output_destination': 's3://bucket/prefix-b',
-                },
-            ],
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'output_destination': 's3://bucket/prefix-a',
+                'jobs': [
+                    {
+                        'dataset': 'alarm',
+                        'synthesizer': 'CTGAN',
+                        'artifact_synthesizer': 'CTGAN',
+                    },
+                ],
+            },
+            'instance-2': {
+                'output_destination': 's3://bucket/prefix-b',
+                'jobs': [
+                    {
+                        'dataset': 'adult',
+                        'synthesizer': 'TVAE',
+                        'artifact_synthesizer': 'TVAE(1)',
+                    },
+                    {
+                        'dataset': 'census',
+                        'synthesizer': 'CopulaGAN',
+                        'artifact_synthesizer': 'CopulaGAN(1)',
+                    },
+                ],
+            },
         }
 
         # Run
@@ -875,7 +1004,7 @@ class TestBenchmarkLauncher:
         launcher._get_all_output_destinations = Mock(return_value=['s3://bucket/prefix'])
         launcher._storage_manager.get_existing_filenames = Mock(return_value={'file1', 'file2'})
         launcher._instance_name_to_status = {'instance-1': 'running'}
-        launcher._instance_name_to_jobs = {'instance-1': ['job1']}
+        launcher._instance_name_to_artifacts = {'instance-1': {'jobs': ['job1']}}
         launcher._get_instance_job_rows = Mock(
             return_value=[
                 {
@@ -970,6 +1099,23 @@ class TestBenchmarkLauncher:
         mock_dump.assert_called_once()
         assert mock_dump.call_args[0][0] is launcher
 
+    def test_save_to_cloud(self):
+        """Test the `save_to_cloud` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.save_pickle.return_value = 'launcher.pkl'
+
+        # Run
+        launcher.save_to_cloud('launcher.pkl')
+
+        # Assert
+        launcher._storage_manager.save_pickle.assert_called_once_with(launcher, 'launcher.pkl')
+
     @patch('sdgym._benchmark_launcher.benchmark_launcher.cloudpickle.load')
     @patch('builtins.open', new_callable=mock_open, read_data=b'test')
     def test_load(self, mock_file, mock_load):
@@ -1012,3 +1158,213 @@ class TestBenchmarkLauncher:
             'gcp',
         ])
         assert result._benchmark_id == 'new-id'
+
+    def test_build_missing_result_row(self):
+        """Test the `_build_missing_result_row` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        job = {
+            'dataset': 'adult',
+            'synthesizer': 'CTGAN',
+        }
+        expected = pd.DataFrame([
+            {
+                'Dataset': 'adult',
+                'Synthesizer': 'CTGAN',
+                'Dataset_Size_MB': None,
+                'Train_Time': None,
+                'Peak_Memory_MB': None,
+                'Synthesizer_Size_MB': None,
+                'Sample_Time': None,
+                'Evaluate_Time': None,
+                'Error': 'Instance Deadline Error',
+            }
+        ])
+
+        # Run
+        result = launcher._build_missing_result_row(job)
+
+        # Assert
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_build_or_load_instance_results_loads_existing_results_file(self):
+        """Test `_build_or_load_instance_results` loads the results file when it exists."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        expected = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN'}])
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = True
+        launcher._storage_manager.read_csv.return_value = expected
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+            }
+        }
+
+        # Run
+        result = launcher._build_or_load_instance_results('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path/prefix/results.csv',
+        )
+        launcher._storage_manager.read_csv.assert_called_once_with(
+            's3://bucket/path/prefix/results.csv',
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_build_or_load_instance_results_builds_results_from_job_files(self):
+        """Test `_build_or_load_instance_results` builds results from individual job outputs."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = False
+        result_df = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9}])
+        launcher._storage_manager._load_job_result.side_effect = [
+            result_df,
+            None,
+        ]
+        launcher._build_missing_result_row = Mock(
+            return_value=pd.DataFrame([
+                {'Dataset': 'alarm', 'Synthesizer': 'TVAE', 'Error': 'Instance Deadline Error'}
+            ])
+        )
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'jobs': [
+                    {
+                        'dataset': 'adult',
+                        'synthesizer': 'CTGAN',
+                        'benchmark_result_filepath': 's3://bucket/adult/CTGAN/result.csv',
+                    },
+                    {
+                        'dataset': 'alarm',
+                        'synthesizer': 'TVAE',
+                        'benchmark_result_filepath': 's3://bucket/alarm/TVAE/result.csv',
+                    },
+                ],
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+            }
+        }
+        expected = pd.DataFrame([
+            {'Dataset': 'adult', 'Synthesizer': 'CTGAN', 'score': 0.9, 'Error': None},
+            {
+                'Dataset': 'alarm',
+                'Synthesizer': 'TVAE',
+                'score': None,
+                'Error': 'Instance Deadline Error',
+            },
+        ])
+
+        # Run
+        result = launcher._build_or_load_instance_results('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path/prefix/results.csv',
+        )
+        assert launcher._storage_manager._load_job_result.call_args_list == [
+            call('s3://bucket/adult/CTGAN/result.csv'),
+            call('s3://bucket/alarm/TVAE/result.csv'),
+        ]
+        launcher._build_missing_result_row.assert_called_once_with({
+            'dataset': 'alarm',
+            'synthesizer': 'TVAE',
+            'benchmark_result_filepath': 's3://bucket/alarm/TVAE/result.csv',
+        })
+        pd.testing.assert_frame_equal(result, expected)
+
+    @patch('sdgym._benchmark_launcher.benchmark_launcher.pd.Timestamp')
+    def test_update_instance_metainfo(self, mock_timestamp):
+        """Test the `_update_instance_metainfo` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'metainfo_filepath': 's3://bucket/path/prefix/metainfo.yaml',
+            }
+        }
+        mock_timestamp.now.return_value.strftime.return_value = '14_04_2026 12:00:00'
+
+        # Run
+        launcher._update_instance_metainfo('instance-1')
+
+        # Assert
+        launcher._storage_manager.update_metainfo.assert_called_once_with(
+            's3://bucket/path/prefix/metainfo.yaml',
+            {'completed_date': '14_04_2026 12:00:00'},
+        )
+
+    def test_finalize(self):
+        """Test the `finalize` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._validate_compute_service = Mock()
+        launcher._update_instance_statuses = Mock()
+        launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
+        result_df = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN'}])
+        launcher._build_or_load_instance_results = Mock(return_value=result_df)
+        launcher._update_instance_metainfo = Mock()
+        launcher.terminate = Mock()
+        launcher._storage_manager = Mock()
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+                'job_arg_filepath': 's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz',
+            },
+            'instance-2': {
+                'jobs': [],
+                'result_filepath': 's3://bucket/other-path/prefix/results(1).csv',
+                'job_arg_filepath': (
+                    's3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'
+                ),
+            },
+        }
+
+        # Run
+        launcher.finalize()
+
+        # Assert
+        launcher._validate_compute_service.assert_called_once_with()
+        launcher._update_instance_statuses.assert_called_once_with()
+        launcher._get_all_instance_names.assert_called_once_with()
+        assert launcher._build_or_load_instance_results.call_args_list == [
+            call('instance-1'),
+            call('instance-2'),
+        ]
+        assert launcher._storage_manager.write_csv.call_args_list == [
+            call(result=result_df, filepath='s3://bucket/path/prefix/results.csv'),
+            call(result=result_df, filepath='s3://bucket/other-path/prefix/results(1).csv'),
+        ]
+        assert launcher._storage_manager.delete.call_args_list == [
+            call('s3://bucket/path/single_table/job_args_list_metainfo.pkl.gz'),
+            call('s3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'),
+        ]
+        assert launcher._update_instance_metainfo.call_args_list == [
+            call('instance-1'),
+            call('instance-2'),
+        ]
+        launcher.terminate.assert_called_once_with(verbose=True)
