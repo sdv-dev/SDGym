@@ -138,13 +138,9 @@ def test__get_config(
 @patch('sdgym.run_benchmark.run_benchmark._parse_args')
 @patch('sdgym.run_benchmark.run_benchmark._get_config')
 @patch('sdgym.run_benchmark.run_benchmark.BenchmarkLauncher')
-@patch('sdgym.run_benchmark.run_benchmark._get_s3_client')
-@patch('sdgym.run_benchmark.run_benchmark.S3ResultsWriter')
 @patch('sdgym.run_benchmark.run_benchmark.get_result_folder_name')
 def test_main(
     mock_get_result_folder_name,
-    mock_s3_results_writer,
-    mock__get_s3_client,
     mock_benchmark_launcher,
     mock_get_config,
     mock_parse_args,
@@ -168,10 +164,6 @@ def test_main(
     mock_benchmark_launcher.return_value = launcher
     mock_launch = Mock()
     launcher.launch = mock_launch
-    s3_client = Mock()
-    mock__get_s3_client.return_value = s3_client
-    mock_results_writer = Mock()
-    mock_s3_results_writer.return_value = mock_results_writer
     folder_name = f'SDGym_results_{date}'
     mock_get_result_folder_name.return_value = folder_name
 
@@ -179,16 +171,9 @@ def test_main(
     main()
 
     # Assert
-    mock__get_s3_client.assert_called_once_with(
-        aws_access_key_id='my_access_key',
-        aws_secret_access_key='my_secret_key',
-        output_destination=OUTPUT_DESTINATION_AWS,
+    launcher.save_to_cloud.assert_called_once_with(
+        f'{OUTPUT_DESTINATION_AWS}{modality}/{folder_name}/_BENCHMARK_LAUNCHER.pkl'
     )
-    mock_s3_results_writer.assert_called_once_with(s3_client)
-    mock_results_writer.write_pickle.assert_called_once_with(
-        launcher, f'{OUTPUT_DESTINATION_AWS}{modality}/{folder_name}/_BENCHMARK_LAUNCHER.pkl'
-    )
-
     mock_benchmark_launcher.assert_called_once_with(config)
     launcher.launch.assert_called_once()
     mock_append_benchmark_run.assert_called_once_with(

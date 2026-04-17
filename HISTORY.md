@@ -1,5 +1,17 @@
 # History
 
+## v0.14.3 - 2026-04-17
+
+### Bugs Fixed
+
+* Fix win computation when uploading benchmark result - Issue [#590](https://github.com/sdv-dev/SDGym/issues/590) by @R-Palazzo
+* Latest PyTorch (2.11.0) is not compatible with current GCP GPU benchmark environment - Issue [#589](https://github.com/sdv-dev/SDGym/issues/589) by @R-Palazzo
+
+### Internal
+
+* Make BenchmarkConfig.compute support instance configuration in YAML - Issue [#586](https://github.com/sdv-dev/SDGym/issues/586) by @R-Palazzo
+* Update the upload benchmark workflow to work with the BenchmarkLauncher - Issue [#584](https://github.com/sdv-dev/SDGym/issues/584) by @R-Palazzo
+
 ## v0.14.2 - 2026-04-01
 
 ### Internal

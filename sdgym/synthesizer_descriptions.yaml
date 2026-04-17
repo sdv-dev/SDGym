@@ -103,3 +103,34 @@ DataIdentity:
   description: >
     Degenerate synthesizer that returns the original training data unchanged,
     primarily useful for debugging and benchmarking.
+
+BootstrapSynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: single_table
+  type: Statistical
+  description: >
+    The BootstrapSynthesizer is a synthesizer specifically designed to work when you only have a few rows of data.
+    This synthesizer internally bootstraps your real data, and then uses the bootstrapped data to build a model.
+
+SegmentSynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: single_table
+  type: Statistical
+  description: >
+    The SegmentSynthesizer calculates different segments of real data,
+    and computes a different model for each one. You can supply any single-table
+    synthesizer for computing the per-segment model. Use this when your real data
+    is highly segmented, containing different patterns for each.
+
+XGCSynthesizer:
+  library: sdv
+  organization: Datacebo
+  modality: single_table
+  type: Statistical
+  description: >
+    The XGCSynthesizer stands for eXtraGaussianCopula. It uses classic, statistical methods
+    to train a model and generate synthetic data similar to the GaussianCopulaSynthesizer.
+    However, it contains some additional features for higher quality modeling.
+

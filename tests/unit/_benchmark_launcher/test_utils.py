@@ -8,8 +8,11 @@ import pytest
 from sdgym._benchmark_launcher.utils import (
     MODALITY_TO_CONFIG_FILE,
     _add_dataset_suffix,
+    _build_instance_artifact_filepaths,
+    _build_job_artifact_filepaths,
     _build_job_artifact_keys,
     _build_job_output_destination,
+    _build_s3_uri,
     _deep_merge,
     _env,
     _get_env_credentials,
@@ -20,9 +23,11 @@ from sdgym._benchmark_launcher.utils import (
     _load_json_file,
     _load_merged_modality_config,
     _load_yaml_resource,
+    _resolve_compute_gcp,
     _resolve_datasets,
     _resolve_modality_config,
     generate_ids,
+    resolve_compute,
     resolve_credentials,
 )
 
@@ -45,6 +50,64 @@ def test__load_merged_modality_config_calls_load_yaml_resource(mock_load_yaml):
         call(MODALITY_TO_CONFIG_FILE[modality]),
     ])
     assert merged == {'a': 1, 'b': {'x': 1, 'y': 2}, 'c': 3}
+
+
+def test__resolve_compute_gcp():
+    """Test `_resolve_compute_gcp` method."""
+    # Setup
+    compute = {
+        'service': 'gcp',
+        'instance_type': 'n1-highmem-16',
+        'root_disk_gb': 300,
+        'gpu_count': 1,
+        'boot_image': 'example-image',
+    }
+
+    # Run
+    results = _resolve_compute_gcp(compute)
+
+    # Assert
+    assert results == {
+        'service': 'gcp',
+        'machine_type': 'n1-highmem-16',
+        'disk_size_gb': 300,
+        'gpu_count': 1,
+        'source_image': 'example-image',
+    }
+
+
+@patch('sdgym._benchmark_launcher.utils._resolve_compute_gcp')
+def test_resolve_compute(mock_resolve_compute_gcp):
+    """Test `resolve_compute` method."""
+    # Setup
+    compute = {
+        'service': 'gcp',
+        'instance_type': 'n1-highmem-16',
+        'boot_image': 'projects/example/global/images/family/example',
+    }
+    expected_compute = {
+        'machine_type': 'n1-highmem-16',
+        'source_image': 'projects/example/global/images/family/example',
+    }
+    mock_resolve_compute_gcp.return_value = expected_compute
+
+    # Run
+    resolved = resolve_compute(compute)
+
+    # Assert
+    mock_resolve_compute_gcp.assert_called_once_with(compute)
+    assert resolved == expected_compute
+
+
+def test_resolve_compute_unsupported_service():
+    """Test `resolve_compute` raises for unsupported services."""
+    # Setup
+    compute = {'service': 'unsupported'}
+    expected_message = "compute.service must be one of: 'gcp'. Found: unsupported"
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        resolve_compute(compute)
 
 
 @patch('sdgym._benchmark_launcher.utils._load_merged_modality_config')
@@ -279,7 +342,6 @@ def test__get_gcp_credentials_from_env_uses_individual_env_vars(mock_env):
     # Setup
     values = {
         'GCP_SERVICE_ACCOUNT_JSON_FILEPATH': None,
-        'GOOGLE_APPLICATION_CREDENTIALS': None,
         'GCP_TYPE': 'service_account',
         'GCP_PROJECT_ID': 'my-project',
         'GCP_PRIVATE_KEY_ID': 'private-key-id',
@@ -509,8 +571,8 @@ def test_resolve_credentials_env_mode(mock_env):
         'AWS_SECRET_ACCESS_KEY': 'SECRET',
         'SDV_ENTERPRISE_USERNAME': 'user',
         'SDV_ENTERPRISE_LICENSE_KEY': 'license',
+        'GCP_SERVICE_ACCOUNT_JSON': None,
         'GCP_SERVICE_ACCOUNT_JSON_FILEPATH': None,
-        'GOOGLE_APPLICATION_CREDENTIALS': None,
         'GCP_TYPE': 'service_account',
         'GCP_PROJECT_ID': 'my-project',
         'GCP_PRIVATE_KEY_ID': 'private-key-id',
@@ -591,14 +653,15 @@ def test__get_top_folder_prefix(mock_parse_s3_path, mock_datetime):
     mock_datetime.today.return_value.strftime.return_value = '03_25_2026'
 
     # Run
-    result = _get_top_folder_prefix(
+    prefix, modality_prefix = _get_top_folder_prefix(
         output_destination='s3://my-bucket/Debug/Issue_570/',
         modality='single_table',
     )
 
     # Assert
     mock_parse_s3_path.assert_called_once_with('s3://my-bucket/Debug/Issue_570/')
-    assert result == 'Debug/Issue_570/single_table/SDGym_results_03_25_2026'
+    assert prefix == 'Debug/Issue_570/single_table/SDGym_results_03_25_2026'
+    assert modality_prefix == 'Debug/Issue_570/single_table'
 
 
 @patch('sdgym._benchmark_launcher.utils.datetime')
@@ -610,13 +673,14 @@ def test__get_top_folder_prefix_empty_key_prefix(mock_parse_s3_path, mock_dateti
     mock_datetime.today.return_value.strftime.return_value = '03_25_2026'
 
     # Run
-    result = _get_top_folder_prefix(
+    prefix, modality_prefix = _get_top_folder_prefix(
         output_destination='s3://my-bucket',
         modality='single_table',
     )
 
     # Assert
-    assert result == 'single_table/SDGym_results_03_25_2026'
+    assert prefix == 'single_table/SDGym_results_03_25_2026'
+    assert modality_prefix == 'single_table'
 
 
 @pytest.mark.parametrize(
@@ -690,13 +754,88 @@ def test__build_job_artifact_keys(
     assert result == expected
 
 
+@patch('sdgym._benchmark_launcher.utils._build_s3_uri')
+@patch('sdgym._benchmark_launcher.utils._build_job_artifact_keys')
+def test__build_job_artifact_filepaths(mock_build_job_artifact_keys, mock_build_s3_uri):
+    """Test `_build_job_artifact_filepaths` method."""
+    # Setup
+    mock_build_job_artifact_keys.return_value = (
+        'prefix/dataset/synth/benchmark_result.csv',
+        'prefix/dataset/synth/synthetic_data.csv',
+        'prefix/dataset/synth/synth.pkl',
+    )
+    mock_build_s3_uri.side_effect = [
+        's3://bucket/prefix/dataset/synth/benchmark_result.csv',
+        's3://bucket/prefix/dataset/synth/synthetic_data.csv',
+        's3://bucket/prefix/dataset/synth/synth.pkl',
+    ]
+
+    # Run
+    result = _build_job_artifact_filepaths(
+        artifact_key_prefix='prefix',
+        artifact_dataset='dataset',
+        artifact_synthesizer='synth',
+        modality='single_table',
+        output_destination='s3://bucket/root',
+    )
+
+    # Assert
+    mock_build_job_artifact_keys.assert_called_once_with(
+        artifact_key_prefix='prefix',
+        artifact_dataset='dataset',
+        artifact_synthesizer='synth',
+        modality='single_table',
+    )
+    assert mock_build_s3_uri.call_args_list == [
+        call('s3://bucket/root', 'prefix/dataset/synth/benchmark_result.csv'),
+        call('s3://bucket/root', 'prefix/dataset/synth/synthetic_data.csv'),
+        call('s3://bucket/root', 'prefix/dataset/synth/synth.pkl'),
+    ]
+    assert result == (
+        's3://bucket/prefix/dataset/synth/benchmark_result.csv',
+        's3://bucket/prefix/dataset/synth/synthetic_data.csv',
+        's3://bucket/prefix/dataset/synth/synth.pkl',
+    )
+
+
+@patch('sdgym._benchmark_launcher.utils._build_s3_uri')
+def test__build_instance_artifact_filepaths(mock_build_s3_uri):
+    """Test `_build_instance_artifact_filepaths` method."""
+    # Setup
+    mock_build_s3_uri.side_effect = [
+        's3://bucket/prefix/metainfo.yaml',
+        's3://bucket/prefix/results.csv',
+        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+    ]
+
+    # Run
+    result = _build_instance_artifact_filepaths(
+        output_destination='s3://bucket/root',
+        artifact_key_prefix='prefix',
+        modality_prefix='modality',
+        metainfo_name='metainfo',
+        results_name='results',
+    )
+
+    # Assert
+    assert mock_build_s3_uri.call_args_list == [
+        call('s3://bucket/root', 'prefix/metainfo.yaml'),
+        call('s3://bucket/root', 'prefix/results.csv'),
+        call('s3://bucket/root', 'modality/job_args_list_metainfo.pkl.gz'),
+    ]
+    assert result == (
+        's3://bucket/prefix/metainfo.yaml',
+        's3://bucket/prefix/results.csv',
+        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+    )
+
+
 @patch('sdgym._benchmark_launcher.utils.get_s3_console_link')
-def test_build_job_output_destination(mock_get_s3_console_link):
+@patch('sdgym._benchmark_launcher.utils.parse_s3_path')
+def test_build_job_output_destination(mock_parse_s3_path, mock_get_s3_console_link):
     """Test the `_build_job_output_destination` method."""
     # Setup
-    benchmark_config = Mock()
-    benchmark_config.modality = 'single_table'
-    benchmark_config.compute = {'service': 'gcp'}
+    mock_parse_s3_path.return_value = ('my-bucket', 'root/prefix')
     mock_get_s3_console_link.return_value = (
         'https://s3.console.aws.amazon.com/s3/buckets/my-bucket/'
         'single_table/SDGym_results_03_25_2026/adult_03_25_2026/CTGANSynthesizer(1)/'
@@ -711,6 +850,7 @@ def test_build_job_output_destination(mock_get_s3_console_link):
     )
 
     # Assert
+    mock_parse_s3_path.assert_called_once_with('s3://my-bucket/root/prefix/')
     mock_get_s3_console_link.assert_called_once_with(
         'my-bucket',
         'single_table%2FSDGym_results_03_25_2026%2Fadult_03_25_2026%2FCTGANSynthesizer%281%29%2F',
@@ -740,3 +880,17 @@ def test_is_unique_string_list():
     assert duplicate_result is False
     assert non_string_result is False
     assert not_a_list_result is False
+
+
+@patch('sdgym._benchmark_launcher.utils.parse_s3_path')
+def test_build_s3_uri(mock_parse_s3_path):
+    """Test the `_build_s3_uri` method."""
+    # Setup
+    mock_parse_s3_path.return_value = ('my-bucket', 'prefix')
+
+    # Run
+    result = _build_s3_uri('s3://my-bucket/prefix', 'path/to/file.csv')
+
+    # Assert
+    mock_parse_s3_path.assert_called_once_with('s3://my-bucket/prefix')
+    assert result == 's3://my-bucket/path/to/file.csv'

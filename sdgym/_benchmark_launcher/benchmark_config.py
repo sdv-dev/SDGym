@@ -7,6 +7,7 @@ import yaml
 
 from sdgym._benchmark_launcher._validation import (
     _format_sectioned_errors,
+    _validate_compute,
     _validate_credentials,
     _validate_instance_jobs,
     _validate_method_params,
@@ -75,6 +76,7 @@ class BenchmarkConfig:
         section_errors = {
             'method_params': _validate_method_params(self.method_params, method_to_run),
             'credentials_filepath': _validate_credentials(self.credentials_filepath),
+            'compute': _validate_compute(self.compute),
             'instance_jobs': _validate_instance_jobs(self.instance_jobs),
         }
         if any(section_errors.values()):

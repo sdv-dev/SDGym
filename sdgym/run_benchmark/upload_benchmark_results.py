@@ -22,13 +22,14 @@ from sdgym.datasets import SDV_DATASETS_PRIVATE_BUCKET, SDV_DATASETS_PUBLIC_BUCK
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import (
+    KEY_BENCHMARK_LAUNCHER,
     OUTPUT_DESTINATION_AWS,
     _extract_google_file_id,
     _get_filename_to_gdrive_link,
     _parse_args,
     get_df_to_plot,
 )
-from sdgym.s3 import S3_REGION, parse_s3_path
+from sdgym.s3 import S3_REGION, load_pickle_from_s3, parse_s3_path
 from sdgym.utils import _set_column_width
 
 LOGGER = logging.getLogger(__name__)
@@ -472,7 +473,7 @@ def get_result_explorer(
 
     Args:
         folder_name (str):
-            The folder name of the benchmark run.
+            Name of the folder containing the benchmark results.
         modality (str):
             The benchmark modality.
         aws_access_key_id (str):
@@ -489,12 +490,28 @@ def get_result_explorer(
         aws_secret_access_key=aws_secret_access_key,
     )
     if not result_explorer.all_runs_complete(folder_name):
-        LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
-        if github_env:
-            with open(github_env, 'a') as env_file:
-                env_file.write('SKIP_UPLOAD=true\n')
+        launcher = load_pickle_from_s3(
+            result_explorer._handler.s3_client,
+            f'{OUTPUT_DESTINATION_AWS}{modality}/{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
+        )
+        timeout = launcher.benchmark_config.method_params.get('timeout')
+        launch_timestamp = pd.to_datetime(launcher._timestamp, format='%d_%m_%Y %H:%M:%S')
+        # Add a 1-day grace period to the timeout
+        launch_deadline = launch_timestamp + pd.Timedelta(seconds=timeout) + pd.Timedelta(days=1)
+        has_timed_out = pd.Timestamp.now() >= launch_deadline
+        if not has_timed_out:
+            LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
+            if github_env:
+                with open(github_env, 'a') as env_file:
+                    env_file.write('SKIP_UPLOAD=true\n')
 
-        sys.exit(0)
+            sys.exit(0)
+
+        LOGGER.warning(
+            f'Run {folder_name} is not complete yet, and the timeout has expired. '
+            'Remaining instances will be terminated.'
+        )
+        launcher.finalize()
 
     LOGGER.info(f'Run {folder_name} is complete! Proceeding with summarization...')
     if github_env:

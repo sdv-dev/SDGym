@@ -14,6 +14,7 @@ from botocore.exceptions import ClientError
 
 from sdgym._dataset_utils import _read_zipped_data
 from sdgym.benchmark import TIMEOUT, _add_adjusted_scores
+from sdgym.s3 import load_pickle_from_s3
 from sdgym.utils import _is_list_of_type
 
 SYNTHESIZER_BASELINE = 'GaussianCopulaSynthesizer'
@@ -206,10 +207,8 @@ class ResultsHandler(ABC):
             )
 
         filtered_results = filtered_results.sort_values(by=['Dataset', 'Synthesizer'])
-        if missing_adjusted_columns:
-            filtered_results = filtered_results.drop(columns=missing_adjusted_columns)
 
-        return filtered_results.reset_index(drop=True)
+        return filtered_results.reset_index(drop=True), missing_adjusted_columns
 
     def summarize(self, results_folder_name):
         """Summarize the results in the specified folder."""
@@ -236,11 +235,14 @@ class ResultsHandler(ABC):
             if not results:
                 continue
 
-            aggregated_results = self._process_results(results)
+            aggregated_results, missing_adjusted_columns = self._process_results(results)
             aggregated_results = self._compute_wins(aggregated_results)
-            folder_to_results[folder] = aggregated_results
-            folder_infos = self._get_column_name_infos(folder_to_results)
+            if missing_adjusted_columns:
+                aggregated_results = aggregated_results.drop(columns=missing_adjusted_columns)
 
+            folder_to_results[folder] = aggregated_results
+
+        folder_infos = self._get_column_name_infos(folder_to_results)
         summarized_table = self._get_summarize_table(folder_to_results, folder_infos)
 
         return summarized_table, folder_to_results[results_folder_name]
@@ -503,10 +505,9 @@ class S3ResultsHandler(ResultsHandler):
 
     def load_synthesizer(self, file_path):
         """Load a synthesizer from S3."""
-        response = self.s3_client.get_object(
-            Bucket=self.bucket_name, Key=f'{self.prefix}{file_path}'
+        return load_pickle_from_s3(
+            self.s3_client, f's3://{self.bucket_name}/{self.prefix}{file_path}'
         )
-        return cloudpickle.loads(response['Body'].read())
 
     def load_synthetic_data(self, file_path):
         """Load synthetic data from S3."""

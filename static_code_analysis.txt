@@ -1,73 +1,73 @@
-Run started:2026-04-01 15:40:54.774523+00:00
+Run started:2026-04-17 10:46:12.205296+00:00
 
 Test results:
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/_benchmark/benchmark.py:161:12
-160	    return textwrap.dedent(
-161	        f"""\
-162	        #!/bin/bash
-163	        set -e
-164	
-165	        LOG_FILE=/var/log/user-data.log
-166	        exec >> "$LOG_FILE" 2>&1
-167	
-168	        log() {{
-169	          echo "$@"
-170	        }}
-171	
-172	        {upload_logs_fn}
-173	        {terminate_fn}
-174	
-175	        # Always cleanup on exit
-176	        trap cleanup EXIT
-177	
-178	        log "======== Instance: {instance_name} =========="
+   Location: ./sdgym/_benchmark/benchmark.py:163:12
+162	    return textwrap.dedent(
+163	        f"""\
+164	        #!/bin/bash
+165	        set -e
+166	
+167	        LOG_FILE=/var/log/user-data.log
+168	        exec >> "$LOG_FILE" 2>&1
+169	
+170	        log() {{
+171	          echo "$@"
+172	        }}
+173	
+174	        {upload_logs_fn}
+175	        {terminate_fn}
+176	
+177	        # Always cleanup on exit
+178	        trap cleanup EXIT
 179	
-180	        log "======== Configure kernel OOM behavior =========="
-181	        sudo sysctl -w vm.panic_on_oom=1
-182	        sudo sysctl -w kernel.panic=0
-183	
-184	        log "======== Update and Install Dependencies =========="
-185	        sudo apt update -y
-186	        sudo apt install -y python3-pip python3-venv awscli git jq
-187	
-188	        log "======== Setting up swap ({swap_gb}G) =========="
-189	        sudo fallocate -l {swap_gb}G /swapfile || \
-190	          sudo dd if=/dev/zero of=/swapfile bs=1M count=$(({swap_gb}*1024))
-191	        sudo chmod 600 /swapfile
-192	        sudo mkswap /swapfile
-193	        sudo swapon /swapfile
-194	
-195	        log "======== Configure AWS CLI =========="
-196	        aws configure set aws_access_key_id '{aws_key}'
-197	        aws configure set aws_secret_access_key '{aws_secret}'
-198	        aws configure set default.region '{S3_REGION}'
-199	
-200	        log "======== Create Virtual Environment =========="
-201	        python3 -m venv ~/env
-202	        source ~/env/bin/activate
-203	
-204	        log "======== Install Dependencies =========="
-205	        pip install --upgrade pip
-206	        {sdv_install}
-207	        pip install "sdgym[all]"
-208	
-209	        {gpu_block}
+180	        log "======== Instance: {instance_name} =========="
+181	
+182	        log "======== Configure kernel OOM behavior =========="
+183	        sudo sysctl -w vm.panic_on_oom=1
+184	        sudo sysctl -w kernel.panic=0
+185	
+186	        log "======== Update and Install Dependencies =========="
+187	        sudo apt update -y
+188	        sudo apt install -y python3-pip python3-venv awscli git jq
+189	
+190	        log "======== Setting up swap ({swap_gb}G) =========="
+191	        sudo fallocate -l {swap_gb}G /swapfile || \
+192	          sudo dd if=/dev/zero of=/swapfile bs=1M count=$(({swap_gb}*1024))
+193	        sudo chmod 600 /swapfile
+194	        sudo mkswap /swapfile
+195	        sudo swapon /swapfile
+196	
+197	        log "======== Configure AWS CLI =========="
+198	        aws configure set aws_access_key_id '{aws_key}'
+199	        aws configure set aws_secret_access_key '{aws_secret}'
+200	        aws configure set default.region '{S3_REGION}'
+201	
+202	        log "======== Create Virtual Environment =========="
+203	        python3 -m venv ~/env
+204	        source ~/env/bin/activate
+205	
+206	        log "======== Install Dependencies =========="
+207	        pip install --upgrade pip
+208	        {sdv_install}
+209	        pip install "sdgym[all]"
 210	
-211	        log "======== Write Script =========="
-212	        cat << 'EOF' > ~/sdgym_script.py
-213	{script_content}
-214	EOF
-215	
-216	        log "======== Run Script =========="
-217	        python -u ~/sdgym_script.py | tee -a /var/log/sdgym.log
-218	
-219	        log "======== Complete =========="
-220	        """
-221	    ).strip()
+211	        {gpu_block}
+212	
+213	        log "======== Write Script =========="
+214	        cat << 'EOF' > ~/sdgym_script.py
+215	{script_content}
+216	EOF
+217	
+218	        log "======== Run Script =========="
+219	        python -u ~/sdgym_script.py | tee -a /var/log/sdgym.log
+220	
+221	        log "======== Complete =========="
+222	        """
+223	    ).strip()
 
 --------------------------------------------------
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
@@ -168,18 +168,18 @@ Test results:
    Severity: Low   Confidence: Medium
    CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b106_hardcoded_password_funcarg.html
-   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:131:12
-130	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
-131	    creds = OAuth2Credentials(
-132	        access_token=creds_dict['access_token'],
-133	        client_id=creds_dict.get('client_id'),
-134	        client_secret=creds_dict.get('client_secret'),
-135	        refresh_token=creds_dict.get('refresh_token'),
-136	        token_expiry=None,
-137	        token_uri='https://oauth2.googleapis.com/token',
-138	        user_agent=None,
-139	    )
-140	    gauth = GoogleAuth()
+   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:132:12
+131	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
+132	    creds = OAuth2Credentials(
+133	        access_token=creds_dict['access_token'],
+134	        client_id=creds_dict.get('client_id'),
+135	        client_secret=creds_dict.get('client_secret'),
+136	        refresh_token=creds_dict.get('refresh_token'),
+137	        token_expiry=None,
+138	        token_uri='https://oauth2.googleapis.com/token',
+139	        user_agent=None,
+140	    )
+141	    gauth = GoogleAuth()
 
 --------------------------------------------------
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
@@ -234,7 +234,7 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 7779
+	Total lines of code: 7940
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 

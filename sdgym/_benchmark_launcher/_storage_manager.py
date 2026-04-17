@@ -1,5 +1,14 @@
+import io
+import logging
+
+import pandas as pd
+from botocore.exceptions import BotoCoreError, ClientError
+
 from sdgym._benchmark_launcher.utils import resolve_credentials
+from sdgym.result_writer import S3ResultsWriter
 from sdgym.s3 import _list_s3_bucket_contents, get_s3_client, is_s3_path, parse_s3_path
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _validate_s3_output_destinations(instance_jobs):
@@ -27,6 +36,34 @@ class BaseStorageManager:
         """Return the existing filenames for the given destination."""
         raise NotImplementedError
 
+    def file_exists(self, filepath):
+        """Return whether the provided key exists in the destination."""
+        raise NotImplementedError
+
+    def read_csv(self, filepath):
+        """Read a CSV artifact from storage."""
+        raise NotImplementedError
+
+    def write_csv(self, result, filepath):
+        """Write a CSV artifact to storage."""
+        raise NotImplementedError
+
+    def _load_job_result(self, filepath):
+        """Load a per-job result CSV if it exists, otherwise return None."""
+        raise NotImplementedError
+
+    def update_metainfo(self, filepath, content):
+        """Update metainfo for an artifact."""
+        raise NotImplementedError
+
+    def delete(self, filepath):
+        """Delete an artifact from storage."""
+        raise NotImplementedError
+
+    def save_pickle(self, object, filepath):
+        """Save a picklable object to storage."""
+        raise NotImplementedError
+
 
 class S3StorageManager(BaseStorageManager):
     """Manage benchmark artifacts stored in S3."""
@@ -34,6 +71,25 @@ class S3StorageManager(BaseStorageManager):
     def __init__(self, credentials_filepath, instance_jobs):
         _validate_s3_output_destinations(instance_jobs)
         self.credentials_filepath = credentials_filepath
+        self._existing_files = {}
+        self._writer = None
+
+    def __getstate__(self):
+        """Return the picklable state."""
+        state = self.__dict__.copy()
+        state['_writer'] = None
+        return state
+
+    def __setstate__(self, state):
+        """Restore the state after unpickling."""
+        self.__dict__.update(state)
+
+    def _get_writer(self):
+        """Build the results writer."""
+        if self._writer is None:
+            self._writer = S3ResultsWriter(self._get_client())
+
+        return self._writer
 
     def handles_destination(self, output_destination):
         """Return whether the destination is an S3 path."""
@@ -47,6 +103,15 @@ class S3StorageManager(BaseStorageManager):
             aws_access_key_id=aws_credentials.get('aws_access_key_id'),
             aws_secret_access_key=aws_credentials.get('aws_secret_access_key'),
         )
+
+    def _get_s3_resources(self, filepath):
+        """Return the S3 client and bucket name for a destination."""
+        if not is_s3_path(filepath):
+            raise ValueError(f'S3StorageManager only supports S3 paths. Found: {filepath!r}.')
+
+        s3_client = self._get_client()
+        bucket_name, key = parse_s3_path(filepath)
+        return s3_client, bucket_name, key
 
     def list_files(self, output_destination):
         """List files under the provided S3 output destination."""
@@ -62,3 +127,49 @@ class S3StorageManager(BaseStorageManager):
     def get_existing_filenames(self, output_destination):
         """Return the existing filenames for the given destination."""
         return {obj['Key'] for obj in self.list_files(output_destination)}
+
+    def file_exists(self, filepath):
+        """Check if a file exists in S3."""
+        s3_client, bucket_name, key = self._get_s3_resources(filepath)
+        try:
+            s3_client.head_object(Bucket=bucket_name, Key=key)
+            return True
+        except ClientError as error:
+            if error.response['Error']['Code'] == '404':
+                return False
+
+            raise
+
+    def read_csv(self, filepath):
+        """Read a CSV artifact from S3."""
+        s3_client, bucket_name, key = self._get_s3_resources(filepath)
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+        return pd.read_csv(io.BytesIO(response['Body'].read()))
+
+    def write_csv(self, result, filepath):
+        self._get_writer().write_dataframe(result, filepath, index=False)
+
+    def _load_job_result(self, filepath):
+        if not self.file_exists(filepath):
+            return None
+
+        return self.read_csv(filepath)
+
+    def update_metainfo(self, filepath, content):
+        """Update metainfo for an artifact."""
+        self._get_writer().write_yaml(data=content, file_path=filepath, append=True)
+
+    def delete(self, filepath):
+        """Delete an artifact from storage."""
+        s3_client, bucket_name, key = self._get_s3_resources(filepath)
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=key)
+            LOGGER.info(f'Deleted S3 object {filepath} successfully.')
+
+        except (ClientError, BotoCoreError):
+            LOGGER.exception(f'Failed to delete S3 object {filepath}.')
+            raise
+
+    def save_pickle(self, object, filepath):
+        """Save a picklable object to S3."""
+        self._get_writer().write_pickle(object, filepath)

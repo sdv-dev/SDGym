@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,6 +10,7 @@ from sdgym._benchmark.benchmark import (
     _benchmark_single_table_compute_gcp,
     _get_user_data_script,
     _gpu_wait_block,
+    _make_instance_name,
     _run_on_gcp,
     _terminate_instance,
     _upload_logs,
@@ -32,6 +35,25 @@ def base_credentials():
             'gcp_zone': 'us-central1-a',
         },
     }
+
+
+@patch('sdgym._benchmark.benchmark.datetime')
+@patch('sdgym._benchmark.benchmark.uuid')
+def test__make_instance_name(mock_uuid, mock_datetime):
+    """Test `_make_instance_name` method."""
+    # Setup
+    prefix = 'sdgym-run'
+    mock_datetime.now.return_value = datetime(2024, 1, 1, 0, 0, 0)
+    mock_uuid.uuid4.return_value = uuid.UUID('abcdefabcdefabcdefabcdefabcdefab')
+    expected_result = 'sdgym-run-20240101-0000-abcdef'
+
+    # Run
+    name = _make_instance_name(prefix)
+
+    # Assert
+    mock_datetime.now.assert_called_once()
+    mock_uuid.uuid4.assert_called_once()
+    assert name == expected_result
 
 
 def test__terminate_instance_aws():
@@ -113,15 +135,12 @@ def test__get_user_data_script_gcp_gpu_wait(base_credentials):
         'gpu_count': 1,
         'gpu_type': 'nvidia-tesla-t4',
         'gpu': True,
-        'assert_gpu': True,
         'gpu_wait_seconds': 600,
         'gpu_wait_interval_seconds': 10,
-        'install_s3fs': True,
         'sdgym_install': 'sdgym',
         'delete_on_success': True,
         'delete_on_error': True,
         'stop_fallback': True,
-        'upload_logs_to_s3': True,
     }
 
     # Run
@@ -149,12 +168,9 @@ def test__get_user_data_script_aws_termination(base_credentials):
     config = {
         'service': 'aws',
         'swap_gb': 32,
-        'assert_gpu': False,
         'gpu_wait_seconds': 300,
         'gpu_wait_interval_seconds': 5,
-        'install_s3fs': False,
         'sdgym_install': 'sdgym',
-        'upload_logs_to_s3': True,
     }
 
     # Run
@@ -314,11 +330,7 @@ def test__run_on_gcp(
 @patch('sdgym._benchmark.benchmark._import_and_validate_synthesizers')
 @patch('sdgym._benchmark.benchmark._ensure_uniform_included')
 @patch('sdgym._benchmark.benchmark._validate_output_destination')
-@patch('sdgym._benchmark.benchmark.resolve_compute_config')
-@patch('sdgym._benchmark.benchmark.validate_compute_config')
 def test__benchmark_compute_gcp(
-    mock_validate_compute_config,
-    mock_resolve_compute_config,
     mock_validate_output,
     mock_ensure_uniform,
     mock_import_synths,
@@ -338,13 +350,12 @@ def test__benchmark_compute_gcp(
     mock_import_synths.return_value = [{'name': 'Synth'}]
     mock_generate_jobs.return_value = [{'job': 1}]
     config = {'resolved': True, 'service': 'gcp'}
-    mock_resolve_compute_config.return_value = config
 
     # Run
     _benchmark_compute_gcp(
         output_destination='s3://bucket/output',
         credentials=credentials,
-        compute_config={'foo': 'bar'},
+        compute_config=config,
         synthesizers=['Synth'],
         sdv_datasets=['dataset'],
         additional_datasets_folder=None,
@@ -358,7 +369,6 @@ def test__benchmark_compute_gcp(
     )
 
     # Assert
-    mock_validate_compute_config.assert_called_once_with(config)
     mock_ensure_uniform.assert_called_once_with(['Synth'], 'single_table')
     mock_import_synths.assert_called_once_with(
         synthesizers=['Synth'], custom_synthesizers=None, modality='single_table'
