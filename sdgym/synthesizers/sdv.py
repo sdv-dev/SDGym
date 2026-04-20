@@ -101,12 +101,12 @@ def _create_sdv_class(sdv_name):
 
     return synthesizer_class
 
-def _fit_independent(self, data, metadata):
+def _fit_independent_synthesizer(self, data, metadata):
     LOGGER.info('Fitting %s', self.__class__.__name__)
     sdv_class = getattr(import_module(f'sdv.multi_table'), self.SDV_NAME)
     synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
-    for table_name in self.metadata.tables:
-        self.set_table_parameters(table_name, self.SINGLE_TABLE_SYNTHESIZER)
+    for table_name in metadata.tables:
+        synthesizer.set_table_parameters(table_name, self.SINGLE_TABLE_SYNTHESIZER)
 
     synthesizer.fit(data)
     self._internal_synthesizer = synthesizer
@@ -131,7 +131,7 @@ def create_independent_synthesizer_classes():
                     'SINGLE_TABLE_SYNTHESIZER': sdv_name,
                     '_MODALITY_FLAG': 'multi_table',
                     '_MODEL_KWARGS': MODEL_KWARGS.get(sdv_name, {}),
-                    '_fit': _fit_independent,
+                    '_fit': _fit_independent_synthesizer,
                     '_sample_from_synthesizer': _sample_from_synthesizer,
                 },
             )

@@ -16,17 +16,16 @@ compute:
 credentials_filepath: null
 
 modality: multi_table
-output_destination: &output_destination 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
 
 instance_jobs:
-  - output_destination: *output_destination
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
     synthesizers:
       - ITVAESynthesizer
       - IndependentSynthesizer
     datasets:
       include: ['Bupa', 'fake_hotels', 'Cora']
 
-  - output_destination: *output_destination
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
     synthesizers:
       - ICTGANSynthesizer
       - ISegmentSynthesizer
