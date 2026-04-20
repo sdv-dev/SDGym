@@ -119,7 +119,7 @@ def create_independent_synthesizer_classes():
         return
 
     current_module = sys.modules[__name__]
-    for sdv_name in INDEPENDENT_SINGLE_TABLE_SYNTHESIZER:
+    for sdv_name in INEPENDENT_SINGLE_TABLE_SYNTHESIZER:
         class_name = f'I{sdv_name}'
         if not hasattr(current_module, class_name):
             synthesizer_class = type(
