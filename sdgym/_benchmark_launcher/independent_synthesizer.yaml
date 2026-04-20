@@ -1,0 +1,34 @@
+method_params:
+  timeout: 345600
+  compute_quality_score: true
+  compute_diagnostic_score: true
+
+compute:
+  service: gcp
+  instance_type: n1-highmem-16
+  boot_image: projects/deeplearning-platform-release/global/images/family/common-cu129-ubuntu-2204-nvidia-580
+  root_disk_gb: 300
+  gpu_type: nvidia-tesla-t4
+  gpu_count: 1
+  swap_gb: 64
+  name_prefix: sdgym-run
+
+credentials_filepath: null
+
+modality: multi_table
+output_destination: &output_destination 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+
+instance_jobs:
+  - output_destination: *output_destination
+    synthesizers:
+      - ITVAESynthesizer
+      - IndependentSynthesizer
+    datasets:
+      include: ['Bupa', 'fake_hotels', 'Cora']
+
+  - output_destination: *output_destination
+    synthesizers:
+      - ICTGANSynthesizer
+      - ISegmentSynthesizer
+    datasets:
+      include: ['Bupa', 'fake_hotels', 'Cora']

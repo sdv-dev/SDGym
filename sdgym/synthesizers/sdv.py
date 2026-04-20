@@ -20,6 +20,7 @@ MODALITY_TO_MODULE = {
 }
 
 MODEL_KWARGS = {'HMASynthesizer': {'verbose': False}}
+INEPENDENT_SINGLE_TABLE_SYNTHESIZER = ['TVAESynthesizer', 'CTGANSynthesizer', 'SegmentSynthesizer']
 
 
 def _get_sdv_synthesizers(modality):
@@ -99,6 +100,42 @@ def _create_sdv_class(sdv_name):
     setattr(current_module, sdv_name, synthesizer_class)
 
     return synthesizer_class
+
+def _fit_independent(self, data, metadata):
+    LOGGER.info('Fitting %s', self.__class__.__name__)
+    sdv_class = getattr(import_module(f'sdv.multi_table'), self.SDV_NAME)
+    synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
+    for table_name in self.metadata.tables:
+        self.set_table_parameters(table_name, self.SINGLE_TABLE_SYNTHESIZER)
+
+    synthesizer.fit(data)
+    self._internal_synthesizer = synthesizer
+
+def create_independent_synthesizer_classes():
+    """Create IndependentSynthesizer classes for different single-table SDV synthesizer."""
+    try:
+        create_sdv_synthesizer_class('IndependentSynthesizer')
+    except ValueError:
+        return
+
+    current_module = sys.modules[__name__]
+    for sdv_name in INDEPENDENT_SINGLE_TABLE_SYNTHESIZER:
+        class_name = f'I{sdv_name}'
+        if not hasattr(current_module, class_name):
+            synthesizer_class = type(
+                class_name,
+                (MultiTableBaselineSynthesizer,),
+                {
+                    '__module__': __name__,
+                    'SDV_NAME': 'IndependentSynthesizer',
+                    'SINGLE_TABLE_SYNTHESIZER': sdv_name,
+                    '_MODALITY_FLAG': 'multi_table',
+                    '_MODEL_KWARGS': MODEL_KWARGS.get(sdv_name, {}),
+                    '_fit': _fit_independent,
+                    '_sample_from_synthesizer': _sample_from_synthesizer,
+                },
+            )
+            setattr(current_module, class_name, synthesizer_class)
 
 
 def create_sdv_synthesizer_class(sdv_name):
