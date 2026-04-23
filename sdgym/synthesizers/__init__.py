@@ -13,7 +13,7 @@ from sdgym.synthesizers.utils import (
     get_available_single_table_synthesizers,
     get_available_multi_table_synthesizers,
 )
-from sdgym.synthesizers.sdv import create_sdv_synthesizer_class, _get_all_sdv_synthesizers, create_independent_synthesizer_classes
+from sdgym.synthesizers.sdv import create_sdv_synthesizer_class, _get_all_sdv_synthesizers, create_independent_synthesizer_classes, create_hsa_synthesizer_classes
 
 
 __all__ = [
@@ -33,3 +33,4 @@ for sdv_name in _get_all_sdv_synthesizers():
     create_sdv_synthesizer_class(sdv_name)
 
 create_independent_synthesizer_classes()
+create_hsa_synthesizer_classes()

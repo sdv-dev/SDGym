@@ -137,6 +137,31 @@ def create_independent_synthesizer_classes():
             )
             setattr(current_module, class_name, synthesizer_class)
 
+def create_hsa_synthesizer_classes():
+    """Create HSA synthesizer classes for different single-table SDV synthesizer."""
+    try:
+        create_sdv_synthesizer_class('HSASynthesizer')
+    except ValueError:
+        return
+
+    current_module = sys.modules[__name__]
+    for sdv_name in INEPENDENT_SINGLE_TABLE_SYNTHESIZER:
+        class_name = f'HSA{sdv_name}'
+        if not hasattr(current_module, class_name):
+            synthesizer_class = type(
+                class_name,
+                (MultiTableBaselineSynthesizer,),
+                {
+                    '__module__': __name__,
+                    'SDV_NAME': 'HSASynthesizer',
+                    'SINGLE_TABLE_SYNTHESIZER': sdv_name,
+                    '_MODALITY_FLAG': 'multi_table',
+                    '_MODEL_KWARGS': MODEL_KWARGS.get(sdv_name, {}),
+                    '_fit': _fit_independent_synthesizer,
+                    '_sample_from_synthesizer': _sample_from_synthesizer,
+                },
+            )
+            setattr(current_module, class_name, synthesizer_class)
 
 def create_sdv_synthesizer_class(sdv_name):
     """Factory for dynamically creating or retrieving SDV synthesizer classes."""

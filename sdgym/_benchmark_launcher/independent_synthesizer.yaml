@@ -20,14 +20,246 @@ modality: multi_table
 instance_jobs:
   - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
     synthesizers:
-      - ITVAESynthesizer
       - IndependentSynthesizer
     datasets:
-      include: ['Bupa', 'fake_hotels', 'Cora']
+      include:
+        - WebKP
+        - DCG
+        - UW_std
+        - Same_gen
+        - CORA
+        - got_families
+        - SalesDB
+        - UTube
+        - Student_loan
+        - Hepatitis_std
+        - Elti
+        - Bupa
+        - Toxicology
+        - imdb_ijs
+        - ftp
+        - imdb_small
+        - imdb_MovieLens
+        - Pima
+        - university
+        - legalActs
+        - Dunur
+        - Mesh
+        - world
+        - airbnb-simplified
+        - trains
+        - FNHK
+        - fake_hotels
+        - SAT
+        - genes
+        - Biodegradability
+        - Pyrimidine
+        - mutagenesis
+        - restbase
+        - Triazine
+        - Carcinogenesis
+        - fake_hotels_extended
+        - Mooney_Family
+        - PTE
+        - Facebook
+        - multi_table_ID_demo_dataset
+        - SAP
+        - Chess
+        - Countries
+        - NCAA
+        - Atherosclerosis
+        - nations
+        - TubePricing
+        - financial
+        - Accidents
+        - MuskSmall
+        - NBA
+        - AustralianFootball
+        - PremierLeague
+        - OMOP_CDM_dayz
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ITVAESynthesizer
+    datasets:
+      include:
+        - WebKP
+        - DCG
+        - UW_std
+        - Same_gen
+        - CORA
+        - got_families
+        - SalesDB
+        - UTube
+        - Student_loan
+        - Hepatitis_std
+        - Elti
+        - Bupa
+        - Toxicology
+        - imdb_ijs
+        - ftp
+        - imdb_small
+        - imdb_MovieLens
+        - Pima
+        - university
+        - legalActs
+        - Dunur
+        - Mesh
+        - world
+        - airbnb-simplified
+        - trains
+        - FNHK
+        - fake_hotels
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ITVAESynthesizer
+    datasets:
+      include:
+        - SAT
+        - genes
+        - Biodegradability
+        - Pyrimidine
+        - mutagenesis
+        - restbase
+        - Triazine
+        - Carcinogenesis
+        - fake_hotels_extended
+        - Mooney_Family
+        - PTE
+        - Facebook
+        - multi_table_ID_demo_dataset
+        - SAP
+        - Chess
+        - Countries
+        - NCAA
+        - Atherosclerosis
+        - nations
+        - TubePricing
+        - financial
+        - Accidents
+        - MuskSmall
+        - NBA
+        - AustralianFootball
+        - PremierLeague
+        - OMOP_CDM_dayz
 
   - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
     synthesizers:
       - ICTGANSynthesizer
-      - ISegmentSynthesizer
     datasets:
-      include: ['Bupa', 'fake_hotels', 'Cora']
+      include:
+        - WebKP
+        - DCG
+        - UW_std
+        - Same_gen
+        - CORA
+        - got_families
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - SalesDB
+        - UTube
+        - Student_loan
+        - Hepatitis_std
+        - Elti
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - Bupa
+        - Toxicology
+        - imdb_ijs
+        - ftp
+        - imdb_small
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - imdb_MovieLens
+        - Pima
+        - university
+        - legalActs
+        - Dunur
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - Mesh
+        - world
+        - airbnb-simplified
+        - trains
+        - FNHK
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - fake_hotels
+        - SAT
+        - genes
+        - Biodegradability
+        - Pyrimidine
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - mutagenesis
+        - restbase
+        - Triazine
+        - Carcinogenesis
+        - fake_hotels_extended
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - Mooney_Family
+        - PTE
+        - Facebook
+        - multi_table_ID_demo_dataset
+        - SAP
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - Chess
+        - Countries
+        - NCAA
+        - Atherosclerosis
+        - nations
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - TubePricing
+        - financial
+        - Accidents
+        - MuskSmall
+        - NBA
+
+  - output_destination: 's3://sdgym-benchmark/Debug/IndependentSynthesizer/'
+    synthesizers:
+      - ICTGANSynthesizer
+    datasets:
+      include:
+        - AustralianFootball
+        - PremierLeague
+        - OMOP_CDM_dayz
