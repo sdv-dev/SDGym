@@ -1,0 +1,781 @@
+method_params:
+  timeout: 345600
+  compute_quality_score: true
+  compute_diagnostic_score: true
+
+compute:
+  service: gcp
+  instance_type: n1-highmem-16
+  boot_image: projects/deeplearning-platform-release/global/images/family/common-cu129-ubuntu-2204-nvidia-580
+  root_disk_gb: 300
+  gpu_type: nvidia-tesla-t4
+  gpu_count: 1
+  swap_gb: 64
+  name_prefix: sdgym-run
+
+credentials_filepath: null
+
+modality: multi_table
+
+instance_jobs:
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - IndependentSynthesizer
+    datasets:
+      include:
+        - WebKP
+        - DCG
+        - UW_std
+        - Same_gen
+        - CORA
+        - got_families
+        - SalesDB
+        - UTube
+        - Student_loan
+        - Hepatitis_std
+        - Elti
+        - Bupa
+        - Toxicology
+        - imdb_ijs
+        - ftp
+        - imdb_small
+        - imdb_MovieLens
+        - Pima
+        - university
+        - legalActs
+        - Dunur
+        - Mesh
+        - world
+        - airbnb-simplified
+        - trains
+        - FNHK
+        - fake_hotels
+        - SAT
+        - genes
+        - Biodegradability
+        - Pyrimidine
+        - mutagenesis
+        - restbase
+        - Triazine
+        - Carcinogenesis
+        - fake_hotels_extended
+        - Mooney_Family
+        - PTE
+        - Facebook
+        - multi_table_ID_demo_dataset
+        - SAP
+        - Chess
+        - Countries
+        - NCAA
+        - Atherosclerosis
+        - nations
+        - TubePricing
+        - financial
+        - Accidents
+        - MuskSmall
+        - NBA
+        - AustralianFootball
+        - PremierLeague
+        - OMOP_CDM_dayz
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - SalesDB
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - airbnb-simplified
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - FNHK
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - imdb_MovieLens
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - ftp
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - WebKP
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - CORA
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - legalActs
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Toxicology
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Hepatitis_std
+        - trains
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Pima
+        - UW_std
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - world
+        - got_families
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - DCG
+        - Dunur
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - imdb_small
+        - Same_gen
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Student_loan
+        - university
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - fake_hotels
+        - Elti
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - imdb_ijs
+        - Mesh
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - UTube
+        - Bupa
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - SAT
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - genes
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Biodegradability
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Pyrimidine
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - mutagenesis
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - restbase
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Triazine
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Carcinogenesis
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - fake_hotels_extended
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Mooney_Family
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - PTE
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Facebook
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - multi_table_ID_demo_dataset
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - SAP
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Chess
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Countries
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - NCAA
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Atherosclerosis
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - nations
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - TubePricing
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - financial
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - Accidents
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - MuskSmall
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - NBA
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - AustralianFootball
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - PremierLeague
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSATVAESynthesizer
+    datasets:
+      include:
+        - OMOP_CDM_dayz
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - WebKP
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - DCG
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - UW_std
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Same_gen
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - CORA
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - got_families
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - SalesDB
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - UTube
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Student_loan
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Hepatitis_std
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Elti
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Bupa
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Toxicology
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - imdb_ijs
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - ftp
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - imdb_small
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - imdb_MovieLens
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Pima
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - university
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - legalActs
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Dunur
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Mesh
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - world
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - airbnb-simplified
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - trains
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - FNHK
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - fake_hotels
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - SAT
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - genes
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Biodegradability
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Pyrimidine
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - mutagenesis
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - restbase
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Triazine
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Carcinogenesis
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - fake_hotels_extended
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Mooney_Family
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - PTE
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Facebook
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - multi_table_ID_demo_dataset
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - SAP
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Chess
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Countries
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - NCAA
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Atherosclerosis
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - nations
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - TubePricing
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - financial
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - Accidents
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - MuskSmall
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - NBA
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - AustralianFootball
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - PremierLeague
+
+  - output_destination: 's3://sdgym-benchmark/Debug/HSASynthesizer/'
+    synthesizers:
+      - HSACTGANSynthesizer
+    datasets:
+      include:
+        - OMOP_CDM_dayz
