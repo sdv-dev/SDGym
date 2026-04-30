@@ -47,6 +47,7 @@ jobs:
           GDRIVE_LINK_MULTI_TABLE_RESULTS: ${{ secrets.GDRIVE_LINK_MULTI_TABLE_RESULTS }}
           GDRIVE_LINK_DATASET_DETAILS: ${{ secrets.GDRIVE_LINK_DATASET_DETAILS }}
           GDRIVE_LINK_MODEL_DETAILS: ${{ secrets.GDRIVE_LINK_MODEL_DETAILS }}
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
           GITHUB_LOCAL_RESULTS_DIR: ${{ runner.temp }}/sdgym-leaderboard-files
         run: |
           invoke upload-benchmark-results --modality "${{ inputs.modality }}"
