@@ -128,6 +128,8 @@ def upload_to_drive(file_path, file_id):
     if not file_path.exists():
         raise FileNotFoundError(f'File not found: {file_path}')
 
+    print('Not uploading to drive')
+    return
     creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
     creds = OAuth2Credentials(
         access_token=creds_dict['access_token'],
@@ -444,6 +446,8 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
     s3_client.upload_file(local_filepath_result, bucket, s3_key_result)
     file_to_gdrive_link = _get_filename_to_gdrive_link()
     for filename, link in file_to_gdrive_link.items():
+        print('Not uploading to drive 2')
+        continue
         if link is None:
             continue
 
@@ -494,10 +498,10 @@ def get_result_explorer(
             result_explorer._handler.s3_client,
             f'{OUTPUT_DESTINATION_AWS}{modality}/{folder_name}/{KEY_BENCHMARK_LAUNCHER}',
         )
-        timeout = launcher.benchmark_config.method_params.get('timeout')
+        #timeout = launcher.benchmark_config.method_params.get('timeout')
         launch_timestamp = pd.to_datetime(launcher._timestamp, format='%d_%m_%Y %H:%M:%S')
         # Add a 1-day grace period to the timeout
-        launch_deadline = launch_timestamp + pd.Timedelta(seconds=timeout) + pd.Timedelta(days=1)
+        launch_deadline = launch_timestamp + pd.Timedelta(seconds=7200)
         has_timed_out = pd.Timestamp.now() >= launch_deadline
         if not has_timed_out:
             LOGGER.warning(f'Run {folder_name} is not complete yet. Exiting.')
@@ -618,6 +622,9 @@ def main():
         github_env,
         modality,
     )
+    if github_env:
+        with open(github_env, 'a') as env_file:
+            env_file.write('SKIP_UPLOAD=true\n')
 
 
 if __name__ == '__main__':
