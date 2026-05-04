@@ -16,6 +16,7 @@ from sdgym.s3 import (
     _read_data_from_bucket_key,
     _upload_dataframe_to_s3,
     _upload_pickle_to_s3,
+    get_s3_console_link,
     is_s3_path,
     load_pickle_from_s3,
     parse_s3_path,
@@ -441,3 +442,19 @@ def test_load_pickle_from_s3():
     # Assert
     s3_client.get_object.assert_called_once_with(Bucket='test-bucket', Key='path/to/object.pkl')
     assert result == expected_obj
+
+
+def test_get_s3_console_link():
+    """Test the `get_s3_console_link` method."""
+    # Setup
+    bucket = 'my-bucket'
+    prefix = 'my-prefix/'
+
+    # Run
+    link = get_s3_console_link(bucket, prefix)
+
+    # Assert
+    expected_link = (
+        f'https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={prefix}&showversions=false'
+    )
+    assert link == expected_link

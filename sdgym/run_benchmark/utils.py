@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.interpolate import interp1d
 from slack_sdk import WebClient
 
-from sdgym.s3 import parse_s3_path
+from sdgym.s3 import get_s3_console_link, parse_s3_path
 
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
@@ -68,13 +68,6 @@ def get_result_folder_name(date_str):
         raise ValueError(f'Invalid date format: {date_str}. Expected YYYY-MM-DD.')
 
     return f'SDGym_results_{date.month:02d}_{date.day:02d}_{date.year}'
-
-
-def get_s3_console_link(bucket, prefix):
-    """Get the S3 console link for the specified bucket and prefix."""
-    return (
-        f'https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={prefix}&showversions=false'
-    )
 
 
 def _get_slack_client():

@@ -282,3 +282,10 @@ def load_pickle_from_s3(s3_client, filepath):
     bucket, key = parse_s3_path(filepath)
     response = s3_client.get_object(Bucket=bucket, Key=key)
     return cloudpickle.loads(response['Body'].read())
+
+
+def get_s3_console_link(bucket, prefix):
+    """Get the S3 console link for the specified bucket and prefix."""
+    return (
+        f'https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={prefix}&showversions=false'
+    )

@@ -12,7 +12,6 @@ from sdgym.run_benchmark.utils import (
     _get_slack_client,
     get_df_to_plot,
     get_result_folder_name,
-    get_s3_console_link,
     post_benchmark_launch_message,
     post_benchmark_uploaded_message,
     post_slack_message,
@@ -28,22 +27,6 @@ def test_get_result_folder_name():
     assert get_result_folder_name('2023-10-01') == 'SDGym_results_10_01_2023'
     with pytest.raises(ValueError, match=expected_error_message):
         get_result_folder_name('invalid-date')
-
-
-def test_get_s3_console_link():
-    """Test the `get_s3_console_link` method."""
-    # Setup
-    bucket = 'my-bucket'
-    prefix = 'my-prefix/'
-
-    # Run
-    link = get_s3_console_link(bucket, prefix)
-
-    # Assert
-    expected_link = (
-        f'https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={prefix}&showversions=false'
-    )
-    assert link == expected_link
 
 
 @patch('sdgym.run_benchmark.utils.WebClient')
