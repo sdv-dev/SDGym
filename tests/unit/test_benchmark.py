@@ -537,28 +537,30 @@ def test__write_metainfo_file(mock_datetime, mock_open, mock_safe_load, tmp_path
     result_writer = LocalResultsWriter()
     jobs = [
         JobArgs(
-            synthesizer={'name': 'GaussianCopulaSynthesizer'},
-            data=None,
-            metadata=None,
+            synthesizer_name='GaussianCopulaSynthesizer',
+            dataset_name='adult',
+            datasets_path=None,
+            bucket=None,
+            limit_dataset_size=False,
             metrics=None,
             timeout=None,
             compute_quality_score=False,
             compute_diagnostic_score=False,
             compute_privacy_score=False,
-            dataset_name='adult',
             modality='single_table',
             output_directions=file_name,
         ),
         JobArgs(
-            synthesizer={'name': 'CTGANSynthesizer'},
-            data=None,
-            metadata=None,
+            synthesizer_name='CTGANSynthesizer',
+            dataset_name='census',
+            datasets_path=None,
+            bucket=None,
+            limit_dataset_size=False,
             metrics=None,
             timeout=None,
             compute_quality_score=False,
             compute_diagnostic_score=False,
             compute_privacy_score=False,
-            dataset_name='census',
             modality='single_table',
             output_directions=None,
         ),
@@ -1060,21 +1062,20 @@ def test__add_adjusted_scores_missing_fallback():
 
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
-@patch('sdgym.benchmark.get_dataset_paths')
+@patch('sdgym.benchmark._enumerate_dataset_names')
 def test__generate_job_args_list_local_root_additional_folder(
-    get_dataset_paths_mock,
+    enumerate_mock,
     tmp_path,
     modality,
 ):
-    """Local additional_datasets_folder should point to root/single_table."""
+    """Local additional_datasets_folder enumerates datasets from root/modality."""
     # Setup
     local_root = tmp_path / 'my_root'
     local_root.mkdir()
-    dataset_path = tmp_path / 'my_root' / modality / 'datasetA'
-    get_dataset_paths_mock.return_value = [dataset_path]
+    enumerate_mock.return_value = ['datasetA']
 
     # Run
-    _generate_job_args_list(
+    result = _generate_job_args_list(
         limit_dataset_size=False,
         sdv_datasets=None,
         additional_datasets_folder=str(local_root),
@@ -1089,33 +1090,26 @@ def test__generate_job_args_list_local_root_additional_folder(
         modality=modality,
     )
 
-    # Assert
-    get_dataset_paths_mock.assert_called_once_with(
-        modality=modality,
-        bucket=str(local_root / modality),
-        s3_client=None,
-    )
+    # Assert: enumerates from local_root/modality without downloading
+    enumerate_mock.assert_called_once_with(modality, str(local_root / modality))
+    assert result == []
 
 
-@patch('sdgym.benchmark.get_dataset_paths')
+@patch('sdgym.benchmark._enumerate_dataset_names')
 @patch('sdgym.benchmark._setup_output_destination')
-@patch('sdgym.benchmark._load_dataset_with_client')
 def test__generate_job_args_list_s3_root_additional_folder(
-    mock_load_dataset,
     mock__setup_output_destination,
-    get_dataset_paths_mock,
+    enumerate_mock,
 ):
-    """S3 additional_datasets_folder should point to the root path."""
+    """S3 additional_datasets_folder stores bucket reference instead of loading data."""
     # Setup
     s3_root = 's3://my-bucket/custom-datasets'
-    dataset_path = Path('/dummy/single_table/datasetA')
-    get_dataset_paths_mock.return_value = [dataset_path]
+    enumerate_mock.return_value = ['datasetA']
     s3_client = Mock()
     mock__setup_output_destination.return_value = {}
-    mock_load_dataset.return_value = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
 
     # Run
-    _generate_job_args_list(
+    result = _generate_job_args_list(
         limit_dataset_size=False,
         sdv_datasets=None,
         additional_datasets_folder=s3_root,
@@ -1130,12 +1124,8 @@ def test__generate_job_args_list_s3_root_additional_folder(
         modality='single_table',
     )
 
-    # Assert
-    get_dataset_paths_mock.assert_called_once_with(
-        modality='single_table',
-        bucket=s3_root,
-        s3_client=s3_client,
-    )
+    # Assert: enumerates from S3 without downloading
+    enumerate_mock.assert_called_once_with('single_table', s3_root, s3_client)
     mock__setup_output_destination.assert_called_once_with(
         None,
         ['GaussianCopulaSynthesizer'],
@@ -1143,9 +1133,12 @@ def test__generate_job_args_list_s3_root_additional_folder(
         modality='single_table',
         s3_client=s3_client,
     )
-    mock_load_dataset.assert_called_once_with(
-        'single_table', dataset_path, limit_dataset_size=False, s3_client=s3_client
-    )
+    # JobArgs should store synthesizer name and bucket, not loaded data
+    assert len(result) == 1
+    assert result[0].synthesizer_name == 'GaussianCopulaSynthesizer'
+    assert result[0].dataset_name == 'datasetA'
+    assert result[0].bucket == s3_root
+    assert result[0].datasets_path is None
 
 
 def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
@@ -1197,7 +1190,8 @@ def test_benchmark_multi_table_with_jobs(
     # Setup
     fake_scores = pd.DataFrame({'a': [1]})
     mock__run_jobs.return_value = fake_scores
-    job_args = ('arg1', 'arg2', {'metainfo': 'meta.yaml'})
+    job_args = Mock()
+    job_args.output_directions = {'metainfo': 'meta.yaml'}
     mock__generate_job_args_list.return_value = [job_args]
     expected_valid_synthesizers = ['HMASynthesizer', 'MultiTableUniformSynthesizer', 'CustomSynth']
 

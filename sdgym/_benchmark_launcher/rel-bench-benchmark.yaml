@@ -1,0 +1,166 @@
+method_params:
+  timeout: 345600
+  compute_quality_score: true
+  compute_diagnostic_score: true
+
+compute:
+  service: gcp
+  instance_type: n1-highmem-16
+  boot_image: projects/deeplearning-platform-release/global/images/family/common-cu129-ubuntu-2204-nvidia-580
+  root_disk_gb: 300
+  gpu_type: nvidia-tesla-t4
+  gpu_count: 1
+  swap_gb: 64
+  name_prefix: sdgym-run
+
+credentials_filepath: null
+
+modality: multi_table
+
+instance_jobs:
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - IndependentSynthesizer
+    datasets:
+      include:
+        - rel-amazon
+        - rel-arxiv
+        - rel-avito
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - IndependentSynthesizer
+    datasets:
+      include:
+        - rel-event
+        - rel-f1
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - IndependentSynthesizer
+    datasets:
+      include:
+        - rel-hm
+        - rel-mimic
+        - rel-ratebeer
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - IndependentSynthesizer
+    datasets:
+      include:
+        - rel-salt
+        - rel-stack
+        - rel-trial
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HSASynthesizer
+    datasets:
+      include:
+        - rel-amazon
+        - rel-arxiv
+        - rel-avito
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HSASynthesizer
+    datasets:
+      include:
+        - rel-event
+        - rel-f1
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HSASynthesizer
+    datasets:
+      include:
+        - rel-hm
+        - rel-mimic
+        - rel-ratebeer
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HSASynthesizer
+    datasets:
+      include:
+        - rel-salt
+        - rel-stack
+        - rel-trial
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-amazon
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-arxiv
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-avito
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-event
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-f1
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-hm
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-mimic
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-ratebeer
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-salt
+  
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-stack
+
+  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
+    synthesizers:
+      - HMASynthesizer
+    datasets:
+      include:
+        - rel-trial

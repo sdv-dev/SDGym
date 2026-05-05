@@ -78,7 +78,7 @@ def _download_dataset(
 ):
     """Download a dataset into the given ``datasets_path`` / ``modality``."""
     datasets_path = datasets_path or DATASETS_PATH / modality / dataset_name
-    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
+    bucket = bucket or SDV_DATASETS_PRIVATE_BUCKET
     bucket_name = _get_bucket_name(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
@@ -322,6 +322,29 @@ def _load_dataset_with_client(
     return data, metadata_dict
 
 
+def _enumerate_dataset_names(modality, folder, s3_client=None):
+    """List dataset names in a folder without downloading any data.
+
+    Args:
+        modality (str): The dataset modality.
+        folder (str): Local folder path or S3 bucket URI.
+        s3_client: boto3 S3 client (required for S3 paths).
+
+    Returns:
+        list[str]: Dataset names found in the folder.
+    """
+    if folder.startswith(S3_PREFIX):
+        df = _get_available_datasets(modality, bucket=folder, s3_client=s3_client)
+        return df['dataset_name'].tolist()
+
+    local_path = Path(folder)
+    if not local_path.exists():
+        return []
+    return [
+        d.name for d in local_path.iterdir() if d.is_dir() and _path_contains_data_and_metadata(d)
+    ]
+
+
 def get_dataset_paths(
     modality,
     datasets=None,
@@ -347,7 +370,7 @@ def get_dataset_paths(
             List of the full path of the datasets.
     """
     _validate_modality(modality)
-    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
+    bucket = bucket or SDV_DATASETS_PRIVATE_BUCKET
     is_remote = bucket.startswith(S3_PREFIX)
 
     if datasets_path is None:

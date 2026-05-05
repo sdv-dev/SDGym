@@ -40,7 +40,7 @@ from sdmetrics.reports.single_table import (
 )
 from sdmetrics.single_table import DCRBaselineProtection
 
-from sdgym.datasets import _load_dataset_with_client, get_dataset_paths
+from sdgym.datasets import _enumerate_dataset_names, _load_dataset_with_client
 from sdgym.errors import BenchmarkError, SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger
@@ -110,15 +110,16 @@ SDV_SYNTHESIZERS = SDV_SINGLE_TABLE_SYNTHESIZERS + SDV_MULTI_TABLE_SYNTHESIZERS
 class JobArgs(NamedTuple):
     """Arguments needed to run a single synthesizer + dataset benchmark job."""
 
-    synthesizer: dict
-    data: Any
-    metadata: Any
+    synthesizer_name: str
+    dataset_name: str
+    datasets_path: Optional[str]
+    bucket: Optional[str]
+    limit_dataset_size: bool
     metrics: Any
     timeout: Optional[int]
     compute_quality_score: bool
     compute_diagnostic_score: bool
     compute_privacy_score: bool
-    dataset_name: str
     modality: str
     output_directions: Optional[dict]
 
@@ -337,69 +338,57 @@ def _generate_job_args_list(
     s3_client,
     modality,
 ):
-    sdv_datasets = (
-        []
-        if sdv_datasets is None
-        else get_dataset_paths(
-            modality=modality,
-            datasets=sdv_datasets,
-            s3_client=s3_client,
-        )
-    )
-    additional_datasets = (
-        []
-        if additional_datasets_folder is None
-        else get_dataset_paths(
-            modality=modality,
-            bucket=(
-                additional_datasets_folder
-                if is_s3_path(additional_datasets_folder)
-                else os.path.join(additional_datasets_folder, modality)
-            ),
-            s3_client=s3_client,
-        )
-    )
-    datasets = sdv_datasets + additional_datasets
+    # Each entry: (dataset_name, datasets_path, bucket)
+    # datasets_path and bucket are passed to _load_dataset_with_client at job execution time.
+    sdv_infos = [(name, None, None) for name in (sdv_datasets or [])]
+
+    additional_infos = []
+    if additional_datasets_folder is not None:
+        if is_s3_path(additional_datasets_folder):
+            names = _enumerate_dataset_names(modality, additional_datasets_folder, s3_client)
+            additional_infos = [(name, None, additional_datasets_folder) for name in names]
+        else:
+            local_folder = os.path.join(additional_datasets_folder, modality)
+            names = _enumerate_dataset_names(modality, local_folder)
+            additional_infos = [(name, local_folder, None) for name in names]
+
+    all_dataset_infos = sdv_infos + additional_infos
+    dataset_names = [info[0] for info in all_dataset_infos]
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
-    dataset_names = [dataset.name for dataset in datasets]
+
     paths = _setup_output_destination(
         output_destination, synthesizer_names, dataset_names, modality=modality, s3_client=s3_client
     )
-    job_tuples = []
-    for dataset in datasets:
-        for synthesizer in synthesizers:
-            if paths:
-                final_name = next(
-                    (name for name in paths[dataset.name] if name.startswith(synthesizer['name'])),
-                    synthesizer['name'],
-                )
-            else:
-                final_name = synthesizer['name']
-
-            synthesizer['name'] = final_name
-            job_tuples.append((synthesizer, dataset))
 
     job_args_list = []
-    for synthesizer, dataset in job_tuples:
-        data, metadata_dict = _load_dataset_with_client(
-            modality, dataset, limit_dataset_size=limit_dataset_size, s3_client=s3_client
-        )
-        path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
-        job_args_list.append(
-            JobArgs(
-                synthesizer=synthesizer,
-                data=data,
-                metadata=metadata_dict,
-                metrics=sdmetrics,
-                timeout=timeout,
-                compute_quality_score=compute_quality_score,
-                compute_diagnostic_score=compute_diagnostic_score,
-                compute_privacy_score=compute_privacy_score,
-                dataset_name=dataset.name,
-                modality=modality,
-                output_directions=path,
+    for dataset_name, datasets_path, bucket in all_dataset_infos:
+        for synthesizer in synthesizers:
+            original_name = synthesizer['name']
+            if paths:
+                final_name = next(
+                    (key for key in paths.get(dataset_name, {}) if key.startswith(original_name)),
+                    original_name,
+                )
+            else:
+                final_name = original_name
+
+            output_path = paths.get(dataset_name, {}).get(final_name, None)
+            job_args_list.append(
+                JobArgs(
+                    synthesizer_name=final_name,
+                    dataset_name=dataset_name,
+                    datasets_path=datasets_path,
+                    bucket=bucket,
+                    limit_dataset_size=limit_dataset_size,
+                    metrics=sdmetrics,
+                    timeout=timeout,
+                    compute_quality_score=compute_quality_score,
+                    compute_diagnostic_score=compute_diagnostic_score,
+                    compute_privacy_score=compute_privacy_score,
+                    modality=modality,
+                    output_directions=output_path,
+                )
             )
-        )
 
     return job_args_list
 
@@ -822,13 +811,21 @@ def _format_output(
     return scores
 
 
-def _run_job(job_args, result_writer=None):
+def _run_job(job_args, result_writer=None, s3_client=None):
     # Reset random seed
     np.random.seed()
 
-    synthesizer = job_args.synthesizer
-    data = job_args.data
-    metadata = job_args.metadata
+    datasets_path = Path(job_args.datasets_path) if job_args.datasets_path else None
+    data, metadata = _load_dataset_with_client(
+        modality=job_args.modality,
+        dataset=job_args.dataset_name,
+        datasets_path=datasets_path,
+        bucket=job_args.bucket,
+        s3_client=s3_client,
+        limit_dataset_size=job_args.limit_dataset_size,
+    )
+    synthesizer = get_synthesizers([job_args.synthesizer_name])[0]
+
     metrics = job_args.metrics
     timeout = job_args.timeout
     compute_quality_score = job_args.compute_quality_score
@@ -894,8 +891,11 @@ def _run_job(job_args, result_writer=None):
     return scores
 
 
-def _run_jobs(job_args_list, show_progress, result_writer=None):
-    scores = map(functools.partial(_run_job, result_writer=result_writer), job_args_list)
+def _run_jobs(job_args_list, show_progress, result_writer=None, s3_client=None):
+    scores = map(
+        functools.partial(_run_job, result_writer=result_writer, s3_client=s3_client),
+        job_args_list,
+    )
     if show_progress:
         scores = tqdm.tqdm(scores, total=len(job_args_list), position=0, leave=True)
     else:
@@ -984,7 +984,7 @@ def _validate_output_destination(output_destination, aws_keys=None):
 
 
 def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=None):
-    jobs = [[job.dataset_name, job.synthesizer['name']] for job in job_args_list]
+    jobs = [[job.dataset_name, job.synthesizer_name] for job in job_args_list]
     if not job_args_list or not job_args_list[0].output_directions:
         return
 
@@ -1334,7 +1334,7 @@ job_args_list = cloudpickle.loads(blob)
 modality = job_args_list[0].modality
 result_writer = S3ResultsWriter(s3_client=s3_client)
 _write_metainfo_file({synthesizers}, job_args_list, modality, result_writer=result_writer)
-scores = _run_jobs(job_args_list, False, result_writer=result_writer)
+scores = _run_jobs(job_args_list, False, result_writer=result_writer, s3_client=s3_client)
 metainfo_filename = job_args_list[0].output_directions['metainfo']
 _update_metainfo_file(metainfo_filename, result_writer)
 s3_client.delete_object(Bucket='{bucket_name}', Key='{job_args_key}')
@@ -1660,7 +1660,7 @@ def benchmark_multi_table(
         )
 
     if output_destination and job_args_list:
-        metainfo_filename = job_args_list[0][-1]['metainfo']
+        metainfo_filename = job_args_list[0].output_directions['metainfo']
         _update_metainfo_file(metainfo_filename, result_writer)
 
     return scores
