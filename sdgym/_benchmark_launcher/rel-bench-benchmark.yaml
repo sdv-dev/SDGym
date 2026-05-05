@@ -41,7 +41,6 @@ instance_jobs:
     datasets:
       include:
         - rel-hm
-        - rel-mimic
         - rel-ratebeer
   
   - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
@@ -76,7 +75,6 @@ instance_jobs:
     datasets:
       include:
         - rel-hm
-        - rel-mimic
         - rel-ratebeer
   
   - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
@@ -129,13 +127,6 @@ instance_jobs:
     datasets:
       include:
         - rel-hm
-
-  - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
-    synthesizers:
-      - HMASynthesizer
-    datasets:
-      include:
-        - rel-mimic
   
   - output_destination: 's3://sdgym-benchmark/Debug/rel-bench-datasets/'
     synthesizers:
