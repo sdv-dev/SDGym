@@ -375,7 +375,7 @@ def _generate_job_args_list(
             output_path = paths.get(dataset_name, {}).get(final_name, None)
             job_args_list.append(
                 JobArgs(
-                    synthesizer_name=final_name,
+                    synthesizer_name=original_name,
                     dataset_name=dataset_name,
                     datasets_path=datasets_path,
                     bucket=bucket,
