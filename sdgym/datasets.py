@@ -133,7 +133,7 @@ def _get_dataset_path_and_download(
     if dataset_path.exists() and _path_contains_data_and_metadata(dataset_path):
         return dataset_path
 
-    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
+    bucket = bucket or SDV_DATASETS_PRIVATE_BUCKET
     if not bucket.startswith(S3_PREFIX):
         local_path = Path(bucket) / modality / dataset
         if local_path.exists() and _path_contains_data_and_metadata(local_path):
