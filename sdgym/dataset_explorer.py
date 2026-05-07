@@ -212,12 +212,16 @@ class DatasetExplorer:
 
         return data_summary
 
-    def _load_and_summarize_datasets(self, modality):
+    def _load_and_summarize_datasets(self, modality, datasets=None):
         """Load all datasets for the given modality and compute summary statistics.
 
         Args:
             modality (str):
                 The dataset modality to load (e.g., 'single_table' or 'multi_table').
+            datasets (list[str], optional):
+                A list of dataset names to restrict the summarization to. If ``None``,
+                all available datasets for the given modality are summarized.
+                Defaults to ``None``.
 
         Returns:
             list[dict]:
@@ -226,12 +230,17 @@ class DatasetExplorer:
         """
         results = []
 
-        datasets = _get_available_datasets(
+        available_datasets = _get_available_datasets(
             modality=modality,
             bucket=self._bucket_name,
             s3_client=self.s3_client,
         )
-        for _, dataset_row in datasets.iterrows():
+        if datasets is not None:
+            available_datasets = available_datasets[
+                available_datasets['dataset_name'].isin(datasets)
+            ]
+
+        for _, dataset_row in available_datasets.iterrows():
             dataset_name = dataset_row['dataset_name']
             dataset_size_mb = dataset_row['size_MB']
             dataset_num_table = dataset_row['num_tables']
