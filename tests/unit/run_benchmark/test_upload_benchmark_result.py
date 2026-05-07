@@ -170,11 +170,13 @@ def test_upload_to_drive_file_not_found(tmp_path):
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results._load_dataset_with_client')
+@patch('sdgym.run_benchmark.upload_benchmark_results._get_available_datasets')
 @patch(
     'sdgym.run_benchmark.upload_benchmark_results.DATASET_DETAILS_COLUMNS',
-    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality'],
+    ['Dataset', 'Total_Num_Rows', 'Availability', 'Best Model', 'Data Modality'],
 )
-def test_get_dataset_details(mock_dataset_explorer):
+def test_get_dataset_details(mock_get_available_datasets, mock_load_dataset, mock_dataset_explorer):
     """Test the `get_dataset_details` method"""
     # Setup
     aws_access_key_id = 'access'
@@ -197,21 +199,76 @@ def test_get_dataset_details(mock_dataset_explorer):
     private_explorer = Mock()
     mock_dataset_explorer.side_effect = [public_explorer, private_explorer]
 
-    public_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['A', 'B'],
-        'Rows': [10, 20],
-    })
-    private_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['C'],
-        'Rows': [30],
-    })
+    public_explorer._bucket_name = SDV_DATASETS_PUBLIC_BUCKET
+    public_explorer.s3_client = Mock()
+    private_explorer._bucket_name = SDV_DATASETS_PRIVATE_BUCKET
+    private_explorer.s3_client = Mock()
 
-    # Run
-    dataset_details = get_dataset_details(
-        results, modality, aws_access_key_id, aws_secret_access_key
-    )
+    mock_get_available_datasets.side_effect = [
+        pd.DataFrame({
+            'dataset_name': ['A', 'B', 'X'],
+            'size_MB': [1.0, 2.0, 999.0],
+            'num_tables': [1, 1, 1],
+        }),
+        pd.DataFrame({
+            'dataset_name': ['C'],
+            'size_MB': [3.0],
+            'num_tables': [1],
+        }),
+    ]
+    mock_load_dataset.side_effect = [
+        ({'table': pd.DataFrame({'col': [1] * 10})}, {'metadata': 1}),
+        ({'table': pd.DataFrame({'col': [1] * 20})}, {'metadata': 1}),
+        ({'table': pd.DataFrame({'col': [1] * 30})}, {'metadata': 1}),
+    ]
+
+    with (
+        patch(
+            'sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer.get_metadata_summary',
+            side_effect=[
+                {
+                    'Total_Num_Columns': 1,
+                    'Total_Num_Columns_Categorical': 1,
+                    'Total_Num_Columns_Numerical': 0,
+                    'Num_Relationships': 0,
+                    'Max_Schema_Depth': 1,
+                },
+                {
+                    'Total_Num_Columns': 1,
+                    'Total_Num_Columns_Categorical': 1,
+                    'Total_Num_Columns_Numerical': 0,
+                    'Num_Relationships': 0,
+                    'Max_Schema_Depth': 1,
+                },
+                {
+                    'Total_Num_Columns': 1,
+                    'Total_Num_Columns_Categorical': 1,
+                    'Total_Num_Columns_Numerical': 0,
+                    'Num_Relationships': 0,
+                    'Max_Schema_Depth': 1,
+                },
+            ],
+        ),
+        patch(
+            'sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer.get_data_summary',
+            side_effect=[{'Total_Num_Rows': 10}, {'Total_Num_Rows': 20}, {'Total_Num_Rows': 30}],
+        ),
+    ):
+        # Run
+        dataset_details = get_dataset_details(
+            results, modality, aws_access_key_id, aws_secret_access_key
+        )
 
     # Assert
+    assert mock_get_available_datasets.call_count == 2
+    assert mock_load_dataset.call_count == 3
+    expected = pd.DataFrame({
+        'Dataset': ['A', 'B', 'C'],
+        'Total_Num_Rows': [10, 20, 30],
+        'Availability': ['Public', 'Public', 'Private'],
+        'Best Model': ['TVAESynthesizer', 'GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
+        'Data Modality': [modality, modality, modality],
+    })
     assert mock_dataset_explorer.call_count == 2
     for _call, bucket in zip(mock_dataset_explorer.call_args_list, dataset_bucket):
         assert _call.kwargs == {
@@ -219,16 +276,6 @@ def test_get_dataset_details(mock_dataset_explorer):
             'aws_access_key_id': aws_access_key_id,
             'aws_secret_access_key': aws_secret_access_key,
         }
-
-    public_explorer.summarize_datasets.assert_called_once_with(modality=modality)
-    private_explorer.summarize_datasets.assert_called_once_with(modality=modality)
-    expected = pd.DataFrame({
-        'Dataset': ['A', 'B', 'C'],
-        'Rows': [10, 20, 30],
-        'Availability': ['Public', 'Public', 'Private'],
-        'Best Model': ['TVAESynthesizer', 'GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
-        'Data Modality': [modality, modality, modality],
-    })
     assert_frame_equal(
         dataset_details.sort_values('Dataset').reset_index(drop=True),
         expected.sort_values('Dataset').reset_index(drop=True),
@@ -237,11 +284,14 @@ def test_get_dataset_details(mock_dataset_explorer):
 
 
 @patch('sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer')
+@patch('sdgym.run_benchmark.upload_benchmark_results._get_available_datasets')
 @patch(
     'sdgym.run_benchmark.upload_benchmark_results.DATASET_DETAILS_COLUMNS',
-    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality'],
+    ['Dataset', 'Total_Num_Rows', 'Availability', 'Best Model', 'Data Modality'],
 )
-def test_get_dataset_details_returns_empty_when_no_datasets_found(mock_dataset_explorer):
+def test_get_dataset_details_returns_empty_when_no_datasets_found(
+    mock_get_available_datasets, mock_dataset_explorer
+):
     """Test the `get_dataset_details` method returns empty DataFrame when no datasets are found."""
     # Setup
     results = pd.DataFrame({
@@ -254,20 +304,26 @@ def test_get_dataset_details_returns_empty_when_no_datasets_found(mock_dataset_e
     public_explorer = Mock()
     private_explorer = Mock()
     mock_dataset_explorer.side_effect = [public_explorer, private_explorer]
-    public_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['X'],
-        'Rows': [999],
-    })
-    private_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['Y'],
-        'Rows': [999],
-    })
+    public_explorer._bucket_name = SDV_DATASETS_PUBLIC_BUCKET
+    public_explorer.s3_client = Mock()
+    private_explorer._bucket_name = SDV_DATASETS_PRIVATE_BUCKET
+    private_explorer.s3_client = Mock()
+    mock_get_available_datasets.side_effect = [
+        pd.DataFrame({'dataset_name': ['X'], 'size_MB': [10], 'num_tables': [1]}),
+        pd.DataFrame({'dataset_name': ['Y'], 'size_MB': [10], 'num_tables': [1]}),
+    ]
 
     # Run
     out = get_dataset_details(results, modality, 'access', 'secret')
 
     # Assert
-    assert list(out.columns) == ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality']
+    assert list(out.columns) == [
+        'Dataset',
+        'Total_Num_Rows',
+        'Availability',
+        'Best Model',
+        'Data Modality',
+    ]
     assert out.empty is True
 
 

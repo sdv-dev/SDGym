@@ -18,7 +18,12 @@ from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
 from sdgym import DatasetExplorer
-from sdgym.datasets import SDV_DATASETS_PRIVATE_BUCKET, SDV_DATASETS_PUBLIC_BUCKET
+from sdgym.datasets import (
+    SDV_DATASETS_PRIVATE_BUCKET,
+    SDV_DATASETS_PUBLIC_BUCKET,
+    _get_available_datasets,
+    _load_dataset_with_client,
+)
 from sdgym.result_explorer.result_explorer import ResultsExplorer
 from sdgym.result_writer import LocalResultsWriter
 from sdgym.run_benchmark.utils import (
@@ -168,6 +173,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
             Dataset details DataFrame.
     """
     dataset_list = results['Dataset'].unique().tolist()
+    datasets_to_match = set(dataset_list)
     explorers = {
         'Public': DatasetExplorer(
             s3_url=SDV_DATASETS_PUBLIC_BUCKET,
@@ -182,23 +188,45 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
     }
 
     dataset_infos = []
-    remaining_datasets = set(dataset_list)
     for availability, explorer in explorers.items():
-        summary = explorer.summarize_datasets(modality=modality)
-        summary = (
-            summary.set_index('Dataset').reindex(remaining_datasets).dropna(how='all').reset_index()
+        available_datasets = _get_available_datasets(
+            modality=modality,
+            bucket=explorer._bucket_name,
+            s3_client=explorer.s3_client,
         )
-        if summary.empty:
+        available_datasets = available_datasets[
+            available_datasets['dataset_name'].isin(datasets_to_match)
+        ]
+        if available_datasets.empty:
             continue
 
-        summary['Availability'] = availability
-        dataset_infos.append(summary)
-        remaining_datasets -= set(summary['Dataset'])
+        for _, row in available_datasets.iterrows():
+            dataset_name = row['dataset_name']
+            data, metadata_dict = _load_dataset_with_client(
+                modality=modality,
+                dataset=dataset_name,
+                bucket=explorer._bucket_name,
+                s3_client=explorer.s3_client,
+            )
+            metadata_summary = DatasetExplorer.get_metadata_summary(metadata_dict)
+            data_summary = DatasetExplorer.get_data_summary(data)
+            dataset_infos.append({
+                'Dataset': dataset_name,
+                'Datasize_Size_MB': row['size_MB'],
+                'Num_Tables': row['num_tables'],
+                'Total_Num_Columns': metadata_summary['Total_Num_Columns'],
+                'Total_Num_Columns_Categorical': metadata_summary['Total_Num_Columns_Categorical'],
+                'Total_Num_Columns_Numerical': metadata_summary['Total_Num_Columns_Numerical'],
+                'Total_Num_Rows': data_summary['Total_Num_Rows'],
+                'Num_Relationships': metadata_summary['Num_Relationships'],
+                'Max_Schema_Depth': metadata_summary['Max_Schema_Depth'],
+                'Availability': availability,
+            })
 
     if not dataset_infos:
         return pd.DataFrame(columns=DATASET_DETAILS_COLUMNS)
 
-    dataset_infos = pd.concat(dataset_infos, ignore_index=True)
+    dataset_infos = pd.DataFrame(dataset_infos)
     best_model_map = (
         results
         .sort_values('Adjusted_Quality_Score', ascending=False)
