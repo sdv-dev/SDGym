@@ -167,7 +167,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
         `pd.DataFrame`:
             Dataset details DataFrame.
     """
-    datasets = results['Dataset'].unique().tolist()
+    dataset_list = results['Dataset'].unique().tolist()
     explorers = {
         'Public': DatasetExplorer(
             s3_url=SDV_DATASETS_PUBLIC_BUCKET,
@@ -182,7 +182,7 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
     }
 
     dataset_infos = []
-    remaining_datasets = set(datasets)
+    remaining_datasets = set(dataset_list)
     for availability, explorer in explorers.items():
         summary = explorer._load_and_summarize_datasets(
             modality=modality, datasets=list(remaining_datasets)

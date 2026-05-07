@@ -2,8 +2,7 @@ import io
 import json
 import re
 from pathlib import Path
-from unittest import mock
-from unittest.mock import Mock, call, mock_open, patch
+from unittest.mock import ANY, Mock, call, mock_open, patch
 
 import pandas as pd
 import pytest
@@ -176,7 +175,7 @@ def test_upload_to_drive_file_not_found(tmp_path):
     ['Dataset', 'Total_Num_Rows', 'Availability', 'Best Model', 'Data Modality'],
 )
 def test_get_dataset_details(mock_dataset_explorer):
-    """Test the `get_dataset_details` method."""
+    """Test the `get_dataset_details` method"""
     # Setup
     aws_access_key_id = 'access'
     aws_secret_access_key = 'secret'
@@ -220,10 +219,10 @@ def test_get_dataset_details(mock_dataset_explorer):
             'aws_secret_access_key': aws_secret_access_key,
         }
     public_explorer._load_and_summarize_datasets.assert_called_once_with(
-        modality=modality, datasets=mock.ANY
+        modality=modality, datasets=ANY
     )
     private_explorer._load_and_summarize_datasets.assert_called_once_with(
-        modality=modality, datasets=mock.ANY
+        modality=modality, datasets=ANY
     )
     expected = pd.DataFrame({
         'Dataset': ['A', 'B', 'C'],
