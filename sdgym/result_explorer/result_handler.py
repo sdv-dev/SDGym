@@ -188,7 +188,8 @@ class ResultsHandler(ABC):
             aggregated_results = aggregated_results.drop(columns='Successful_Uniform')
 
         aggregated_results = aggregated_results.drop_duplicates(
-            subset=['Dataset', 'Synthesizer'], keep='first',
+            subset=['Dataset', 'Synthesizer'],
+            keep='first',
         )
         aggregated_results = _add_adjusted_scores(aggregated_results, timeout=TIMEOUT)
 
