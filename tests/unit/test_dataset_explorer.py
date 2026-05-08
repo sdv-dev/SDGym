@@ -278,6 +278,32 @@ class TestDatasetExplorer:
         assert 'Dataset' in result[0]
         assert set(result[0]) == set(SUMMARY_OUTPUT_COLUMNS)
 
+    @patch('sdgym.dataset_explorer._get_available_datasets')
+    @patch('sdgym.dataset_explorer._load_dataset_with_client')
+    def test__load_and_summarize_datasets_with_datasets(self, mock_load_dataset, mock_get_datasets):
+        """Test that ``_load_and_summarize_datasets`` restricts to the provided dataset list."""
+        # Setup
+        explorer = DatasetExplorer()
+        mock_get_datasets.return_value = pd.DataFrame([
+            {'dataset_name': 'ds1', 'size_MB': 10, 'num_tables': 1},
+            {'dataset_name': 'ds2', 'size_MB': 20, 'num_tables': 2},
+            {'dataset_name': 'ds3', 'size_MB': 30, 'num_tables': 3},
+        ])
+        mock_load_dataset.return_value = (
+            {'table': pd.DataFrame({'x': [1, 2]})},
+            {'tables': {}, 'relationships': []},
+        )
+
+        # Run
+        results = explorer._load_and_summarize_datasets('single_table', datasets=['ds1', 'ds3'])
+
+        # Assert
+        assert mock_load_dataset.call_count == 2
+        loaded_names = [call.kwargs['dataset'] for call in mock_load_dataset.call_args_list]
+        assert set(loaded_names) == {'ds1', 'ds3'}
+        assert [result['Dataset'] for result in results] == ['ds1', 'ds3']
+        assert len(results) == 2
+
     @patch('sdgym.dataset_explorer._validate_modality')
     @patch('sdgym.dataset_explorer.DatasetExplorer._load_and_summarize_datasets')
     def test_summarize_datasets_with_output(

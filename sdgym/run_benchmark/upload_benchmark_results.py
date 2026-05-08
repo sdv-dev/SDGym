@@ -184,16 +184,16 @@ def get_dataset_details(results, modality, aws_access_key_id, aws_secret_access_
     dataset_infos = []
     remaining_datasets = set(dataset_list)
     for availability, explorer in explorers.items():
-        summary = explorer.summarize_datasets(modality=modality)
-        summary = (
-            summary.set_index('Dataset').reindex(remaining_datasets).dropna(how='all').reset_index()
+        summary = explorer._load_and_summarize_datasets(
+            modality=modality, datasets=list(remaining_datasets)
         )
-        if summary.empty:
+        if not summary:
             continue
 
-        summary['Availability'] = availability
-        dataset_infos.append(summary)
-        remaining_datasets -= set(summary['Dataset'])
+        summary_df = pd.DataFrame(summary)
+        summary_df['Availability'] = availability
+        dataset_infos.append(summary_df)
+        remaining_datasets -= set(summary_df['Dataset'])
 
     if not dataset_infos:
         return pd.DataFrame(columns=DATASET_DETAILS_COLUMNS)

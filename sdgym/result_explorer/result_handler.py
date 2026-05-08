@@ -178,8 +178,18 @@ class ResultsHandler(ABC):
             .str.replace(REGEX_SYNTHESIZER_NAME, '', regex=True)
             .str.strip()
         )
+        if 'Error' in aggregated_results.columns:
+            is_uniform = aggregated_results['Synthesizer'].str.contains('UniformSynthesizer')
+            has_error = aggregated_results['Error'].notna()
+            aggregated_results['Successful_Uniform'] = ~(is_uniform & has_error)
+            aggregated_results = aggregated_results.sort_values(
+                'Successful_Uniform', ascending=False, kind='stable'
+            )
+            aggregated_results = aggregated_results.drop(columns='Successful_Uniform')
+
         aggregated_results = aggregated_results.drop_duplicates(
-            subset=['Dataset', 'Synthesizer'], keep='first'
+            subset=['Dataset', 'Synthesizer'],
+            keep='first',
         )
         aggregated_results = _add_adjusted_scores(aggregated_results, timeout=TIMEOUT)
 

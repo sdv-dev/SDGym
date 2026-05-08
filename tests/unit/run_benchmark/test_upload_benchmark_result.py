@@ -2,7 +2,7 @@ import io
 import json
 import re
 from pathlib import Path
-from unittest.mock import Mock, call, mock_open, patch
+from unittest.mock import ANY, Mock, call, mock_open, patch
 
 import pandas as pd
 import pytest
@@ -172,7 +172,7 @@ def test_upload_to_drive_file_not_found(tmp_path):
 @patch('sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer')
 @patch(
     'sdgym.run_benchmark.upload_benchmark_results.DATASET_DETAILS_COLUMNS',
-    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality'],
+    ['Dataset', 'Total_Num_Rows', 'Availability', 'Best Model', 'Data Modality'],
 )
 def test_get_dataset_details(mock_dataset_explorer):
     """Test the `get_dataset_details` method"""
@@ -197,14 +197,13 @@ def test_get_dataset_details(mock_dataset_explorer):
     private_explorer = Mock()
     mock_dataset_explorer.side_effect = [public_explorer, private_explorer]
 
-    public_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['A', 'B'],
-        'Rows': [10, 20],
-    })
-    private_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['C'],
-        'Rows': [30],
-    })
+    public_explorer._load_and_summarize_datasets.return_value = [
+        {'Dataset': 'A', 'Total_Num_Rows': 10},
+        {'Dataset': 'B', 'Total_Num_Rows': 20},
+    ]
+    private_explorer._load_and_summarize_datasets.return_value = [
+        {'Dataset': 'C', 'Total_Num_Rows': 30},
+    ]
 
     # Run
     dataset_details = get_dataset_details(
@@ -219,12 +218,15 @@ def test_get_dataset_details(mock_dataset_explorer):
             'aws_access_key_id': aws_access_key_id,
             'aws_secret_access_key': aws_secret_access_key,
         }
-
-    public_explorer.summarize_datasets.assert_called_once_with(modality=modality)
-    private_explorer.summarize_datasets.assert_called_once_with(modality=modality)
+    public_explorer._load_and_summarize_datasets.assert_called_once_with(
+        modality=modality, datasets=ANY
+    )
+    private_explorer._load_and_summarize_datasets.assert_called_once_with(
+        modality=modality, datasets=ANY
+    )
     expected = pd.DataFrame({
         'Dataset': ['A', 'B', 'C'],
-        'Rows': [10, 20, 30],
+        'Total_Num_Rows': [10, 20, 30],
         'Availability': ['Public', 'Public', 'Private'],
         'Best Model': ['TVAESynthesizer', 'GaussianCopulaSynthesizer', 'CTGANSynthesizer'],
         'Data Modality': [modality, modality, modality],
@@ -239,7 +241,7 @@ def test_get_dataset_details(mock_dataset_explorer):
 @patch('sdgym.run_benchmark.upload_benchmark_results.DatasetExplorer')
 @patch(
     'sdgym.run_benchmark.upload_benchmark_results.DATASET_DETAILS_COLUMNS',
-    ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality'],
+    ['Dataset', 'Total_Num_Rows', 'Availability', 'Best Model', 'Data Modality'],
 )
 def test_get_dataset_details_returns_empty_when_no_datasets_found(mock_dataset_explorer):
     """Test the `get_dataset_details` method returns empty DataFrame when no datasets are found."""
@@ -254,20 +256,20 @@ def test_get_dataset_details_returns_empty_when_no_datasets_found(mock_dataset_e
     public_explorer = Mock()
     private_explorer = Mock()
     mock_dataset_explorer.side_effect = [public_explorer, private_explorer]
-    public_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['X'],
-        'Rows': [999],
-    })
-    private_explorer.summarize_datasets.return_value = pd.DataFrame({
-        'Dataset': ['Y'],
-        'Rows': [999],
-    })
+    public_explorer._load_and_summarize_datasets.return_value = []
+    private_explorer._load_and_summarize_datasets.return_value = []
 
     # Run
     out = get_dataset_details(results, modality, 'access', 'secret')
 
     # Assert
-    assert list(out.columns) == ['Dataset', 'Rows', 'Availability', 'Best Model', 'Data Modality']
+    assert list(out.columns) == [
+        'Dataset',
+        'Total_Num_Rows',
+        'Availability',
+        'Best Model',
+        'Data Modality',
+    ]
     assert out.empty is True
 
 
