@@ -21,6 +21,7 @@ from sdgym.datasets import (
     _load_dataset_with_client,
     _parse_bucket,
     _path_contains_data_and_metadata,
+    _resolve_dataset_names_to_paths,
     _validate_modality,
     get_data_and_metadata_from_path,
     get_dataset_paths,
@@ -229,35 +230,6 @@ def test__get_dataset_path_and_download_triggers_download(
         modality, Path(dataset), datasets_path / Path(dataset), bucket, s3_client='s3_client'
     )
     assert result == download_mock.return_value
-
-
-@patch('sdgym.datasets._download_dataset')
-@patch('sdgym.datasets.get_s3_client')
-@patch('sdgym.datasets._get_available_datasets')
-@patch('sdgym.datasets._path_contains_data_and_metadata', return_value=False)
-def test__get_dataset_path_and_download_bucket_list_does_not_download(
-    contains_mock, get_available_mock, s3_client_mock, download_mock
-):
-    """Test bucket lists return an S3 reference instead of downloading locally."""
-    # Setup
-    buckets = ['s3://bucket-1', 's3://bucket-2']
-    get_available_mock.side_effect = [
-        pd.DataFrame({'dataset_name': ['other_dataset']}),
-        pd.DataFrame({'dataset_name': ['remote_dataset']}),
-    ]
-    s3_client_mock.return_value = 's3_client'
-
-    # Run
-    result = _get_dataset_path_and_download(
-        'single_table',
-        'remote_dataset',
-        Path('/tmp/datasets'),
-        bucket=buckets,
-    )
-
-    # Assert
-    assert result == 's3://bucket-2/single_table/remote_dataset'
-    download_mock.assert_not_called()
 
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table', 'sequential'])
@@ -632,6 +604,36 @@ def test_get_dataset_paths_rejects_tuple_bucket():
         get_dataset_paths('single_table', bucket=('s3://bucket-1', 's3://bucket-2'))
 
 
+@patch('sdgym.datasets._get_dataset_bucket_mapping')
+@patch('sdgym.datasets._get_existing_dataset_path')
+def test__resolve_dataset_names_to_paths_preserves_local_and_resolves_remote(
+    existing_path_mock, bucket_mapping_mock
+):
+    """Test requested dataset paths preserve local datasets and resolve remote ones."""
+    # Setup
+    local_path = Path('/tmp/local_dataset')
+    existing_path_mock.side_effect = [local_path, None]
+    bucket_mapping_mock.return_value = {'remote_dataset': 's3://bucket-2'}
+
+    # Run
+    result = _resolve_dataset_names_to_paths(
+        'single_table',
+        ['local_dataset', 'remote_dataset'],
+        Path('/tmp/datasets'),
+        ['s3://bucket-1', 's3://bucket-2'],
+        's3_client',
+    )
+
+    # Assert
+    assert result == [local_path, 's3://bucket-2/single_table/remote_dataset']
+    bucket_mapping_mock.assert_called_once_with(
+        'single_table',
+        ['s3://bucket-1', 's3://bucket-2'],
+        's3_client',
+        skip_inaccessible=False,
+    )
+
+
 @patch('sdgym.datasets._load_data_and_metadata_from_s3')
 def test__load_dataset_with_client_s3_dataset_path(load_from_s3_mock):
     """Test S3 dataset paths are loaded from S3 without downloading files."""
@@ -652,6 +654,41 @@ def test__load_dataset_with_client_s3_dataset_path(load_from_s3_mock):
         's3://private-bucket',
         s3_client,
     )
+
+
+@patch('sdgym.datasets._download_dataset')
+@patch('sdgym.datasets._load_data_and_metadata_from_s3')
+@patch('sdgym.datasets._get_available_datasets')
+def test__load_dataset_with_client_bucket_list_uses_corresponding_bucket(
+    get_available_mock, load_from_s3_mock, download_mock
+):
+    """Test bucket lists load the dataset from its matching bucket without downloading."""
+    # Setup
+    get_available_mock.side_effect = [
+        pd.DataFrame({'dataset_name': ['dataset_1']}),
+        pd.DataFrame({'dataset_name': ['dataset_2']}),
+    ]
+    load_from_s3_mock.return_value = ('data', 'metadata')
+    s3_client = Mock()
+
+    # Run
+    data, metadata = _load_dataset_with_client(
+        'single_table',
+        'dataset_2',
+        bucket=['s3://bucket-1', 's3://bucket-2'],
+        s3_client=s3_client,
+    )
+
+    # Assert
+    assert data == 'data'
+    assert metadata == 'metadata'
+    load_from_s3_mock.assert_called_once_with(
+        'single_table',
+        'dataset_2',
+        's3://bucket-2',
+        s3_client,
+    )
+    download_mock.assert_not_called()
 
 
 @patch('sdgym.datasets.get_s3_client')

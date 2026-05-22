@@ -243,19 +243,66 @@ def _get_dataset_bucket_mapping(modality, buckets, s3_client, skip_inaccessible=
     return dataset_buckets
 
 
-def _get_bucket_for_dataset(modality, dataset, bucket, s3_client, skip_inaccessible=False):
-    dataset_name = _get_dataset_display_name(dataset)
-    buckets = _get_buckets(bucket)
+def _get_dataset_paths_from_buckets(
+    modality,
+    buckets,
+    s3_client,
+    skip_inaccessible=False,
+):
     dataset_buckets = _get_dataset_bucket_mapping(
         modality,
         buckets,
         s3_client,
         skip_inaccessible=skip_inaccessible,
     )
-    if dataset_name in dataset_buckets:
-        return dataset_buckets[dataset_name]
+    return [
+        _make_s3_dataset_path(dataset_bucket, modality, dataset)
+        for dataset, dataset_bucket in dataset_buckets.items()
+    ]
 
-    raise ValueError(_format_error_dataset_not_found(dataset_name, modality, buckets))
+
+def _resolve_dataset_names_to_paths(
+    modality,
+    datasets,
+    datasets_path,
+    buckets,
+    s3_client,
+    skip_inaccessible=False,
+):
+    existing_datasets = {
+        dataset: _get_existing_dataset_path(modality, dataset, datasets_path)
+        for dataset in datasets
+    }
+    remote_datasets = [
+        dataset for dataset, dataset_path in existing_datasets.items() if dataset_path is None
+    ]
+    dataset_buckets = {}
+    if remote_datasets:
+        dataset_buckets = _get_dataset_bucket_mapping(
+            modality,
+            buckets,
+            s3_client,
+            skip_inaccessible=skip_inaccessible,
+        )
+
+    missing_datasets = [
+        _get_dataset_display_name(dataset)
+        for dataset in remote_datasets
+        if _get_dataset_display_name(dataset) not in dataset_buckets
+    ]
+    if missing_datasets:
+        raise ValueError(_format_error_dataset_not_found(missing_datasets, modality, buckets))
+
+    return [
+        existing_datasets[dataset]
+        if existing_datasets[dataset] is not None
+        else _make_s3_dataset_path(
+            dataset_buckets[_get_dataset_display_name(dataset)],
+            modality,
+            _get_dataset_display_name(dataset),
+        )
+        for dataset in datasets
+    ]
 
 
 def _get_dataset_path_and_download(
@@ -277,17 +324,7 @@ def _get_dataset_path_and_download(
     datasets_path = datasets_path or DATASETS_PATH / modality
     dataset_path = datasets_path / dataset
     s3_client = s3_client or get_s3_client()
-    if _should_resolve_bucket(bucket):
-        bucket = _get_bucket_for_dataset(
-            modality,
-            dataset,
-            bucket,
-            s3_client,
-            skip_inaccessible=bucket is None,
-        )
-        return _make_s3_dataset_path(bucket, modality, dataset.name)
-    else:
-        bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
+    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
 
     return _download_dataset(
         modality,
@@ -508,29 +545,34 @@ def _load_dataset_with_client(
     _validate_modality(modality)
     _validate_bucket(bucket)
     if _should_resolve_bucket(bucket) or _is_s3_dataset_path(dataset):
-        existing_path = _get_existing_dataset_path(modality, dataset, datasets_path)
-        if existing_path:
-            data, metadata_dict = get_data_and_metadata_from_path(existing_path, modality)
-        else:
-            s3_client = s3_client or get_s3_client()
-            if _is_s3_dataset_path(dataset):
-                bucket, dataset_name = _get_bucket_and_dataset_from_s3_path(dataset, modality)
-            else:
-                dataset_name = _get_dataset_display_name(dataset)
-                bucket = _get_bucket_for_dataset(
-                    modality,
-                    dataset,
-                    bucket,
-                    s3_client,
-                    skip_inaccessible=bucket is None,
-                )
-
+        s3_client = s3_client or get_s3_client()
+        if _is_s3_dataset_path(dataset):
+            bucket, dataset_name = _get_bucket_and_dataset_from_s3_path(dataset, modality)
             data, metadata_dict = _load_data_and_metadata_from_s3(
                 modality,
                 dataset_name,
                 bucket,
                 s3_client,
             )
+        else:
+            dataset_path = _resolve_dataset_names_to_paths(
+                modality,
+                [dataset],
+                datasets_path or DATASETS_PATH / modality,
+                _get_buckets(bucket),
+                s3_client,
+                skip_inaccessible=bucket is None,
+            )[0]
+            if _is_s3_dataset_path(dataset_path):
+                bucket, dataset_name = _get_bucket_and_dataset_from_s3_path(dataset_path, modality)
+                data, metadata_dict = _load_data_and_metadata_from_s3(
+                    modality,
+                    dataset_name,
+                    bucket,
+                    s3_client,
+                )
+            else:
+                data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
 
         if limit_dataset_size:
             data, metadata_dict = _get_dataset_subset(data, metadata_dict, modality=modality)
@@ -573,11 +615,10 @@ def get_dataset_paths(
             List of the full path of the datasets.
     """
     _validate_modality(modality)
-    original_bucket = bucket
-    buckets = _get_buckets(bucket)
+    _validate_bucket(bucket)
     should_resolve_bucket = _should_resolve_bucket(bucket)
-    bucket = buckets[0]
-    is_remote = bucket.startswith(S3_PREFIX)
+    buckets = _get_buckets(bucket) if should_resolve_bucket else None
+    single_bucket = bucket if isinstance(bucket, str) else None
 
     if datasets_path is None:
         datasets_path = DATASETS_PATH / modality
@@ -585,67 +626,38 @@ def get_dataset_paths(
         datasets_path = Path(datasets_path)
 
     if datasets is None:
-        if not is_remote and Path(bucket).exists():
+        if (
+            single_bucket
+            and not single_bucket.startswith(S3_PREFIX)
+            and Path(single_bucket).exists()
+        ):
             datasets = []
-            folder_items = list(Path(bucket).iterdir())
+            folder_items = list(Path(single_bucket).iterdir())
             for dataset in folder_items:
                 if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
                     datasets.append(dataset)
         elif should_resolve_bucket:
             s3_client = s3_client or get_s3_client()
-            dataset_buckets = _get_dataset_bucket_mapping(
-                modality,
-                buckets,
-                s3_client,
-                skip_inaccessible=original_bucket is None,
+            datasets = _get_dataset_paths_from_buckets(
+                modality, buckets, s3_client, skip_inaccessible=bucket is None
             )
-            datasets = [
-                _make_s3_dataset_path(dataset_bucket, modality, dataset)
-                for dataset, dataset_bucket in dataset_buckets.items()
-            ]
         else:
             datasets = _get_available_datasets(
                 modality,
-                bucket=bucket,
+                bucket=single_bucket,
                 s3_client=s3_client,
             )
             datasets = datasets['dataset_name'].tolist()
     elif should_resolve_bucket:
-        existing_datasets = {
-            dataset: _get_existing_dataset_path(modality, dataset, datasets_path)
-            for dataset in datasets
-        }
-        remote_datasets = [
-            dataset for dataset, dataset_path in existing_datasets.items() if dataset_path is None
-        ]
-        dataset_buckets = {}
-        if remote_datasets:
-            s3_client = s3_client or get_s3_client()
-            dataset_buckets = _get_dataset_bucket_mapping(
-                modality,
-                buckets,
-                s3_client,
-                skip_inaccessible=original_bucket is None,
-            )
-
-        missing_datasets = [
-            _get_dataset_display_name(dataset)
-            for dataset in remote_datasets
-            if _get_dataset_display_name(dataset) not in dataset_buckets
-        ]
-        if missing_datasets:
-            raise ValueError(_format_error_dataset_not_found(missing_datasets, modality, buckets))
-
-        datasets = [
-            existing_datasets[dataset]
-            if existing_datasets[dataset] is not None
-            else _make_s3_dataset_path(
-                dataset_buckets[_get_dataset_display_name(dataset)],
-                modality,
-                _get_dataset_display_name(dataset),
-            )
-            for dataset in datasets
-        ]
+        s3_client = s3_client or get_s3_client()
+        datasets = _resolve_dataset_names_to_paths(
+            modality,
+            datasets,
+            datasets_path,
+            buckets,
+            s3_client,
+            skip_inaccessible=bucket is None,
+        )
 
     dataset_paths = []
     for dataset in datasets:
@@ -657,7 +669,7 @@ def get_dataset_paths(
                     modality,
                     dataset,
                     datasets_path,
-                    bucket=bucket,
+                    bucket=single_bucket,
                     s3_client=s3_client,
                 )
             )
