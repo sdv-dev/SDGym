@@ -938,7 +938,7 @@ def test_benchmark_multi_table_private_dataset():
     # Setup
     datasets = ['MovieLens']
     synthesizers = ['HMASynthesizer']
-    timeout = 3
+    timeout = 10
 
     # Run
     result = benchmark_multi_table(

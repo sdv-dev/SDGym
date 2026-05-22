@@ -35,38 +35,19 @@ MODALITIES = ['single_table', 'multi_table', 'sequential']
 S3_PREFIX = 's3://'
 
 
-class _S3DatasetReference:
-    """Reference to a dataset that should be loaded from a specific S3 bucket."""
-
-    def __init__(self, name, bucket):
-        self.name = str(name)
-        self.bucket = bucket
-
-
-def _is_bucket_list(bucket):
-    return isinstance(bucket, list)
-
-
 def _validate_bucket(bucket):
     if bucket is None or isinstance(bucket, str):
         return
 
-    if _is_bucket_list(bucket) and all(isinstance(item, str) for item in bucket):
+    if isinstance(bucket, list) and all(isinstance(item, str) for item in bucket):
         return
 
     raise TypeError("The 'bucket' parameter must be a string, a list of strings, or None.")
 
 
-def _get_bucket_name(bucket):
-    return bucket[len(S3_PREFIX) :] if bucket.startswith(S3_PREFIX) else bucket
-
-
-def _get_bucket_name_and_prefix(bucket):
+def _parse_bucket(bucket):
+    """Return the boto bucket name and root key prefix for a dataset bucket URL."""
     if bucket.startswith(S3_PREFIX):
-        path_without_prefix = bucket[len(S3_PREFIX) :].rstrip('/')
-        if '/' not in path_without_prefix:
-            return _get_bucket_name(bucket), ''
-
         bucket_name, prefix = parse_s3_path(bucket)
         if prefix and not prefix.endswith('/'):
             prefix = f'{prefix}/'
@@ -81,21 +62,46 @@ def _get_buckets(bucket):
     if bucket is None:
         return [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET]
 
-    if _is_bucket_list(bucket):
+    if isinstance(bucket, list):
         return bucket
 
     return [bucket]
 
 
-def _is_multi_bucket(bucket):
-    return bucket is None or _is_bucket_list(bucket)
+def _should_resolve_bucket(bucket):
+    """Whether dataset names need to be mapped to a bucket before loading."""
+    return bucket is None or isinstance(bucket, list)
+
+
+def _is_s3_dataset_path(dataset):
+    return isinstance(dataset, str) and dataset.startswith(S3_PREFIX)
 
 
 def _get_dataset_display_name(dataset):
-    if isinstance(dataset, _S3DatasetReference):
-        return dataset.name
+    if _is_s3_dataset_path(dataset):
+        bucket_name, key = parse_s3_path(dataset)
+        return Path(key or bucket_name).name
 
     return Path(dataset).name
+
+
+def _make_s3_dataset_path(bucket, modality, dataset_name):
+    return f'{bucket.rstrip("/")}/{modality}/{dataset_name}'
+
+
+def _get_bucket_and_dataset_from_s3_path(dataset, modality):
+    bucket_name, key = parse_s3_path(dataset)
+    parts = key.rstrip('/').split('/')
+    if len(parts) < 2 or parts[-2] != modality:
+        raise ValueError(f"Invalid S3 dataset path for modality '{modality}': '{dataset}'.")
+
+    dataset_name = parts[-1]
+    bucket_prefix = '/'.join(parts[:-2])
+    bucket = f'{S3_PREFIX}{bucket_name}'
+    if bucket_prefix:
+        bucket = f'{bucket}/{bucket_prefix}'
+
+    return bucket, dataset_name
 
 
 def _format_error_dataset_not_found(dataset, modality, bucket):
@@ -123,21 +129,15 @@ def _format_error_dataset_not_found(dataset, modality, bucket):
 
 
 def _raise_dataset_not_found_error(
-    s3_client,
-    bucket_name,
     dataset_name,
-    current_modality,
     bucket,
     modality,
-    bucket_prefix='',
 ):
     display_name = dataset_name
     if isinstance(dataset_name, Path):
         display_name = dataset_name.name
 
-    raise ValueError(
-        _format_error_dataset_not_found(display_name, modality, bucket)
-    )
+    raise ValueError(_format_error_dataset_not_found(display_name, modality, bucket))
 
 
 def _download_dataset(
@@ -150,7 +150,7 @@ def _download_dataset(
     """Download a dataset into the given ``datasets_path`` / ``modality``."""
     datasets_path = datasets_path or DATASETS_PATH / modality / dataset_name
     bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
-    bucket_name, bucket_prefix = _get_bucket_name_and_prefix(bucket)
+    bucket_name, bucket_prefix = _parse_bucket(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
     s3_client = s3_client or get_s3_client()
@@ -158,13 +158,9 @@ def _download_dataset(
     contents = _list_s3_bucket_contents(s3_client, bucket_name, prefix)
     if not contents:
         _raise_dataset_not_found_error(
-            s3_client,
-            bucket_name,
             dataset_name,
-            modality,
             bucket,
             modality,
-            bucket_prefix,
         )
 
     for obj in contents:
@@ -190,7 +186,7 @@ def _path_contains_data_and_metadata(dataset_path):
 
 
 def _get_existing_dataset_path(modality, dataset, datasets_path=None, bucket=None):
-    if isinstance(dataset, _S3DatasetReference):
+    if _is_s3_dataset_path(dataset):
         return None
 
     dataset = Path(dataset)
@@ -270,9 +266,8 @@ def _get_dataset_path_and_download(
     s3_client=None,
 ):
     _validate_bucket(bucket)
-    if isinstance(dataset, _S3DatasetReference):
-        bucket = dataset.bucket
-        dataset = dataset.name
+    if _is_s3_dataset_path(dataset):
+        return dataset
 
     existing_path = _get_existing_dataset_path(modality, dataset, datasets_path, bucket)
     if existing_path:
@@ -282,7 +277,7 @@ def _get_dataset_path_and_download(
     datasets_path = datasets_path or DATASETS_PATH / modality
     dataset_path = datasets_path / dataset
     s3_client = s3_client or get_s3_client()
-    if _is_multi_bucket(bucket):
+    if _should_resolve_bucket(bucket):
         bucket = _get_bucket_for_dataset(
             modality,
             dataset,
@@ -290,7 +285,7 @@ def _get_dataset_path_and_download(
             s3_client,
             skip_inaccessible=bucket is None,
         )
-        return _S3DatasetReference(dataset.name, bucket)
+        return _make_s3_dataset_path(bucket, modality, dataset.name)
     else:
         bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
 
@@ -342,18 +337,14 @@ def get_data_and_metadata_from_path(dataset_path, modality):
 
 def _load_data_and_metadata_from_s3(modality, dataset_name, bucket, s3_client):
     """Load dataset data and metadata from S3 without writing files locally."""
-    bucket_name, bucket_prefix = _get_bucket_name_and_prefix(bucket)
+    bucket_name, bucket_prefix = _parse_bucket(bucket)
     prefix = f'{bucket_prefix}{modality.lower()}/{dataset_name}/'
     contents = _list_s3_bucket_contents(s3_client, bucket_name, prefix)
     if not contents:
         _raise_dataset_not_found_error(
-            s3_client,
-            bucket_name,
             dataset_name,
-            modality,
             bucket,
             modality,
-            bucket_prefix,
         )
 
     metadata_key = None
@@ -439,13 +430,13 @@ def _get_available_datasets(
     s3_client=None,
 ):
     _validate_modality(modality)
-    if _is_bucket_list(bucket):
+    if isinstance(bucket, list):
         raise TypeError("The 'bucket' parameter must be a string or None.")
 
     _validate_bucket(bucket)
     s3_client = s3_client or get_s3_client()
     bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
-    bucket_name, bucket_prefix = _get_bucket_name_and_prefix(bucket)
+    bucket_name, bucket_prefix = _parse_bucket(bucket)
     contents = _list_s3_bucket_contents(
         s3_client,
         bucket_name,
@@ -516,24 +507,24 @@ def _load_dataset_with_client(
     """Get the data and metadata of a dataset using a given s3 client."""
     _validate_modality(modality)
     _validate_bucket(bucket)
-    if _is_multi_bucket(bucket) or isinstance(dataset, _S3DatasetReference):
+    if _should_resolve_bucket(bucket) or _is_s3_dataset_path(dataset):
         existing_path = _get_existing_dataset_path(modality, dataset, datasets_path)
         if existing_path:
             data, metadata_dict = get_data_and_metadata_from_path(existing_path, modality)
         else:
             s3_client = s3_client or get_s3_client()
-            dataset_name = _get_dataset_display_name(dataset)
-            bucket = (
-                dataset.bucket
-                if isinstance(dataset, _S3DatasetReference)
-                else _get_bucket_for_dataset(
+            if _is_s3_dataset_path(dataset):
+                bucket, dataset_name = _get_bucket_and_dataset_from_s3_path(dataset, modality)
+            else:
+                dataset_name = _get_dataset_display_name(dataset)
+                bucket = _get_bucket_for_dataset(
                     modality,
                     dataset,
                     bucket,
                     s3_client,
                     skip_inaccessible=bucket is None,
                 )
-            )
+
             data, metadata_dict = _load_data_and_metadata_from_s3(
                 modality,
                 dataset_name,
@@ -584,7 +575,7 @@ def get_dataset_paths(
     _validate_modality(modality)
     original_bucket = bucket
     buckets = _get_buckets(bucket)
-    is_multi_bucket = _is_multi_bucket(bucket)
+    should_resolve_bucket = _should_resolve_bucket(bucket)
     bucket = buckets[0]
     is_remote = bucket.startswith(S3_PREFIX)
 
@@ -600,7 +591,7 @@ def get_dataset_paths(
             for dataset in folder_items:
                 if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
                     datasets.append(dataset)
-        elif is_multi_bucket:
+        elif should_resolve_bucket:
             s3_client = s3_client or get_s3_client()
             dataset_buckets = _get_dataset_bucket_mapping(
                 modality,
@@ -609,7 +600,7 @@ def get_dataset_paths(
                 skip_inaccessible=original_bucket is None,
             )
             datasets = [
-                _S3DatasetReference(dataset, dataset_bucket)
+                _make_s3_dataset_path(dataset_bucket, modality, dataset)
                 for dataset, dataset_bucket in dataset_buckets.items()
             ]
         else:
@@ -619,7 +610,7 @@ def get_dataset_paths(
                 s3_client=s3_client,
             )
             datasets = datasets['dataset_name'].tolist()
-    elif is_multi_bucket:
+    elif should_resolve_bucket:
         existing_datasets = {
             dataset: _get_existing_dataset_path(modality, dataset, datasets_path)
             for dataset in datasets
@@ -648,13 +639,17 @@ def get_dataset_paths(
         datasets = [
             existing_datasets[dataset]
             if existing_datasets[dataset] is not None
-            else _S3DatasetReference(dataset, dataset_buckets[_get_dataset_display_name(dataset)])
+            else _make_s3_dataset_path(
+                dataset_buckets[_get_dataset_display_name(dataset)],
+                modality,
+                _get_dataset_display_name(dataset),
+            )
             for dataset in datasets
         ]
 
     dataset_paths = []
     for dataset in datasets:
-        if isinstance(dataset, _S3DatasetReference):
+        if _is_s3_dataset_path(dataset):
             dataset_paths.append(dataset)
         else:
             dataset_paths.append(

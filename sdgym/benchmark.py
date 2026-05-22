@@ -123,6 +123,10 @@ class JobArgs(NamedTuple):
     output_directions: Optional[dict]
 
 
+def _get_dataset_name(dataset):
+    return Path(str(dataset)).name
+
+
 def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modality):
     """Import user-provided synthesizer and validate modality and uniqueness.
 
@@ -361,7 +365,7 @@ def _generate_job_args_list(
     )
     datasets = sdv_datasets + additional_datasets
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
-    dataset_names = [dataset.name for dataset in datasets]
+    dataset_names = [_get_dataset_name(dataset) for dataset in datasets]
     paths = _setup_output_destination(
         output_destination, synthesizer_names, dataset_names, modality=modality, s3_client=s3_client
     )
@@ -370,7 +374,11 @@ def _generate_job_args_list(
         for synthesizer in synthesizers:
             if paths:
                 final_name = next(
-                    (name for name in paths[dataset.name] if name.startswith(synthesizer['name'])),
+                    (
+                        name
+                        for name in paths[_get_dataset_name(dataset)]
+                        if name.startswith(synthesizer['name'])
+                    ),
                     synthesizer['name'],
                 )
             else:
@@ -384,7 +392,8 @@ def _generate_job_args_list(
         data, metadata_dict = _load_dataset_with_client(
             modality, dataset, limit_dataset_size=limit_dataset_size, s3_client=s3_client
         )
-        path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
+        dataset_name = _get_dataset_name(dataset)
+        path = paths.get(dataset_name, {}).get(synthesizer['name'], None)
         job_args_list.append(
             JobArgs(
                 synthesizer=synthesizer,
@@ -395,7 +404,7 @@ def _generate_job_args_list(
                 compute_quality_score=compute_quality_score,
                 compute_diagnostic_score=compute_diagnostic_score,
                 compute_privacy_score=compute_privacy_score,
-                dataset_name=dataset.name,
+                dataset_name=dataset_name,
                 modality=modality,
                 output_directions=path,
             )
