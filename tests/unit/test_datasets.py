@@ -93,12 +93,9 @@ def test__download_dataset_not_found(list_mock, bucket_name_mock, s3_client_mock
     # Assert
     s3_client_mock.assert_called_once()
     bucket_name_mock.assert_called_with(bucket)
-    expected_calls = [
-        call(s3_client_mock.return_value, 'fake-bucket', 'single_table/missing_dataset/'),
-        call(s3_client_mock.return_value, 'fake-bucket', 'sequential/missing_dataset/'),
-        call(s3_client_mock.return_value, 'fake-bucket', 'multi_table/missing_dataset/'),
-    ]
-    list_mock.assert_has_calls(expected_calls, any_order=True)
+    list_mock.assert_called_once_with(
+        s3_client_mock.return_value, 'fake-bucket', 'single_table/missing_dataset/'
+    )
 
 
 @patch('sdgym.datasets.get_s3_client')
@@ -475,24 +472,20 @@ def test__format_error_dataset_not_found_single_bucket():
     assert result == "Dataset 'demo' not found in bucket 's3://bucket' for modality 'single_table'."
 
 
-def test__format_error_dataset_not_found_bucket_list_and_available_modalities():
-    """Test dataset-not-found message formatting for bucket lists and modality hints."""
+def test__format_error_dataset_not_found_bucket_list():
+    """Test dataset-not-found message formatting for bucket lists."""
     # Setup
     datasets = ['demo_1', 'demo_2']
     bucket = ['s3://bucket-1', 's3://bucket-2']
     modality = 'single_table'
-    available_modalities = ['multi_table']
 
     # Run
-    result = _format_error_dataset_not_found(
-        datasets, modality, bucket, available_modalities=available_modalities
-    )
+    result = _format_error_dataset_not_found(datasets, modality, bucket)
 
     # Assert
     assert result == (
         "Dataset(s) 'demo_1', 'demo_2' not found in buckets "
-        "'s3://bucket-1', 's3://bucket-2' for modality 'single_table'. "
-        "It is available under modality: 'multi_table'."
+        "'s3://bucket-1', 's3://bucket-2' for modality 'single_table'."
     )
 
 

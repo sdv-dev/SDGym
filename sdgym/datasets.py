@@ -98,7 +98,7 @@ def _get_dataset_display_name(dataset):
     return Path(dataset).name
 
 
-def _format_error_dataset_not_found(dataset, modality, bucket, available_modalities=None):
+def _format_error_dataset_not_found(dataset, modality, bucket):
     """Format a consistent dataset-not-found error message."""
     if isinstance(dataset, list):
         dataset_to_print = "', '".join(_get_dataset_display_name(item) for item in dataset)
@@ -118,9 +118,6 @@ def _format_error_dataset_not_found(dataset, modality, bucket, available_modalit
         f"{dataset_label} '{dataset_to_print}' not found in {bucket_label} "
         f"'{bucket_to_print}' for modality '{modality}'."
     )
-    if available_modalities:
-        available_list = ', '.join(sorted(available_modalities))
-        message = f"{message} It is available under modality: '{available_list}'."
 
     return message
 
@@ -138,18 +135,8 @@ def _raise_dataset_not_found_error(
     if isinstance(dataset_name, Path):
         display_name = dataset_name.name
 
-    available_modalities = []
-    for other_modality in MODALITIES:
-        if other_modality == current_modality:
-            continue
-
-        other_prefix = f'{bucket_prefix}{other_modality.lower()}/{dataset_name}/'
-        other_contents = _list_s3_bucket_contents(s3_client, bucket_name, other_prefix)
-        if other_contents:
-            available_modalities.append(other_modality)
-
     raise ValueError(
-        _format_error_dataset_not_found(display_name, modality, bucket, available_modalities)
+        _format_error_dataset_not_found(display_name, modality, bucket)
     )
 
 
@@ -222,6 +209,18 @@ def _get_existing_dataset_path(modality, dataset, datasets_path=None, bucket=Non
 
 
 def _get_dataset_bucket_mapping(modality, buckets, s3_client, skip_inaccessible=False):
+    """Map datasets to buckets.
+
+    Args:
+        modality (str):
+            The dataset modality.
+        buckets (list):
+            The list of buckets to map datasets to.
+        s3_client (boto3.client):
+            The S3 client to use to access the buckets.
+        skip_inaccessible (bool):
+            Whether to skip inaccessible buckets.
+    """
     dataset_buckets = {}
     for bucket in buckets:
         try:
