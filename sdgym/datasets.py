@@ -35,6 +35,11 @@ MODALITIES = ['single_table', 'multi_table', 'sequential']
 S3_PREFIX = 's3://'
 
 
+def _get_default_buckets():
+    """Get the default dataset buckets"""
+    return [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET]
+
+
 def _validate_bucket(bucket):
     if bucket is None or isinstance(bucket, str):
         return
@@ -45,8 +50,18 @@ def _validate_bucket(bucket):
     raise TypeError("The 'bucket' parameter must be a string, a list of strings, or None.")
 
 
+def _validate_buckets(buckets):
+    if buckets is None:
+        return
+
+    if isinstance(buckets, list) and all(isinstance(bucket, str) for bucket in buckets):
+        return
+
+    raise TypeError("The 'buckets' parameter must be a list of strings or None.")
+
+
 def _parse_bucket(bucket):
-    """Return the boto bucket name and root key prefix for a dataset bucket URL."""
+    """Return the bucket name and root key prefix for a dataset bucket URL."""
     if bucket.startswith(S3_PREFIX):
         bucket_name, prefix = parse_s3_path(bucket)
         if prefix and not prefix.endswith('/'):
@@ -60,7 +75,7 @@ def _parse_bucket(bucket):
 def _get_buckets(bucket):
     _validate_bucket(bucket)
     if bucket is None:
-        return [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET]
+        return _get_default_buckets()
 
     if isinstance(bucket, list):
         return bucket
@@ -74,10 +89,12 @@ def _should_resolve_bucket(bucket):
 
 
 def _is_s3_dataset_path(dataset):
+    """Whether the dataset is an S3 dataset path."""
     return isinstance(dataset, str) and dataset.startswith(S3_PREFIX)
 
 
 def _get_dataset_display_name(dataset):
+    """Get the display name of a dataset."""
     if _is_s3_dataset_path(dataset):
         bucket_name, key = parse_s3_path(dataset)
         return Path(key or bucket_name).name
@@ -86,10 +103,12 @@ def _get_dataset_display_name(dataset):
 
 
 def _make_s3_dataset_path(bucket, modality, dataset_name):
+    """Make an S3 dataset path."""
     return f'{bucket.rstrip("/")}/{modality}/{dataset_name}'
 
 
 def _get_bucket_and_dataset_from_s3_path(dataset, modality):
+    """Get the bucket and dataset name from an S3 dataset path."""
     bucket_name, key = parse_s3_path(dataset)
     parts = key.rstrip('/').split('/')
     if len(parts) < 2 or parts[-2] != modality:
@@ -105,7 +124,7 @@ def _get_bucket_and_dataset_from_s3_path(dataset, modality):
 
 
 def _format_error_dataset_not_found(dataset, modality, bucket):
-    """Format a consistent dataset-not-found error message."""
+    """Format a dataset-not-found error message."""
     if isinstance(dataset, list):
         dataset_to_print = "', '".join(_get_dataset_display_name(item) for item in dataset)
         dataset_label = 'Dataset(s)'
@@ -149,11 +168,19 @@ def _download_dataset(
 ):
     """Download a dataset into the given ``datasets_path`` / ``modality``."""
     datasets_path = datasets_path or DATASETS_PATH / modality / dataset_name
-    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
+    s3_client = s3_client or get_s3_client()
+    if bucket is None:
+        bucket = _get_bucket_for_dataset(
+            modality,
+            dataset_name,
+            _get_default_buckets(),
+            s3_client,
+            skip_inaccessible=True,
+        )
+
     bucket_name, bucket_prefix = _parse_bucket(bucket)
 
     LOGGER.info('Downloading dataset %s from %s', dataset_name, bucket)
-    s3_client = s3_client or get_s3_client()
     prefix = f'{bucket_prefix}{modality.lower()}/{dataset_name}/'
     contents = _list_s3_bucket_contents(s3_client, bucket_name, prefix)
     if not contents:
@@ -222,7 +249,7 @@ def _get_dataset_bucket_mapping(modality, buckets, s3_client, skip_inaccessible=
         try:
             available_datasets = _get_available_datasets(
                 modality,
-                bucket=bucket,
+                buckets=[bucket],
                 s3_client=s3_client,
             )
         except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as error:
@@ -259,6 +286,52 @@ def _get_dataset_paths_from_buckets(
         _make_s3_dataset_path(dataset_bucket, modality, dataset)
         for dataset, dataset_bucket in dataset_buckets.items()
     ]
+
+
+def _get_bucket_for_dataset(
+    modality,
+    dataset,
+    buckets,
+    s3_client,
+    skip_inaccessible=False,
+):
+    """Get the bucket containing a dataset."""
+    dataset_buckets = _get_dataset_bucket_mapping(
+        modality,
+        buckets,
+        s3_client,
+        skip_inaccessible=skip_inaccessible,
+    )
+    dataset_name = _get_dataset_display_name(dataset)
+    bucket = dataset_buckets.get(dataset_name)
+    if bucket is None:
+        raise ValueError(_format_error_dataset_not_found(dataset_name, modality, buckets))
+
+    return bucket
+
+
+def _resolve_dataset_name_to_path(
+    modality,
+    dataset,
+    datasets_path,
+    buckets,
+    s3_client,
+    skip_inaccessible=False,
+):
+    """Resolve one dataset name to a local path or the matching S3 dataset path."""
+    existing_path = _get_existing_dataset_path(modality, dataset, datasets_path)
+    if existing_path is not None:
+        return existing_path
+
+    dataset_name = _get_dataset_display_name(dataset)
+    bucket = _get_bucket_for_dataset(
+        modality,
+        dataset_name,
+        buckets,
+        s3_client,
+        skip_inaccessible=skip_inaccessible,
+    )
+    return _make_s3_dataset_path(bucket, modality, dataset_name)
 
 
 def _resolve_dataset_names_to_paths(
@@ -324,7 +397,6 @@ def _get_dataset_path_and_download(
     datasets_path = datasets_path or DATASETS_PATH / modality
     dataset_path = datasets_path / dataset
     s3_client = s3_client or get_s3_client()
-    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
 
     return _download_dataset(
         modality,
@@ -463,24 +535,25 @@ def _genereate_dataset_info(s3_client, bucket_name, contents):
 
 def _get_available_datasets(
     modality,
-    bucket=None,
+    buckets=None,
     s3_client=None,
 ):
     _validate_modality(modality)
-    if isinstance(bucket, list):
-        raise TypeError("The 'bucket' parameter must be a string or None.")
-
-    _validate_bucket(bucket)
+    _validate_buckets(buckets)
     s3_client = s3_client or get_s3_client()
-    bucket = bucket or SDV_DATASETS_PUBLIC_BUCKET
-    bucket_name, bucket_prefix = _parse_bucket(bucket)
-    contents = _list_s3_bucket_contents(
-        s3_client,
-        bucket_name,
-        f'{bucket_prefix}{modality}/',
-    )
-    datasets_info = _genereate_dataset_info(s3_client, bucket_name, contents)
-    return pd.DataFrame(datasets_info)
+    buckets = buckets or _get_default_buckets()
+    available_datasets = []
+    for bucket in buckets:
+        bucket_name, bucket_prefix = _parse_bucket(bucket)
+        contents = _list_s3_bucket_contents(
+            s3_client,
+            bucket_name,
+            f'{bucket_prefix}{modality}/',
+        )
+        datasets_info = _genereate_dataset_info(s3_client, bucket_name, contents)
+        available_datasets.append(pd.DataFrame(datasets_info))
+
+    return pd.concat(available_datasets, ignore_index=True)
 
 
 def load_dataset(
@@ -555,14 +628,14 @@ def _load_dataset_with_client(
                 s3_client,
             )
         else:
-            dataset_path = _resolve_dataset_names_to_paths(
+            dataset_path = _resolve_dataset_name_to_path(
                 modality,
-                [dataset],
+                dataset,
                 datasets_path or DATASETS_PATH / modality,
                 _get_buckets(bucket),
                 s3_client,
                 skip_inaccessible=bucket is None,
-            )[0]
+            )
             if _is_s3_dataset_path(dataset_path):
                 bucket, dataset_name = _get_bucket_and_dataset_from_s3_path(dataset_path, modality)
                 data, metadata_dict = _load_data_and_metadata_from_s3(
@@ -644,7 +717,7 @@ def get_dataset_paths(
         else:
             datasets = _get_available_datasets(
                 modality,
-                bucket=single_bucket,
+                buckets=[single_bucket],
                 s3_client=s3_client,
             )
             datasets = datasets['dataset_name'].tolist()

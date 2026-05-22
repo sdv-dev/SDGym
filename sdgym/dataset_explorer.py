@@ -232,7 +232,7 @@ class DatasetExplorer:
 
         available_datasets = _get_available_datasets(
             modality=modality,
-            bucket=self._bucket_name,
+            buckets=[self._bucket_name],
             s3_client=self.s3_client,
         )
         if datasets is not None:
@@ -352,7 +352,7 @@ class DatasetExplorer:
 
         dataframe = _get_available_datasets(
             modality=modality,
-            bucket=self._bucket_name,
+            buckets=[self._bucket_name],
             s3_client=self.s3_client,
         )
         if output_filepath:

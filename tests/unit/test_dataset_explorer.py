@@ -265,7 +265,7 @@ class TestDatasetExplorer:
         # Assert
         mock_get_datasets.assert_called_once_with(
             modality='single_table',
-            bucket='sdv-datasets-public',
+            buckets=['sdv-datasets-public'],
             s3_client=None,
         )
         mock_load_dataset.assert_called_once_with(
@@ -362,7 +362,7 @@ class TestDatasetExplorer:
         mock_validate_modality.assert_called_once_with('single_table')
         mock_get_available.assert_called_once_with(
             modality='single_table',
-            bucket='sdv-datasets-public',
+            buckets=['sdv-datasets-public'],
             s3_client=None,
         )
         pd.testing.assert_frame_equal(result, expected_df)
@@ -387,7 +387,7 @@ class TestDatasetExplorer:
         mock_validate_modality.assert_called_once_with('multi_table')
         mock_get_available.assert_called_once_with(
             modality='multi_table',
-            bucket='sdv-datasets-public',
+            buckets=['sdv-datasets-public'],
             s3_client=None,
         )
         assert output_filepath.exists()

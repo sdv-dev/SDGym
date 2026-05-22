@@ -331,7 +331,7 @@ class TestResultsExplorer:
         path.mkdir(parents=True)
         result_explorer = ResultsExplorer(str(path), modality='single_table')
         expected_error_message = re.escape(
-            "Dataset(s) 'invalid_dataset' not found in buckets 's3://sdv-datasets-public'"
+            "Dataset 'invalid_dataset' not found in buckets 's3://sdv-datasets-public'"
             ", 's3://sdv-datasets-private' for modality 'single_table'."
         )
 

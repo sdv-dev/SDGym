@@ -16,17 +16,30 @@ from sdgym.datasets import (
     _download_dataset,
     _format_error_dataset_not_found,
     _genereate_dataset_info,
+    _get_available_datasets,
+    _get_bucket_for_dataset,
     _get_dataset_path_and_download,
+    _get_default_buckets,
     _load_data_and_metadata_from_s3,
     _load_dataset_with_client,
     _parse_bucket,
     _path_contains_data_and_metadata,
+    _resolve_dataset_name_to_path,
     _resolve_dataset_names_to_paths,
     _validate_modality,
     get_data_and_metadata_from_path,
     get_dataset_paths,
     load_dataset,
 )
+
+
+def test__get_default_buckets():
+    """Test the default dataset buckets include public and private buckets."""
+    # Run
+    result = _get_default_buckets()
+
+    # Assert
+    assert result == [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET]
 
 
 @patch('sdgym.datasets.get_s3_client')
@@ -120,6 +133,48 @@ def test__download_dataset_with_credentials(list_mock, parse_bucket_mock, s3_cli
     parse_bucket_mock.assert_called_once_with(bucket)
     list_mock.assert_called_once_with(s3_mock, 'secure-bucket', f'{modality}/{dataset_name}/')
     s3_mock.download_file.assert_called_once()
+
+
+@patch('sdgym.datasets.get_s3_client')
+@patch('sdgym.datasets._get_dataset_bucket_mapping')
+@patch('sdgym.datasets._parse_bucket')
+@patch('sdgym.datasets._list_s3_bucket_contents')
+@patch('sdgym.datasets.os.makedirs')
+def test__download_dataset_without_bucket_uses_default_bucket_mapping(
+    makedirs_mock,
+    list_mock,
+    parse_bucket_mock,
+    bucket_mapping_mock,
+    s3_client_mock,
+):
+    """Test no bucket downloads from the public/private bucket containing the dataset."""
+    # Setup
+    modality = 'single_table'
+    dataset_name = 'shared_dataset'
+    datasets_path = Path('/tmp/datasets')
+    s3_mock = Mock()
+    s3_client_mock.return_value = s3_mock
+    bucket_mapping_mock.return_value = {dataset_name: SDV_DATASETS_PRIVATE_BUCKET}
+    parse_bucket_mock.return_value = ('sdv-datasets-private', '')
+    list_mock.return_value = [{'Key': f'{modality}/{dataset_name}/file.csv'}]
+
+    # Run
+    result = _download_dataset(modality, dataset_name, datasets_path)
+
+    # Assert
+    assert result == datasets_path
+    bucket_mapping_mock.assert_called_once_with(
+        modality,
+        [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
+        s3_mock,
+        skip_inaccessible=True,
+    )
+    parse_bucket_mock.assert_called_once_with(SDV_DATASETS_PRIVATE_BUCKET)
+    list_mock.assert_called_once_with(
+        s3_mock, 'sdv-datasets-private', f'{modality}/{dataset_name}/'
+    )
+    s3_mock.download_file.assert_called_once()
+    makedirs_mock.assert_called()
 
 
 def test__path_contains_data_and_metadata_true(monkeypatch):
@@ -416,6 +471,37 @@ def test_parse_bucket_local_folder():
     assert prefix == ''
 
 
+@patch('sdgym.datasets.get_s3_client')
+@patch('sdgym.datasets._list_s3_bucket_contents')
+@patch('sdgym.datasets._genereate_dataset_info')
+def test__get_available_datasets_without_bucket_uses_default_buckets(
+    generate_info_mock,
+    list_mock,
+    s3_client_mock,
+):
+    """Test available datasets searches both public and private buckets by default."""
+    # Setup
+    s3_client_mock.return_value = 's3_client'
+    list_mock.side_effect = [
+        [{'Key': 'single_table/public_dataset/metainfo.yaml'}],
+        [{'Key': 'single_table/private_dataset/metainfo.yaml'}],
+    ]
+    generate_info_mock.side_effect = [
+        {'dataset_name': ['public_dataset'], 'size_MB': [1.0], 'num_tables': [1]},
+        {'dataset_name': ['private_dataset'], 'size_MB': [2.0], 'num_tables': [1]},
+    ]
+
+    # Run
+    result = _get_available_datasets('single_table')
+
+    # Assert
+    assert result['dataset_name'].tolist() == ['public_dataset', 'private_dataset']
+    list_mock.assert_has_calls([
+        call('s3_client', 'sdv-datasets-public', 'single_table/'),
+        call('s3_client', 'sdv-datasets-private', 'single_table/'),
+    ])
+
+
 def test__format_error_dataset_not_found_single_bucket():
     """Test dataset-not-found message formatting for one bucket."""
     # Setup
@@ -501,8 +587,8 @@ def test_get_dataset_paths_default_buckets(get_available_mock, s3_client_mock):
         f'{SDV_DATASETS_PRIVATE_BUCKET}/single_table/private_dataset',
     ]
     get_available_mock.assert_has_calls([
-        call('single_table', bucket=SDV_DATASETS_PUBLIC_BUCKET, s3_client='s3_client'),
-        call('single_table', bucket=SDV_DATASETS_PRIVATE_BUCKET, s3_client='s3_client'),
+        call('single_table', buckets=[SDV_DATASETS_PUBLIC_BUCKET], s3_client='s3_client'),
+        call('single_table', buckets=[SDV_DATASETS_PRIVATE_BUCKET], s3_client='s3_client'),
     ])
 
 
@@ -602,6 +688,82 @@ def test_get_dataset_paths_rejects_tuple_bucket():
     # Run and Assert
     with pytest.raises(TypeError, match=error_message):
         get_dataset_paths('single_table', bucket=('s3://bucket-1', 's3://bucket-2'))
+
+
+@patch('sdgym.datasets._get_dataset_bucket_mapping')
+def test__get_bucket_for_dataset(bucket_mapping_mock):
+    """Test the bucket containing a dataset is selected from the bucket mapping."""
+    # Setup
+    bucket_mapping_mock.return_value = {'remote_dataset': 's3://bucket-2'}
+
+    # Run
+    result = _get_bucket_for_dataset(
+        'single_table',
+        'remote_dataset',
+        ['s3://bucket-1', 's3://bucket-2'],
+        's3_client',
+    )
+
+    # Assert
+    assert result == 's3://bucket-2'
+    bucket_mapping_mock.assert_called_once_with(
+        'single_table',
+        ['s3://bucket-1', 's3://bucket-2'],
+        's3_client',
+        skip_inaccessible=False,
+    )
+
+
+@patch('sdgym.datasets._get_dataset_bucket_mapping')
+def test__get_bucket_for_dataset_missing(bucket_mapping_mock):
+    """Test an unknown dataset raises a consistent not-found error."""
+    # Setup
+    bucket_mapping_mock.return_value = {'other_dataset': 's3://bucket-1'}
+    expected_message = (
+        "Dataset 'remote_dataset' not found in buckets "
+        "'s3://bucket-1', 's3://bucket-2' for modality 'single_table'."
+    )
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _get_bucket_for_dataset(
+            'single_table',
+            'remote_dataset',
+            ['s3://bucket-1', 's3://bucket-2'],
+            's3_client',
+        )
+
+
+@patch('sdgym.datasets._get_bucket_for_dataset')
+@patch('sdgym.datasets._get_existing_dataset_path')
+def test__resolve_dataset_name_to_path_resolves_remote(
+    existing_path_mock,
+    get_bucket_mock,
+):
+    """Test one dataset name is resolved to the matching S3 dataset path."""
+    # Setup
+    existing_path_mock.return_value = None
+    get_bucket_mock.return_value = 's3://bucket-2'
+
+    # Run
+    result = _resolve_dataset_name_to_path(
+        'single_table',
+        'remote_dataset',
+        Path('/tmp/datasets'),
+        ['s3://bucket-1', 's3://bucket-2'],
+        's3_client',
+        skip_inaccessible=True,
+    )
+
+    # Assert
+    assert result == 's3://bucket-2/single_table/remote_dataset'
+    get_bucket_mock.assert_called_once_with(
+        'single_table',
+        'remote_dataset',
+        ['s3://bucket-1', 's3://bucket-2'],
+        's3_client',
+        skip_inaccessible=True,
+    )
 
 
 @patch('sdgym.datasets._get_dataset_bucket_mapping')
