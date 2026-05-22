@@ -929,6 +929,30 @@ def test_benchmark_multi_table_basic_synthesizers():
     ]
 
 
+@pytest.mark.skipif(
+    not os.getenv('AWS_ACCESS_KEY_ID') or not os.getenv('AWS_SECRET_ACCESS_KEY'),
+    reason='MovieLens benchmark requires AWS credentials for private dataset access.',
+)
+def test_benchmark_multi_table_movielens_private_bucket_timeout():
+    """Integration test that benchmarks MovieLens from the SDV dataset buckets."""
+    # Setup
+    datasets = ['MovieLens']
+    synthesizers = ['HMASynthesizer']
+    timeout = 20
+
+    # Run
+    result = benchmark_multi_table(
+        synthesizers=synthesizers,
+        sdv_datasets=datasets,
+        timeout=timeout,
+    )
+
+    # Assert
+    assert result['Dataset'].tolist() == ['MovieLens', 'MovieLens']
+    assert result['Synthesizer'].tolist() == ['HMASynthesizer', 'MultiTableUniformSynthesizer']
+    assert result['Score'].tolist() == [np.nan, np.nan]
+
+
 def test_benchmark_multi_table_with_output_destination_multiple_runs(tmp_path):
     """Test saving in ``output_destination`` with multiple runs in multi-table mode.
 
