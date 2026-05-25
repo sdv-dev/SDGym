@@ -46,13 +46,6 @@ def _get_bucket_name(bucket):
     return bucket[len(S3_PREFIX) :] if bucket.startswith(S3_PREFIX) else bucket
 
 
-def _metadata_to_dict(metadata):
-    if isinstance(metadata, dict):
-        return metadata
-
-    return metadata.to_dict()
-
-
 def _raise_dataset_not_found_error(
     s3_client,
     bucket_name,
@@ -314,7 +307,7 @@ def _load_private_sdv_demo_dataset(modality, dataset_name, bucket, s3_client=Non
         data = data.popitem()[1]
 
     metadata = _get_metadata(metadata_bytes, dataset_name)
-    return data, _metadata_to_dict(metadata)
+    return data, metadata.to_dict()
 
 
 def _load_sdv_demo_dataset(
@@ -350,7 +343,7 @@ def _load_sdv_demo_dataset(
             dataset_name=dataset_name,
             s3_bucket_name=bucket_name,
         )
-        metadata = _metadata_to_dict(metadata)
+        metadata = metadata.to_dict()
     except ValueError:
         if bucket != SDV_DATASETS_PRIVATE_BUCKET:
             raise
