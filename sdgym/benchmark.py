@@ -73,10 +73,6 @@ from sdgym.utils import (
 
 TIMEOUT = 345600
 LOGGER = logging.getLogger(__name__)
-SDGYM_BRANCH_INSTALL_COMMAND = (
-    'pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git'
-    '@issue-604-2-private-bucket"'
-)
 DEFAULT_SINGLE_TABLE_SYNTHESIZERS = [
     'GaussianCopulaSynthesizer',
     'CTGANSynthesizer',
@@ -1421,7 +1417,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        {SDGYM_BRANCH_INSTALL_COMMAND}
+        pip install sdgym[all]
         pip install s3fs
 
         echo "======== Write Script ==========="

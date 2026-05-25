@@ -13,7 +13,6 @@ from sdgym.benchmark import (
     DEFAULT_SINGLE_TABLE_DATASETS,
     DEFAULT_SINGLE_TABLE_SYNTHESIZERS,
     S3_REGION,
-    SDGYM_BRANCH_INSTALL_COMMAND,
     _ensure_uniform_included,
     _generate_job_args_list,
     _get_empty_dataframe,
@@ -207,7 +206,7 @@ def _get_user_data_script(
         log "======== Install Dependencies =========="
         pip install --upgrade pip
         {sdv_install}
-        {SDGYM_BRANCH_INSTALL_COMMAND}
+        pip install "sdgym[all]"
 
         {gpu_block}
 
