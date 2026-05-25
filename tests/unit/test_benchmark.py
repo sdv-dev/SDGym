@@ -202,10 +202,18 @@ def test__get_metainfo_increment_local(mock_logger, tmp_path):
     assert result_3 == 3
 
 
+@patch('sdgym.benchmark._get_dataset_bucket_mapping')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
 @patch('sdgym.benchmark.tqdm.tqdm')
-def test_benchmark_single_table_progress_bar(tqdm_mock):
+def test_benchmark_single_table_progress_bar(
+    tqdm_mock, mock_load_sdv_demo_dataset, mock_get_dataset_bucket_mapping
+):
     """Test that the benchmarking function updates the progress bar on one line."""
     # Setup
+    data = pd.DataFrame({'column': [1, 2]})
+    metadata = {'tables': {'student_placements': {'columns': {'column': {'sdtype': 'numerical'}}}}}
+    mock_get_dataset_bucket_mapping.return_value = {'student_placements': 'bucket'}
+    mock_load_sdv_demo_dataset.return_value = data, metadata
     scores_mock = MagicMock()
     scores_mock.__iter__.return_value = [
         pd.DataFrame({
@@ -228,11 +236,22 @@ def test_benchmark_single_table_progress_bar(tqdm_mock):
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
 
 
+@patch('sdgym.benchmark._get_dataset_bucket_mapping')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
 @patch('sdgym.benchmark._score')
 @patch('sdgym.benchmark.multiprocessing')
-def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
+def test_benchmark_single_table_with_timeout(
+    mock_multiprocessing,
+    mock__score,
+    mock_load_sdv_demo_dataset,
+    mock_get_dataset_bucket_mapping,
+):
     """Test that benchmark runs with timeout."""
     # Setup
+    data = pd.DataFrame({'column': [1, 2]})
+    metadata = {'tables': {'student_placements': {'columns': {'column': {'sdtype': 'numerical'}}}}}
+    mock_get_dataset_bucket_mapping.return_value = {'student_placements': 'bucket'}
+    mock_load_sdv_demo_dataset.return_value = data, metadata
     mocked_process = mock_multiprocessing.Process.return_value
     manager = mock_multiprocessing.Manager.return_value
     manager_dict = {'timeout': True, 'Error': 'Synthesizer Timeout'}
@@ -1097,25 +1116,26 @@ def test__generate_job_args_list_local_root_additional_folder(
     )
 
 
-@patch('sdgym.benchmark.get_dataset_paths')
+@patch('sdgym.benchmark._get_dataset_bucket_mapping')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
 @patch('sdgym.benchmark._setup_output_destination')
-@patch('sdgym.benchmark._load_dataset_with_client')
+@patch('sdgym.benchmark.get_dataset_paths')
 def test__generate_job_args_list_loads_each_dataset_once(
-    mock_load_dataset,
-    mock__setup_output_destination,
     mock_get_dataset_paths,
+    mock__setup_output_destination,
+    mock_load_sdv_demo_dataset,
+    mock_get_dataset_bucket_mapping,
 ):
     """Test that each dataset is loaded once even when there are multiple synthesizers."""
     # Setup
-    dataset_a = Path('/dummy/single_table/datasetA')
-    dataset_b = Path('/dummy/single_table/datasetB')
-    mock_get_dataset_paths.return_value = [dataset_a, dataset_b]
+    mock_get_dataset_paths.return_value = []
+    mock_get_dataset_bucket_mapping.return_value = {'datasetA': 'bucket', 'datasetB': 'bucket'}
     mock__setup_output_destination.return_value = {}
     data_a = Mock(name='data_a')
     metadata_a = Mock(name='metadata_a')
     data_b = Mock(name='data_b')
     metadata_b = Mock(name='metadata_b')
-    mock_load_dataset.side_effect = [(data_a, metadata_a), (data_b, metadata_b)]
+    mock_load_sdv_demo_dataset.side_effect = [(data_a, metadata_a), (data_b, metadata_b)]
     synthesizers = [
         {'name': 'GaussianCopulaSynthesizer'},
         {'name': 'UniformSynthesizer'},
@@ -1139,11 +1159,24 @@ def test__generate_job_args_list_loads_each_dataset_once(
     )
 
     # Assert
-    mock_load_dataset.assert_has_calls([
-        call('single_table', dataset_a, limit_dataset_size=True, s3_client=s3_client),
-        call('single_table', dataset_b, limit_dataset_size=True, s3_client=s3_client),
+    mock_get_dataset_paths.assert_not_called()
+    mock_load_sdv_demo_dataset.assert_has_calls([
+        call(
+            modality='single_table',
+            dataset_name='datasetA',
+            dataset_bucket_mapping={'datasetA': 'bucket', 'datasetB': 'bucket'},
+            s3_client=s3_client,
+            limit_dataset_size=True,
+        ),
+        call(
+            modality='single_table',
+            dataset_name='datasetB',
+            dataset_bucket_mapping={'datasetA': 'bucket', 'datasetB': 'bucket'},
+            s3_client=s3_client,
+            limit_dataset_size=True,
+        ),
     ])
-    assert mock_load_dataset.call_count == 2
+    assert mock_load_sdv_demo_dataset.call_count == 2
     assert len(job_args_list) == 4
     assert [job.dataset_name for job in job_args_list] == [
         'datasetA',
@@ -1175,7 +1208,10 @@ def test__generate_job_args_list_s3_root_additional_folder(
     get_dataset_paths_mock.return_value = [dataset_path]
     s3_client = Mock()
     mock__setup_output_destination.return_value = {}
-    mock_load_dataset.return_value = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
+    mock_load_dataset.return_value = (
+        pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]}),
+        {'tables': {}},
+    )
 
     # Run
     _generate_job_args_list(
@@ -1211,9 +1247,27 @@ def test__generate_job_args_list_s3_root_additional_folder(
     )
 
 
-def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
+@patch('sdgym.benchmark._get_dataset_bucket_mapping')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
+def test_benchmark_single_table_no_warning_uniform_synthesizer(
+    mock_load_sdv_demo_dataset, mock_get_dataset_bucket_mapping, recwarn
+):
     """Test that no UserWarning is raised when running `UniformSynthesizer`."""
     # Setup
+    data = pd.DataFrame({'column': [1, 2, 3]})
+    metadata = {
+        'tables': {
+            'fake_hotel_guests': {
+                'columns': {
+                    'column': {
+                        'sdtype': 'numerical',
+                    }
+                }
+            }
+        }
+    }
+    mock_get_dataset_bucket_mapping.return_value = {'fake_hotel_guests': 'bucket'}
+    mock_load_sdv_demo_dataset.return_value = data, metadata
     expected_result = pd.DataFrame({
         'Synthesizer': {0: 'UniformSynthesizer'},
         'Dataset': {0: 'fake_hotel_guests'},
