@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 
 from sdgym._benchmark_launcher.utils import (
-    MODALITY_TO_CONFIG_FILE,
+    MODALITY_TO_JOB_SETUP,
     _add_dataset_suffix,
     _build_instance_artifact_filepaths,
     _build_job_artifact_filepaths,
@@ -17,6 +17,7 @@ from sdgym._benchmark_launcher.utils import (
     _env,
     _get_env_credentials,
     _get_gcp_credentials_from_env,
+    _get_modality_config,
     _get_synthetic_data_extension,
     _get_top_folder_prefix,
     _is_unique_string_list,
@@ -33,23 +34,55 @@ from sdgym._benchmark_launcher.utils import (
 
 
 @patch('sdgym._benchmark_launcher.utils._load_yaml_resource')
-def test__load_merged_modality_config_calls_load_yaml_resource(mock_load_yaml):
-    """Test `_load_merged_modality_config` loads and merges base and modality configs."""
+@patch('sdgym._benchmark_launcher.utils._get_modality_config')
+def test__load_merged_modality_config_loads_base_and_merges_modality(
+    mock_get_modality_config, mock_load_yaml
+):
+    """Test `_load_merged_modality_config` loads the base config and merges generated jobs."""
     # Setup
     modality = 'single_table'
     base_config = {'a': 1, 'b': {'x': 1}}
     modality_config = {'b': {'y': 2}, 'c': 3}
-    mock_load_yaml.side_effect = [base_config, modality_config]
+    mock_load_yaml.return_value = base_config
+    mock_get_modality_config.return_value = modality_config
 
     # Run
     merged = _load_merged_modality_config(modality)
 
     # Assert
-    mock_load_yaml.assert_has_calls([
-        call('benchmark_base.yaml'),
-        call(MODALITY_TO_CONFIG_FILE[modality]),
-    ])
+    mock_load_yaml.assert_called_once_with('benchmark_base.yaml')
+    mock_get_modality_config.assert_called_once_with(modality)
     assert merged == {'a': 1, 'b': {'x': 1, 'y': 2}, 'c': 3}
+
+
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
+def test__get_modality_config_creates_one_instance_job_per_pair(modality):
+    """Test `_get_modality_config` creates one instance job per dataset/synthesizer pair."""
+    # Setup
+    job_setup = MODALITY_TO_JOB_SETUP[modality]
+
+    # Run
+    result = _get_modality_config(modality)
+
+    # Assert
+    assert result['modality'] == modality
+    assert len(result['instance_jobs']) == (
+        len(job_setup['datasets']) * len(job_setup['synthesizers'])
+    )
+    assert result['instance_jobs'][0] == {
+        'datasets': [job_setup['datasets'][0]],
+        'synthesizers': [job_setup['synthesizers'][0]],
+        'output_destination': job_setup['output_destination'],
+    }
+    assert result['instance_jobs'][-1] == {
+        'datasets': [job_setup['datasets'][-1]],
+        'synthesizers': [job_setup['synthesizers'][-1]],
+        'output_destination': job_setup['output_destination'],
+    }
+    assert all(
+        set(job) == {'datasets', 'synthesizers', 'output_destination'}
+        for job in result['instance_jobs']
+    )
 
 
 def test__resolve_compute_gcp():
@@ -137,7 +170,10 @@ def test__resolve_modality_config_mock(mock_load_modality_config):
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
 @patch('sdgym._benchmark_launcher.utils._load_yaml_resource')
-def test__resolve_modality_config_filters_to_config_keys(mock_load_yaml, modality):
+@patch('sdgym._benchmark_launcher.utils._get_modality_config')
+def test__resolve_modality_config_filters_to_config_keys(
+    mock_get_modality_config, mock_load_yaml, modality
+):
     """Test `_resolve_modality_config` merges configs and filters to CONFIG_KEYS."""
     # Setup
     base = {
@@ -161,16 +197,15 @@ def test__resolve_modality_config_filters_to_config_keys(mock_load_yaml, modalit
         'instance_jobs': [{'synthesizers': ['A'], 'datasets': ['d1']}],
     }
 
-    mock_load_yaml.side_effect = [base, modality_dict]
+    mock_load_yaml.return_value = base
+    mock_get_modality_config.return_value = modality_dict
 
     # Run
     resolved = _resolve_modality_config(modality)
 
     # Assert
-    mock_load_yaml.assert_has_calls([
-        call('benchmark_base.yaml'),
-        call(MODALITY_TO_CONFIG_FILE[modality]),
-    ])
+    mock_load_yaml.assert_called_once_with('benchmark_base.yaml')
+    mock_get_modality_config.assert_called_once_with(modality)
     assert resolved == expected
 
 
