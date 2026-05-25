@@ -1060,9 +1060,9 @@ def test__add_adjusted_scores_missing_fallback():
 
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
-@patch('sdgym.benchmark.get_dataset_paths')
+@patch('sdgym.benchmark._get_dataset_paths')
 def test__generate_job_args_list_local_root_additional_folder(
-    get_dataset_paths_mock,
+    _get_dataset_paths_mock,
     tmp_path,
     modality,
 ):
@@ -1071,7 +1071,7 @@ def test__generate_job_args_list_local_root_additional_folder(
     local_root = tmp_path / 'my_root'
     local_root.mkdir()
     dataset_path = tmp_path / 'my_root' / modality / 'datasetA'
-    get_dataset_paths_mock.return_value = [dataset_path]
+    _get_dataset_paths_mock.return_value = [dataset_path]
 
     # Run
     _generate_job_args_list(
@@ -1090,26 +1090,26 @@ def test__generate_job_args_list_local_root_additional_folder(
     )
 
     # Assert
-    get_dataset_paths_mock.assert_called_once_with(
+    _get_dataset_paths_mock.assert_called_once_with(
         modality=modality,
         bucket=str(local_root / modality),
         s3_client=None,
     )
 
 
-@patch('sdgym.benchmark.get_dataset_paths')
+@patch('sdgym.benchmark._get_dataset_paths')
 @patch('sdgym.benchmark._setup_output_destination')
 @patch('sdgym.benchmark._load_dataset_with_client')
 def test__generate_job_args_list_s3_root_additional_folder(
     mock_load_dataset,
     mock__setup_output_destination,
-    get_dataset_paths_mock,
+    _get_dataset_paths_mock,
 ):
     """S3 additional_datasets_folder should point to the root path."""
     # Setup
     s3_root = 's3://my-bucket/custom-datasets'
     dataset_path = Path('/dummy/single_table/datasetA')
-    get_dataset_paths_mock.return_value = [dataset_path]
+    _get_dataset_paths_mock.return_value = [dataset_path]
     s3_client = Mock()
     mock__setup_output_destination.return_value = {}
     mock_load_dataset.return_value = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
@@ -1131,7 +1131,7 @@ def test__generate_job_args_list_s3_root_additional_folder(
     )
 
     # Assert
-    get_dataset_paths_mock.assert_called_once_with(
+    _get_dataset_paths_mock.assert_called_once_with(
         modality='single_table',
         bucket=s3_root,
         s3_client=s3_client,
@@ -1146,6 +1146,52 @@ def test__generate_job_args_list_s3_root_additional_folder(
     mock_load_dataset.assert_called_once_with(
         'single_table', dataset_path, limit_dataset_size=False, s3_client=s3_client
     )
+
+
+@patch('sdgym.benchmark._get_dataset_paths')
+@patch('sdgym.benchmark._setup_output_destination')
+@patch('sdgym.benchmark._load_dataset_with_client')
+def test__generate_job_args_list_loads_each_dataset_once(
+    mock_load_dataset,
+    mock__setup_output_destination,
+    _get_dataset_paths_mock,
+):
+    """Each dataset should be loaded once and shared across synthesizer jobs."""
+    # Setup
+    dataset_path = Path('/dummy/single_table/datasetA')
+    data = pd.DataFrame({'col1': [1, 2]})
+    metadata = {'tables': {'table': {'columns': {'col1': {'sdtype': 'numerical'}}}}}
+    _get_dataset_paths_mock.return_value = [dataset_path]
+    mock__setup_output_destination.return_value = {}
+    mock_load_dataset.return_value = (data, metadata)
+    synthesizers = [
+        {'name': 'GaussianCopulaSynthesizer'},
+        {'name': 'CTGANSynthesizer'},
+    ]
+
+    # Run
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=False,
+        sdv_datasets=['datasetA'],
+        additional_datasets_folder=None,
+        sdmetrics=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        synthesizers=synthesizers,
+        s3_client=None,
+        modality='single_table',
+    )
+
+    # Assert
+    mock_load_dataset.assert_called_once_with(
+        'single_table', dataset_path, limit_dataset_size=False, s3_client=None
+    )
+    assert len(job_args_list) == 2
+    assert all(job_args.data is data for job_args in job_args_list)
+    assert all(job_args.metadata is metadata for job_args in job_args_list)
 
 
 def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
