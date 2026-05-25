@@ -365,7 +365,7 @@ def _generate_job_args_list(
     paths = _setup_output_destination(
         output_destination, synthesizer_names, dataset_names, modality=modality, s3_client=s3_client
     )
-    job_tuples = []
+    job_tuples_by_dataset = defaultdict(list)
     for dataset in datasets:
         for synthesizer in synthesizers:
             if paths:
@@ -377,29 +377,30 @@ def _generate_job_args_list(
                 final_name = synthesizer['name']
 
             synthesizer['name'] = final_name
-            job_tuples.append((synthesizer, dataset))
+            job_tuples_by_dataset[dataset].append(synthesizer)
 
     job_args_list = []
-    for synthesizer, dataset in job_tuples:
+    for dataset, synthesizers in job_tuples_by_dataset.items():
         data, metadata_dict = _load_dataset_with_client(
             modality, dataset, limit_dataset_size=limit_dataset_size, s3_client=s3_client
         )
-        path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
-        job_args_list.append(
-            JobArgs(
-                synthesizer=synthesizer,
-                data=data,
-                metadata=metadata_dict,
-                metrics=sdmetrics,
-                timeout=timeout,
-                compute_quality_score=compute_quality_score,
-                compute_diagnostic_score=compute_diagnostic_score,
-                compute_privacy_score=compute_privacy_score,
-                dataset_name=dataset.name,
-                modality=modality,
-                output_directions=path,
+        for synthesizer in synthesizers:
+            path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
+            job_args_list.append(
+                JobArgs(
+                    synthesizer=synthesizer,
+                    data=data,
+                    metadata=metadata_dict,
+                    metrics=sdmetrics,
+                    timeout=timeout,
+                    compute_quality_score=compute_quality_score,
+                    compute_diagnostic_score=compute_diagnostic_score,
+                    compute_privacy_score=compute_privacy_score,
+                    dataset_name=dataset.name,
+                    modality=modality,
+                    output_directions=path,
+                )
             )
-        )
 
     return job_args_list
 

@@ -1100,6 +1100,69 @@ def test__generate_job_args_list_local_root_additional_folder(
 @patch('sdgym.benchmark.get_dataset_paths')
 @patch('sdgym.benchmark._setup_output_destination')
 @patch('sdgym.benchmark._load_dataset_with_client')
+def test__generate_job_args_list_loads_each_dataset_once(
+    mock_load_dataset,
+    mock__setup_output_destination,
+    mock_get_dataset_paths,
+):
+    """Test that each dataset is loaded once even when there are multiple synthesizers."""
+    # Setup
+    dataset_a = Path('/dummy/single_table/datasetA')
+    dataset_b = Path('/dummy/single_table/datasetB')
+    mock_get_dataset_paths.return_value = [dataset_a, dataset_b]
+    mock__setup_output_destination.return_value = {}
+    data_a = Mock(name='data_a')
+    metadata_a = Mock(name='metadata_a')
+    data_b = Mock(name='data_b')
+    metadata_b = Mock(name='metadata_b')
+    mock_load_dataset.side_effect = [(data_a, metadata_a), (data_b, metadata_b)]
+    synthesizers = [
+        {'name': 'GaussianCopulaSynthesizer'},
+        {'name': 'UniformSynthesizer'},
+    ]
+    s3_client = Mock()
+
+    # Run
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=True,
+        sdv_datasets=['datasetA', 'datasetB'],
+        additional_datasets_folder=None,
+        sdmetrics=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        modality='single_table',
+    )
+
+    # Assert
+    mock_load_dataset.assert_has_calls([
+        call('single_table', dataset_a, limit_dataset_size=True, s3_client=s3_client),
+        call('single_table', dataset_b, limit_dataset_size=True, s3_client=s3_client),
+    ])
+    assert mock_load_dataset.call_count == 2
+    assert len(job_args_list) == 4
+    assert [job.dataset_name for job in job_args_list] == [
+        'datasetA',
+        'datasetA',
+        'datasetB',
+        'datasetB',
+    ]
+    assert [job.data for job in job_args_list] == [data_a, data_a, data_b, data_b]
+    assert [job.metadata for job in job_args_list] == [
+        metadata_a,
+        metadata_a,
+        metadata_b,
+        metadata_b,
+    ]
+
+
+@patch('sdgym.benchmark.get_dataset_paths')
+@patch('sdgym.benchmark._setup_output_destination')
+@patch('sdgym.benchmark._load_dataset_with_client')
 def test__generate_job_args_list_s3_root_additional_folder(
     mock_load_dataset,
     mock__setup_output_destination,
