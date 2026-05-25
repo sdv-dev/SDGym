@@ -40,7 +40,14 @@ from sdmetrics.reports.single_table import (
 )
 from sdmetrics.single_table import DCRBaselineProtection
 
-from sdgym.datasets import _load_dataset_with_client, get_dataset_paths
+from sdgym.datasets import (
+    SDV_DATASETS_PRIVATE_BUCKET,
+    SDV_DATASETS_PUBLIC_BUCKET,
+    _get_dataset_bucket_mapping,
+    _load_dataset_with_client,
+    _load_sdv_demo_dataset,
+    get_dataset_paths,
+)
 from sdgym.errors import BenchmarkError, SDGymError
 from sdgym.metrics import get_metrics
 from sdgym.progress import TqdmLogger
@@ -121,6 +128,14 @@ class JobArgs(NamedTuple):
     dataset_name: str
     modality: str
     output_directions: Optional[dict]
+
+
+class ResolvedDataset(NamedTuple):
+    """Resolved dataset data and metadata for benchmark job creation."""
+
+    name: str
+    data: Any
+    metadata: Any
 
 
 def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modality):
@@ -323,6 +338,33 @@ def _setup_output_destination(
     return paths
 
 
+def _resolve_dataset(
+    modality,
+    dataset,
+    limit_dataset_size,
+    source,
+    s3_client=None,
+    dataset_bucket_mapping=None,
+):
+    if source == 'sdv_demo':
+        data, metadata = _load_sdv_demo_dataset(
+            modality=modality,
+            dataset_name=dataset,
+            dataset_bucket_mapping=dataset_bucket_mapping,
+            s3_client=s3_client,
+            limit_dataset_size=limit_dataset_size,
+        )
+        return ResolvedDataset(dataset, data, metadata)
+
+    data, metadata = _load_dataset_with_client(
+        modality,
+        dataset,
+        limit_dataset_size=limit_dataset_size,
+        s3_client=s3_client,
+    )
+    return ResolvedDataset(dataset.name, data, metadata)
+
+
 def _generate_job_args_list(
     limit_dataset_size,
     sdv_datasets,
@@ -337,15 +379,7 @@ def _generate_job_args_list(
     s3_client,
     modality,
 ):
-    sdv_datasets = (
-        []
-        if sdv_datasets is None
-        else get_dataset_paths(
-            modality=modality,
-            datasets=sdv_datasets,
-            s3_client=s3_client,
-        )
-    )
+    sdv_dataset_names = [] if sdv_datasets is None else sdv_datasets
     additional_datasets = (
         []
         if additional_datasets_folder is None
@@ -359,13 +393,45 @@ def _generate_job_args_list(
             s3_client=s3_client,
         )
     )
-    datasets = sdv_datasets + additional_datasets
+    if not synthesizers:
+        return []
+
+    dataset_bucket_mapping = None
+    if sdv_dataset_names:
+        dataset_bucket_mapping = _get_dataset_bucket_mapping(
+            modality,
+            [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
+            s3_client,
+            skip_inaccessible=True,
+        )
+
+    datasets = [
+        _resolve_dataset(
+            modality=modality,
+            dataset=dataset,
+            limit_dataset_size=limit_dataset_size,
+            source='sdv_demo',
+            s3_client=s3_client,
+            dataset_bucket_mapping=dataset_bucket_mapping,
+        )
+        for dataset in sdv_dataset_names
+    ]
+    datasets.extend(
+        _resolve_dataset(
+            modality=modality,
+            dataset=dataset,
+            limit_dataset_size=limit_dataset_size,
+            source='additional',
+            s3_client=s3_client,
+        )
+        for dataset in additional_datasets
+    )
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
     dataset_names = [dataset.name for dataset in datasets]
     paths = _setup_output_destination(
         output_destination, synthesizer_names, dataset_names, modality=modality, s3_client=s3_client
     )
-    job_tuples_by_dataset = defaultdict(list)
+    job_args_list = []
     for dataset in datasets:
         for synthesizer in synthesizers:
             if paths:
@@ -377,20 +443,12 @@ def _generate_job_args_list(
                 final_name = synthesizer['name']
 
             synthesizer['name'] = final_name
-            job_tuples_by_dataset[dataset].append(synthesizer)
-
-    job_args_list = []
-    for dataset, synthesizers in job_tuples_by_dataset.items():
-        data, metadata_dict = _load_dataset_with_client(
-            modality, dataset, limit_dataset_size=limit_dataset_size, s3_client=s3_client
-        )
-        for synthesizer in synthesizers:
             path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
             job_args_list.append(
                 JobArgs(
                     synthesizer=synthesizer,
-                    data=data,
-                    metadata=metadata_dict,
+                    data=dataset.data,
+                    metadata=dataset.metadata,
                     metrics=sdmetrics,
                     timeout=timeout,
                     compute_quality_score=compute_quality_score,

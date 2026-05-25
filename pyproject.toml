@@ -66,8 +66,7 @@ dependencies = [
     "rdt>=1.20.0;python_version>='3.14'",
     "sdmetrics>=0.21.0;python_version<'3.14'",
     "sdmetrics>=0.26.0;python_version>='3.14'",
-    "sdv>=1.21.0;python_version<'3.14'",
-    "sdv>=1.33.0;python_version>='3.14'",
+    "sdv @ git+https://github.com/sdv-dev/SDV.git@main",
 ]
 
 [project.urls]

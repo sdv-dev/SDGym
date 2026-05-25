@@ -1,16 +1,22 @@
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
+import botocore
 import numpy as np
+import pandas as pd
 import pytest
 
 from sdgym.datasets import (
     DATASETS_PATH,
+    SDV_DATASETS_PRIVATE_BUCKET,
+    SDV_DATASETS_PUBLIC_BUCKET,
     _download_dataset,
     _genereate_dataset_info,
     _get_bucket_name,
+    _get_dataset_bucket_mapping,
     _get_dataset_path_and_download,
     _load_dataset_with_client,
+    _load_sdv_demo_dataset,
     _path_contains_data_and_metadata,
     _validate_modality,
     get_data_and_metadata_from_path,
@@ -360,6 +366,179 @@ def test_get_bucket_name_local_folder():
 
     # Assert
     assert bucket_name == 'bucket-name'
+
+
+@patch('sdgym.datasets._get_available_datasets')
+def test__get_dataset_bucket_mapping_prefers_private(get_available_mock):
+    """Test that datasets are mapped to private when duplicated across buckets."""
+    # Setup
+    get_available_mock.side_effect = [
+        pd.DataFrame({'dataset_name': ['public_only', 'duplicate']}),
+        pd.DataFrame({'dataset_name': ['private_only', 'duplicate']}),
+    ]
+
+    # Run
+    result = _get_dataset_bucket_mapping(
+        'single_table',
+        [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
+        s3_client='s3_client',
+    )
+
+    # Assert
+    assert result == {
+        'public_only': SDV_DATASETS_PUBLIC_BUCKET,
+        'private_only': SDV_DATASETS_PRIVATE_BUCKET,
+        'duplicate': SDV_DATASETS_PRIVATE_BUCKET,
+    }
+    get_available_mock.assert_has_calls([
+        call('single_table', bucket=SDV_DATASETS_PUBLIC_BUCKET, s3_client='s3_client'),
+        call('single_table', bucket=SDV_DATASETS_PRIVATE_BUCKET, s3_client='s3_client'),
+    ])
+
+
+@patch('sdgym.datasets._get_available_datasets')
+def test__get_dataset_bucket_mapping_skips_inaccessible_bucket(get_available_mock):
+    """Test inaccessible buckets can be skipped while building the mapping."""
+    # Setup
+    error = botocore.exceptions.ClientError(
+        {'Error': {'Code': 'AccessDenied', 'Message': 'denied'}},
+        'ListObjectsV2',
+    )
+    get_available_mock.side_effect = [
+        pd.DataFrame({'dataset_name': ['public_only']}),
+        error,
+    ]
+
+    # Run
+    result = _get_dataset_bucket_mapping(
+        'single_table',
+        [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
+        s3_client='s3_client',
+        skip_inaccessible=True,
+    )
+
+    # Assert
+    assert result == {'public_only': SDV_DATASETS_PUBLIC_BUCKET}
+
+
+@patch('sdgym.datasets._get_available_datasets')
+def test__get_dataset_bucket_mapping_raises_inaccessible_bucket(get_available_mock):
+    """Test inaccessible buckets raise by default."""
+    # Setup
+    get_available_mock.side_effect = botocore.exceptions.ClientError(
+        {'Error': {'Code': 'AccessDenied', 'Message': 'denied'}},
+        'ListObjectsV2',
+    )
+
+    # Run and Assert
+    with pytest.raises(ValueError, match="Bucket 's3://sdv-datasets-private' is not accessible"):
+        _get_dataset_bucket_mapping(
+            'single_table',
+            [SDV_DATASETS_PRIVATE_BUCKET],
+            s3_client='s3_client',
+        )
+
+
+@patch('sdgym.datasets.download_demo')
+def test__load_sdv_demo_dataset_uses_download_demo(download_demo_mock):
+    """Test SDV demo datasets are loaded through SDV's download_demo."""
+    # Setup
+    data = pd.DataFrame({'column': [1, 2]})
+    metadata = Mock()
+    metadata.to_dict.return_value = {'tables': {'demo': {'columns': {'column': {}}}}}
+    download_demo_mock.return_value = data, metadata
+
+    # Run
+    result = _load_sdv_demo_dataset(
+        modality='single_table',
+        dataset_name='demo',
+        dataset_bucket_mapping={'demo': SDV_DATASETS_PUBLIC_BUCKET},
+    )
+
+    # Assert
+    result_data, result_metadata = result
+    pd.testing.assert_frame_equal(result_data, data)
+    assert result_metadata == metadata.to_dict.return_value
+    download_demo_mock.assert_called_once_with(
+        modality='single_table',
+        dataset_name='demo',
+        s3_bucket_name='sdv-datasets-public',
+    )
+
+
+@patch('sdgym.datasets._load_private_sdv_demo_dataset')
+@patch('sdgym.datasets.download_demo')
+def test__load_sdv_demo_dataset_falls_back_for_private_bucket(
+    download_demo_mock, load_private_mock
+):
+    """Test SDV private-bucket errors fall back to SDGym private loading."""
+    # Setup
+    data = pd.DataFrame({'column': [1, 2]})
+    metadata = {'tables': {'demo': {'columns': {'column': {}}}}}
+    download_demo_mock.side_effect = ValueError('Private buckets are only supported')
+    load_private_mock.return_value = data, metadata
+
+    # Run
+    result = _load_sdv_demo_dataset(
+        modality='single_table',
+        dataset_name='demo',
+        dataset_bucket_mapping={'demo': SDV_DATASETS_PRIVATE_BUCKET},
+        s3_client='s3_client',
+    )
+
+    # Assert
+    result_data, result_metadata = result
+    pd.testing.assert_frame_equal(result_data, data)
+    assert result_metadata == metadata
+    load_private_mock.assert_called_once_with(
+        'single_table',
+        'demo',
+        SDV_DATASETS_PRIVATE_BUCKET,
+        s3_client='s3_client',
+    )
+
+
+@patch('sdgym.datasets._get_dataset_subset')
+@patch('sdgym.datasets.download_demo')
+def test__load_sdv_demo_dataset_limits_dataset_size(download_demo_mock, subset_mock):
+    """Test SDV demo dataset loading applies the dataset size limit."""
+    # Setup
+    data = pd.DataFrame({'column': [1, 2]})
+    metadata = Mock()
+    metadata.to_dict.return_value = {'tables': {'demo': {'columns': {'column': {}}}}}
+    limited_data = pd.DataFrame({'column': [1]})
+    limited_metadata = {'tables': {'demo': {'columns': {'column': {}}}}}
+    download_demo_mock.return_value = data, metadata
+    subset_mock.return_value = limited_data, limited_metadata
+
+    # Run
+    result = _load_sdv_demo_dataset(
+        modality='single_table',
+        dataset_name='demo',
+        dataset_bucket_mapping={'demo': SDV_DATASETS_PUBLIC_BUCKET},
+        limit_dataset_size=True,
+    )
+
+    # Assert
+    result_data, result_metadata = result
+    pd.testing.assert_frame_equal(result_data, limited_data)
+    assert result_metadata == limited_metadata
+    subset_mock.assert_called_once_with(
+        data,
+        metadata.to_dict.return_value,
+        modality='single_table',
+    )
+
+
+def test__load_sdv_demo_dataset_raises_when_dataset_not_found():
+    """Test a clear error is raised when a demo dataset is absent from all buckets."""
+    # Run and Assert
+    with pytest.raises(ValueError, match="Dataset 'missing' not found in SDV demo buckets"):
+        _load_sdv_demo_dataset(
+            modality='single_table',
+            dataset_name='missing',
+            dataset_bucket_mapping={},
+        )
 
 
 @patch('sdgym.datasets._get_dataset_path_and_download')
