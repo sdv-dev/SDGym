@@ -64,8 +64,7 @@ dependencies = [
     'XlsxWriter>=1.2.8',
     "rdt>=1.18.2;python_version<'3.14'",
     "rdt>=1.20.0;python_version>='3.14'",
-    "sdmetrics>=0.21.0;python_version<'3.14'",
-    "sdmetrics>=0.26.0;python_version>='3.14'",
+    "sdmetrics>=0.28.0",
     "sdv @ git+https://github.com/sdv-dev/SDV.git@main",
 ]
 

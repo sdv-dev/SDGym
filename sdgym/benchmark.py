@@ -73,6 +73,10 @@ from sdgym.utils import (
 
 TIMEOUT = 345600
 LOGGER = logging.getLogger(__name__)
+SDGYM_BRANCH_INSTALL_COMMAND = (
+    'pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git'
+    '@issue-604-2-private-bucket"'
+)
 DEFAULT_SINGLE_TABLE_SYNTHESIZERS = [
     'GaussianCopulaSynthesizer',
     'CTGANSynthesizer',
@@ -340,29 +344,56 @@ def _setup_output_destination(
 
 def _resolve_dataset(
     modality,
-    dataset,
+    sdv_datasets,
+    additional_datasets_folder,
     limit_dataset_size,
-    source,
     s3_client=None,
-    dataset_bucket_mapping=None,
 ):
-    if source == 'sdv_demo':
+    sdv_dataset_names = [] if sdv_datasets is None else sdv_datasets
+    additional_datasets = (
+        []
+        if additional_datasets_folder is None
+        else get_dataset_paths(
+            modality=modality,
+            bucket=(
+                additional_datasets_folder
+                if is_s3_path(additional_datasets_folder)
+                else os.path.join(additional_datasets_folder, modality)
+            ),
+            s3_client=s3_client,
+        )
+    )
+
+    dataset_bucket_mapping = None
+    if sdv_dataset_names:
+        dataset_bucket_mapping = _get_dataset_bucket_mapping(
+            modality,
+            [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
+            s3_client,
+            skip_inaccessible=True,
+        )
+
+    datasets = []
+    for dataset_name in sdv_dataset_names:
         data, metadata = _load_sdv_demo_dataset(
             modality=modality,
-            dataset_name=dataset,
+            dataset_name=dataset_name,
             dataset_bucket_mapping=dataset_bucket_mapping,
             s3_client=s3_client,
             limit_dataset_size=limit_dataset_size,
         )
-        return ResolvedDataset(dataset, data, metadata)
+        datasets.append(ResolvedDataset(dataset_name, data, metadata))
 
-    data, metadata = _load_dataset_with_client(
-        modality,
-        dataset,
-        limit_dataset_size=limit_dataset_size,
-        s3_client=s3_client,
-    )
-    return ResolvedDataset(dataset.name, data, metadata)
+    for dataset in additional_datasets:
+        data, metadata = _load_dataset_with_client(
+            modality,
+            dataset,
+            limit_dataset_size=limit_dataset_size,
+            s3_client=s3_client,
+        )
+        datasets.append(ResolvedDataset(dataset.name, data, metadata))
+
+    return datasets
 
 
 def _generate_job_args_list(
@@ -379,52 +410,15 @@ def _generate_job_args_list(
     s3_client,
     modality,
 ):
-    sdv_dataset_names = [] if sdv_datasets is None else sdv_datasets
-    additional_datasets = (
-        []
-        if additional_datasets_folder is None
-        else get_dataset_paths(
-            modality=modality,
-            bucket=(
-                additional_datasets_folder
-                if is_s3_path(additional_datasets_folder)
-                else os.path.join(additional_datasets_folder, modality)
-            ),
-            s3_client=s3_client,
-        )
-    )
     if not synthesizers:
         return []
 
-    dataset_bucket_mapping = None
-    if sdv_dataset_names:
-        dataset_bucket_mapping = _get_dataset_bucket_mapping(
-            modality,
-            [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
-            s3_client,
-            skip_inaccessible=True,
-        )
-
-    datasets = [
-        _resolve_dataset(
-            modality=modality,
-            dataset=dataset,
-            limit_dataset_size=limit_dataset_size,
-            source='sdv_demo',
-            s3_client=s3_client,
-            dataset_bucket_mapping=dataset_bucket_mapping,
-        )
-        for dataset in sdv_dataset_names
-    ]
-    datasets.extend(
-        _resolve_dataset(
-            modality=modality,
-            dataset=dataset,
-            limit_dataset_size=limit_dataset_size,
-            source='additional',
-            s3_client=s3_client,
-        )
-        for dataset in additional_datasets
+    datasets = _resolve_dataset(
+        modality=modality,
+        sdv_datasets=sdv_datasets,
+        additional_datasets_folder=additional_datasets_folder,
+        limit_dataset_size=limit_dataset_size,
+        s3_client=s3_client,
     )
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
     dataset_names = [dataset.name for dataset in datasets]
@@ -1427,7 +1421,7 @@ def _get_user_data_script(access_key, secret_key, region_name, script_content):
 
         echo "======== Install Dependencies in venv ============"
         pip install --upgrade pip
-        pip install sdgym[all]
+        {SDGYM_BRANCH_INSTALL_COMMAND}
         pip install s3fs
 
         echo "======== Write Script ==========="
