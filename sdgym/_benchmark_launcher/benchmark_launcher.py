@@ -478,8 +478,38 @@ class BenchmarkLauncher:
     def _update_instance_metainfo(self, instance_name):
         """Update the instance metainfo file with the completion date."""
         metainfo_filepath = self._instance_name_to_artifacts[instance_name]['metainfo_filepath']
-        content = {'completed_date': pd.Timestamp.now().strftime('%d_%m_%Y %H:%M:%S')}
+        content = {'completed_date': pd.Timestamp.now().strftime('%m_%d_%Y %H:%M:%S')}
         self._storage_manager.update_metainfo(metainfo_filepath, content)
+
+    def _instance_metainfo_is_complete(self, instance_name):
+        """Return whether the instance metainfo already has a completion date."""
+        metainfo_filepath = self._instance_name_to_artifacts[instance_name]['metainfo_filepath']
+        if not self._storage_manager.file_exists(metainfo_filepath):
+            return False
+
+        metainfo = self._storage_manager._read_yaml(metainfo_filepath)
+        return metainfo.get('completed_date') is not None
+
+    def _instance_is_complete(self, instance_name):
+        """Return whether the instance-level benchmark artifacts are complete."""
+        result_filepath = self._instance_name_to_artifacts[instance_name]['result_filepath']
+        return self._storage_manager.file_exists(
+            result_filepath
+        ) and self._instance_metainfo_is_complete(instance_name)
+
+    def _finalize_instance(self, instance_name):
+        """Finalize one incomplete instance using the artifacts currently available."""
+        instance_artifacts = self._instance_name_to_artifacts[instance_name]
+        result_filepath = instance_artifacts['result_filepath']
+        job_arg_filepath = instance_artifacts['job_arg_filepath']
+
+        if not self._storage_manager.file_exists(result_filepath):
+            result_df = self._build_or_load_instance_results(instance_name)
+            self._storage_manager.write_csv(result=result_df, filepath=result_filepath)
+
+        self._storage_manager.delete(job_arg_filepath)
+        if not self._instance_metainfo_is_complete(instance_name):
+            self._update_instance_metainfo(instance_name)
 
     def finalize(self):
         """Finalize the benchmark using the results available so far.
@@ -496,13 +526,10 @@ class BenchmarkLauncher:
         self._validate_compute_service()
         self._update_instance_statuses()
         for instance_name in self._get_all_instance_names():
-            instance_artifacts = self._instance_name_to_artifacts[instance_name]
-            result_filepath = instance_artifacts['result_filepath']
-            job_arg_filepath = instance_artifacts['job_arg_filepath']
-            result_df = self._build_or_load_instance_results(instance_name)
-            self._storage_manager.write_csv(result=result_df, filepath=result_filepath)
-            self._storage_manager.delete(job_arg_filepath)
-            self._update_instance_metainfo(instance_name)
+            if self._instance_is_complete(instance_name):
+                continue
+
+            self._finalize_instance(instance_name)
 
         self.terminate(verbose=True)
 

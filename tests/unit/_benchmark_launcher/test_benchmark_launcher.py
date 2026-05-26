@@ -1308,10 +1308,189 @@ class TestBenchmarkLauncher:
         launcher._update_instance_metainfo('instance-1')
 
         # Assert
+        mock_timestamp.now.return_value.strftime.assert_called_once_with('%m_%d_%Y %H:%M:%S')
         launcher._storage_manager.update_metainfo.assert_called_once_with(
             's3://bucket/path/prefix/metainfo.yaml',
             {'completed_date': '14_04_2026 12:00:00'},
         )
+
+    def test_instance_metainfo_is_complete(self):
+        """Test the `_instance_metainfo_is_complete` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = True
+        launcher._storage_manager._read_yaml.return_value = {
+            'completed_date': '01_01_2026 10:00:00'
+        }
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'metainfo_filepath': 's3://bucket/path/prefix/metainfo.yaml',
+            }
+        }
+
+        # Run
+        result = launcher._instance_metainfo_is_complete('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path/prefix/metainfo.yaml'
+        )
+        launcher._storage_manager._read_yaml.assert_called_once_with(
+            's3://bucket/path/prefix/metainfo.yaml'
+        )
+        assert result is True
+
+    def test_instance_metainfo_is_complete_returns_false_when_missing(self):
+        """Test `_instance_metainfo_is_complete` when metainfo is missing."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = False
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'metainfo_filepath': 's3://bucket/path/prefix/metainfo.yaml',
+            }
+        }
+
+        # Run
+        result = launcher._instance_metainfo_is_complete('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path/prefix/metainfo.yaml'
+        )
+        launcher._storage_manager._read_yaml.assert_not_called()
+        assert result is False
+
+    def test_instance_is_complete(self):
+        """Test the `_instance_is_complete` method."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = True
+        launcher._instance_metainfo_is_complete = Mock(return_value=True)
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+            }
+        }
+
+        # Run
+        result = launcher._instance_is_complete('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path/prefix/results.csv'
+        )
+        launcher._instance_metainfo_is_complete.assert_called_once_with('instance-1')
+        assert result is True
+
+    def test_instance_is_complete_returns_false_when_result_is_missing(self):
+        """Test `_instance_is_complete` when the result file is missing."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.return_value = False
+        launcher._instance_metainfo_is_complete = Mock()
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+            }
+        }
+
+        # Run
+        result = launcher._instance_is_complete('instance-1')
+
+        # Assert
+        launcher._storage_manager.file_exists.assert_called_once_with(
+            's3://bucket/path/prefix/results.csv'
+        )
+        launcher._instance_metainfo_is_complete.assert_not_called()
+        assert result is False
+
+    def test_finalize_instance_writes_missing_result(self):
+        """Test `_finalize_instance` writes results only when the result file is missing."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.side_effect = [False, False]
+        result_df = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN'}])
+        launcher._build_or_load_instance_results = Mock(return_value=result_df)
+        launcher._update_instance_metainfo = Mock()
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+                'metainfo_filepath': 's3://bucket/path/prefix/metainfo.yaml',
+                'job_arg_filepath': 's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz',
+            }
+        }
+
+        # Run
+        launcher._finalize_instance('instance-1')
+
+        # Assert
+        launcher._build_or_load_instance_results.assert_called_once_with('instance-1')
+        launcher._storage_manager.write_csv.assert_called_once_with(
+            result=result_df,
+            filepath='s3://bucket/path/prefix/results.csv',
+        )
+        launcher._storage_manager.delete.assert_called_once_with(
+            's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz'
+        )
+        launcher._update_instance_metainfo.assert_called_once_with('instance-1')
+
+    def test_finalize_instance_does_not_rewrite_existing_result(self):
+        """Test `_finalize_instance` leaves an existing result file untouched."""
+        # Setup
+        benchmark_config = Mock()
+        benchmark_config.modality = 'single_table'
+        benchmark_config.compute = {'service': 'gcp'}
+        benchmark_config.instance_jobs = []
+        launcher = BenchmarkLauncher(benchmark_config)
+        launcher._storage_manager = Mock()
+        launcher._storage_manager.file_exists.side_effect = [True, True]
+        launcher._storage_manager._read_yaml.return_value = {'completed_date': None}
+        launcher._build_or_load_instance_results = Mock()
+        launcher._update_instance_metainfo = Mock()
+        launcher._instance_name_to_artifacts = {
+            'instance-1': {
+                'result_filepath': 's3://bucket/path/prefix/results.csv',
+                'metainfo_filepath': 's3://bucket/path/prefix/metainfo.yaml',
+                'job_arg_filepath': 's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz',
+            }
+        }
+
+        # Run
+        launcher._finalize_instance('instance-1')
+
+        # Assert
+        launcher._build_or_load_instance_results.assert_not_called()
+        launcher._storage_manager.write_csv.assert_not_called()
+        launcher._storage_manager.delete.assert_called_once_with(
+            's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz'
+        )
+        launcher._update_instance_metainfo.assert_called_once_with('instance-1')
 
     def test_finalize(self):
         """Test the `finalize` method."""
@@ -1324,25 +1503,9 @@ class TestBenchmarkLauncher:
         launcher._validate_compute_service = Mock()
         launcher._update_instance_statuses = Mock()
         launcher._get_all_instance_names = Mock(return_value=['instance-1', 'instance-2'])
-        result_df = pd.DataFrame([{'Dataset': 'adult', 'Synthesizer': 'CTGAN'}])
-        launcher._build_or_load_instance_results = Mock(return_value=result_df)
-        launcher._update_instance_metainfo = Mock()
+        launcher._instance_is_complete = Mock(side_effect=[True, False])
+        launcher._finalize_instance = Mock()
         launcher.terminate = Mock()
-        launcher._storage_manager = Mock()
-        launcher._instance_name_to_artifacts = {
-            'instance-1': {
-                'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
-                'result_filepath': 's3://bucket/path/prefix/results.csv',
-                'job_arg_filepath': 's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz',
-            },
-            'instance-2': {
-                'jobs': [],
-                'result_filepath': 's3://bucket/other-path/prefix/results(1).csv',
-                'job_arg_filepath': (
-                    's3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'
-                ),
-            },
-        }
 
         # Run
         launcher.finalize()
@@ -1351,20 +1514,9 @@ class TestBenchmarkLauncher:
         launcher._validate_compute_service.assert_called_once_with()
         launcher._update_instance_statuses.assert_called_once_with()
         launcher._get_all_instance_names.assert_called_once_with()
-        assert launcher._build_or_load_instance_results.call_args_list == [
+        assert launcher._instance_is_complete.call_args_list == [
             call('instance-1'),
             call('instance-2'),
         ]
-        assert launcher._storage_manager.write_csv.call_args_list == [
-            call(result=result_df, filepath='s3://bucket/path/prefix/results.csv'),
-            call(result=result_df, filepath='s3://bucket/other-path/prefix/results(1).csv'),
-        ]
-        assert launcher._storage_manager.delete.call_args_list == [
-            call('s3://bucket/path/single_table/job_args_list_metainfo.pkl.gz'),
-            call('s3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'),
-        ]
-        assert launcher._update_instance_metainfo.call_args_list == [
-            call('instance-1'),
-            call('instance-2'),
-        ]
+        launcher._finalize_instance.assert_called_once_with('instance-2')
         launcher.terminate.assert_called_once_with(verbose=True)
