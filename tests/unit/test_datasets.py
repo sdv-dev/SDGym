@@ -452,7 +452,7 @@ def test__load_sdv_demo_dataset_uses_download_demo(download_demo_mock):
     result = _load_sdv_demo_dataset(
         modality='single_table',
         dataset_name='demo',
-        dataset_bucket_mapping={'demo': SDV_DATASETS_PUBLIC_BUCKET},
+        bucket=SDV_DATASETS_PUBLIC_BUCKET,
     )
 
     # Assert
@@ -482,7 +482,7 @@ def test__load_sdv_demo_dataset_falls_back_for_private_bucket(
     result = _load_sdv_demo_dataset(
         modality='single_table',
         dataset_name='demo',
-        dataset_bucket_mapping={'demo': SDV_DATASETS_PRIVATE_BUCKET},
+        bucket=SDV_DATASETS_PRIVATE_BUCKET,
         s3_client='s3_client',
     )
 
@@ -515,7 +515,7 @@ def test__load_sdv_demo_dataset_limits_dataset_size(download_demo_mock, subset_m
     result = _load_sdv_demo_dataset(
         modality='single_table',
         dataset_name='demo',
-        dataset_bucket_mapping={'demo': SDV_DATASETS_PUBLIC_BUCKET},
+        bucket=SDV_DATASETS_PUBLIC_BUCKET,
         limit_dataset_size=True,
     )
 
@@ -528,17 +528,6 @@ def test__load_sdv_demo_dataset_limits_dataset_size(download_demo_mock, subset_m
         metadata.to_dict.return_value,
         modality='single_table',
     )
-
-
-def test__load_sdv_demo_dataset_raises_when_dataset_not_found():
-    """Test a clear error is raised when a demo dataset is absent from all buckets."""
-    # Run and Assert
-    with pytest.raises(ValueError, match="Dataset 'missing' not found in SDV demo buckets"):
-        _load_sdv_demo_dataset(
-            modality='single_table',
-            dataset_name='missing',
-            dataset_bucket_mapping={},
-        )
 
 
 @patch('sdgym.datasets._get_dataset_path_and_download')

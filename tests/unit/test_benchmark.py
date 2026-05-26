@@ -243,7 +243,7 @@ def test_benchmark_single_table_progress_bar(
     mock_load_sdv_demo_dataset.assert_called_once_with(
         modality='single_table',
         dataset_name='student_placements',
-        dataset_bucket_mapping={'student_placements': 'bucket'},
+        bucket='bucket',
         s3_client=None,
         limit_dataset_size=False,
     )
@@ -288,7 +288,7 @@ def test_benchmark_single_table_with_timeout(
     mock_load_sdv_demo_dataset.assert_called_once_with(
         modality='single_table',
         dataset_name='student_placements',
-        dataset_bucket_mapping={'student_placements': 'bucket'},
+        bucket='bucket',
         s3_client=None,
         limit_dataset_size=False,
     )
@@ -1154,7 +1154,7 @@ def test__resolve_dataset_loads_sdv_and_additional_datasets(
     mock_load_sdv_demo_dataset.assert_called_once_with(
         modality='single_table',
         dataset_name='sdv_dataset',
-        dataset_bucket_mapping={'sdv_dataset': 'bucket'},
+        bucket='bucket',
         s3_client=s3_client,
         limit_dataset_size=True,
     )
@@ -1167,6 +1167,40 @@ def test__resolve_dataset_loads_sdv_and_additional_datasets(
     assert [dataset.name for dataset in result] == ['sdv_dataset', 'custom_dataset']
     assert [dataset.data for dataset in result] == [sdv_data, additional_data]
     assert [dataset.metadata for dataset in result] == [sdv_metadata, additional_metadata]
+
+
+@patch('sdgym.benchmark._get_dataset_bucket_mapping')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
+def test__resolve_dataset_raises_when_sdv_dataset_is_missing_from_buckets(
+    mock_load_sdv_demo_dataset, mock_get_dataset_bucket_mapping
+):
+    """Test `_resolve_dataset` raises when an SDV dataset is not found in any bucket."""
+    # Setup
+    mock_get_dataset_bucket_mapping.return_value = {'available_dataset': 'bucket'}
+
+    # Run and Assert
+    with pytest.raises(
+        ValueError,
+        match=(
+            'The following SDV demo datasets were not found in the expected buckets: '
+            "'missing_dataset'. Please check that the dataset names are correct."
+        ),
+    ):
+        _resolve_dataset(
+            modality='single_table',
+            sdv_datasets=['available_dataset', 'missing_dataset'],
+            additional_datasets_folder=None,
+            limit_dataset_size=False,
+            s3_client='s3_client',
+        )
+
+    mock_get_dataset_bucket_mapping.assert_called_once_with(
+        'single_table',
+        ['s3://sdv-datasets-public', 's3://sdv-datasets-private'],
+        's3_client',
+        skip_inaccessible=True,
+    )
+    mock_load_sdv_demo_dataset.assert_not_called()
 
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
@@ -1239,7 +1273,7 @@ def test__generate_job_args_list_loads_each_dataset_once(
     """Test that each dataset is loaded once even when there are multiple synthesizers."""
     # Setup
     mock_get_dataset_paths.return_value = []
-    mock_get_dataset_bucket_mapping.return_value = {'datasetA': 'bucket', 'datasetB': 'bucket'}
+    mock_get_dataset_bucket_mapping.return_value = {'datasetA': 'bucket-a', 'datasetB': 'bucket-b'}
     mock__setup_output_destination.return_value = {}
     data_a = Mock(name='data_a')
     metadata_a = Mock(name='metadata_a')
@@ -1287,14 +1321,14 @@ def test__generate_job_args_list_loads_each_dataset_once(
         call(
             modality='single_table',
             dataset_name='datasetA',
-            dataset_bucket_mapping={'datasetA': 'bucket', 'datasetB': 'bucket'},
+            bucket='bucket-a',
             s3_client=s3_client,
             limit_dataset_size=True,
         ),
         call(
             modality='single_table',
             dataset_name='datasetB',
-            dataset_bucket_mapping={'datasetA': 'bucket', 'datasetB': 'bucket'},
+            bucket='bucket-b',
             s3_client=s3_client,
             limit_dataset_size=True,
         ),
@@ -1421,7 +1455,7 @@ def test_benchmark_single_table_no_warning_uniform_synthesizer(
     mock_load_sdv_demo_dataset.assert_called_once_with(
         modality='single_table',
         dataset_name='fake_hotel_guests',
-        dataset_bucket_mapping={'fake_hotel_guests': 'bucket'},
+        bucket='bucket',
         s3_client=None,
         limit_dataset_size=False,
     )

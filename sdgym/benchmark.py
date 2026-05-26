@@ -368,13 +368,20 @@ def _resolve_dataset(
             s3_client,
             skip_inaccessible=True,
         )
+        missing_names = [name for name in sdv_dataset_names if name not in dataset_bucket_mapping]
+        if missing_names:
+            missing_to_print = "', '".join(missing_names)
+            raise ValueError(
+                f'The following SDV demo datasets were not found in the expected buckets: '
+                f"'{missing_to_print}'. Please check that the dataset names are correct."
+            )
 
     datasets = []
     for dataset_name in sdv_dataset_names:
         data, metadata = _load_sdv_demo_dataset(
             modality=modality,
             dataset_name=dataset_name,
-            dataset_bucket_mapping=dataset_bucket_mapping,
+            bucket=dataset_bucket_mapping.get(dataset_name),
             s3_client=s3_client,
             limit_dataset_size=limit_dataset_size,
         )
