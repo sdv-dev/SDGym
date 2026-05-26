@@ -2,6 +2,7 @@ import io
 import logging
 
 import pandas as pd
+import yaml
 from botocore.exceptions import BotoCoreError, ClientError
 
 from sdgym._benchmark_launcher.utils import resolve_credentials
@@ -42,6 +43,10 @@ class BaseStorageManager:
 
     def read_csv(self, filepath):
         """Read a CSV artifact from storage."""
+        raise NotImplementedError
+
+    def _read_yaml(self, filepath):
+        """Read a YAML artifact from storage."""
         raise NotImplementedError
 
     def write_csv(self, result, filepath):
@@ -145,6 +150,12 @@ class S3StorageManager(BaseStorageManager):
         s3_client, bucket_name, key = self._get_s3_resources(filepath)
         response = s3_client.get_object(Bucket=bucket_name, Key=key)
         return pd.read_csv(io.BytesIO(response['Body'].read()))
+
+    def _read_yaml(self, filepath):
+        """Read a YAML artifact from S3."""
+        s3_client, bucket_name, key = self._get_s3_resources(filepath)
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+        return yaml.safe_load(response['Body'].read()) or {}
 
     def write_csv(self, result, filepath):
         self._get_writer().write_dataframe(result, filepath, index=False)

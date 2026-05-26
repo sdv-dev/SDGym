@@ -89,6 +89,15 @@ class TestBaseStorageManager:
         with pytest.raises(NotImplementedError):
             storage_manager.file_exists('s3://bucket/prefix/file.csv')
 
+    def test__read_yaml(self):
+        """Test the `_read_yaml` method."""
+        # Setup
+        storage_manager = BaseStorageManager()
+
+        # Run and Assert
+        with pytest.raises(NotImplementedError):
+            storage_manager._read_yaml('s3://bucket/prefix/metainfo.yaml')
+
     def test_read_csv(self):
         """Test the `read_csv` method."""
         # Setup
@@ -445,6 +454,28 @@ class TestS3StorageManager:
         s3_client.get_object.assert_called_once_with(Bucket='bucket', Key='prefix/file.csv')
         mock_read_csv.assert_called_once()
         assert result is mock_df
+
+    def test__read_yaml(self):
+        """Test the `_read_yaml` method."""
+        # Setup
+        storage_manager = S3StorageManager('creds.json', [])
+        body = Mock()
+        body.read.return_value = b'completed_date: 01_01_2026 10:00:00\n'
+        s3_client = Mock()
+        s3_client.get_object.return_value = {'Body': body}
+        storage_manager._get_s3_resources = Mock(
+            return_value=(s3_client, 'bucket', 'prefix/metainfo.yaml')
+        )
+
+        # Run
+        result = storage_manager._read_yaml('s3://bucket/prefix/metainfo.yaml')
+
+        # Assert
+        storage_manager._get_s3_resources.assert_called_once_with(
+            's3://bucket/prefix/metainfo.yaml'
+        )
+        s3_client.get_object.assert_called_once_with(Bucket='bucket', Key='prefix/metainfo.yaml')
+        assert result == {'completed_date': '01_01_2026 10:00:00'}
 
     def test_write_csv(self):
         """Test the `write_csv` method."""
