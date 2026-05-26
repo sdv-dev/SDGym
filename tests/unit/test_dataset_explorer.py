@@ -1,12 +1,34 @@
+import io
+import json
 import re
 from collections import defaultdict
 from unittest.mock import MagicMock, patch
+from zipfile import ZipFile
 
 import pandas as pd
 import pytest
 
 from sdgym.dataset_explorer import SUMMARY_OUTPUT_COLUMNS, DatasetExplorer
 from sdgym.datasets import SDV_DATASETS_PUBLIC_BUCKET
+
+
+def _make_zipped_csv(csvs):
+    buffer = io.BytesIO()
+    with ZipFile(buffer, 'w') as zip_file:
+        for file_name, contents in csvs.items():
+            zip_file.writestr(file_name, contents)
+
+    return buffer.getvalue()
+
+
+def _make_s3_client_with_download(data):
+    s3_client = MagicMock()
+
+    def download_fileobj(Bucket, Key, Fileobj):
+        Fileobj.write(data)
+
+    s3_client.download_fileobj.side_effect = download_fileobj
+    return s3_client
 
 
 class TestDatasetExplorer:
@@ -175,6 +197,75 @@ class TestDatasetExplorer:
         assert result['Total_Num_Rows'] == 5
         assert result['Max_Num_Rows_Per_Table'] == 3
 
+    def test__load_metadata_from_s3(self):
+        """Test loading only the dataset metadata JSON from S3."""
+        # Setup
+        explorer = DatasetExplorer()
+        s3_client = MagicMock()
+        metadata = {'tables': {'table': {'columns': {'col': {'sdtype': 'id'}}}}}
+        s3_client.get_object.return_value = {
+            'Body': io.BytesIO(json.dumps(metadata).encode('utf-8'))
+        }
+
+        # Run
+        result = explorer._load_metadata_from_s3(s3_client, 'single_table', 'my_dataset')
+
+        # Assert
+        assert result == metadata
+        s3_client.get_object.assert_called_once_with(
+            Bucket='sdv-datasets-public',
+            Key='single_table/my_dataset/metadata.json',
+        )
+
+    def test__get_s3_zipped_data_summary_single_table(self):
+        """Test counting rows in a single-table zip from S3."""
+        # Setup
+        explorer = DatasetExplorer()
+        zip_data = _make_zipped_csv({'table.csv': 'a,b\n1,2\n3,4\n5,6\n'})
+        s3_client = _make_s3_client_with_download(zip_data)
+
+        # Run
+        result = explorer._get_s3_zipped_data_summary(s3_client, 'single_table', 'my_dataset')
+
+        # Assert
+        assert result == {'Total_Num_Rows': 3, 'Max_Num_Rows_Per_Table': 3}
+        s3_client.download_fileobj.assert_called_once()
+        assert s3_client.download_fileobj.call_args.args[:2] == (
+            'sdv-datasets-public',
+            'single_table/my_dataset/data.zip',
+        )
+
+    def test__get_s3_zipped_data_summary_multi_table(self):
+        """Test counting rows in a multi-table zip from S3."""
+        # Setup
+        explorer = DatasetExplorer()
+        zip_data = _make_zipped_csv({
+            'users.csv': 'id,name\n1,a\n2,b\n3,c\n',
+            'transactions.csv': 'id,user_id\n1,1\n2,1\n',
+        })
+        s3_client = _make_s3_client_with_download(zip_data)
+
+        # Run
+        result = explorer._get_s3_zipped_data_summary(s3_client, 'multi_table', 'my_dataset')
+
+        # Assert
+        assert result == {'Total_Num_Rows': 5, 'Max_Num_Rows_Per_Table': 3}
+
+    def test__get_s3_zipped_data_summary_counts_multiline_csv_records(self):
+        """Test quoted multiline values do not inflate row counts."""
+        # Setup
+        explorer = DatasetExplorer()
+        zip_data = _make_zipped_csv({
+            'table.csv': 'id,text\n1,"hello\nthere"\n2,plain\n',
+        })
+        s3_client = _make_s3_client_with_download(zip_data)
+
+        # Run
+        result = explorer._get_s3_zipped_data_summary(s3_client, 'single_table', 'my_dataset')
+
+        # Assert
+        assert result == {'Total_Num_Rows': 2, 'Max_Num_Rows_Per_Table': 2}
+
     def test__validate_output_filepath_valid(self, tmp_path):
         """Test the ``_validate_output_filepath`` method with valid CSV path."""
         # Setup
@@ -245,19 +336,43 @@ class TestDatasetExplorer:
         with pytest.raises(ValueError, match=err_msg):
             DatasetExplorer(s3_url=value)
 
+    @patch('sdgym.dataset_explorer.get_s3_client')
+    @patch('sdgym.dataset_explorer.DatasetExplorer._get_s3_zipped_data_summary')
+    @patch('sdgym.dataset_explorer.DatasetExplorer.get_metadata_summary')
+    @patch('sdgym.dataset_explorer.DatasetExplorer._load_metadata_from_s3')
     @patch('sdgym.dataset_explorer._get_available_datasets')
-    @patch('sdgym.dataset_explorer._load_dataset_with_client')
-    def test__load_and_summarize_datasets(self, mock_load_dataset, mock_get_datasets):
+    def test__load_and_summarize_datasets(
+        self,
+        mock_get_datasets,
+        mock_load_metadata,
+        mock_get_metadata_summary,
+        mock_get_data_summary,
+        mock_get_s3_client,
+    ):
         """Test the ``_load_and_summarize_datasets`` method."""
         # Setup
         explorer = DatasetExplorer()
+        mock_get_s3_client.return_value = 's3_client'
         mock_get_datasets.return_value = pd.DataFrame([
             {'dataset_name': 'test', 'size_MB': 10, 'num_tables': 2}
         ])
-        mock_load_dataset.return_value = (
-            {'table': pd.DataFrame({'x': [1, 2, 3]})},
-            {'tables': {}, 'relationships': []},
-        )
+        mock_load_metadata.return_value = {'tables': {}, 'relationships': []}
+        mock_get_metadata_summary.return_value = {
+            'Total_Num_Columns': 1,
+            'Total_Num_Columns_Categorical': 0,
+            'Total_Num_Columns_Numerical': 1,
+            'Total_Num_Columns_Datetime': 0,
+            'Total_Num_Columns_PII': 0,
+            'Total_Num_Columns_ID_NonKey': 0,
+            'Max_Num_Columns_Per_Table': 1,
+            'Num_Relationships': 0,
+            'Max_Schema_Depth': 1,
+            'Max_Schema_Branch': 0,
+        }
+        mock_get_data_summary.return_value = {
+            'Total_Num_Rows': 3,
+            'Max_Num_Rows_Per_Table': 3,
+        }
 
         # Run
         result = explorer._load_and_summarize_datasets('single_table')
@@ -266,7 +381,7 @@ class TestDatasetExplorer:
         mock_get_datasets.assert_called_once_with(
             modality='single_table',
             bucket='sdv-datasets-public',
-            s3_client=None,
+            s3_client='s3_client',
         )
         mock_load_dataset.assert_called_once_with(
             modality='single_table',
@@ -278,21 +393,45 @@ class TestDatasetExplorer:
         assert 'Dataset' in result[0]
         assert set(result[0]) == set(SUMMARY_OUTPUT_COLUMNS)
 
+    @patch('sdgym.dataset_explorer.get_s3_client')
+    @patch('sdgym.dataset_explorer.DatasetExplorer._get_s3_zipped_data_summary')
+    @patch('sdgym.dataset_explorer.DatasetExplorer.get_metadata_summary')
+    @patch('sdgym.dataset_explorer.DatasetExplorer._load_metadata_from_s3')
     @patch('sdgym.dataset_explorer._get_available_datasets')
-    @patch('sdgym.dataset_explorer._load_dataset_with_client')
-    def test__load_and_summarize_datasets_with_datasets(self, mock_load_dataset, mock_get_datasets):
+    def test__load_and_summarize_datasets_with_datasets(
+        self,
+        mock_get_datasets,
+        mock_load_metadata,
+        mock_get_metadata_summary,
+        mock_get_data_summary,
+        mock_get_s3_client,
+    ):
         """Test that ``_load_and_summarize_datasets`` restricts to the provided dataset list."""
         # Setup
         explorer = DatasetExplorer()
+        mock_get_s3_client.return_value = 's3_client'
         mock_get_datasets.return_value = pd.DataFrame([
             {'dataset_name': 'ds1', 'size_MB': 10, 'num_tables': 1},
             {'dataset_name': 'ds2', 'size_MB': 20, 'num_tables': 2},
             {'dataset_name': 'ds3', 'size_MB': 30, 'num_tables': 3},
         ])
-        mock_load_dataset.return_value = (
-            {'table': pd.DataFrame({'x': [1, 2]})},
-            {'tables': {}, 'relationships': []},
-        )
+        mock_load_metadata.return_value = {'tables': {}, 'relationships': []}
+        mock_get_metadata_summary.return_value = {
+            'Total_Num_Columns': 1,
+            'Total_Num_Columns_Categorical': 0,
+            'Total_Num_Columns_Numerical': 1,
+            'Total_Num_Columns_Datetime': 0,
+            'Total_Num_Columns_PII': 0,
+            'Total_Num_Columns_ID_NonKey': 0,
+            'Max_Num_Columns_Per_Table': 1,
+            'Num_Relationships': 0,
+            'Max_Schema_Depth': 1,
+            'Max_Schema_Branch': 0,
+        }
+        mock_get_data_summary.return_value = {
+            'Total_Num_Rows': 2,
+            'Max_Num_Rows_Per_Table': 2,
+        }
 
         # Run
         results = explorer._load_and_summarize_datasets('single_table', datasets=['ds1', 'ds3'])
