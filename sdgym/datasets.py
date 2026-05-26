@@ -313,29 +313,12 @@ def _load_private_sdv_demo_dataset(modality, dataset_name, bucket, s3_client=Non
 def _load_sdv_demo_dataset(
     modality,
     dataset_name,
-    dataset_bucket_mapping=None,
+    bucket,
     s3_client=None,
     limit_dataset_size=False,
 ):
     """Load an SDV demo dataset from the resolved public or private bucket."""
     _validate_modality(modality)
-    buckets = [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET]
-    if dataset_bucket_mapping is None:
-        dataset_bucket_mapping = _get_dataset_bucket_mapping(
-            modality,
-            buckets,
-            s3_client or get_s3_client(),
-            skip_inaccessible=True,
-        )
-
-    bucket = dataset_bucket_mapping.get(dataset_name)
-    if bucket is None:
-        buckets_list = ', '.join(buckets)
-        raise ValueError(
-            f"Dataset '{dataset_name}' not found in SDV demo buckets for modality "
-            f"'{modality}'. Checked buckets: {buckets_list}."
-        )
-
     bucket_name = _get_bucket_name(bucket)
     try:
         data, metadata = download_demo(
