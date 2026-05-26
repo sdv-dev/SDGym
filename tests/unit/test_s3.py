@@ -16,6 +16,7 @@ from sdgym.s3 import (
     _read_data_from_bucket_key,
     _upload_dataframe_to_s3,
     _upload_pickle_to_s3,
+    get_s3_console_link,
     is_s3_path,
     load_pickle_from_s3,
     parse_s3_path,
@@ -114,6 +115,22 @@ def test_parse_s3_path_bucket_and_dir_path():
     # asserts
     assert bucket_name == expected_bucket_name
     assert key_prefix == expected_key_prefix
+
+
+def test_get_s3_console_link():
+    """Test the ``sdgym.s3.get_s3_console_link`` function."""
+    # setup
+    bucket = 'my-bucket'
+    prefix = 'my-prefix/'
+
+    # run
+    result = get_s3_console_link(bucket, prefix)
+
+    # assert
+    expected = (
+        f'https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={prefix}&showversions=false'
+    )
+    assert result == expected
 
 
 def test_write_file(tmpdir):

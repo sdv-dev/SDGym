@@ -52,6 +52,13 @@ def parse_s3_path(path):
     return bucket_name, key_prefix
 
 
+def get_s3_console_link(bucket, prefix):
+    """Get the S3 console link for the specified bucket and prefix."""
+    return (
+        f'https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={prefix}&showversions=false'
+    )
+
+
 def get_s3_client(aws_access_key_id=None, aws_secret_access_key=None):
     """Get the boto client for interfacing with AWS s3.
 

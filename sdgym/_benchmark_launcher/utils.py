@@ -13,8 +13,7 @@ from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
 )
-from sdgym.run_benchmark.utils import get_s3_console_link
-from sdgym.s3 import parse_s3_path
+from sdgym.s3 import get_s3_console_link, parse_s3_path
 
 _YAML_PKG = 'sdgym._benchmark_launcher'
 MODALITY_TO_CONFIG_FILE = {
