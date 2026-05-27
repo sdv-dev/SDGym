@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 from sdgym.datasets import (
-    DATASETS_PATH,
     SDV_DATASETS_PRIVATE_BUCKET,
     SDV_DATASETS_PUBLIC_BUCKET,
     _download_dataset,
@@ -530,38 +529,23 @@ def test__load_sdv_demo_dataset_limits_dataset_size(download_demo_mock, subset_m
     )
 
 
-@patch('sdgym.datasets._get_dataset_path_and_download')
-@patch('sdgym.datasets._path_contains_data_and_metadata', return_value=True)
-@patch('sdgym.datasets.Path')
-def test_get_dataset_paths_local_bucket(path_mock, contains_mock, download_mock):
+def test_get_dataset_paths_local_bucket(tmp_path):
     """Test datasets are discovered locally when bucket path exists."""
-
     # Setup
-    def path_side_effect(arg=None):
-        """Return the mocked bucket path if matching bucket name, else datasets folder."""
-        if arg == bucket:
-            return bucket_path_mock
-        return Path('datasets_folder')
-
-    path_mock.side_effect = path_side_effect
-
     modality = 'single_table'
-    bucket = 'local_bucket'
-
-    bucket_path_mock = Mock()
-    bucket_path_mock.exists.return_value = True
-    dataset1 = Path('dataset_1')
-    dataset2 = Path('dataset_2')
-    bucket_path_mock.iterdir.return_value = [dataset1, dataset2]
+    bucket = tmp_path / 'local_bucket'
+    dataset1 = bucket / 'dataset_1'
+    dataset2 = bucket / 'dataset_2'
+    for dataset in (dataset1, dataset2):
+        dataset.mkdir(parents=True)
+        (dataset / 'metadata.json').touch()
+        (dataset / 'data.zip').touch()
 
     # Run
-    get_dataset_paths(modality, None, None, bucket)
+    result = get_dataset_paths(modality, None, None, str(bucket))
 
     # Assert
-    download_mock.assert_has_calls([
-        call(modality, dataset1, DATASETS_PATH / 'single_table', bucket=bucket, s3_client=None),
-        call(modality, dataset2, DATASETS_PATH / 'single_table', bucket=bucket, s3_client=None),
-    ])
+    assert result == [dataset1, dataset2]
 
 
 @patch('sdgym.datasets.get_s3_client')
@@ -587,7 +571,7 @@ def test_load_dataset_mock(mock_load_dataset_with_client, mock_get_s3_client):
     )
     mock_load_dataset_with_client.assert_called_once_with(
         modality=modality,
-        dataset=dataset_name,
+        dataset_name=dataset_name,
         datasets_path=None,
         bucket=None,
         s3_client='s3_client',

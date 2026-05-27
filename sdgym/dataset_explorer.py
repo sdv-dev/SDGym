@@ -245,7 +245,10 @@ class DatasetExplorer:
             dataset_size_mb = dataset_row['size_MB']
             dataset_num_table = dataset_row['num_tables']
             data, metadata_dict = _load_dataset_with_client(
-                modality, dataset=dataset_name, bucket=self._bucket_name, s3_client=self.s3_client
+                modality=modality,
+                dataset_name=dataset_name,
+                bucket=self._bucket_name,
+                s3_client=self.s3_client,
             )
 
             metadata_stats = DatasetExplorer.get_metadata_summary(metadata_dict)

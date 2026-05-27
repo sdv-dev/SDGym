@@ -386,7 +386,7 @@ def load_dataset(
     )
     return _load_dataset_with_client(
         modality=modality,
-        dataset=dataset,
+        dataset_name=dataset,
         datasets_path=datasets_path,
         bucket=bucket,
         s3_client=s3_client,
@@ -396,7 +396,7 @@ def load_dataset(
 
 def _load_dataset_with_client(
     modality,
-    dataset,
+    dataset_name,
     datasets_path=None,
     bucket=None,
     s3_client=None,
@@ -405,7 +405,7 @@ def _load_dataset_with_client(
     """Get the data and metadata of a dataset using a given s3 client."""
     _validate_modality(modality)
     dataset_path = _get_dataset_path_and_download(
-        modality, dataset, datasets_path, bucket, s3_client=s3_client
+        modality, dataset_name, datasets_path, bucket, s3_client=s3_client
     )
 
     data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
@@ -451,7 +451,7 @@ def get_dataset_paths(
     if datasets is None:
         if not is_remote and Path(bucket).exists():
             datasets = []
-            folder_items = list(Path(bucket).iterdir())
+            folder_items = sorted(Path(bucket).iterdir())
             for dataset in folder_items:
                 if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
                     datasets.append(dataset)

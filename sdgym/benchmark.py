@@ -114,12 +114,21 @@ SDV_MULTI_TABLE_SYNTHESIZERS = ['HMASynthesizer']
 SDV_SYNTHESIZERS = SDV_SINGLE_TABLE_SYNTHESIZERS + SDV_MULTI_TABLE_SYNTHESIZERS
 
 
+class DatasetInfo(NamedTuple):
+    """Information needed to load a dataset when a benchmark job executes."""
+
+    name: str
+    source: str
+    dataset_path: Any
+    bucket: Optional[str]
+    limit_dataset_size: bool
+
+
 class JobArgs(NamedTuple):
     """Arguments needed to run a single synthesizer + dataset benchmark job."""
 
     synthesizer: dict
-    data: Any
-    metadata: Any
+    dataset_info: Any
     metrics: Any
     timeout: Optional[int]
     compute_quality_score: bool
@@ -128,14 +137,6 @@ class JobArgs(NamedTuple):
     dataset_name: str
     modality: str
     output_directions: Optional[dict]
-
-
-class ResolvedDataset(NamedTuple):
-    """Resolved dataset data and metadata for benchmark job creation."""
-
-    name: str
-    data: Any
-    metadata: Any
 
 
 def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modality):
@@ -378,23 +379,28 @@ def _resolve_dataset(
 
     datasets = []
     for dataset_name in sdv_dataset_names:
-        data, metadata = _load_sdv_demo_dataset(
-            modality=modality,
-            dataset_name=dataset_name,
-            bucket=dataset_bucket_mapping.get(dataset_name),
-            s3_client=s3_client,
-            limit_dataset_size=limit_dataset_size,
+        datasets.append(
+            DatasetInfo(
+                name=dataset_name,
+                source='sdv_demo',
+                dataset_path=None,
+                bucket=dataset_bucket_mapping.get(dataset_name),
+                limit_dataset_size=limit_dataset_size,
+            )
         )
-        datasets.append(ResolvedDataset(dataset_name, data, metadata))
 
     for dataset in additional_datasets:
-        data, metadata = _load_dataset_with_client(
-            modality,
-            dataset,
-            limit_dataset_size=limit_dataset_size,
-            s3_client=s3_client,
+        bucket = additional_datasets_folder if is_s3_path(additional_datasets_folder) else None
+        dataset_to_load = dataset.name if bucket else dataset
+        datasets.append(
+            DatasetInfo(
+                name=dataset.name,
+                source='additional',
+                dataset_path=dataset_to_load,
+                bucket=bucket,
+                limit_dataset_size=limit_dataset_size,
+            )
         )
-        datasets.append(ResolvedDataset(dataset.name, data, metadata))
 
     return datasets
 
@@ -416,7 +422,7 @@ def _generate_job_args_list(
     if not synthesizers:
         return []
 
-    datasets = _resolve_dataset(
+    dataset_infos = _resolve_dataset(
         modality=modality,
         sdv_datasets=sdv_datasets,
         additional_datasets_folder=additional_datasets_folder,
@@ -424,34 +430,37 @@ def _generate_job_args_list(
         s3_client=s3_client,
     )
     synthesizer_names = [synthesizer['name'] for synthesizer in synthesizers]
-    dataset_names = [dataset.name for dataset in datasets]
+    dataset_names = [dataset_info.name for dataset_info in dataset_infos]
     paths = _setup_output_destination(
         output_destination, synthesizer_names, dataset_names, modality=modality, s3_client=s3_client
     )
     job_args_list = []
-    for dataset in datasets:
+    for dataset_info in dataset_infos:
         for synthesizer in synthesizers:
             if paths:
                 final_name = next(
-                    (name for name in paths[dataset.name] if name.startswith(synthesizer['name'])),
+                    (
+                        name
+                        for name in paths[dataset_info.name]
+                        if name.startswith(synthesizer['name'])
+                    ),
                     synthesizer['name'],
                 )
             else:
                 final_name = synthesizer['name']
 
             synthesizer['name'] = final_name
-            path = paths.get(dataset.name, {}).get(synthesizer['name'], None)
+            path = paths.get(dataset_info.name, {}).get(synthesizer['name'], None)
             job_args_list.append(
                 JobArgs(
                     synthesizer=synthesizer,
-                    data=dataset.data,
-                    metadata=dataset.metadata,
+                    dataset_info=dataset_info,
                     metrics=sdmetrics,
                     timeout=timeout,
                     compute_quality_score=compute_quality_score,
                     compute_diagnostic_score=compute_diagnostic_score,
                     compute_privacy_score=compute_privacy_score,
-                    dataset_name=dataset.name,
+                    dataset_name=dataset_info.name,
                     modality=modality,
                     output_directions=path,
                 )
@@ -878,13 +887,43 @@ def _format_output(
     return scores
 
 
+def _get_s3_client_from_result_writer(result_writer):
+    if isinstance(result_writer, S3ResultsWriter):
+        return result_writer.s3_client
+
+    return None
+
+
+def _load_from_dataset_info(dataset_info, modality, result_writer=None):
+    """Load data and metadata based on the provided dataset information."""
+    s3_client = _get_s3_client_from_result_writer(result_writer)
+    if dataset_info.source == 'sdv_demo':
+        return _load_sdv_demo_dataset(
+            modality=modality,
+            dataset_name=dataset_info.name,
+            bucket=dataset_info.bucket,
+            s3_client=s3_client,
+            limit_dataset_size=dataset_info.limit_dataset_size,
+        )
+
+    if dataset_info.source == 'additional':
+        return _load_dataset_with_client(
+            modality=modality,
+            dataset_name=dataset_info.name,
+            datasets_path=dataset_info.dataset_path,
+            bucket=dataset_info.bucket,
+            limit_dataset_size=dataset_info.limit_dataset_size,
+            s3_client=s3_client,
+        )
+
+    raise ValueError(f"Unknown dataset source: '{dataset_info.source}'.")
+
+
 def _run_job(job_args, result_writer=None):
     # Reset random seed
     np.random.seed()
 
     synthesizer = job_args.synthesizer
-    data = job_args.data
-    metadata = job_args.metadata
     metrics = job_args.metrics
     timeout = job_args.timeout
     compute_quality_score = job_args.compute_quality_score
@@ -893,6 +932,7 @@ def _run_job(job_args, result_writer=None):
     dataset_name = job_args.dataset_name
     modality = job_args.modality
     synthesizer_path = job_args.output_directions
+    dataset_info = job_args.dataset_info
 
     name = synthesizer['name']
     LOGGER.info(
@@ -904,37 +944,44 @@ def _run_job(job_args, result_writer=None):
     )
     output = {}
     try:
-        if timeout:
-            output = _score_with_timeout(
-                timeout=timeout,
-                synthesizer=synthesizer,
-                data=data,
-                metadata=metadata,
-                metrics=metrics,
-                compute_quality_score=compute_quality_score,
-                compute_diagnostic_score=compute_diagnostic_score,
-                compute_privacy_score=compute_privacy_score,
-                modality=modality,
-                dataset_name=dataset_name,
-                synthesizer_path=synthesizer_path,
-                result_writer=result_writer,
-            )
-        else:
-            output = _score(
-                synthesizer=synthesizer,
-                data=data,
-                metadata=metadata,
-                metrics=metrics,
-                compute_quality_score=compute_quality_score,
-                compute_diagnostic_score=compute_diagnostic_score,
-                compute_privacy_score=compute_privacy_score,
-                modality=modality,
-                dataset_name=dataset_name,
-                synthesizer_path=synthesizer_path,
-                result_writer=result_writer,
-            )
+        data, metadata = _load_from_dataset_info(
+            dataset_info, modality, result_writer=result_writer
+        )
+        try:
+            if timeout:
+                output = _score_with_timeout(
+                    timeout=timeout,
+                    synthesizer=synthesizer,
+                    data=data,
+                    metadata=metadata,
+                    metrics=metrics,
+                    compute_quality_score=compute_quality_score,
+                    compute_diagnostic_score=compute_diagnostic_score,
+                    compute_privacy_score=compute_privacy_score,
+                    modality=modality,
+                    dataset_name=dataset_name,
+                    synthesizer_path=synthesizer_path,
+                    result_writer=result_writer,
+                )
+            else:
+                output = _score(
+                    synthesizer=synthesizer,
+                    data=data,
+                    metadata=metadata,
+                    metrics=metrics,
+                    compute_quality_score=compute_quality_score,
+                    compute_diagnostic_score=compute_diagnostic_score,
+                    compute_privacy_score=compute_privacy_score,
+                    modality=modality,
+                    dataset_name=dataset_name,
+                    synthesizer_path=synthesizer_path,
+                    result_writer=result_writer,
+                )
+        except Exception as error:
+            output['Error'] = error
+
     except Exception as error:
-        output['exception'] = error
+        output['Error'] = error
 
     scores = _format_output(
         output,

@@ -269,8 +269,8 @@ class TestDatasetExplorer:
             s3_client=None,
         )
         mock_load_dataset.assert_called_once_with(
-            'single_table',
-            dataset='test',
+            modality='single_table',
+            dataset_name='test',
             bucket='sdv-datasets-public',
             s3_client=None,
         )
@@ -299,7 +299,7 @@ class TestDatasetExplorer:
 
         # Assert
         assert mock_load_dataset.call_count == 2
-        loaded_names = [call.kwargs['dataset'] for call in mock_load_dataset.call_args_list]
+        loaded_names = [call.kwargs['dataset_name'] for call in mock_load_dataset.call_args_list]
         assert set(loaded_names) == {'ds1', 'ds3'}
         assert [result['Dataset'] for result in results] == ['ds1', 'ds3']
         assert len(results) == 2
