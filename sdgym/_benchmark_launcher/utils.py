@@ -47,6 +47,16 @@ MODALITY_TO_JOB_SETUP = {
     'multi_table': {
         'output_destination': OUTPUT_DESTINATION_AWS,
         'datasets': [
+            'rel-amazon',
+            'rel-arxiv',
+            'rel-avito',
+            'rel-event',
+            'rel-f1',
+            'rel-hm',
+            'rel-ratebeer',
+            'rel-salt',
+            'rel-stack',
+            'rel-trial',
             'WebKP',
             'DCG',
             'UW_std',
