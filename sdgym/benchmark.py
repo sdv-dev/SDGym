@@ -138,6 +138,31 @@ class ResolvedDataset(NamedTuple):
     metadata: Any
 
 
+def _get_dataset_debug_summary(data):
+    """Return a small, cheap summary of loaded dataset tables for debug logs."""
+    if isinstance(data, dict):
+        table_summaries = []
+        for table_name, table_data in data.items():
+            shape = getattr(table_data, 'shape', None)
+            if shape is not None:
+                table_summaries.append(f'{table_name}: rows={shape[0]} cols={shape[1]}')
+            else:
+                table_summaries.append(f'{table_name}: type={type(table_data).__name__}')
+
+        return f'tables={len(data)} [{", ".join(table_summaries[:5])}]'
+
+    shape = getattr(data, 'shape', None)
+    if shape is not None:
+        return f'rows={shape[0]} cols={shape[1]}'
+
+    return f'type={type(data).__name__}'
+
+
+def _print_benchmark_debug(message):
+    """Print benchmark debug information immediately for GitHub Actions logs."""
+    print(f'[SDGym benchmark debug] {message}', flush=True)  # noqa: T201
+
+
 def _import_and_validate_synthesizers(synthesizers, custom_synthesizers, modality):
     """Import user-provided synthesizer and validate modality and uniqueness.
 
@@ -346,6 +371,12 @@ def _resolve_dataset(
     s3_client=None,
 ):
     sdv_dataset_names = [] if sdv_datasets is None else sdv_datasets
+    _print_benchmark_debug(
+        f'Resolving datasets for modality={modality}; '
+        f'sdv_datasets={sdv_dataset_names}; '
+        f'additional_datasets_folder={additional_datasets_folder}; '
+        f'limit_dataset_size={limit_dataset_size}; memory={used_memory()}'
+    )
     additional_datasets = (
         []
         if additional_datasets_folder is None
@@ -362,6 +393,9 @@ def _resolve_dataset(
 
     dataset_bucket_mapping = None
     if sdv_dataset_names:
+        _print_benchmark_debug(
+            f'Looking up buckets for {len(sdv_dataset_names)} SDV datasets; memory={used_memory()}'
+        )
         dataset_bucket_mapping = _get_dataset_bucket_mapping(
             modality,
             [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
@@ -375,27 +409,48 @@ def _resolve_dataset(
                 f'The following SDV demo datasets were not found in the expected buckets: '
                 f"'{missing_to_print}'. Please check that the dataset names are correct."
             )
+        _print_benchmark_debug(
+            f'Bucket lookup completed for {len(dataset_bucket_mapping)} datasets; '
+            f'memory={used_memory()}'
+        )
 
     datasets = []
     for dataset_name in sdv_dataset_names:
+        bucket = dataset_bucket_mapping.get(dataset_name)
+        _print_benchmark_debug(
+            f'Starting download for SDV dataset={dataset_name} bucket={bucket}; '
+            f'memory={used_memory()}'
+        )
         data, metadata = _load_sdv_demo_dataset(
             modality=modality,
             dataset_name=dataset_name,
-            bucket=dataset_bucket_mapping.get(dataset_name),
+            bucket=bucket,
             s3_client=s3_client,
             limit_dataset_size=limit_dataset_size,
+        )
+        _print_benchmark_debug(
+            f'Finished download for SDV dataset={dataset_name}; '
+            f'{_get_dataset_debug_summary(data)}; memory={used_memory()}'
         )
         datasets.append(ResolvedDataset(dataset_name, data, metadata))
 
     for dataset in additional_datasets:
+        _print_benchmark_debug(
+            f'Starting load for additional dataset={dataset.name}; memory={used_memory()}'
+        )
         data, metadata = _load_dataset_with_client(
             modality,
             dataset,
             limit_dataset_size=limit_dataset_size,
             s3_client=s3_client,
         )
+        _print_benchmark_debug(
+            f'Finished load for additional dataset={dataset.name}; '
+            f'{_get_dataset_debug_summary(data)}; memory={used_memory()}'
+        )
         datasets.append(ResolvedDataset(dataset.name, data, metadata))
 
+    _print_benchmark_debug(f'Resolved {len(datasets)} datasets; memory={used_memory()}')
     return datasets
 
 
