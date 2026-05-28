@@ -206,7 +206,7 @@ def _get_user_data_script(
         log "======== Install Dependencies =========="
         pip install --upgrade pip
         {sdv_install}
-        pip install "sdgym[all] @ git+https://github.com/sdv-dev/SDGym.git@issue-605-single-job-per-instance"
+        pip install "sdgym[all]"
 
         {gpu_block}
 
