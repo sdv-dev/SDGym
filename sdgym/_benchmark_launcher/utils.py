@@ -285,9 +285,7 @@ def _build_instance_artifact_filepaths(
     return (
         _build_s3_uri(output_destination, f'{artifact_key_prefix}/{metainfo_name}.yaml'),
         _build_s3_uri(output_destination, f'{artifact_key_prefix}/{results_name}.csv'),
-        _build_s3_uri(
-            output_destination, f'{modality_prefix}/job_args_list_{metainfo_name}.pkl.gz'
-        ),
+        _build_s3_uri(output_destination, f'{modality_prefix}/job_args_list_{metainfo_name}.pkl'),
     )
 
 

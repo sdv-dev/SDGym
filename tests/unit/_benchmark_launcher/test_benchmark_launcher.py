@@ -196,7 +196,7 @@ class TestBenchmarkLauncher:
         mock_build_instance_artifact_filepaths.return_value = (
             's3://bucket/prefix/metainfo(1).yaml',
             's3://bucket/prefix/results(1).csv',
-            's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
+            's3://bucket/prefix_job/job_args_list_metainfo(1).pkl',
         )
 
         # Run
@@ -251,7 +251,7 @@ class TestBenchmarkLauncher:
             'output_destination': 's3://bucket/path',
             'metainfo_filepath': 's3://bucket/prefix/metainfo(1).yaml',
             'result_filepath': 's3://bucket/prefix/results(1).csv',
-            'job_arg_filepath': 's3://bucket/prefix_job/job_args_list_metainfo(1).pkl.gz',
+            'job_arg_filepath': 's3://bucket/prefix_job/job_args_list_metainfo(1).pkl',
             'jobs': [
                 {
                     'dataset': 'dataset1',
@@ -417,12 +417,12 @@ class TestBenchmarkLauncher:
             (
                 's3://bucket/artifact-prefix/metainfo.yaml',
                 's3://bucket/artifact-prefix/results.csv',
-                's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
+                's3://bucket/modality_prefix/job_args_list_metainfo.pkl',
             ),
             (
                 's3://bucket/artifact-prefix/metainfo(1).yaml',
                 's3://bucket/artifact-prefix/results(1).csv',
-                's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz',
+                's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl',
             ),
         ]
         mock_resolve_compute.return_value = {
@@ -470,7 +470,7 @@ class TestBenchmarkLauncher:
                 'output_destination': output_destination,
                 'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo.yaml',
                 'result_filepath': 's3://bucket/artifact-prefix/results.csv',
-                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo.pkl.gz',
+                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo.pkl',
                 'jobs': [
                     {
                         'dataset': 'd1',
@@ -497,7 +497,7 @@ class TestBenchmarkLauncher:
                 'output_destination': output_destination,
                 'metainfo_filepath': 's3://bucket/artifact-prefix/metainfo(1).yaml',
                 'result_filepath': 's3://bucket/artifact-prefix/results(1).csv',
-                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl.gz',
+                'job_arg_filepath': 's3://bucket/modality_prefix/job_args_list_metainfo(1).pkl',
                 'jobs': [
                     {
                         'dataset': 'd2',
@@ -1333,13 +1333,13 @@ class TestBenchmarkLauncher:
             'instance-1': {
                 'jobs': [{'dataset': 'adult', 'synthesizer': 'CTGAN'}],
                 'result_filepath': 's3://bucket/path/prefix/results.csv',
-                'job_arg_filepath': 's3://bucket/path/single_table/job_args_list_metainfo.pkl.gz',
+                'job_arg_filepath': 's3://bucket/path/single_table/job_args_list_metainfo.pkl',
             },
             'instance-2': {
                 'jobs': [],
                 'result_filepath': 's3://bucket/other-path/prefix/results(1).csv',
                 'job_arg_filepath': (
-                    's3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'
+                    's3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl'
                 ),
             },
         }
@@ -1360,8 +1360,8 @@ class TestBenchmarkLauncher:
             call(result=result_df, filepath='s3://bucket/other-path/prefix/results(1).csv'),
         ]
         assert launcher._storage_manager.delete.call_args_list == [
-            call('s3://bucket/path/single_table/job_args_list_metainfo.pkl.gz'),
-            call('s3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl.gz'),
+            call('s3://bucket/path/single_table/job_args_list_metainfo.pkl'),
+            call('s3://bucket/other-path/single_table/job_args_list_metainfo(1).pkl'),
         ]
         assert launcher._update_instance_metainfo.call_args_list == [
             call('instance-1'),

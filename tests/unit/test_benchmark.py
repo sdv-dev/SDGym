@@ -848,9 +848,8 @@ def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock
         _validate_aws_inputs(valid_url, None, None)
 
 
-@patch('sdgym.benchmark.gzip.compress')
 @patch('sdgym.benchmark.cloudpickle.dumps')
-def test_store_job_args_in_s3_stores_compressed_job_args(mock_dumps, mock_compress):
+def test_store_job_args_in_s3_stores_job_args(mock_dumps):
     """Test the `_store_job_args_in_s3` method."""
     # Setup
     output_destination = 's3://my-bucket/some/path/'
@@ -863,9 +862,7 @@ def test_store_job_args_in_s3_stores_compressed_job_args(mock_dumps, mock_compre
     job_args_list = [job_args]
 
     serialized = b'serialized-bytes'
-    compressed = b'compressed-bytes'
     mock_dumps.return_value = serialized
-    mock_compress.return_value = compressed
 
     # Run
     bucket_name, job_args_key = _store_job_args_in_s3(
@@ -874,15 +871,14 @@ def test_store_job_args_in_s3_stores_compressed_job_args(mock_dumps, mock_compre
 
     # Assert
     mock_dumps.assert_called_once_with(job_args_list)
-    mock_compress.assert_called_once_with(serialized, compresslevel=1)
     s3_client_mock.put_object.assert_called_once_with(
         Bucket='my-bucket',
-        Key='some/path/single_table/job_args_list_metainfo.pkl.gz',
-        Body=compressed,
+        Key='some/path/single_table/job_args_list_metainfo.pkl',
+        Body=serialized,
     )
 
     assert bucket_name == 'my-bucket'
-    assert job_args_key == 'some/path/single_table/job_args_list_metainfo.pkl.gz'
+    assert job_args_key == 'some/path/single_table/job_args_list_metainfo.pkl'
 
 
 @patch('sdgym.benchmark._import_and_validate_synthesizers')

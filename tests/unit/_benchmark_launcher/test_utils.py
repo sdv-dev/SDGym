@@ -829,7 +829,7 @@ def test__build_instance_artifact_filepaths(mock_build_s3_uri):
     mock_build_s3_uri.side_effect = [
         's3://bucket/prefix/metainfo.yaml',
         's3://bucket/prefix/results.csv',
-        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+        's3://bucket/modality/job_args_list_metainfo.pkl',
     ]
 
     # Run
@@ -845,12 +845,12 @@ def test__build_instance_artifact_filepaths(mock_build_s3_uri):
     assert mock_build_s3_uri.call_args_list == [
         call('s3://bucket/root', 'prefix/metainfo.yaml'),
         call('s3://bucket/root', 'prefix/results.csv'),
-        call('s3://bucket/root', 'modality/job_args_list_metainfo.pkl.gz'),
+        call('s3://bucket/root', 'modality/job_args_list_metainfo.pkl'),
     ]
     assert result == (
         's3://bucket/prefix/metainfo.yaml',
         's3://bucket/prefix/results.csv',
-        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+        's3://bucket/modality/job_args_list_metainfo.pkl',
     )
 
 
