@@ -43,9 +43,9 @@ from sdmetrics.single_table import DCRBaselineProtection
 from sdgym.datasets import (
     SDV_DATASETS_PRIVATE_BUCKET,
     SDV_DATASETS_PUBLIC_BUCKET,
-    _get_dataset_bucket_mapping,
     _load_dataset_with_client,
     _load_sdv_demo_dataset,
+    dataset_to_bucket,
     get_dataset_paths,
 )
 from sdgym.errors import BenchmarkError, SDGymError
@@ -361,15 +361,15 @@ def _resolve_dataset(
         )
     )
 
-    dataset_bucket_mapping = None
+    dataset_name_to_bucket = None
     if sdv_dataset_names:
-        dataset_bucket_mapping = _get_dataset_bucket_mapping(
+        dataset_name_to_bucket = dataset_to_bucket(
             modality,
             [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
             s3_client,
             skip_inaccessible=True,
         )
-        missing_names = [name for name in sdv_dataset_names if name not in dataset_bucket_mapping]
+        missing_names = [name for name in sdv_dataset_names if name not in dataset_name_to_bucket]
         if missing_names:
             missing_to_print = "', '".join(missing_names)
             raise ValueError(
@@ -384,7 +384,7 @@ def _resolve_dataset(
                 name=dataset_name,
                 source='sdv_demo',
                 dataset_path=None,
-                bucket=dataset_bucket_mapping.get(dataset_name),
+                bucket=dataset_name_to_bucket.get(dataset_name),
                 limit_dataset_size=limit_dataset_size,
             )
         )

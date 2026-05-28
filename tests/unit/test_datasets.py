@@ -12,12 +12,12 @@ from sdgym.datasets import (
     _download_dataset,
     _genereate_dataset_info,
     _get_bucket_name,
-    _get_dataset_bucket_mapping,
     _get_dataset_path_and_download,
     _load_dataset_with_client,
     _load_sdv_demo_dataset,
     _path_contains_data_and_metadata,
     _validate_modality,
+    dataset_to_bucket,
     get_data_and_metadata_from_path,
     get_dataset_paths,
     load_dataset,
@@ -368,7 +368,7 @@ def test_get_bucket_name_local_folder():
 
 
 @patch('sdgym.datasets._get_available_datasets')
-def test__get_dataset_bucket_mapping_prefers_private(get_available_mock):
+def test_dataset_to_bucket_prefers_private(get_available_mock):
     """Test that datasets are mapped to private when duplicated across buckets."""
     # Setup
     get_available_mock.side_effect = [
@@ -377,7 +377,7 @@ def test__get_dataset_bucket_mapping_prefers_private(get_available_mock):
     ]
 
     # Run
-    result = _get_dataset_bucket_mapping(
+    result = dataset_to_bucket(
         'single_table',
         [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
         s3_client='s3_client',
@@ -396,7 +396,7 @@ def test__get_dataset_bucket_mapping_prefers_private(get_available_mock):
 
 
 @patch('sdgym.datasets._get_available_datasets')
-def test__get_dataset_bucket_mapping_skips_inaccessible_bucket(get_available_mock):
+def test_dataset_to_bucket_skips_inaccessible_bucket(get_available_mock):
     """Test inaccessible buckets can be skipped while building the mapping."""
     # Setup
     error = botocore.exceptions.ClientError(
@@ -409,7 +409,7 @@ def test__get_dataset_bucket_mapping_skips_inaccessible_bucket(get_available_moc
     ]
 
     # Run
-    result = _get_dataset_bucket_mapping(
+    result = dataset_to_bucket(
         'single_table',
         [SDV_DATASETS_PUBLIC_BUCKET, SDV_DATASETS_PRIVATE_BUCKET],
         s3_client='s3_client',
@@ -421,7 +421,7 @@ def test__get_dataset_bucket_mapping_skips_inaccessible_bucket(get_available_moc
 
 
 @patch('sdgym.datasets._get_available_datasets')
-def test__get_dataset_bucket_mapping_raises_inaccessible_bucket(get_available_mock):
+def test_dataset_to_bucket_raises_inaccessible_bucket(get_available_mock):
     """Test inaccessible buckets raise by default."""
     # Setup
     get_available_mock.side_effect = botocore.exceptions.ClientError(
@@ -431,7 +431,7 @@ def test__get_dataset_bucket_mapping_raises_inaccessible_bucket(get_available_mo
 
     # Run and Assert
     with pytest.raises(ValueError, match="Bucket 's3://sdv-datasets-private' is not accessible"):
-        _get_dataset_bucket_mapping(
+        dataset_to_bucket(
             'single_table',
             [SDV_DATASETS_PRIVATE_BUCKET],
             s3_client='s3_client',

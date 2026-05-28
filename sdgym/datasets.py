@@ -262,7 +262,7 @@ def _get_available_datasets(
     return pd.DataFrame(datasets_info)
 
 
-def _get_dataset_bucket_mapping(modality, buckets, s3_client, skip_inaccessible=False):
+def dataset_to_bucket(modality, buckets, s3_client, skip_inaccessible=False):
     """Map SDV demo dataset names to the bucket they should be loaded from."""
     dataset_buckets = {}
     for bucket in buckets:
