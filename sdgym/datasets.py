@@ -283,10 +283,9 @@ def dataset_to_bucket(modality, buckets, s3_client, skip_inaccessible=False):
 
         for dataset_name in available_datasets['dataset_name'].tolist():
             existing_bucket = dataset_buckets.get(dataset_name)
-            if existing_bucket and bucket != SDV_DATASETS_PRIVATE_BUCKET:
-                continue
-
-            dataset_buckets[dataset_name] = bucket
+            # If a dataset is available in multiple buckets, prefer the private one.
+            if existing_bucket is None or bucket == SDV_DATASETS_PRIVATE_BUCKET:
+                dataset_buckets[dataset_name] = bucket
 
     return dataset_buckets
 

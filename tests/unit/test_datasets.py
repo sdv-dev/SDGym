@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import ANY, Mock, call, patch
 
 import botocore
 import numpy as np
@@ -14,6 +14,7 @@ from sdgym.datasets import (
     _get_bucket_name,
     _get_dataset_path_and_download,
     _load_dataset_with_client,
+    _load_private_sdv_demo_dataset,
     _load_sdv_demo_dataset,
     _path_contains_data_and_metadata,
     _validate_modality,
@@ -436,6 +437,72 @@ def test_dataset_to_bucket_raises_inaccessible_bucket(get_available_mock):
             [SDV_DATASETS_PRIVATE_BUCKET],
             s3_client='s3_client',
         )
+
+
+@patch('sdgym.datasets.get_s3_client')
+@patch('sdgym.datasets._get_metadata')
+@patch('sdgym.datasets._load_data_from_zip')
+@patch('sdgym.datasets._get_first_v1_metadata_bytes')
+@patch('sdgym.datasets._get_data_from_bucket')
+@patch('sdgym.datasets._find_data_zip_key')
+@patch('sdgym.datasets._list_objects')
+def test__load_private_sdv_demo_dataset(
+    list_objects_mock,
+    find_data_zip_key_mock,
+    get_data_from_bucket_mock,
+    get_first_v1_metadata_bytes_mock,
+    load_data_from_zip_mock,
+    get_metadata_mock,
+    get_s3_client_mock,
+):
+    """Test the `_load_private_sdv_demo_dataset` method."""
+    # Setup
+    modality = 'single_table'
+    dataset_name = 'demo'
+    bucket = SDV_DATASETS_PRIVATE_BUCKET
+    bucket_name = 'sdv-datasets-private'
+    dataset_prefix = f'{modality}/{dataset_name}/'
+    data_key = f'{dataset_prefix}data.zip'
+    contents = [
+        {'Key': f'{dataset_prefix}metadata.json'},
+        {'Key': data_key},
+    ]
+    raw_data = b'fake zipped data'
+    metadata_bytes = b'{"meta": "data"}'
+    table_data = pd.DataFrame({'column': [1, 2, 3]})
+    metadata_mock = Mock()
+
+    s3_client_mock = Mock()
+    list_objects_mock.return_value = contents
+    find_data_zip_key_mock.return_value = data_key
+    get_data_from_bucket_mock.return_value = raw_data
+    get_first_v1_metadata_bytes_mock.return_value = metadata_bytes
+    load_data_from_zip_mock.return_value = {'table_name': table_data}
+    metadata_mock.to_dict.return_value = {'meta': 'data'}
+    get_metadata_mock.return_value = metadata_mock
+
+    # Run
+    data, metadata = _load_private_sdv_demo_dataset(modality, dataset_name, bucket, s3_client_mock)
+
+    # Assert
+    get_s3_client_mock.assert_not_called()
+    list_objects_mock.assert_called_once_with(
+        dataset_prefix, bucket=bucket_name, client=s3_client_mock
+    )
+    find_data_zip_key_mock.assert_called_once_with(contents, dataset_prefix, bucket_name)
+    get_data_from_bucket_mock.assert_called_once_with(
+        data_key, bucket=bucket_name, client=s3_client_mock
+    )
+    get_first_v1_metadata_bytes_mock.assert_called_once_with(
+        contents, dataset_prefix, bucket=bucket_name, client=s3_client_mock
+    )
+    load_data_from_zip_mock.assert_called_once_with(ANY, bucket_name, dataset_name)
+    data_bytes = load_data_from_zip_mock.call_args.args[0]
+    assert data_bytes.getvalue() == raw_data
+    get_metadata_mock.assert_called_once_with(metadata_bytes, dataset_name)
+    metadata_mock.to_dict.assert_called_once_with()
+    pd.testing.assert_frame_equal(data, table_data)
+    assert metadata == {'meta': 'data'}
 
 
 @patch('sdgym.datasets.download_demo')
