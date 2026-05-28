@@ -644,7 +644,6 @@ def test__write_metainfo_file(mock_datetime, mock_open, mock_safe_load, tmp_path
             compute_quality_score=False,
             compute_diagnostic_score=False,
             compute_privacy_score=False,
-            dataset_name='adult',
             modality='single_table',
             output_directions=file_name,
         ),
@@ -656,7 +655,6 @@ def test__write_metainfo_file(mock_datetime, mock_open, mock_safe_load, tmp_path
             compute_quality_score=False,
             compute_diagnostic_score=False,
             compute_privacy_score=False,
-            dataset_name='census',
             modality='single_table',
             output_directions=None,
         ),
@@ -1329,7 +1327,7 @@ def test__generate_job_args_list_stores_dataset_infos(
         s3_client=s3_client,
     )
     assert len(job_args_list) == 4
-    assert [job.dataset_name for job in job_args_list] == [
+    assert [job.dataset_info.name for job in job_args_list] == [
         'datasetA',
         'datasetA',
         'datasetB',
@@ -1471,7 +1469,7 @@ def test_benchmark_multi_table_with_jobs(
     # Setup
     fake_scores = pd.DataFrame({'a': [1]})
     mock__run_jobs.return_value = fake_scores
-    job_args = ('arg1', 'arg2', {'metainfo': 'meta.yaml'})
+    job_args = Mock(output_directions={'metainfo': 'meta.yaml'})
     mock__generate_job_args_list.return_value = [job_args]
     expected_valid_synthesizers = ['HMASynthesizer', 'MultiTableUniformSynthesizer', 'CustomSynth']
 

@@ -127,13 +127,12 @@ class JobArgs(NamedTuple):
     """Arguments needed to run a single synthesizer + dataset benchmark job."""
 
     synthesizer: dict
-    dataset_info: Any
+    dataset_info: DatasetInfo
     metrics: Any
     timeout: Optional[int]
     compute_quality_score: bool
     compute_diagnostic_score: bool
     compute_privacy_score: bool
-    dataset_name: str
     modality: str
     output_directions: Optional[dict]
 
@@ -459,7 +458,6 @@ def _generate_job_args_list(
                     compute_quality_score=compute_quality_score,
                     compute_diagnostic_score=compute_diagnostic_score,
                     compute_privacy_score=compute_privacy_score,
-                    dataset_name=dataset_info.name,
                     modality=modality,
                     output_directions=path,
                 )
@@ -928,10 +926,10 @@ def _run_job(job_args, result_writer=None):
     compute_quality_score = job_args.compute_quality_score
     compute_diagnostic_score = job_args.compute_diagnostic_score
     compute_privacy_score = job_args.compute_privacy_score
-    dataset_name = job_args.dataset_name
     modality = job_args.modality
     synthesizer_path = job_args.output_directions
     dataset_info = job_args.dataset_info
+    dataset_name = dataset_info.name
 
     name = synthesizer['name']
     LOGGER.info(
@@ -1086,7 +1084,7 @@ def _validate_output_destination(output_destination, aws_keys=None):
 
 
 def _write_metainfo_file(synthesizers, job_args_list, modality, result_writer=None):
-    jobs = [[job.dataset_name, job.synthesizer['name']] for job in job_args_list]
+    jobs = [[job.dataset_info.name, job.synthesizer['name']] for job in job_args_list]
     if not job_args_list or not job_args_list[0].output_directions:
         return
 
@@ -1756,7 +1754,7 @@ def benchmark_multi_table(
         )
 
     if output_destination and job_args_list:
-        metainfo_filename = job_args_list[0][-1]['metainfo']
+        metainfo_filename = job_args_list[0].output_directions['metainfo']
         _update_metainfo_file(metainfo_filename, result_writer)
 
     return scores
