@@ -1,12 +1,23 @@
 """SDGym module to handle datasets."""
 
+import io
 import logging
 import os
 from pathlib import Path
 
 import appdirs
+import botocore
 import numpy as np
 import pandas as pd
+from sdv.datasets.demo import (
+    _find_data_zip_key,
+    _get_data_from_bucket,
+    _get_first_v1_metadata_bytes,
+    _get_metadata,
+    _list_objects,
+    _load_data_from_zip,
+    download_demo,
+)
 
 from sdgym._dataset_utils import (
     _get_dataset_subset,
@@ -251,6 +262,90 @@ def _get_available_datasets(
     return pd.DataFrame(datasets_info)
 
 
+def dataset_to_bucket(modality, buckets, s3_client, skip_inaccessible=False):
+    """Map SDV demo dataset names to the bucket they should be loaded from."""
+    dataset_buckets = {}
+    for bucket in buckets:
+        try:
+            available_datasets = _get_available_datasets(
+                modality,
+                bucket=bucket,
+                s3_client=s3_client,
+            )
+        except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as error:
+            if skip_inaccessible:
+                LOGGER.info("Skipping inaccessible bucket '%s': %s", bucket, error)
+                continue
+
+            raise ValueError(
+                f"Bucket '{bucket}' is not accessible with the provided credentials."
+            ) from error
+
+        for dataset_name in available_datasets['dataset_name'].tolist():
+            existing_bucket = dataset_buckets.get(dataset_name)
+            # If a dataset is available in multiple buckets, prefer the private one.
+            if existing_bucket is None or bucket == SDV_DATASETS_PRIVATE_BUCKET:
+                if existing_bucket is not None:
+                    LOGGER.info(
+                        f"Dataset '{dataset_name}' appeared in multiple buckets. Using "
+                        f"bucket '{bucket}'."
+                    )
+
+                dataset_buckets[dataset_name] = bucket
+
+    return dataset_buckets
+
+
+def _load_private_sdv_demo_dataset(modality, dataset_name, bucket, s3_client=None):
+    """Load an SDV demo dataset from a private bucket with an SDGym S3 client."""
+    bucket_name = _get_bucket_name(bucket)
+    s3_client = s3_client or get_s3_client()
+    dataset_prefix = f'{modality}/{dataset_name}/'
+    contents = _list_objects(dataset_prefix, bucket=bucket_name, client=s3_client)
+    data_key = _find_data_zip_key(contents, dataset_prefix, bucket_name)
+    data_bytes = io.BytesIO(_get_data_from_bucket(data_key, bucket=bucket_name, client=s3_client))
+    metadata_bytes = _get_first_v1_metadata_bytes(
+        contents, dataset_prefix, bucket=bucket_name, client=s3_client
+    )
+    data = _load_data_from_zip(data_bytes, bucket_name, dataset_name)
+    if modality != 'multi_table':
+        data = data.popitem()[1]
+
+    metadata = _get_metadata(metadata_bytes, dataset_name)
+    return data, metadata.to_dict()
+
+
+def _load_sdv_demo_dataset(
+    modality,
+    dataset_name,
+    bucket,
+    s3_client=None,
+    limit_dataset_size=False,
+):
+    """Load an SDV demo dataset from the resolved public or private bucket."""
+    _validate_modality(modality)
+    bucket_name = _get_bucket_name(bucket)
+    if bucket == SDV_DATASETS_PRIVATE_BUCKET:
+        data, metadata = _load_private_sdv_demo_dataset(
+            modality,
+            dataset_name,
+            bucket,
+            s3_client=s3_client,
+        )
+    else:
+        data, metadata = download_demo(
+            modality=modality,
+            dataset_name=dataset_name,
+            s3_bucket_name=bucket_name,
+        )
+        metadata = metadata.to_dict()
+
+    if limit_dataset_size:
+        data, metadata = _get_dataset_subset(data, metadata, modality=modality)
+
+    return data, metadata
+
+
 def load_dataset(
     modality,
     dataset,
@@ -293,7 +388,7 @@ def load_dataset(
     )
     return _load_dataset_with_client(
         modality=modality,
-        dataset=dataset,
+        dataset_name=dataset,
         datasets_path=datasets_path,
         bucket=bucket,
         s3_client=s3_client,
@@ -303,7 +398,7 @@ def load_dataset(
 
 def _load_dataset_with_client(
     modality,
-    dataset,
+    dataset_name,
     datasets_path=None,
     bucket=None,
     s3_client=None,
@@ -312,7 +407,7 @@ def _load_dataset_with_client(
     """Get the data and metadata of a dataset using a given s3 client."""
     _validate_modality(modality)
     dataset_path = _get_dataset_path_and_download(
-        modality, dataset, datasets_path, bucket, s3_client=s3_client
+        modality, dataset_name, datasets_path, bucket, s3_client=s3_client
     )
 
     data, metadata_dict = get_data_and_metadata_from_path(dataset_path, modality)
@@ -358,7 +453,7 @@ def get_dataset_paths(
     if datasets is None:
         if not is_remote and Path(bucket).exists():
             datasets = []
-            folder_items = list(Path(bucket).iterdir())
+            folder_items = sorted(Path(bucket).iterdir())
             for dataset in folder_items:
                 if _path_contains_data_and_metadata(dataset) and dataset not in datasets:
                     datasets.append(dataset)

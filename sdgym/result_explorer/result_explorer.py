@@ -167,7 +167,7 @@ class ResultsExplorer:
         """
         data, _ = _load_dataset_with_client(
             modality=self.modality,
-            dataset=dataset_name,
+            dataset_name=dataset_name,
             s3_client=self.s3_client,
         )
         return data

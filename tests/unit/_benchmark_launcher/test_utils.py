@@ -516,10 +516,33 @@ def test_resolve_credentials_with_filepath_deep_merges_file_over_env(
     assert credentials == expected
 
 
-def test_resolve_credentials_file_mode(tmp_path):
+@patch('sdgym._benchmark_launcher.utils._get_env_credentials')
+def test_resolve_credentials_file_mode(mock_get_env_credentials, tmp_path):
     """Test `resolve_credentials` returns credentials from a file merged over env defaults."""
     # Setup
     credential_file = tmp_path / 'credentials.json'
+    mock_get_env_credentials.return_value = {
+        'aws': {
+            'AWS_ACCESS_KEY_ID': None,
+            'AWS_SECRET_ACCESS_KEY': None,
+        },
+        'gcp': {
+            'type': None,
+            'project_id': None,
+            'private_key_id': None,
+            'private_key': None,
+            'client_email': None,
+            'client_id': None,
+            'auth_uri': None,
+            'token_uri': None,
+            'auth_provider_x509_cert_url': None,
+            'client_x509_cert_url': None,
+        },
+        'sdv_enterprise': {
+            'SDV_ENTERPRISE_USERNAME': None,
+            'SDV_ENTERPRISE_LICENSE_KEY': None,
+        },
+    }
     file_credentials = {
         'aws': {
             'AWS_ACCESS_KEY_ID': 'FILE_AKIA',
@@ -559,6 +582,7 @@ def test_resolve_credentials_file_mode(tmp_path):
     credentials = resolve_credentials(str(credential_file))
 
     # Assert
+    mock_get_env_credentials.assert_called_once_with()
     assert credentials == expected_credentials
 
 
@@ -805,7 +829,7 @@ def test__build_instance_artifact_filepaths(mock_build_s3_uri):
     mock_build_s3_uri.side_effect = [
         's3://bucket/prefix/metainfo.yaml',
         's3://bucket/prefix/results.csv',
-        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+        's3://bucket/modality/job_args_list_metainfo.pkl',
     ]
 
     # Run
@@ -821,12 +845,12 @@ def test__build_instance_artifact_filepaths(mock_build_s3_uri):
     assert mock_build_s3_uri.call_args_list == [
         call('s3://bucket/root', 'prefix/metainfo.yaml'),
         call('s3://bucket/root', 'prefix/results.csv'),
-        call('s3://bucket/root', 'modality/job_args_list_metainfo.pkl.gz'),
+        call('s3://bucket/root', 'modality/job_args_list_metainfo.pkl'),
     ]
     assert result == (
         's3://bucket/prefix/metainfo.yaml',
         's3://bucket/prefix/results.csv',
-        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+        's3://bucket/modality/job_args_list_metainfo.pkl',
     )
 
 

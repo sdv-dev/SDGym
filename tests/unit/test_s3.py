@@ -320,11 +320,14 @@ def test__get_s3_client_with_credentials(mock_boto_client):
     mock_s3_client.head_bucket.assert_called_once_with(Bucket='my-bucket')
 
 
-def test__get_s3_client_errors():
+@patch('sdgym.s3.boto3.client')
+def test__get_s3_client_errors(mock_boto_client):
     """Test `_get_s3_client` raises error for invalid input."""
     # Setup
     output_destination = 's3:/'
     expected_error = re.escape(f'Invalid S3 URL: {output_destination}')
+    mock_s3_client = mock_boto_client.return_value
+    mock_s3_client.head_bucket.side_effect = NoCredentialsError()
 
     # Run and Assert
     with pytest.raises(ValueError, match=expected_error):
@@ -332,6 +335,9 @@ def test__get_s3_client_errors():
 
     with pytest.raises(NoCredentialsError, match='Unable to locate credentials'):
         _get_s3_client('s3://bucket_name/')
+
+    mock_boto_client.assert_called_once_with('s3')
+    mock_s3_client.head_bucket.assert_called_once_with(Bucket='bucket_name')
 
 
 def test__read_data_from_bucket_key_reads_body():
