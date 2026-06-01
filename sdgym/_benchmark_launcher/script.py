@@ -1,16 +1,15 @@
 import argparse
-import warnings
+from itertools import product
 
 from sdgym._benchmark_launcher.benchmark_config import BenchmarkConfig
 from sdgym._benchmark_launcher.benchmark_launcher import BenchmarkLauncher
 from sdgym._benchmark_launcher.utils import (
     _deep_merge,
     _load_merged_modality_config,
+    _resolve_datasets,
     _resolve_modality_config,
 )
 from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS
-
-DEFAULT_NUM_INSTANCES = 1
 
 
 def _parse_args():
@@ -46,12 +45,6 @@ def _parse_args():
         ),
     )
     parser.add_argument(
-        '--num-instances',
-        type=int,
-        default=None,
-        help='Number of benchmark instances to create. Defaults to 1.',
-    )
-    parser.add_argument(
         '--timeout',
         type=int,
         default=None,
@@ -77,7 +70,6 @@ def _validate_args(args):
                 args.synthesizers,
                 args.output_destination,
                 args.timeout,
-                args.num_instances,
             )
         ):
             raise ValueError(
@@ -94,9 +86,6 @@ def _validate_args(args):
             "'--output-destination' is required when '--config-filepath' is not provided."
         )
 
-    if args.num_instances is not None and args.num_instances < 1:
-        raise ValueError("'--num-instances' must be greater than or equal to 1.")
-
     if args.output_destination == OUTPUT_DESTINATION_AWS:
         raise ValueError(
             f"'--output-destination' cannot be {OUTPUT_DESTINATION_AWS!r} that is reserved "
@@ -104,97 +93,25 @@ def _validate_args(args):
         )
 
 
-def _split_list(values):
-    """Split a list into two non-empty parts, as evenly as possible."""
-    midpoint = len(values) // 2
-    return values[:midpoint], values[midpoint:]
-
-
-def _instance_job_size(instance_job):
-    """Return the number of synthesizer and dataset combinations."""
-    return len(instance_job['synthesizers']) * len(instance_job['datasets'])
-
-
-def _split_instance_jobs(instance_job):
-    """Split an instance job into two smaller instance jobs.
-
-    Prefer splitting synthesizers. If there is only one synthesizer,
-    split datasets instead.
-    """
-    synthesizers = instance_job['synthesizers']
-    datasets = instance_job['datasets']
-    if len(synthesizers) > 1:
-        left_synthesizers, right_synthesizers = _split_list(synthesizers)
-        return [
-            {
-                'synthesizers': left_synthesizers,
-                'datasets': datasets,
-                'output_destination': instance_job['output_destination'],
-            },
-            {
-                'synthesizers': right_synthesizers,
-                'datasets': datasets,
-                'output_destination': instance_job['output_destination'],
-            },
-        ]
-
-    if len(datasets) > 1:
-        left_datasets, right_datasets = _split_list(datasets)
-        return [
-            {
-                'synthesizers': synthesizers,
-                'datasets': left_datasets,
-                'output_destination': instance_job['output_destination'],
-            },
-            {
-                'synthesizers': synthesizers,
-                'datasets': right_datasets,
-                'output_destination': instance_job['output_destination'],
-            },
-        ]
-
-    raise ValueError('Cannot split the instance job any further.')
-
-
-def _build_instance_artifacts(datasets, synthesizers, num_instances, output_destination):
-    """Build exactly ``num_instances`` instance jobs."""
-    max_jobs = len(synthesizers) * len(datasets)
-    if num_instances > max_jobs:
-        num_instances = max_jobs
-        warnings.warn(
-            f'num_instances is too high for the number of synthesizers and datasets. '
-            f'Maximum number of instances is {max_jobs}. Setting num_instances to {max_jobs}.'
-        )
-
-    instance_jobs = [
+def _build_instance_jobs(datasets, synthesizers, output_destination):
+    """Build one instance job per dataset and synthesizer pair."""
+    return [
         {
-            'synthesizers': list(synthesizers),
-            'datasets': list(datasets),
+            'synthesizers': [synthesizer],
+            'datasets': [dataset],
             'output_destination': output_destination,
         }
+        for dataset, synthesizer in product(datasets, synthesizers)
     ]
-    while len(instance_jobs) < num_instances:
-        split_index = None
-        split_size = -1
-        for index, instance_job in enumerate(instance_jobs):
-            if (_instance_job_size(instance_job) > 1) and (
-                _instance_job_size(instance_job) > split_size
-            ):
-                split_index = index
-                split_size = _instance_job_size(instance_job)
-
-        instance_job = instance_jobs.pop(split_index)
-        instance_jobs.extend(_split_instance_jobs(instance_job))
-
-    return instance_jobs
 
 
 def _get_default_datasets_and_synthesizers(modality):
     """Get the default datasets and synthesizers for a modality config."""
     base_dict = _load_merged_modality_config(modality)
-    datasets = base_dict.get(f'datasets_{modality}', [])
+    datasets = []
     synthesizers = []
     for instance_job in base_dict.get('instance_jobs', []):
+        datasets.extend(_resolve_datasets(instance_job.get('datasets', [])))
         synthesizers.extend(instance_job.get('synthesizers', []))
 
     return sorted(set(datasets)), sorted(set(synthesizers))
@@ -208,8 +125,7 @@ def build_dict_from_args(args):
 
     datasets = args.datasets
     synthesizers = args.synthesizers
-    num_instances = args.num_instances
-    if all(value is None for value in (datasets, synthesizers, num_instances)):
+    if all(value is None for value in (datasets, synthesizers)):
         config = _resolve_modality_config(args.modality)
         config['method_params'] = method_params
         for config_instance_job in config.get('instance_jobs', []):
@@ -220,13 +136,11 @@ def build_dict_from_args(args):
     default_datasets, default_synthesizers = _get_default_datasets_and_synthesizers(args.modality)
     datasets = datasets if datasets is not None else default_datasets
     synthesizers = synthesizers if synthesizers is not None else default_synthesizers
-    num_instances = num_instances if num_instances is not None else DEFAULT_NUM_INSTANCES
     return {
         'method_params': method_params,
-        'instance_jobs': _build_instance_artifacts(
+        'instance_jobs': _build_instance_jobs(
             datasets=datasets,
             synthesizers=synthesizers,
-            num_instances=num_instances,
             output_destination=args.output_destination,
         ),
     }
@@ -257,12 +171,11 @@ def launch_from_args():
 
     When building the configuration from command-line arguments:
 
-    - If ``--datasets``, ``--synthesizers``, and ``--num-instances`` are all
-      omitted, the default monthly benchmark configuration for the selected
-      modality is used.
-    - If ``--num-instances`` is omitted, it defaults to ``1``.
+    - If ``--datasets`` and ``--synthesizers`` are both omitted, the default
+      monthly benchmark configuration for the selected modality is used.
     - If ``--datasets`` or ``--synthesizers`` is omitted, the corresponding
       default values from the monthly benchmark configuration are used.
+    - One instance job is created for each dataset and synthesizer pair.
 
     Once the configuration is resolved, the benchmark is launched.
     """
