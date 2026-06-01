@@ -369,7 +369,8 @@ def test_get_bucket_name_local_folder():
 
 
 @patch('sdgym.datasets._get_available_datasets')
-def test_dataset_to_bucket_prefers_private(get_available_mock):
+@patch('sdgym.datasets.LOGGER')
+def test_dataset_to_bucket_prefers_private(logger_mock, get_available_mock):
     """Test that datasets are mapped to private when duplicated across buckets."""
     # Setup
     get_available_mock.side_effect = [
@@ -394,6 +395,9 @@ def test_dataset_to_bucket_prefers_private(get_available_mock):
         call('single_table', bucket=SDV_DATASETS_PUBLIC_BUCKET, s3_client='s3_client'),
         call('single_table', bucket=SDV_DATASETS_PRIVATE_BUCKET, s3_client='s3_client'),
     ])
+    logger_mock.info.assert_called_once_with(
+        "Dataset 'duplicate' appeared in multiple buckets. Using bucket 's3://sdv-datasets-private'."
+    )
 
 
 @patch('sdgym.datasets._get_available_datasets')

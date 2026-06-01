@@ -285,6 +285,12 @@ def dataset_to_bucket(modality, buckets, s3_client, skip_inaccessible=False):
             existing_bucket = dataset_buckets.get(dataset_name)
             # If a dataset is available in multiple buckets, prefer the private one.
             if existing_bucket is None or bucket == SDV_DATASETS_PRIVATE_BUCKET:
+                if existing_bucket is not None:
+                    LOGGER.info(
+                        f"Dataset '{dataset_name}' appeared in multiple buckets. Using "
+                        f"bucket '{bucket}'."
+                    )
+
                 dataset_buckets[dataset_name] = bucket
 
     return dataset_buckets
