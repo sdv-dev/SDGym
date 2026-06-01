@@ -325,23 +325,20 @@ def _load_sdv_demo_dataset(
     """Load an SDV demo dataset from the resolved public or private bucket."""
     _validate_modality(modality)
     bucket_name = _get_bucket_name(bucket)
-    try:
-        data, metadata = download_demo(
-            modality=modality,
-            dataset_name=dataset_name,
-            s3_bucket_name=bucket_name,
-        )
-        metadata = metadata.to_dict()
-    except ValueError:
-        if bucket != SDV_DATASETS_PRIVATE_BUCKET:
-            raise
-
+    if bucket == SDV_DATASETS_PRIVATE_BUCKET:
         data, metadata = _load_private_sdv_demo_dataset(
             modality,
             dataset_name,
             bucket,
             s3_client=s3_client,
         )
+    else:
+        data, metadata = download_demo(
+            modality=modality,
+            dataset_name=dataset_name,
+            s3_bucket_name=bucket_name,
+        )
+        metadata = metadata.to_dict()
 
     if limit_dataset_size:
         data, metadata = _get_dataset_subset(data, metadata, modality=modality)

@@ -537,15 +537,11 @@ def test__load_sdv_demo_dataset_uses_download_demo(download_demo_mock):
 
 
 @patch('sdgym.datasets._load_private_sdv_demo_dataset')
-@patch('sdgym.datasets.download_demo')
-def test__load_sdv_demo_dataset_falls_back_for_private_bucket(
-    download_demo_mock, load_private_mock
-):
-    """Test SDV private-bucket errors fall back to SDGym private loading."""
+def test__load_sdv_demo_dataset_for_private_bucket(load_private_mock):
+    """Test `_load_sdv_demo_dataset` with the SDV private bucket."""
     # Setup
     data = pd.DataFrame({'column': [1, 2]})
     metadata = {'tables': {'demo': {'columns': {'column': {}}}}}
-    download_demo_mock.side_effect = ValueError('Private buckets are only supported')
     load_private_mock.return_value = data, metadata
 
     # Run
@@ -582,7 +578,7 @@ def test__load_sdv_demo_dataset_limits_dataset_size(download_demo_mock, subset_m
     subset_mock.return_value = limited_data, limited_metadata
 
     # Run
-    result = _load_sdv_demo_dataset(
+    result_data, result_metadata = _load_sdv_demo_dataset(
         modality='single_table',
         dataset_name='demo',
         bucket=SDV_DATASETS_PUBLIC_BUCKET,
@@ -590,7 +586,6 @@ def test__load_sdv_demo_dataset_limits_dataset_size(download_demo_mock, subset_m
     )
 
     # Assert
-    result_data, result_metadata = result
     pd.testing.assert_frame_equal(result_data, limited_data)
     assert result_metadata == limited_metadata
     subset_mock.assert_called_once_with(
