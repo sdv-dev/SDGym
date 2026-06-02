@@ -194,6 +194,8 @@ def _get_modality_config(modality):
             'output_destination': job_setup['output_destination'],
         })
 
+    result = result[125 :]
+
     return {'modality': modality, 'instance_jobs': result}
 
 
