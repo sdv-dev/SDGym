@@ -361,6 +361,36 @@ class TestResultsHandler:
         pd.testing.assert_frame_equal(processed_results, expected_results, check_dtype=False)
         assert missing_columns == []
 
+    def test__process_results_keeps_successful_uniform_row(self):
+        """Test that the `_process_results` method keeps the successful UniformSynthesizer row."""
+        results = [
+            pd.DataFrame({
+                'Dataset': ['A', 'A', 'A', 'A'],
+                'Synthesizer': [
+                    'MultiTableUniformSynthesizer',
+                    'MultiTableUniformSynthesizer(1)',
+                    'Synth1',
+                    'Synth2',
+                ],
+                'Train_Time': [10, 20, 5, 6],
+                'Sample_Time': [1, 2, 1, 1],
+                'Quality_Score': [0.1, 0.2, 0.3, 0.4],
+                'Error': ['Synthesizer Timeout', None, None, None],
+                'Adjusted_Total_Time': [11, 22, 6, 7],
+                'Adjusted_Quality_Score': [0.1, 0.2, 0.3, 0.4],
+            })
+        ]
+        handler = Mock()
+
+        processed_results, _ = ResultsHandler._process_results(handler, results)
+
+        uniform_row = processed_results.loc[
+            processed_results['Synthesizer'] == 'MultiTableUniformSynthesizer'
+        ].iloc[0]
+        assert pd.isna(uniform_row['Error'])
+        assert uniform_row['Train_Time'] == 20
+        assert uniform_row['Sample_Time'] == 2
+
     def test_summarize(self):
         """Test the `summarize` method."""
         # Setup

@@ -18,9 +18,9 @@ jobs:
           - os: macos-latest
             python-version: '3.14'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -28,12 +28,15 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --no-cache-dir invoke .[test]
     - name: Run integration tests
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: invoke integration
     - if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.14
       name: Upload integration codecov report
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v6
       with:
         flags: integration
-        file: ${{ github.workspace }}/integration_cov.xml
+        files: ${{ github.workspace }}/integration_cov.xml
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}

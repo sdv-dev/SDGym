@@ -15,9 +15,6 @@ on:
       synthesizers:
         required: false
         type: string
-      num_instances:
-        required: false
-        type: string
       output_destination:
         required: false
         type: string
@@ -45,12 +42,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: "pyproject.toml"
 
@@ -110,7 +107,6 @@ jobs:
           add_arg --modality "${{ inputs.modality }}"
           add_list_arg --datasets "${{ inputs.datasets }}"
           add_list_arg --synthesizers "${{ inputs.synthesizers }}"
-          add_arg --num-instances "${{ inputs.num_instances }}"
           add_arg --output-destination "${{ inputs.output_destination }}"
           add_arg --timeout "${{ inputs.timeout }}"
 

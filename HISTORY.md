@@ -1,5 +1,22 @@
 # History
 
+## v0.14.4 - 2026-06-02
+
+### Bugs Fixed
+
+* Bump SDV dependency to v1.37.0 - Issue [#616](https://github.com/sdv-dev/SDGym/issues/616) by @R-Palazzo
+* `upload_benchmark_results` workflow hangs on `get_dataset_details` due to full dataset downloads - Issue [#601](https://github.com/sdv-dev/SDGym/issues/601) by @R-Palazzo
+* Add the GCP credentials secrets to the upload benchmark workflow - Issue [#599](https://github.com/sdv-dev/SDGym/issues/599) by @R-Palazzo
+
+### Internal
+
+* Update the benchmark to launch one instance per (dataset, synthesizer) pair - Issue [#605](https://github.com/sdv-dev/SDGym/issues/605) by @R-Palazzo
+* Update the benchmark to load datasets from multiple S3 buckets when None is specified - Issue [#604](https://github.com/sdv-dev/SDGym/issues/604) by @R-Palazzo
+
+### Maintenance
+
+* Use Node.js 24 compatible github actions - Issue [#613](https://github.com/sdv-dev/SDGym/issues/613) by @gsheni
+
 ## v0.14.3 - 2026-04-17
 
 ### Bugs Fixed

@@ -18,11 +18,6 @@ on:
         description: "Space-separated synthesizers, e.g. 'CTGANSynthesizer TVAESynthesizer'. If not provided, all synthesizers for the modality will be included."
         required: false
         type: string
-      num_instances:
-        description: "Number of instances"
-        required: false
-        default: "1"
-        type: string
       output_destination:
         description: "Required output destination"
         required: true
@@ -39,7 +34,6 @@ jobs:
       modality: ${{ inputs.modality }}
       datasets: ${{ inputs.datasets }}
       synthesizers: ${{ inputs.synthesizers }}
-      num_instances: ${{ inputs.num_instances }}
       output_destination: ${{ inputs.output_destination }}
       timeout: ${{ inputs.timeout }}
     secrets:

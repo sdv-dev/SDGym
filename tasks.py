@@ -227,7 +227,6 @@ def launch_benchmark(
     modality=None,
     datasets=None,
     synthesizers=None,
-    num_instances=None,
     output_destination=None,
     timeout=None,
 ):
@@ -245,12 +244,12 @@ def launch_benchmark(
 
     When building the configuration from arguments:
 
-    - If ``datasets``, ``synthesizers``, and ``num_instances`` are all omitted,
+    - If ``datasets`` and ``synthesizers`` are both omitted,
       the default monthly benchmark configuration for the selected modality is
       used.
-    - If ``num_instances`` is omitted, it defaults to ``1``.
     - If ``datasets`` or ``synthesizers`` is omitted, the corresponding
       defaults from the monthly benchmark configuration are used.
+    - One instance job is created for each dataset and synthesizer pair.
     """
     command = ['python', 'sdgym/_benchmark_launcher/script.py']
     arguments = [
@@ -258,7 +257,6 @@ def launch_benchmark(
         ('--modality', modality),
         ('--datasets', datasets),
         ('--synthesizers', synthesizers),
-        ('--num-instances', num_instances),
         ('--output-destination', output_destination),
         ('--timeout', timeout),
     ]

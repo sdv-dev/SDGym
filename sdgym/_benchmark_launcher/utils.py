@@ -5,6 +5,7 @@ import os
 import uuid
 from datetime import datetime
 from importlib.resources import files
+from itertools import product
 from urllib.parse import quote_plus
 
 import yaml
@@ -13,13 +14,111 @@ from sdgym._benchmark.benchmark import (
     _benchmark_multi_table_compute_gcp,
     _benchmark_single_table_compute_gcp,
 )
-from sdgym.run_benchmark.utils import get_s3_console_link
+from sdgym.run_benchmark.utils import OUTPUT_DESTINATION_AWS, get_s3_console_link
 from sdgym.s3 import parse_s3_path
 
 _YAML_PKG = 'sdgym._benchmark_launcher'
-MODALITY_TO_CONFIG_FILE = {
-    'single_table': 'benchmark_single_table.yaml',
-    'multi_table': 'benchmark_multi_table.yaml',
+MODALITY_TO_JOB_SETUP = {
+    'single_table': {
+        'output_destination': OUTPUT_DESTINATION_AWS,
+        'datasets': [
+            'adult',
+            'alarm',
+            'census',
+            'child',
+            'covtype',
+            'expedia_hotel_logs',
+            'insurance',
+            'intrusion',
+            'news',
+        ],
+        'synthesizers': [
+            'ColumnSynthesizer',
+            'GaussianCopulaSynthesizer',
+            'CTGANSynthesizer',
+            'CopulaGANSynthesizer',
+            'TVAESynthesizer',
+            'SegmentSynthesizer',
+            'XGCSynthesizer',
+            'BootstrapSynthesizer',
+            'RealTabFormerSynthesizer',
+        ],
+    },
+    'multi_table': {
+        'output_destination': OUTPUT_DESTINATION_AWS,
+        'datasets': [
+            'rel-amazon',
+            'rel-arxiv',
+            'rel-avito',
+            'rel-event',
+            'rel-f1',
+            'rel-hm',
+            'rel-ratebeer',
+            'rel-salt',
+            'rel-stack',
+            'rel-trial',
+            'instacart_marketbasket_ml',
+            'MovieLens',
+            'rossmann',
+            'Telstra',
+            'walmart',
+            'WebKP',
+            'DCG',
+            'UW_std',
+            'Same_gen',
+            'CORA',
+            'got_families',
+            'SalesDB',
+            'UTube',
+            'Student_loan',
+            'Hepatitis_std',
+            'Elti',
+            'Bupa',
+            'Toxicology',
+            'imdb_ijs',
+            'ftp',
+            'imdb_small',
+            'imdb_MovieLens',
+            'Pima',
+            'university',
+            'legalActs',
+            'Dunur',
+            'Mesh',
+            'world',
+            'airbnb-simplified',
+            'trains',
+            'FNHK',
+            'fake_hotels',
+            'SAT',
+            'genes',
+            'Biodegradability',
+            'Pyrimidine',
+            'mutagenesis',
+            'restbase',
+            'Triazine',
+            'Carcinogenesis',
+            'fake_hotels_extended',
+            'Mooney_Family',
+            'PTE',
+            'Facebook',
+            'multi_table_ID_demo_dataset',
+            'SAP',
+            'Chess',
+            'Countries',
+            'NCAA',
+            'Atherosclerosis',
+            'nations',
+            'TubePricing',
+            'financial',
+            'Accidents',
+            'MuskSmall',
+            'NBA',
+            'AustralianFootball',
+            'PremierLeague',
+            'OMOP_CDM_dayz',
+        ],
+        'synthesizers': ['HMASynthesizer', 'HSASynthesizer', 'IndependentSynthesizer'],
+    },
 }
 CONFIG_KEYS = {
     'modality',
@@ -84,10 +183,24 @@ def resolve_compute(compute):
     raise ValueError(f"compute.service must be one of: 'gcp'. Found: {service}")
 
 
+def _get_modality_config(modality):
+    """Get the launchable benchmark config for a modality."""
+    result = []
+    job_setup = MODALITY_TO_JOB_SETUP.get(modality)
+    for dataset, synthesizer in product(job_setup['datasets'], job_setup['synthesizers']):
+        result.append({
+            'datasets': [dataset],
+            'synthesizers': [synthesizer],
+            'output_destination': job_setup['output_destination'],
+        })
+
+    return {'modality': modality, 'instance_jobs': result}
+
+
 def _load_merged_modality_config(modality):
     """Load and merge the base and modality-specific benchmark configs."""
     base_config = _load_yaml_resource('benchmark_base.yaml')
-    modality_config = _load_yaml_resource(MODALITY_TO_CONFIG_FILE[modality])
+    modality_config = _get_modality_config(modality)
     return _deep_merge(base_config, modality_config)
 
 
@@ -285,9 +398,7 @@ def _build_instance_artifact_filepaths(
     return (
         _build_s3_uri(output_destination, f'{artifact_key_prefix}/{metainfo_name}.yaml'),
         _build_s3_uri(output_destination, f'{artifact_key_prefix}/{results_name}.csv'),
-        _build_s3_uri(
-            output_destination, f'{modality_prefix}/job_args_list_{metainfo_name}.pkl.gz'
-        ),
+        _build_s3_uri(output_destination, f'{modality_prefix}/job_args_list_{metainfo_name}.pkl'),
     )
 
 

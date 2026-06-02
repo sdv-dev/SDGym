@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 
 from sdgym._benchmark_launcher.utils import (
-    MODALITY_TO_CONFIG_FILE,
+    MODALITY_TO_JOB_SETUP,
     _add_dataset_suffix,
     _build_instance_artifact_filepaths,
     _build_job_artifact_filepaths,
@@ -17,6 +17,7 @@ from sdgym._benchmark_launcher.utils import (
     _env,
     _get_env_credentials,
     _get_gcp_credentials_from_env,
+    _get_modality_config,
     _get_synthetic_data_extension,
     _get_top_folder_prefix,
     _is_unique_string_list,
@@ -33,23 +34,55 @@ from sdgym._benchmark_launcher.utils import (
 
 
 @patch('sdgym._benchmark_launcher.utils._load_yaml_resource')
-def test__load_merged_modality_config_calls_load_yaml_resource(mock_load_yaml):
-    """Test `_load_merged_modality_config` loads and merges base and modality configs."""
+@patch('sdgym._benchmark_launcher.utils._get_modality_config')
+def test__load_merged_modality_config_loads_base_and_merges_modality(
+    mock_get_modality_config, mock_load_yaml
+):
+    """Test `_load_merged_modality_config` loads the base config and merges generated jobs."""
     # Setup
     modality = 'single_table'
     base_config = {'a': 1, 'b': {'x': 1}}
     modality_config = {'b': {'y': 2}, 'c': 3}
-    mock_load_yaml.side_effect = [base_config, modality_config]
+    mock_load_yaml.return_value = base_config
+    mock_get_modality_config.return_value = modality_config
 
     # Run
     merged = _load_merged_modality_config(modality)
 
     # Assert
-    mock_load_yaml.assert_has_calls([
-        call('benchmark_base.yaml'),
-        call(MODALITY_TO_CONFIG_FILE[modality]),
-    ])
+    mock_load_yaml.assert_called_once_with('benchmark_base.yaml')
+    mock_get_modality_config.assert_called_once_with(modality)
     assert merged == {'a': 1, 'b': {'x': 1, 'y': 2}, 'c': 3}
+
+
+@pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
+def test__get_modality_config_creates_one_instance_job_per_pair(modality):
+    """Test `_get_modality_config` creates one instance job per dataset/synthesizer pair."""
+    # Setup
+    job_setup = MODALITY_TO_JOB_SETUP[modality]
+
+    # Run
+    result = _get_modality_config(modality)
+
+    # Assert
+    assert result['modality'] == modality
+    assert len(result['instance_jobs']) == (
+        len(job_setup['datasets']) * len(job_setup['synthesizers'])
+    )
+    assert result['instance_jobs'][0] == {
+        'datasets': [job_setup['datasets'][0]],
+        'synthesizers': [job_setup['synthesizers'][0]],
+        'output_destination': job_setup['output_destination'],
+    }
+    assert result['instance_jobs'][-1] == {
+        'datasets': [job_setup['datasets'][-1]],
+        'synthesizers': [job_setup['synthesizers'][-1]],
+        'output_destination': job_setup['output_destination'],
+    }
+    assert all(
+        set(job) == {'datasets', 'synthesizers', 'output_destination'}
+        for job in result['instance_jobs']
+    )
 
 
 def test__resolve_compute_gcp():
@@ -137,7 +170,10 @@ def test__resolve_modality_config_mock(mock_load_modality_config):
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
 @patch('sdgym._benchmark_launcher.utils._load_yaml_resource')
-def test__resolve_modality_config_filters_to_config_keys(mock_load_yaml, modality):
+@patch('sdgym._benchmark_launcher.utils._get_modality_config')
+def test__resolve_modality_config_filters_to_config_keys(
+    mock_get_modality_config, mock_load_yaml, modality
+):
     """Test `_resolve_modality_config` merges configs and filters to CONFIG_KEYS."""
     # Setup
     base = {
@@ -161,16 +197,15 @@ def test__resolve_modality_config_filters_to_config_keys(mock_load_yaml, modalit
         'instance_jobs': [{'synthesizers': ['A'], 'datasets': ['d1']}],
     }
 
-    mock_load_yaml.side_effect = [base, modality_dict]
+    mock_load_yaml.return_value = base
+    mock_get_modality_config.return_value = modality_dict
 
     # Run
     resolved = _resolve_modality_config(modality)
 
     # Assert
-    mock_load_yaml.assert_has_calls([
-        call('benchmark_base.yaml'),
-        call(MODALITY_TO_CONFIG_FILE[modality]),
-    ])
+    mock_load_yaml.assert_called_once_with('benchmark_base.yaml')
+    mock_get_modality_config.assert_called_once_with(modality)
     assert resolved == expected
 
 
@@ -516,10 +551,33 @@ def test_resolve_credentials_with_filepath_deep_merges_file_over_env(
     assert credentials == expected
 
 
-def test_resolve_credentials_file_mode(tmp_path):
+@patch('sdgym._benchmark_launcher.utils._get_env_credentials')
+def test_resolve_credentials_file_mode(mock_get_env_credentials, tmp_path):
     """Test `resolve_credentials` returns credentials from a file merged over env defaults."""
     # Setup
     credential_file = tmp_path / 'credentials.json'
+    mock_get_env_credentials.return_value = {
+        'aws': {
+            'AWS_ACCESS_KEY_ID': None,
+            'AWS_SECRET_ACCESS_KEY': None,
+        },
+        'gcp': {
+            'type': None,
+            'project_id': None,
+            'private_key_id': None,
+            'private_key': None,
+            'client_email': None,
+            'client_id': None,
+            'auth_uri': None,
+            'token_uri': None,
+            'auth_provider_x509_cert_url': None,
+            'client_x509_cert_url': None,
+        },
+        'sdv_enterprise': {
+            'SDV_ENTERPRISE_USERNAME': None,
+            'SDV_ENTERPRISE_LICENSE_KEY': None,
+        },
+    }
     file_credentials = {
         'aws': {
             'AWS_ACCESS_KEY_ID': 'FILE_AKIA',
@@ -559,6 +617,7 @@ def test_resolve_credentials_file_mode(tmp_path):
     credentials = resolve_credentials(str(credential_file))
 
     # Assert
+    mock_get_env_credentials.assert_called_once_with()
     assert credentials == expected_credentials
 
 
@@ -805,7 +864,7 @@ def test__build_instance_artifact_filepaths(mock_build_s3_uri):
     mock_build_s3_uri.side_effect = [
         's3://bucket/prefix/metainfo.yaml',
         's3://bucket/prefix/results.csv',
-        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+        's3://bucket/modality/job_args_list_metainfo.pkl',
     ]
 
     # Run
@@ -821,12 +880,12 @@ def test__build_instance_artifact_filepaths(mock_build_s3_uri):
     assert mock_build_s3_uri.call_args_list == [
         call('s3://bucket/root', 'prefix/metainfo.yaml'),
         call('s3://bucket/root', 'prefix/results.csv'),
-        call('s3://bucket/root', 'modality/job_args_list_metainfo.pkl.gz'),
+        call('s3://bucket/root', 'modality/job_args_list_metainfo.pkl'),
     ]
     assert result == (
         's3://bucket/prefix/metainfo.yaml',
         's3://bucket/prefix/results.csv',
-        's3://bucket/modality/job_args_list_metainfo.pkl.gz',
+        's3://bucket/modality/job_args_list_metainfo.pkl',
     )
 
 

@@ -297,7 +297,7 @@ class TestResultsExplorer:
 
         # Assert
         mock_load_dataset.assert_called_once_with(
-            modality='single_table', dataset='adult', s3_client=None
+            modality='single_table', dataset_name='adult', s3_client=None
         )
         pd.testing.assert_frame_equal(real_data, expected_data)
 
@@ -317,7 +317,7 @@ class TestResultsExplorer:
 
             # Assert
             mock_load_dataset.assert_called_once_with(
-                modality='multi_table', dataset='synthea', s3_client=None
+                modality='multi_table', dataset_name='synthea', s3_client=None
             )
             assert real_data == expected_data
         finally:

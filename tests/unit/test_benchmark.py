@@ -12,6 +12,7 @@ import pytest
 import yaml
 
 from sdgym.benchmark import (
+    DatasetInfo,
     JobArgs,
     _add_adjusted_scores,
     _check_write_permissions,
@@ -20,7 +21,10 @@ from sdgym.benchmark import (
     _format_output,
     _generate_job_args_list,
     _get_metainfo_increment,
+    _get_s3_client_from_result_writer,
     _import_and_validate_synthesizers,
+    _load_from_dataset_info,
+    _resolve_dataset,
     _setup_output_destination,
     _setup_output_destination_aws,
     _store_job_args_in_s3,
@@ -33,7 +37,7 @@ from sdgym.benchmark import (
     benchmark_single_table,
     benchmark_single_table_aws,
 )
-from sdgym.result_writer import LocalResultsWriter
+from sdgym.result_writer import LocalResultsWriter, S3ResultsWriter
 from sdgym.s3 import S3_REGION
 from sdgym.synthesizers import MultiTableUniformSynthesizer, UniformSynthesizer
 
@@ -202,10 +206,12 @@ def test__get_metainfo_increment_local(mock_logger, tmp_path):
     assert result_3 == 3
 
 
+@patch('sdgym.benchmark.dataset_to_bucket')
 @patch('sdgym.benchmark.tqdm.tqdm')
-def test_benchmark_single_table_progress_bar(tqdm_mock):
+def test_benchmark_single_table_progress_bar(tqdm_mock, mockdataset_to_bucket):
     """Test that the benchmarking function updates the progress bar on one line."""
     # Setup
+    mockdataset_to_bucket.return_value = {'student_placements': 'bucket'}
     scores_mock = MagicMock()
     scores_mock.__iter__.return_value = [
         pd.DataFrame({
@@ -225,14 +231,31 @@ def test_benchmark_single_table_progress_bar(tqdm_mock):
     )
 
     # Assert
+    mockdataset_to_bucket.assert_called_once_with(
+        'single_table',
+        ['s3://sdv-datasets-public', 's3://sdv-datasets-private'],
+        None,
+        skip_inaccessible=True,
+    )
     tqdm_mock.assert_called_once_with(ANY, total=1, position=0, leave=True)
 
 
+@patch('sdgym.benchmark.dataset_to_bucket')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
 @patch('sdgym.benchmark._score')
 @patch('sdgym.benchmark.multiprocessing')
-def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
+def test_benchmark_single_table_with_timeout(
+    mock_multiprocessing,
+    mock__score,
+    mock_load_sdv_demo_dataset,
+    mockdataset_to_bucket,
+):
     """Test that benchmark runs with timeout."""
     # Setup
+    data = pd.DataFrame({'column': [1, 2]})
+    metadata = {'tables': {'student_placements': {'columns': {'column': {'sdtype': 'numerical'}}}}}
+    mockdataset_to_bucket.return_value = {'student_placements': 'bucket'}
+    mock_load_sdv_demo_dataset.return_value = data, metadata
     mocked_process = mock_multiprocessing.Process.return_value
     manager = mock_multiprocessing.Manager.return_value
     manager_dict = {'timeout': True, 'Error': 'Synthesizer Timeout'}
@@ -246,6 +269,19 @@ def test_benchmark_single_table_with_timeout(mock_multiprocessing, mock__score):
     )
 
     # Assert
+    mockdataset_to_bucket.assert_called_once_with(
+        'single_table',
+        ['s3://sdv-datasets-public', 's3://sdv-datasets-private'],
+        None,
+        skip_inaccessible=True,
+    )
+    mock_load_sdv_demo_dataset.assert_called_once_with(
+        modality='single_table',
+        dataset_name='student_placements',
+        bucket='bucket',
+        s3_client=None,
+        limit_dataset_size=False,
+    )
     mocked_process.start.assert_called_once_with()
     mocked_process.join.assert_called_once_with(1)
     mocked_process.terminate.assert_called_once_with()
@@ -394,6 +430,70 @@ def test__format_output():
     pd.testing.assert_frame_equal(scores, expected_scores)
 
 
+def test__get_s3_client_from_result_writer():
+    """Test the `get_s3_client_from_result_writer` method."""
+    # Setup
+    mock_s3_client = Mock()
+    result_writer = S3ResultsWriter(mock_s3_client)
+    other_result_writer = LocalResultsWriter()
+
+    # Run
+    result = _get_s3_client_from_result_writer(result_writer)
+    other_result = _get_s3_client_from_result_writer(other_result_writer)
+
+    # Assert
+    assert result == mock_s3_client
+    assert other_result is None
+
+
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
+@patch('sdgym.benchmark._load_dataset_with_client')
+@patch('sdgym.benchmark._get_s3_client_from_result_writer')
+@pytest.mark.parametrize('source', ['sdv_demo', 'additional'])
+def test__load_from_dataset_info(
+    mock_get_s3_client, mock_load_dataset_with_client, mock_load_sdv_demo_dataset, source
+):
+    """Test the `_load_from_dataset_info` function."""
+    # Setup
+    mock_dataset_info = Mock()
+    mock_dataset_info.source = source
+    result_writer = Mock()
+    expected_result = Mock()
+    mock_get_s3_client.return_value = 's3_client'
+    mock_load_sdv_demo_dataset.return_value = expected_result
+    mock_load_dataset_with_client.return_value = expected_result
+    dataset_info = DatasetInfo(
+        name='dataset',
+        source=source,
+        dataset_path='dataset_path',
+        bucket='bucket_name',
+        limit_dataset_size=True,
+    )
+
+    # Run
+    result = _load_from_dataset_info(dataset_info, 'single_table', result_writer)
+
+    # Assert
+    assert result == expected_result
+    if source == 'sdv_demo':
+        mock_load_sdv_demo_dataset.assert_called_once_with(
+            modality='single_table',
+            dataset_name=dataset_info.name,
+            bucket=dataset_info.bucket,
+            s3_client='s3_client',
+            limit_dataset_size=dataset_info.limit_dataset_size,
+        )
+    else:
+        mock_load_dataset_with_client.assert_called_once_with(
+            modality='single_table',
+            dataset_name=dataset_info.name,
+            bucket=dataset_info.bucket,
+            datasets_path=dataset_info.dataset_path,
+            s3_client='s3_client',
+            limit_dataset_size=dataset_info.limit_dataset_size,
+        )
+
+
 def test__validate_output_destination(tmp_path):
     """Test the `_validate_output_destination` function."""
     # Setup
@@ -538,27 +638,23 @@ def test__write_metainfo_file(mock_datetime, mock_open, mock_safe_load, tmp_path
     jobs = [
         JobArgs(
             synthesizer={'name': 'GaussianCopulaSynthesizer'},
-            data=None,
-            metadata=None,
+            dataset_info=DatasetInfo('adult', 'sdv_demo', 'adult', 'bucket', False),
             metrics=None,
             timeout=None,
             compute_quality_score=False,
             compute_diagnostic_score=False,
             compute_privacy_score=False,
-            dataset_name='adult',
             modality='single_table',
             output_directions=file_name,
         ),
         JobArgs(
             synthesizer={'name': 'CTGANSynthesizer'},
-            data=None,
-            metadata=None,
+            dataset_info=DatasetInfo('census', 'sdv_demo', 'census', 'bucket', False),
             metrics=None,
             timeout=None,
             compute_quality_score=False,
             compute_diagnostic_score=False,
             compute_privacy_score=False,
-            dataset_name='census',
             modality='single_table',
             output_directions=None,
         ),
@@ -750,9 +846,8 @@ def test_validate_aws_inputs_permission_error(mock_check_write_permissions, mock
         _validate_aws_inputs(valid_url, None, None)
 
 
-@patch('sdgym.benchmark.gzip.compress')
 @patch('sdgym.benchmark.cloudpickle.dumps')
-def test_store_job_args_in_s3_stores_compressed_job_args(mock_dumps, mock_compress):
+def test_store_job_args_in_s3_stores_job_args(mock_dumps):
     """Test the `_store_job_args_in_s3` method."""
     # Setup
     output_destination = 's3://my-bucket/some/path/'
@@ -765,9 +860,7 @@ def test_store_job_args_in_s3_stores_compressed_job_args(mock_dumps, mock_compre
     job_args_list = [job_args]
 
     serialized = b'serialized-bytes'
-    compressed = b'compressed-bytes'
     mock_dumps.return_value = serialized
-    mock_compress.return_value = compressed
 
     # Run
     bucket_name, job_args_key = _store_job_args_in_s3(
@@ -776,15 +869,14 @@ def test_store_job_args_in_s3_stores_compressed_job_args(mock_dumps, mock_compre
 
     # Assert
     mock_dumps.assert_called_once_with(job_args_list)
-    mock_compress.assert_called_once_with(serialized, compresslevel=1)
     s3_client_mock.put_object.assert_called_once_with(
         Bucket='my-bucket',
-        Key='some/path/single_table/job_args_list_metainfo.pkl.gz',
-        Body=compressed,
+        Key='some/path/single_table/job_args_list_metainfo.pkl',
+        Body=serialized,
     )
 
     assert bucket_name == 'my-bucket'
-    assert job_args_key == 'some/path/single_table/job_args_list_metainfo.pkl.gz'
+    assert job_args_key == 'some/path/single_table/job_args_list_metainfo.pkl'
 
 
 @patch('sdgym.benchmark._import_and_validate_synthesizers')
@@ -1059,10 +1151,89 @@ def test__add_adjusted_scores_missing_fallback():
     assert scores.equals(expected)
 
 
+@patch('sdgym.benchmark.dataset_to_bucket')
+@patch('sdgym.benchmark.get_dataset_paths')
+def test__resolve_dataset_loads_sdv_and_additional_datasets(
+    mock_get_dataset_paths,
+    mockdataset_to_bucket,
+    tmp_path,
+):
+    """Test the `_resolve_dataset` method."""
+    # Setup
+    additional_folder = tmp_path / 'additional'
+    additional_dataset_path = additional_folder / 'single_table' / 'custom_dataset'
+    s3_client = Mock()
+    mock_get_dataset_paths.return_value = [additional_dataset_path]
+    mockdataset_to_bucket.return_value = {'sdv_dataset': 'bucket'}
+
+    # Run
+    result = _resolve_dataset(
+        modality='single_table',
+        sdv_datasets=['sdv_dataset'],
+        additional_datasets_folder=str(additional_folder),
+        limit_dataset_size=True,
+        s3_client=s3_client,
+    )
+
+    # Assert
+    mock_get_dataset_paths.assert_called_once_with(
+        modality='single_table',
+        bucket=str(additional_folder / 'single_table'),
+        s3_client=s3_client,
+    )
+    mockdataset_to_bucket.assert_called_once_with(
+        'single_table',
+        ['s3://sdv-datasets-public', 's3://sdv-datasets-private'],
+        s3_client,
+        skip_inaccessible=True,
+    )
+    assert [dataset.name for dataset in result] == ['sdv_dataset', 'custom_dataset']
+    assert result == [
+        DatasetInfo('sdv_dataset', 'sdv_demo', None, 'bucket', True),
+        DatasetInfo('custom_dataset', 'additional', additional_dataset_path, None, True),
+    ]
+
+
+@patch('sdgym.benchmark.dataset_to_bucket')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
+def test__resolve_dataset_raises_when_sdv_dataset_is_missing_from_buckets(
+    mock_load_sdv_demo_dataset, mockdataset_to_bucket
+):
+    """Test `_resolve_dataset` raises when an SDV dataset is not found in any bucket."""
+    # Setup
+    mockdataset_to_bucket.return_value = {'available_dataset': 'bucket'}
+
+    # Run and Assert
+    with pytest.raises(
+        ValueError,
+        match=(
+            'The following SDV demo datasets were not found in the expected buckets: '
+            "'missing_dataset'. Please check that the dataset names are correct."
+        ),
+    ):
+        _resolve_dataset(
+            modality='single_table',
+            sdv_datasets=['available_dataset', 'missing_dataset'],
+            additional_datasets_folder=None,
+            limit_dataset_size=False,
+            s3_client='s3_client',
+        )
+
+    mockdataset_to_bucket.assert_called_once_with(
+        'single_table',
+        ['s3://sdv-datasets-public', 's3://sdv-datasets-private'],
+        's3_client',
+        skip_inaccessible=True,
+    )
+    mock_load_sdv_demo_dataset.assert_not_called()
+
+
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
+@patch('sdgym.benchmark._setup_output_destination')
 @patch('sdgym.benchmark.get_dataset_paths')
 def test__generate_job_args_list_local_root_additional_folder(
     get_dataset_paths_mock,
+    mock__setup_output_destination,
     tmp_path,
     modality,
 ):
@@ -1072,6 +1243,7 @@ def test__generate_job_args_list_local_root_additional_folder(
     local_root.mkdir()
     dataset_path = tmp_path / 'my_root' / modality / 'datasetA'
     get_dataset_paths_mock.return_value = [dataset_path]
+    mock__setup_output_destination.return_value = {}
 
     # Run
     _generate_job_args_list(
@@ -1084,7 +1256,7 @@ def test__generate_job_args_list_local_root_additional_folder(
         compute_quality_score=False,
         compute_diagnostic_score=False,
         compute_privacy_score=False,
-        synthesizers=[],
+        synthesizers=[{'name': 'UniformSynthesizer'}],
         s3_client=None,
         modality=modality,
     )
@@ -1095,13 +1267,83 @@ def test__generate_job_args_list_local_root_additional_folder(
         bucket=str(local_root / modality),
         s3_client=None,
     )
+    mock__setup_output_destination.assert_called_once_with(
+        None,
+        ['UniformSynthesizer'],
+        ['datasetA'],
+        modality=modality,
+        s3_client=None,
+    )
+
+
+@patch('sdgym.benchmark.dataset_to_bucket')
+@patch('sdgym.benchmark._setup_output_destination')
+@patch('sdgym.benchmark.get_dataset_paths')
+def test__generate_job_args_list_stores_dataset_infos(
+    mock_get_dataset_paths,
+    mock__setup_output_destination,
+    mockdataset_to_bucket,
+):
+    """Test that each job stores dataset infos."""
+    # Setup
+    mock_get_dataset_paths.return_value = []
+    mockdataset_to_bucket.return_value = {'datasetA': 'bucket-a', 'datasetB': 'bucket-b'}
+    mock__setup_output_destination.return_value = {}
+    synthesizers = [
+        {'name': 'GaussianCopulaSynthesizer'},
+        {'name': 'UniformSynthesizer'},
+    ]
+    s3_client = Mock()
+
+    # Run
+    job_args_list = _generate_job_args_list(
+        limit_dataset_size=True,
+        sdv_datasets=['datasetA', 'datasetB'],
+        additional_datasets_folder=None,
+        sdmetrics=None,
+        timeout=None,
+        output_destination=None,
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        synthesizers=synthesizers,
+        s3_client=s3_client,
+        modality='single_table',
+    )
+
+    # Assert
+    mock_get_dataset_paths.assert_not_called()
+    mockdataset_to_bucket.assert_called_once_with(
+        'single_table',
+        ['s3://sdv-datasets-public', 's3://sdv-datasets-private'],
+        s3_client,
+        skip_inaccessible=True,
+    )
+    mock__setup_output_destination.assert_called_once_with(
+        None,
+        ['GaussianCopulaSynthesizer', 'UniformSynthesizer'],
+        ['datasetA', 'datasetB'],
+        modality='single_table',
+        s3_client=s3_client,
+    )
+    assert len(job_args_list) == 4
+    assert [job.dataset_info.name for job in job_args_list] == [
+        'datasetA',
+        'datasetA',
+        'datasetB',
+        'datasetB',
+    ]
+    assert [job.dataset_info for job in job_args_list] == [
+        DatasetInfo('datasetA', 'sdv_demo', None, 'bucket-a', True),
+        DatasetInfo('datasetA', 'sdv_demo', None, 'bucket-a', True),
+        DatasetInfo('datasetB', 'sdv_demo', None, 'bucket-b', True),
+        DatasetInfo('datasetB', 'sdv_demo', None, 'bucket-b', True),
+    ]
 
 
 @patch('sdgym.benchmark.get_dataset_paths')
 @patch('sdgym.benchmark._setup_output_destination')
-@patch('sdgym.benchmark._load_dataset_with_client')
 def test__generate_job_args_list_s3_root_additional_folder(
-    mock_load_dataset,
     mock__setup_output_destination,
     get_dataset_paths_mock,
 ):
@@ -1112,10 +1354,9 @@ def test__generate_job_args_list_s3_root_additional_folder(
     get_dataset_paths_mock.return_value = [dataset_path]
     s3_client = Mock()
     mock__setup_output_destination.return_value = {}
-    mock_load_dataset.return_value = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
 
     # Run
-    _generate_job_args_list(
+    job_args_list = _generate_job_args_list(
         limit_dataset_size=False,
         sdv_datasets=None,
         additional_datasets_folder=s3_root,
@@ -1143,14 +1384,32 @@ def test__generate_job_args_list_s3_root_additional_folder(
         modality='single_table',
         s3_client=s3_client,
     )
-    mock_load_dataset.assert_called_once_with(
-        'single_table', dataset_path, limit_dataset_size=False, s3_client=s3_client
+    assert job_args_list[0].dataset_info == DatasetInfo(
+        'datasetA', 'additional', 'datasetA', s3_root, False
     )
 
 
-def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
+@patch('sdgym.benchmark.dataset_to_bucket')
+@patch('sdgym.benchmark._load_sdv_demo_dataset')
+def test_benchmark_single_table_no_warning_uniform_synthesizer(
+    mock_load_sdv_demo_dataset, mockdataset_to_bucket, recwarn
+):
     """Test that no UserWarning is raised when running `UniformSynthesizer`."""
     # Setup
+    data = pd.DataFrame({'column': [1, 2, 3]})
+    metadata = {
+        'tables': {
+            'fake_hotel_guests': {
+                'columns': {
+                    'column': {
+                        'sdtype': 'numerical',
+                    }
+                }
+            }
+        }
+    }
+    mockdataset_to_bucket.return_value = {'fake_hotel_guests': 'bucket'}
+    mock_load_sdv_demo_dataset.return_value = data, metadata
     expected_result = pd.DataFrame({
         'Synthesizer': {0: 'UniformSynthesizer'},
         'Dataset': {0: 'fake_hotel_guests'},
@@ -1172,6 +1431,19 @@ def test_benchmark_single_table_no_warning_uniform_synthesizer(recwarn):
     )
 
     # Assert
+    mockdataset_to_bucket.assert_called_once_with(
+        'single_table',
+        ['s3://sdv-datasets-public', 's3://sdv-datasets-private'],
+        None,
+        skip_inaccessible=True,
+    )
+    mock_load_sdv_demo_dataset.assert_called_once_with(
+        modality='single_table',
+        dataset_name='fake_hotel_guests',
+        bucket='bucket',
+        s3_client=None,
+        limit_dataset_size=False,
+    )
     warnings_text = ' '.join(str(w.message) for w in recwarn)
     assert 'is incompatible with transformer' not in warnings_text
     pd.testing.assert_frame_equal(result[expected_result.columns], expected_result)
@@ -1197,7 +1469,7 @@ def test_benchmark_multi_table_with_jobs(
     # Setup
     fake_scores = pd.DataFrame({'a': [1]})
     mock__run_jobs.return_value = fake_scores
-    job_args = ('arg1', 'arg2', {'metainfo': 'meta.yaml'})
+    job_args = Mock(output_directions={'metainfo': 'meta.yaml'})
     mock__generate_job_args_list.return_value = [job_args]
     expected_valid_synthesizers = ['HMASynthesizer', 'MultiTableUniformSynthesizer', 'CustomSynth']
 
@@ -1427,3 +1699,30 @@ def test_benchmark_multi_table_aws_no_jobs(
         compute_privacy_score=None,
         sdmetrics=None,
     )
+
+
+@patch('sdgym.benchmark.dataset_to_bucket')
+@patch('sdgym.benchmark._load_from_dataset_info')
+def test_benchmark_single_table_error_loading_data(
+    mock_load_from_dataset_info, mockdataset_to_bucket
+):
+    """Test that `benchmark_single_table` handles errors when loading data."""
+    # Setup
+    error = ValueError('Failed to load dataset')
+    mockdataset_to_bucket.return_value = {'census': 'bucket'}
+    mock_load_from_dataset_info.side_effect = error
+    expected_result = pd.DataFrame({
+        'Synthesizer': ['UniformSynthesizer'],
+        'Dataset': ['census'],
+        'Error': [error],
+    })
+
+    # Run
+    result = benchmark_single_table(
+        synthesizers=['UniformSynthesizer'],
+        custom_synthesizers=None,
+        sdv_datasets=['census'],
+    )
+
+    # Assert
+    pd.testing.assert_frame_equal(result[expected_result.columns], expected_result)

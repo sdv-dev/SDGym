@@ -225,7 +225,6 @@ def test_launch_benchmark():
         modality='single_table',
         datasets='adult,asia',
         synthesizers='ctgan,tvae',
-        num_instances=3,
         output_destination='local',
         timeout=120,
     )
@@ -236,7 +235,6 @@ def test_launch_benchmark():
         '--modality single_table '
         '--datasets adult,asia '
         '--synthesizers ctgan,tvae '
-        '--num-instances 3 '
         '--output-destination local '
         '--timeout 120'
     )
