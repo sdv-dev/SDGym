@@ -162,7 +162,7 @@ class ResultsHandler(ABC):
             else:
                 num_datasets = results['Dataset'].nunique()
             folder_to_info[folder] = {
-                'date': metainfo_info.get('starting_date')[:NUM_DIGITS_DATE],
+                'date': folder[len(RESULTS_FOLDER_PREFIX) :],
                 'sdgym_version': metainfo_info.get('sdgym_version'),
                 '# datasets': num_datasets,
             }

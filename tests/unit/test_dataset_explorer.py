@@ -8,8 +8,18 @@ from zipfile import ZipFile
 import pandas as pd
 import pytest
 
-from sdgym.dataset_explorer import SUMMARY_OUTPUT_COLUMNS, DatasetExplorer
+from sdgym.dataset_explorer import S3_DOWNLOAD_CHUNK_SIZE, SUMMARY_OUTPUT_COLUMNS, DatasetExplorer
 from sdgym.datasets import SDV_DATASETS_PUBLIC_BUCKET
+
+
+class _TrackingBody(io.BytesIO):
+    def __init__(self, data):
+        super().__init__(data)
+        self.read_sizes = []
+
+    def read(self, size=-1):
+        self.read_sizes.append(size)
+        return super().read(size)
 
 
 def _make_zipped_csv(csvs):
@@ -21,13 +31,9 @@ def _make_zipped_csv(csvs):
     return buffer.getvalue()
 
 
-def _make_s3_client_with_download(data):
+def _make_s3_client_with_object(data):
     s3_client = MagicMock()
-
-    def download_fileobj(Bucket, Key, Fileobj):
-        Fileobj.write(data)
-
-    s3_client.download_fileobj.side_effect = download_fileobj
+    s3_client.get_object.return_value = {'Body': _TrackingBody(data)}
     return s3_client
 
 
@@ -222,18 +228,18 @@ class TestDatasetExplorer:
         # Setup
         explorer = DatasetExplorer()
         zip_data = _make_zipped_csv({'table.csv': 'a,b\n1,2\n3,4\n5,6\n'})
-        s3_client = _make_s3_client_with_download(zip_data)
+        s3_client = _make_s3_client_with_object(zip_data)
 
         # Run
         result = explorer._get_s3_zipped_data_summary(s3_client, 'single_table', 'my_dataset')
 
         # Assert
         assert result == {'Total_Num_Rows': 3, 'Max_Num_Rows_Per_Table': 3}
-        s3_client.download_fileobj.assert_called_once()
-        assert s3_client.download_fileobj.call_args.args[:2] == (
-            'sdv-datasets-public',
-            'single_table/my_dataset/data.zip',
+        s3_client.get_object.assert_called_once_with(
+            Bucket='sdv-datasets-public',
+            Key='single_table/my_dataset/data.zip',
         )
+        assert set(s3_client.get_object.return_value['Body'].read_sizes) == {S3_DOWNLOAD_CHUNK_SIZE}
 
     def test__get_s3_zipped_data_summary_multi_table(self):
         """Test counting rows in a multi-table zip from S3."""
@@ -243,7 +249,7 @@ class TestDatasetExplorer:
             'users.csv': 'id,name\n1,a\n2,b\n3,c\n',
             'transactions.csv': 'id,user_id\n1,1\n2,1\n',
         })
-        s3_client = _make_s3_client_with_download(zip_data)
+        s3_client = _make_s3_client_with_object(zip_data)
 
         # Run
         result = explorer._get_s3_zipped_data_summary(s3_client, 'multi_table', 'my_dataset')
@@ -258,7 +264,7 @@ class TestDatasetExplorer:
         zip_data = _make_zipped_csv({
             'table.csv': 'id,text\n1,"hello\nthere"\n2,plain\n',
         })
-        s3_client = _make_s3_client_with_download(zip_data)
+        s3_client = _make_s3_client_with_object(zip_data)
 
         # Run
         result = explorer._get_s3_zipped_data_summary(s3_client, 'single_table', 'my_dataset')
@@ -383,11 +389,10 @@ class TestDatasetExplorer:
             bucket='sdv-datasets-public',
             s3_client='s3_client',
         )
-        mock_load_dataset.assert_called_once_with(
-            modality='single_table',
-            dataset_name='test',
-            bucket='sdv-datasets-public',
-            s3_client=None,
+        mock_load_metadata.assert_called_once_with(
+            's3_client',
+            'single_table',
+            'test',
         )
         assert isinstance(result, list)
         assert 'Dataset' in result[0]
@@ -437,8 +442,8 @@ class TestDatasetExplorer:
         results = explorer._load_and_summarize_datasets('single_table', datasets=['ds1', 'ds3'])
 
         # Assert
-        assert mock_load_dataset.call_count == 2
-        loaded_names = [call.kwargs['dataset_name'] for call in mock_load_dataset.call_args_list]
+        assert mock_load_metadata.call_count == 2
+        loaded_names = [call.args[2] for call in mock_load_metadata.call_args_list]
         assert set(loaded_names) == {'ds1', 'ds3'}
         assert [result['Dataset'] for result in results] == ['ds1', 'ds3']
         assert len(results) == 2

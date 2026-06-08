@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+import shutil
 import tempfile
 import warnings
 from collections import defaultdict
@@ -16,7 +17,6 @@ from sdv.metadata import Metadata
 from sdgym.datasets import (
     SDV_DATASETS_PUBLIC_BUCKET,
     _get_available_datasets,
-    _load_dataset_with_client,
     _validate_modality,
 )
 from sdgym.s3 import _get_s3_client, _validate_s3_url, get_s3_client
@@ -39,7 +39,7 @@ SUMMARY_OUTPUT_COLUMNS = [
     'Max_Schema_Branch',
 ]
 
-MAX_IN_MEMORY_ZIP_SIZE = 64 * 1024 * 1024
+S3_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
 
 
 def _raise_missing_s3_object(error, bucket_name, key):
@@ -251,7 +251,7 @@ class DatasetExplorer:
 
     @staticmethod
     def _count_csv_rows(csv_file):
-        """Count records in a CSV file object without materializing rows."""
+        """Count records in a CSV file object without retaining rows."""
         text_file = io.TextIOWrapper(csv_file, encoding='utf-8-sig', newline='')
         reader = csv.reader(text_file)
         count = 0
@@ -270,18 +270,21 @@ class DatasetExplorer:
         return count
 
     def _get_s3_zipped_data_summary(self, s3_client, modality, dataset_name):
-        """Count rows in a zipped S3 dataset without loading data into pandas."""
+        """Count rows in a zipped S3 dataset with bounded memory usage."""
         data_key = f'{modality}/{dataset_name}/data.zip'
         data_summary = {
             'Total_Num_Rows': 0,
             'Max_Num_Rows_Per_Table': 0,
         }
 
-        with tempfile.SpooledTemporaryFile(max_size=MAX_IN_MEMORY_ZIP_SIZE) as zip_buffer:
+        with tempfile.TemporaryFile() as zip_buffer:
             try:
-                s3_client.download_fileobj(self._bucket_name, data_key, zip_buffer)
+                response = s3_client.get_object(Bucket=self._bucket_name, Key=data_key)
             except botocore.exceptions.ClientError as error:
                 _raise_missing_s3_object(error, self._bucket_name, data_key)
+
+            with response['Body'] as body:
+                shutil.copyfileobj(body, zip_buffer, length=S3_DOWNLOAD_CHUNK_SIZE)
 
             zip_buffer.seek(0)
             with ZipFile(zip_buffer, 'r') as zip_file:
@@ -332,12 +335,7 @@ class DatasetExplorer:
             dataset_name = dataset_row['dataset_name']
             dataset_size_mb = dataset_row['size_MB']
             dataset_num_table = dataset_row['num_tables']
-            data, metadata_dict = _load_dataset_with_client(
-                modality=modality,
-                dataset_name=dataset_name,
-                bucket=self._bucket_name,
-                s3_client=self.s3_client,
-            )
+            metadata_dict = self._load_metadata_from_s3(s3_client, modality, dataset_name)
 
             metadata_stats = DatasetExplorer.get_metadata_summary(metadata_dict).copy()
             data_stats = self._get_s3_zipped_data_summary(s3_client, modality, dataset_name)
