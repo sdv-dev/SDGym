@@ -586,7 +586,6 @@ def upload_results(
     )
 
     write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality=modality)
-    raise ValueError('Expected Error')
     if temp_dir and os.getenv('GITHUB_LOCAL_RESULTS_DIR') is None:
         shutil.rmtree(temp_dir)
 
