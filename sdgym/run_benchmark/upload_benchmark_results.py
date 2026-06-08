@@ -379,6 +379,7 @@ def get_all_results(
             AWS secret access key.
     """
     summary, results = result_explorer.summarize(folder_name)
+    breakpoint()
     dataset_details = get_dataset_details(
         results, modality, aws_access_key_id, aws_secret_access_key
     )
@@ -452,7 +453,7 @@ def upload_all_results(datas, dataset_details, model_details, modality, s3_clien
             continue
 
         local_gdrive_path = str(Path(local_export_dir) / Path(filename))
-        upload_to_drive(local_gdrive_path, _extract_google_file_id(link))
+        #upload_to_drive(local_gdrive_path, _extract_google_file_id(link))
 
     return local_export_dir
 
@@ -586,6 +587,7 @@ def upload_results(
     )
 
     write_uploaded_marker(s3_client, bucket, prefix, folder_name, modality=modality)
+    raise ValueError('Expected Error')
     if temp_dir and os.getenv('GITHUB_LOCAL_RESULTS_DIR') is None:
         shutil.rmtree(temp_dir)
 
