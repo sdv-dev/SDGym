@@ -19,7 +19,13 @@ from sdgym.datasets import (
     _get_available_datasets,
     _validate_modality,
 )
-from sdgym.s3 import _get_s3_client, _validate_s3_url, get_s3_client
+from sdgym.s3 import (
+    _get_s3_client,
+    _raise_missing_s3_object,
+    _read_s3_object,
+    _validate_s3_url,
+    get_s3_client,
+)
 
 SUMMARY_OUTPUT_COLUMNS = [
     'Dataset',
@@ -39,26 +45,7 @@ SUMMARY_OUTPUT_COLUMNS = [
     'Max_Schema_Branch',
 ]
 
-S3_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
-
-
-def _raise_missing_s3_object(error, bucket_name, key):
-    error_code = error.response.get('Error', {}).get('Code')
-    if error_code in {'404', 'NoSuchKey', 'NotFound'}:
-        raise FileNotFoundError(
-            f"Could not find required dataset file 's3://{bucket_name}/{key}'."
-        ) from error
-
-    raise error
-
-
-def _read_s3_object(s3_client, bucket_name, key):
-    try:
-        response = s3_client.get_object(Bucket=bucket_name, Key=key)
-    except botocore.exceptions.ClientError as error:
-        _raise_missing_s3_object(error, bucket_name, key)
-
-    return response['Body'].read()
+S3_DOWNLOAD_CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB
 
 
 class DatasetExplorer:
@@ -239,10 +226,6 @@ class DatasetExplorer:
 
         return data_summary
 
-    def _get_s3_client_for_reads(self):
-        """Return the configured S3 client, creating an unsigned/default client if needed."""
-        return self.s3_client or get_s3_client()
-
     def _load_metadata_from_s3(self, s3_client, modality, dataset_name):
         """Load only the dataset metadata JSON from S3."""
         metadata_key = f'{modality}/{dataset_name}/metadata.json'
@@ -267,6 +250,7 @@ class DatasetExplorer:
             count += 1
 
         text_file.detach()
+
         return count
 
     def _get_s3_zipped_data_summary(self, s3_client, modality, dataset_name):
@@ -319,7 +303,7 @@ class DatasetExplorer:
                 for an individual dataset.
         """
         results = []
-        s3_client = self._get_s3_client_for_reads()
+        s3_client = self.s3_client or get_s3_client()
 
         available_datasets = _get_available_datasets(
             modality=modality,
