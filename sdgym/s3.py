@@ -282,3 +282,22 @@ def load_pickle_from_s3(s3_client, filepath):
     bucket, key = parse_s3_path(filepath)
     response = s3_client.get_object(Bucket=bucket, Key=key)
     return cloudpickle.loads(response['Body'].read())
+
+
+def _raise_missing_s3_object(error, bucket_name, key):
+    error_code = error.response.get('Error', {}).get('Code')
+    if error_code in {'404', 'NoSuchKey', 'NotFound'}:
+        raise FileNotFoundError(
+            f"Could not find required file 's3://{bucket_name}/{key}'."
+        ) from error
+
+    raise error
+
+
+def _read_s3_object(s3_client, bucket_name, key):
+    try:
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+    except botocore.exceptions.ClientError as error:
+        _raise_missing_s3_object(error, bucket_name, key)
+
+    return response['Body'].read()
