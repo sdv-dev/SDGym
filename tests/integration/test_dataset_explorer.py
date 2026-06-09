@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -6,6 +7,7 @@ import pytest
 
 from sdgym import DatasetExplorer
 from sdgym.dataset_explorer import SUMMARY_OUTPUT_COLUMNS
+from sdgym.datasets import SDV_DATASETS_PRIVATE_BUCKET
 
 
 @pytest.mark.parametrize('modality', ['single_table', 'multi_table'])
@@ -54,3 +56,29 @@ def test_dataset_explorer_empty_bucket_warns_and_returns_header_only(modality, t
     assert list(frame.columns) == SUMMARY_OUTPUT_COLUMNS
     loaded_summary = pd.read_csv(output_filepath)
     pd.testing.assert_frame_equal(loaded_summary, frame)
+
+
+@pytest.mark.skipif(
+    not os.getenv('AWS_ACCESS_KEY_ID') or not os.getenv('AWS_SECRET_ACCESS_KEY'),
+    reason='rel-arxiv summary requires AWS credentials for private dataset access.',
+)
+def test_dataset_explorer_big_dataset():
+    """Test summarizing a big dataset `rel-arxiv`."""
+    # Setup
+    explorer = DatasetExplorer(
+        s3_url=SDV_DATASETS_PRIVATE_BUCKET,
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+    )
+
+    # Run
+    summaries = explorer._load_and_summarize_datasets(
+        modality='multi_table',
+        datasets=['rel-arxiv'],
+    )
+
+    # Assert
+    assert len(summaries) == 1
+    assert summaries[0]['Dataset'] == 'rel-arxiv'
+    assert set(summaries[0]) == set(SUMMARY_OUTPUT_COLUMNS)
+    assert summaries[0]['Total_Num_Rows'] > 0
