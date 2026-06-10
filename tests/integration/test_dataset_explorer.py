@@ -81,4 +81,4 @@ def test_dataset_explorer_big_dataset():
     assert len(summaries) == 1
     assert summaries[0]['Dataset'] == 'rel-arxiv'
     assert set(summaries[0]) == set(SUMMARY_OUTPUT_COLUMNS)
-    assert summaries[0]['Total_Num_Rows'] > 0
+    assert summaries[0]['Total_Num_Rows'] == 2146112
