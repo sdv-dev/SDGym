@@ -1,6 +1,5 @@
 """Dataset Explorer to summarize datasets stored in S3 buckets."""
 
-import csv
 import io
 import json
 import shutil
@@ -236,22 +235,9 @@ class DatasetExplorer:
     def _count_csv_rows(csv_file):
         """Count records in a CSV file object without retaining rows."""
         text_file = io.TextIOWrapper(csv_file, encoding='utf-8-sig', newline='')
-        reader = csv.reader(text_file)
-        count = 0
-        has_header = False
-        for row in reader:
-            if not row:
-                continue
-
-            if not has_header:
-                has_header = True
-                continue
-
-            count += 1
-
+        count = sum(1 for line in text_file if line.strip()) - 1  # -1 for the header
         text_file.detach()
-
-        return count
+        return max(count, 0)
 
     def _get_s3_zipped_data_summary(self, s3_client, modality, dataset_name):
         """Count rows in a zipped S3 dataset with bounded memory usage."""
