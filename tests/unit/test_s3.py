@@ -13,7 +13,9 @@ from sdgym.s3 import (
     _get_s3_client,
     _list_s3_bucket_contents,
     _load_yaml_metainfo_from_s3,
+    _raise_missing_s3_object,
     _read_data_from_bucket_key,
+    _read_s3_object,
     _upload_dataframe_to_s3,
     _upload_pickle_to_s3,
     is_s3_path,
@@ -447,3 +449,54 @@ def test_load_pickle_from_s3():
     # Assert
     s3_client.get_object.assert_called_once_with(Bucket='test-bucket', Key='path/to/object.pkl')
     assert result == expected_obj
+
+
+def test__raise_missing_s3_object():
+    """Test the `_raise_missing_s3_object` method."""
+    # Setup
+    bucket_name = 'test-bucket'
+    key = 'missing/object.txt'
+    error_response = {'Error': {'Code': 'NoSuchKey'}}
+    client_error = botocore.exceptions.ClientError(error_response, 'GetObject')
+    expected_message = f"Could not find required file 's3://{bucket_name}/{key}'."
+
+    # Run and Assert
+    with pytest.raises(FileNotFoundError, match=re.escape(expected_message)):
+        _raise_missing_s3_object(client_error, bucket_name, key)
+
+
+@patch('sdgym.s3._raise_missing_s3_object')
+def test__read_s3_object_raise(raise_mock):
+    """Test the `_read_s3_object` method when an error is raised."""
+    # Setup
+    s3_client = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/object.txt'
+    error_response = {'Error': {'Code': 'NoSuchKey'}}
+    raise_mock.side_effect = ValueError('Test error')
+    client_error = botocore.exceptions.ClientError(error_response, 'GetObject')
+    s3_client.get_object.side_effect = client_error
+
+    # Run
+    with pytest.raises(ValueError, match='Test error'):
+        _read_s3_object(s3_client, bucket_name, key)
+
+    # Assert
+    raise_mock.assert_called_once_with(client_error, bucket_name, key)
+
+
+def test__read_s3_object():
+    """Test the `_read_s3_object` method."""
+    # Setup
+    s3_client = Mock()
+    bucket_name = 'test-bucket'
+    key = 'path/to/object.txt'
+    expected_data = b'some data bytes'
+    s3_client.get_object.return_value = {'Body': Mock(read=lambda: expected_data)}
+
+    # Run
+    result = _read_s3_object(s3_client, bucket_name, key)
+
+    # Assert
+    s3_client.get_object.assert_called_once_with(Bucket=bucket_name, Key=key)
+    assert result == expected_data
