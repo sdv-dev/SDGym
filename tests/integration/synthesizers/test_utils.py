@@ -15,6 +15,7 @@ def test_get_available_single_table_synthesizers():
         'GaussianCopulaSynthesizer',
         'RealTabFormerSynthesizer',
         'TVAESynthesizer',
+        'TabDDPMSynthesizer',
         'UniformSynthesizer',
     ]
 
