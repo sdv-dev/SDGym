@@ -10,6 +10,7 @@ https://github.com/yandex-research/tab-ddpm/tree/main/tab_ddpm.
 import logging
 import math
 import sys
+from copy import deepcopy
 from typing import Callable, List, Union
 
 import numpy as np
@@ -17,6 +18,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from sdv.metadata import Metadata
 from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from torch import Tensor
 
@@ -130,6 +132,16 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
         t2 = (i + 1) / num_diffusion_timesteps
         betas.append(min(1 - alpha_bar(t2) / alpha_bar(t1), max_beta))
     return np.array(betas)
+
+
+def update_ema(target_params, source_params, rate=0.999):
+    """Update parametes using EMA.
+
+    Update target parameters to be closer to those of source parameters using
+    an exponential moving average.
+    """
+    for targ, src in zip(target_params, source_params):
+        targ.detach().mul_(rate).add_(src.detach(), alpha=1 - rate)
 
 
 def timestep_embedding(timesteps, dim, max_period=10000):
@@ -270,28 +282,33 @@ class MLPDiffusion(nn.Module):
 
 
 class GaussianMultinomialDiffusion(torch.nn.Module):
-    """Joint diffusion: Gaussian over numerical features, multinomial over categorical.
-
-    Simplified code to use the paper's pipeline:
-    - 'mse' Gaussian loss
-    - 'eps' parametrization
-    - 'vb_stochastic' multinomial loss
-    - uniform time sampling and ancestral sampling
-    """
+    """Joint diffusion: Gaussian over numerical features, multinomial over categorical."""
 
     def __init__(
         self,
-        num_classes: np.ndarray,
+        num_classes: np.array,
         num_numerical_features: int,
         denoise_fn,
         num_timesteps=1000,
+        gaussian_loss_type='mse',
+        gaussian_parametrization='eps',
+        multinomial_loss_type='vb_stochastic',
+        parametrization='x0',
         scheduler='cosine',
         device=torch.device('cpu'),
     ):
         super(GaussianMultinomialDiffusion, self).__init__()
+        assert multinomial_loss_type in ('vb_stochastic', 'vb_all')
+        assert parametrization in ('x0', 'direct')
+
+        if multinomial_loss_type == 'vb_all':
+            sys.stdout.write(
+                'Computing the loss using the bound on _all_ timesteps. '
+                'This is expensive both in terms of memory and computation.\n'
+            )
 
         self.num_numerical_features = num_numerical_features
-        self.num_classes = num_classes  # it is a vector [K1, K2, ..., Km]
+        self.num_classes = num_classes  # it as a vector [K1, K2, ..., Km]
         self.num_classes_expanded = torch.from_numpy(
             np.concatenate([num_classes[i].repeat(num_classes[i]) for i in range(len(num_classes))])
         ).to(device)
@@ -303,7 +320,11 @@ class GaussianMultinomialDiffusion(torch.nn.Module):
         self.offsets = torch.from_numpy(np.append([0], offsets)).to(device)
 
         self._denoise_fn = denoise_fn
+        self.gaussian_loss_type = gaussian_loss_type
+        self.gaussian_parametrization = gaussian_parametrization
+        self.multinomial_loss_type = multinomial_loss_type
         self.num_timesteps = num_timesteps
+        self.parametrization = parametrization
         self.scheduler = scheduler
 
         alphas = 1.0 - get_named_beta_schedule(scheduler, num_timesteps)
@@ -364,6 +385,9 @@ class GaussianMultinomialDiffusion(torch.nn.Module):
         self.register_buffer(
             'sqrt_recipm1_alphas_cumprod', sqrt_recipm1_alphas_cumprod.float().to(device)
         )
+
+        self.register_buffer('Lt_history', torch.zeros(num_timesteps))
+        self.register_buffer('Lt_count', torch.zeros(num_timesteps))
 
     def _gaussian_q_sample(self, x_start, t, noise=None):
         if noise is None:
@@ -844,9 +868,15 @@ class _FastTensorDataLoader:
                 yield X[i : i + self.batch_size], y[i : i + self.batch_size]
 
 
-class _Trainer:
+class Trainer:
+    """Diffusion trainer."""
+
     def __init__(self, diffusion, train_iter, lr, weight_decay, steps, device, verbose=True):
         self.diffusion = diffusion
+        self.ema_model = deepcopy(self.diffusion._denoise_fn)
+        for param in self.ema_model.parameters():
+            param.detach_()
+
         self.train_iter = iter(train_iter)
         self.steps = steps
         self.init_lr = lr
@@ -854,9 +884,10 @@ class _Trainer:
             self.diffusion.parameters(), lr=lr, weight_decay=weight_decay
         )
         self.device = device
-        self.verbose = verbose
+        self.loss_history = pd.DataFrame(columns=['step', 'mloss', 'gloss', 'loss'])
         self.log_every = 100
-        self.loss_history = []
+        self.print_every = 500
+        self.ema_every = 1000
 
     def _anneal_lr(self, step):
         frac_done = step / self.steps
@@ -876,13 +907,16 @@ class _Trainer:
         return loss_multi, loss_gauss
 
     def run_loop(self):
+        """Training loop."""
+        step = 0
         curr_loss_multi = 0.0
         curr_loss_gauss = 0.0
-        curr_count = 0
 
-        for step in range(self.steps):
-            x, y = next(self.train_iter)
-            batch_loss_multi, batch_loss_gauss = self._run_step(x, {'y': y})
+        curr_count = 0
+        while step < self.steps:
+            x, out_dict = next(self.train_iter)
+            out_dict = {'y': out_dict}
+            batch_loss_multi, batch_loss_gauss = self._run_step(x, out_dict)
 
             self._anneal_lr(step)
 
@@ -893,20 +927,24 @@ class _Trainer:
             if (step + 1) % self.log_every == 0:
                 mloss = np.around(curr_loss_multi / curr_count, 4)
                 gloss = np.around(curr_loss_gauss / curr_count, 4)
-                self.loss_history.append({
-                    'step': step + 1,
-                    'mloss': mloss,
-                    'gloss': gloss,
-                    'loss': mloss + gloss,
-                })
-                if self.verbose:
+                if (step + 1) % self.print_every == 0:
                     sys.stdout.write(
-                        f'Step {step + 1}/{self.steps} MLoss: {mloss} GLoss: {gloss} '
-                        f'Sum: {np.around(mloss + gloss, 4)}\n'
+                        f'Step {(step + 1)}/{self.steps} '
+                        f'MLoss: {mloss} GLoss: {gloss} Sum: {mloss + gloss}\n'
                     )
+                self.loss_history.loc[len(self.loss_history)] = [
+                    step + 1,
+                    mloss,
+                    gloss,
+                    mloss + gloss,
+                ]
                 curr_count = 0
-                curr_loss_multi = 0.0
                 curr_loss_gauss = 0.0
+                curr_loss_multi = 0.0
+
+            update_ema(self.ema_model.parameters(), self.diffusion._denoise_fn.parameters())
+
+            step += 1
 
 
 class TabDDPM:
@@ -983,7 +1021,13 @@ class TabDDPM:
         self.seed = seed
         self.verbose = verbose
 
-        self._table_name, self._table_metadata = self._parse_metadata(metadata)
+        if isinstance(metadata, dict):
+            metadata = Metadata.load_from_dict(metadata)
+
+        metadata.validate()
+        self._metadata = metadata
+        self._table_name = list(metadata.tables)[0]
+        self._table_metadata = metadata.tables[self._table_name].to_dict()
         if device is None:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self._device = torch.device(device)
@@ -996,11 +1040,11 @@ class TabDDPM:
             data (pandas.DataFrame):
                 The data to fit the synthesizer to.
         """
+        data = data.copy()
         if isinstance(data, pd.DataFrame):
-            data = {self._table_name: data}
+            data_dict = {self._table_name: data}
 
-        table_name, df = self._validate_data(data)
-        self._table_name = table_name
+        self._metadata.validate_data(data_dict)
 
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
@@ -1012,7 +1056,7 @@ class TabDDPM:
         self._n_target_classes = 0
         self._target_encoder = None
         if target_column is not None:
-            if target_column not in df.columns:
+            if target_column not in data.columns:
                 raise ValueError(f"target_column '{target_column}' not found in the data.")
             sdtype = columns_metadata[target_column].get('sdtype', 'categorical')
             if sdtype not in ('categorical', 'boolean'):
@@ -1021,7 +1065,7 @@ class TabDDPM:
                     f'(got sdtype={sdtype!r}). Numerical columns are modelled '
                     'unconditionally; leave target_column unset.'
                 )
-            target_series = df[target_column]
+            target_series = data[target_column]
             target_values = (
                 target_series
                 .astype(object)
@@ -1036,16 +1080,16 @@ class TabDDPM:
             self._target_dtype = target_series.dtype
             self._target_is_boolean = sdtype == 'boolean'
             columns_metadata.pop(target_column)
-            df = df.drop(columns=[target_column])
+            data = data.drop(columns=[target_column])
         else:
-            y = np.zeros(len(df), dtype='int64')
+            y = np.zeros(len(data), dtype='int64')
 
         # Preprocess: quantile-normalized numerical block + ordinal categorical block
         self._transformer = _DataTransformer(
             columns_metadata, normalization=self.normalization, seed=self.seed
         )
-        self._transformer.fit(df)
-        X_num, X_cat = self._transformer.transform(df)
+        self._transformer.fit(data)
+        X_num, X_cat = self._transformer.transform(data)
 
         n_num = X_num.shape[1]
         K = self._transformer.category_sizes
@@ -1080,7 +1124,7 @@ class TabDDPM:
         X = torch.from_numpy(np.concatenate([X_num, X_cat.astype('float32')], axis=1)).float()
         train_loader = _FastTensorDataLoader(X, y_tensor, batch_size=self.batch_size)
 
-        trainer = _Trainer(
+        trainer = Trainer(
             self._diffusion,
             train_loader,
             lr=self.lr,
@@ -1144,62 +1188,6 @@ class TabDDPM:
 
         df = df[[column for column in self._column_order if column in df.columns]]
         return df
-
-    @staticmethod
-    def _parse_metadata(metadata):
-        if hasattr(metadata, 'to_dict'):
-            metadata = metadata.to_dict()
-        if not isinstance(metadata, dict):
-            raise TypeError('metadata must be an SDV metadata object or its dict representation.')
-
-        if 'tables' in metadata:
-            tables = metadata['tables']
-            if len(tables) != 1:
-                raise ValueError(
-                    'TabDDPMSynthesizer is a single-table synthesizer; the metadata '
-                    f'describes {len(tables)} tables.'
-                )
-            table_name, table_metadata = next(iter(tables.items()))
-        elif 'columns' in metadata:
-            table_name, table_metadata = None, metadata
-        else:
-            raise ValueError(
-                "metadata dict must contain either a 'columns' key (single-table "
-                "format) or a 'tables' key (multi-table format)."
-            )
-
-        if not table_metadata.get('columns'):
-            raise ValueError('The table metadata does not define any columns.')
-        return table_name, table_metadata
-
-    def _validate_data(self, data):
-        if not isinstance(data, dict) or not all(
-            isinstance(df, pd.DataFrame) for df in data.values()
-        ):
-            raise TypeError('data must be a dictionary mapping table names to DataFrames.')
-        if len(data) != 1:
-            raise ValueError(
-                'TabDDPMSynthesizer is a single-table synthesizer; got '
-                f'{len(data)} tables: {sorted(data)}.'
-            )
-
-        table_name, df = next(iter(data.items()))
-        if self._table_name is not None and table_name != self._table_name:
-            raise ValueError(
-                f"The metadata describes table '{self._table_name}' but the data "
-                f"contains table '{table_name}'."
-            )
-
-        metadata_columns = set(self._table_metadata['columns'])
-        data_columns = set(df.columns)
-        missing = metadata_columns - data_columns
-        extra = data_columns - metadata_columns
-        if missing or extra:
-            raise ValueError(
-                'The data does not match the metadata. '
-                f'Missing columns: {sorted(missing)}. Unexpected columns: {sorted(extra)}.'
-            )
-        return table_name, df
 
 
 class TabDDPMSynthesizer(BaselineSynthesizer):
