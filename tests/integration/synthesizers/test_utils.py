@@ -32,7 +32,7 @@ def test_get_available_multi_table_synthesizers():
     expected_synthesizers = [
         'ClavaDDPMSynthesizer',
         'HMASynthesizer',
-        'MultiTableUniformSynthesizer'
+        'MultiTableUniformSynthesizer',
     ]
 
     # Run
