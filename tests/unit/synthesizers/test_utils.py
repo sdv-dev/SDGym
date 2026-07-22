@@ -6,6 +6,7 @@ def test__get_supported_synthesizers():
     # Setup
     expected_synthesizers = [
         'CTGANSynthesizer',
+        'ClavaDDPMSynthesizer',
         'ColumnSynthesizer',
         'CopulaGANSynthesizer',
         'DataIdentity',
@@ -15,7 +16,7 @@ def test__get_supported_synthesizers():
         'RealTabFormerSynthesizer',
         'TVAESynthesizer',
         'TabDDPMSynthesizer',
-        'UniformSynthesizer',
+        'UniformSynthesizer'
     ]
 
     # Run
