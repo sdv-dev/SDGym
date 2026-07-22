@@ -698,12 +698,10 @@ class _DataTransformer:
         for column, spec in columns_metadata.items():
             sdtype = spec.get('sdtype', 'categorical')
             role = sdtype
-            if spec.get('pii', False):
-                # PII columns are not modelled; placeholders are regenerated
-                # at sampling time (like SDV's anonymization behavior).
-                role = 'id'
-            elif role not in ('numerical', 'datetime', 'boolean', 'id'):
-                # 'categorical' and any unrecognized sdtype
+            if role not in ('numerical', 'datetime', 'boolean', 'id'):
+                # The paper models only numerical and categorical features, so
+                # every other sdtype (categorical and any unrecognized one) is
+                # treated as a categorical feature.
                 role = 'categorical'
             self._roles[column] = role
 
@@ -1097,8 +1095,7 @@ class TabDDPM:
         if d_in == 0:
             raise ValueError('The table has no modelable columns (only id columns?).')
 
-        # Empirical distribution of the conditioning label (uniform over the
-        # single dummy class when training unconditionally).
+        # Empirical distribution of the conditioning label
         y_tensor = torch.from_numpy(y)
         self._y_dist = torch.bincount(y_tensor).float()
 
