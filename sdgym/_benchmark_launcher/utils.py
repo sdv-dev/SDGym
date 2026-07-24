@@ -42,6 +42,7 @@ MODALITY_TO_JOB_SETUP = {
             'XGCSynthesizer',
             'BootstrapSynthesizer',
             'RealTabFormerSynthesizer',
+            'TabDDPMSynthesizer',
         ],
     },
     'multi_table': {
