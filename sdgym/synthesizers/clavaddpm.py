@@ -15,7 +15,9 @@ from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
+import sklearn
 import torch
+from packaging.version import Version
 from sklearn.cluster import KMeans
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
 from sklearn.neighbors import NearestNeighbors
@@ -296,7 +298,12 @@ def pair_clustering_keep_id(
 
         cat_one_hot = np.empty((cat_converted.shape[0], 0))
         for col in range(cat_converted.shape[1]):
-            encoder = OneHotEncoder(sparse_output=False)
+            sklearn_version = Version(sklearn.__version__).release
+            if sklearn_version[:2] >= (1, 2):
+                encoder = OneHotEncoder(sparse_output=False)
+            else:
+                encoder = OneHotEncoder(sparse=False)
+
             column = cat_converted[:, col].reshape(-1, 1)
             cat_one_hot = np.concatenate((cat_one_hot, encoder.fit_transform(column)), axis=1)
 
