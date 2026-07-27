@@ -90,8 +90,10 @@ class TestClavaDDPMSynthesizer:
         synthesizer = ClavaDDPMSynthesizer()
         data = {'table1': pd.DataFrame({'col1': [1, 2, 3]})}
         metadata = MagicMock()
+
         # Run
         trained_synthesizer = synthesizer._get_trained_synthesizer(data, metadata)
+
         # Assert
         assert isinstance(trained_synthesizer, ClavaDDPMSynthesizer)
         assert trained_synthesizer._internal_synthesizer is mock_clavaddpm.return_value
