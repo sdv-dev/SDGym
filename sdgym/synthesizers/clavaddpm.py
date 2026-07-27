@@ -26,6 +26,8 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder
 from sdgym.synthesizers.base import MultiTableBaselineSynthesizer
 from sdgym.synthesizers.tabddpm import CAT_MISSING_VALUE, TabDDPM, ohe_to_categories
 
+SKLEARN_VERSION = Version(sklearn.__version__)
+
 
 def get_group_data_dict(np_data, group_id_attrs=[0]):
     """Grouping dictionary from pipeline_utils.py."""
@@ -298,8 +300,7 @@ def pair_clustering_keep_id(
 
         cat_one_hot = np.empty((cat_converted.shape[0], 0))
         for col in range(cat_converted.shape[1]):
-            sklearn_version = Version(sklearn.__version__).release
-            if sklearn_version[:2] >= (1, 2):
+            if SKLEARN_VERSION.release[:2] >= (1, 2):
                 encoder = OneHotEncoder(sparse_output=False)
             else:
                 encoder = OneHotEncoder(sparse=False)
@@ -330,15 +331,19 @@ def pair_clustering_keep_id(
     child_group_lengths = np.array([len(group) for group in child_group_data], dtype=int)
     num_clusters = min(num_clusters, len(cluster_data))
 
+    init_param = 'k-means++'
+    if SKLEARN_VERSION.release[:2] < (1, 1):
+        init_param = 'k-means'
+
     if clustering_method == 'kmeans':
-        kmeans = KMeans(n_clusters=num_clusters, n_init='auto', init='k-means++', random_state=seed)
+        kmeans = KMeans(n_clusters=num_clusters, n_init='auto', init=init_param, random_state=seed)
         kmeans.fit(cluster_data)
         cluster_labels = kmeans.labels_
     elif clustering_method == 'both':
         gmm = GaussianMixture(
             n_components=num_clusters,
             covariance_type='diag',
-            init_params='k-means++',
+            init_params=init_param,
             tol=0.0001,
             random_state=seed,
         )
@@ -348,7 +353,7 @@ def pair_clustering_keep_id(
         gmm = BayesianGaussianMixture(
             n_components=num_clusters,
             covariance_type='diag',
-            init_params='k-means++',
+            init_params=init_param,
             tol=0.0001,
             random_state=seed,
         )
