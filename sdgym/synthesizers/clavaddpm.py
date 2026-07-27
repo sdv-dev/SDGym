@@ -333,10 +333,10 @@ def pair_clustering_keep_id(
 
     init_param = 'k-means++'
     if SKLEARN_VERSION.release[:2] < (1, 1):
-        init_param = 'k-means'
+        init_param = 'kmeans'
 
     if clustering_method == 'kmeans':
-        kmeans = KMeans(n_clusters=num_clusters, n_init='auto', init=init_param, random_state=seed)
+        kmeans = KMeans(n_clusters=num_clusters, n_init='auto', init='k-means++', random_state=seed)
         kmeans.fit(cluster_data)
         cluster_labels = kmeans.labels_
     elif clustering_method == 'both':
