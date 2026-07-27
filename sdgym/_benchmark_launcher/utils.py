@@ -117,7 +117,12 @@ MODALITY_TO_JOB_SETUP = {
             'PremierLeague',
             'OMOP_CDM_dayz',
         ],
-        'synthesizers': ['HMASynthesizer', 'HSASynthesizer', 'IndependentSynthesizer'],
+        'synthesizers': [
+            'HMASynthesizer',
+            'HSASynthesizer',
+            'IndependentSynthesizer',
+            'ClavaDDPMSynthesizer',
+        ],
     },
 }
 CONFIG_KEYS = {
