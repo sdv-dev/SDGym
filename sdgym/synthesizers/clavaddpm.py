@@ -722,6 +722,17 @@ class ClavaDDPM:
             ))
             self._children[parent].append(child)
 
+        # Resolve a primary key for every table.
+        self._primary_key = {}
+        self._synthetic_pk = set()
+        for name, table_meta in meta['tables'].items():
+            pk = table_meta.get('primary_key')
+            if pk is None:
+                pk = f'__{name}_pk__'
+                self._synthetic_pk.add(name)
+
+            self._primary_key[name] = pk
+
         # Preprocessing
         self._discrete_cols = {}
         self._datetime_cols = {}  # name -> {col: datetime_format}
@@ -773,6 +784,9 @@ class ClavaDDPM:
         for name in self._table_names:
             output_cols = list(data[name].columns)
             df = data[name].copy().reset_index(drop=True)
+            # tables without a primary key get an internal row-id
+            if name in self._synthetic_pk:
+                df[self._primary_key[name]] = np.arange(len(df))
 
             date_info = {}
             for col, date_format in self._datetime_cols[name].items():
