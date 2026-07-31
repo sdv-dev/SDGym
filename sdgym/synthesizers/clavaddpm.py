@@ -741,7 +741,7 @@ class ClavaDDPM:
             discrete, datetimes = [], {}
             for column, spec in table_meta['columns'].items():
                 sdtype = spec.get('sdtype', 'categorical')
-                if column in id_cols or sdtype == 'id':
+                if column in id_cols:
                     continue
                 if sdtype == 'datetime':
                     datetimes[column] = spec.get('datetime_format')
