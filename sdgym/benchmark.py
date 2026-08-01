@@ -202,12 +202,12 @@ def _get_metainfo_increment(top_folder, s3_client=None):
     if s3_client:
         bucket, prefix = parse_s3_path(top_folder)
         try:
-            paginator = s3_client.get_paginator("list_objects_v2")
+            paginator = s3_client.get_paginator('list_objects_v2')
             pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
 
             for page in pages:
-                for obj in page.get("Contents", []):
-                    file_name = Path(obj["Key"]).name
+                for obj in page.get('Contents', []):
+                    file_name = Path(obj['Key']).name
                     match = METAINFO_FILE_PATTERN.match(file_name)
 
                     if match:
@@ -224,7 +224,7 @@ def _get_metainfo_increment(top_folder, s3_client=None):
             LOGGER.info(first_file_message)
             return 0
 
-        for file in top_folder.glob("metainfo*.yaml"):
+        for file in top_folder.glob('metainfo*.yaml'):
             match = METAINFO_FILE_PATTERN.match(file.name)
             if match:
                 increment = int(match.group(1)) if match.group(1) else 0
