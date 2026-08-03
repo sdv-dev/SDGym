@@ -14,6 +14,7 @@ def test__get_supported_synthesizers():
         'MultiTableUniformSynthesizer',
         'RealTabFormerSynthesizer',
         'TVAESynthesizer',
+        'TabDDPMSynthesizer',
         'UniformSynthesizer',
     ]
 
