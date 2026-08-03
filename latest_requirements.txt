@@ -11,4 +11,4 @@ sdmetrics==0.28.2
 sdv==1.37.4
 tabulate==0.8.10
 torch==2.13.0
-tqdm==4.69.1
+tqdm==4.70.0
