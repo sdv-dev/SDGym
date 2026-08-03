@@ -888,6 +888,7 @@ class Trainer:
         self.log_every = 100
         self.print_every = 500
         self.ema_every = 1000
+        self.verbose = verbose
 
     def _anneal_lr(self, step):
         frac_done = step / self.steps
@@ -927,7 +928,7 @@ class Trainer:
             if (step + 1) % self.log_every == 0:
                 mloss = np.around(curr_loss_multi / curr_count, 4)
                 gloss = np.around(curr_loss_gauss / curr_count, 4)
-                if (step + 1) % self.print_every == 0:
+                if self.verbose and (step + 1) % self.print_every == 0:
                     sys.stdout.write(
                         f'Step {(step + 1)}/{self.steps} '
                         f'MLoss: {mloss} GLoss: {gloss} Sum: {mloss + gloss}\n'

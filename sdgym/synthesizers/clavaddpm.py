@@ -18,6 +18,8 @@ import pandas as pd
 import sklearn
 import torch
 from packaging.version import Version
+from pandas.core.tools.datetimes import _guess_datetime_format_for_array
+from sdv.metadata import Metadata
 from sklearn.cluster import KMeans
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
 from sklearn.neighbors import NearestNeighbors
@@ -789,13 +791,14 @@ class ClavaDDPM:
                 df[self._primary_key[name]] = np.arange(len(df))
 
             date_info = {}
-            for col, date_format in self._datetime_cols[name].items():
-                if date_format is None:
-                    df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%Y-%m-%d')
-                    date_format = '%Y-%m-%d'
-                days_since, earliest = calculate_days_since_earliest_date(df[col], date_format)
+            for col, datetime_format in self._datetime_cols[name].items():
+                if datetime_format is None:
+                    datetime_array = df[df.notna()].astype(str).to_numpy()
+                    datetime_format = _guess_datetime_format_for_array(datetime_array)
+
+                days_since, earliest = calculate_days_since_earliest_date(df[col], datetime_format)
                 df[col] = np.asarray(days_since, dtype=float)
-                date_info[col] = (earliest, date_format)
+                date_info[col] = (earliest, datetime_format)
 
             df, label_encoders = table_label_encode(df, self._discrete_cols[name])
             domain = get_domain(df, self._id_cols(name), self._discrete_cols[name])
@@ -813,9 +816,7 @@ class ClavaDDPM:
 
         self._clustering()
         self._training()
-
         self._fitted = True
-        return self
 
     def _clustering(self):
         """clava_clustering: cluster every parent->child relationship."""
@@ -826,7 +827,7 @@ class ClavaDDPM:
             if parent is None:
                 continue
             if self.verbose:
-                sys.stdout.write(f'Clustering {parent} -> {child}')
+                sys.stdout.write(f'Clustering {parent} -> {child}\n')
 
             fk = next(f for p, f, _ppk in self._tables[child]['parents'] if p == parent)
 
@@ -855,7 +856,8 @@ class ClavaDDPM:
         self._models = {}
         for parent, child in self._relation_order:
             if self.verbose:
-                sys.stdout.write(f'Training {parent} -> {child}')
+                sys.stdout.write(f'Training {parent} -> {child}\n')
+
             df_with_cluster = self._tables[child]['df']
             df_without_id = get_df_without_id(df_with_cluster, self._id_cols(child))
             self._models[(parent, child)] = self._child_training(
@@ -877,10 +879,10 @@ class ClavaDDPM:
                 continue
             sdtype = 'categorical' if domain[column]['type'] == 'discrete' else 'numerical'
             columns_meta[column] = {'sdtype': sdtype}
-        table_metadata = {
-            'METADATA_SPEC_VERSION': 'V1',
+
+        table_metadata = Metadata.load_from_dict({
             'tables': {child: {'columns': columns_meta}},
-        }
+        })
 
         model = TabDDPM(
             table_metadata,
@@ -920,7 +922,8 @@ class ClavaDDPM:
 
         for parent, child in self._relation_order:
             if self.verbose:
-                sys.stdout.write(f'Generating {parent} -> {child}')
+                sys.stdout.write(f'Generating {parent} -> {child}\n')
+
             result = self._models[(parent, child)]
             df_with_cluster = self._tables[child]['df']
             df_without_id = get_df_without_id(df_with_cluster, self._id_cols(child))
