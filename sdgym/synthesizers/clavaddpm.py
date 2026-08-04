@@ -10,7 +10,7 @@ https://github.com/weipang142857/ClavaDDPM/tree/main.
 import logging
 import random
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -18,7 +18,7 @@ import pandas as pd
 import sklearn
 import torch
 from packaging.version import Version
-from pandas.core.tools.datetimes import _guess_datetime_format_for_array
+from pandas.tseries.api import guess_datetime_format
 from sdv.metadata import Metadata
 from sklearn.cluster import KMeans
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
@@ -29,6 +29,35 @@ from sdgym.synthesizers.base import MultiTableBaselineSynthesizer
 from sdgym.synthesizers.tabddpm import CAT_MISSING_VALUE, TabDDPM, ohe_to_categories
 
 SKLEARN_VERSION = Version(sklearn.__version__)
+
+
+def guess_array_datetime_format(values, sample_size=100, dayfirst=False):
+    """Guess the most likely datetime format via majority vote over a sample.
+
+    Args:
+        values (list, numpy.array, pd.Series):
+            List of datetime values to inspect.
+        sample_size (int, optional):
+            Number of samples to use for guessing. Default 100.
+        dayfirst (bool, optional):
+            If True parses dates with the day first. Default False.
+
+    Returns:
+        str: Datetime format string, or None if it can not be guessed.
+    """
+    series = pd.Series(values)
+    series = series.dropna()
+    if series.empty:
+        return None
+
+    sample_size = min(sample_size, len(series))
+    sample = series.sample(sample_size, random_state=0)
+    sample = sample.astype(str).str.strip()
+    sample = sample[sample != '']
+
+    guesses = sample.apply(guess_datetime_format, dayfirst=dayfirst).dropna()
+    counts = Counter(guesses)
+    return top[0][0] if (top := counts.most_common(1)) else None
 
 
 def get_group_data_dict(np_data, group_id_attrs=[0]):
@@ -794,7 +823,7 @@ class ClavaDDPM:
             for col, datetime_format in self._datetime_cols[name].items():
                 if datetime_format is None:
                     datetime_array = df[df.notna()].astype(str).to_numpy()
-                    datetime_format = _guess_datetime_format_for_array(datetime_array)
+                    datetime_format = guess_array_datetime_format(datetime_array)
 
                 days_since, earliest = calculate_days_since_earliest_date(df[col], datetime_format)
                 df[col] = np.asarray(days_since, dtype=float)
@@ -1046,6 +1075,6 @@ class ClavaDDPMSynthesizer(MultiTableBaselineSynthesizer):
                 Defaults to 1.0.
 
         Returns:
-            dict:  A dict mapping table name to the sampled data.
+            dict: A dict mapping table name to the sampled data.
         """
         return synthesizer._internal_synthesizer.sample(scale)

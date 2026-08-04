@@ -3,9 +3,186 @@
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 from sdv.metadata import Metadata
 
-from sdgym.synthesizers.clavaddpm import ClavaDDPM, ClavaDDPMSynthesizer
+from sdgym.synthesizers.clavaddpm import (
+    ClavaDDPM,
+    ClavaDDPMSynthesizer,
+    guess_array_datetime_format,
+)
+
+
+def test_guess_array_datetime_format_empty_input_returns_none():
+    """Test guess array with an empty input returns None."""
+    # Run
+    result = guess_array_datetime_format([])
+
+    # Assert
+    assert result is None
+
+
+def test_guess_array_datetime_format_all_null_returns_none():
+    """Test guess array with all null inputs returns None."""
+    # Run
+    result = guess_array_datetime_format([None, None, float('nan')])
+
+    # Assert
+    assert result is None
+
+
+def test_guess_array_datetime_format_with_datetime_column():
+    """Test guess array works as expected with datetime values."""
+    # Setup
+    values = pd.to_datetime(['2020-01-01', '2020-01-02'])
+
+    # Run
+    result = guess_array_datetime_format(values)
+
+    # Assert
+    assert result == '%Y-%m-%d'
+
+
+def test_guess_array_datetime_format_non_date_numeric_values_return_none():
+    """Test guess array doesn't parse small integers as datetime format."""
+    # Run
+    result = guess_array_datetime_format([1, 2, 3, 4, 5])
+
+    # Assert
+    assert result is None
+
+
+def test_guess_array_datetime_format_consistent_format_detected():
+    """Test that guess array datetime works as expected."""
+    # Setup
+    values = ['2020-01-05', '2020-02-14', '2020-03-30']
+
+    # Run
+    result = guess_array_datetime_format(values)
+
+    # Assert
+    assert result == '%Y-%m-%d'
+
+
+def test_majority_format_wins_over_minority():
+    """Test that guess array datetime works finds the majority format."""
+    # Setup
+    values = ['2020-01-05'] * 7 + ['01/05/2020'] * 3
+
+    # Run
+    result = guess_array_datetime_format(values)
+
+    # Assert
+    assert result == '%Y-%m-%d'
+
+
+def test_guess_array_datetime_format_with_mixed_values():
+    """Test guess array returns the majority of valid dates."""
+    # Setup
+    values = ['2020-01-05', '2020-02-14', '2020-03-30'] + [''] * 5 + ['n/a'] * 5
+
+    # Run
+    result = guess_array_datetime_format(values)
+
+    # Assert
+    assert result == '%Y-%m-%d'
+
+
+def test_guess_array_datetime_format_with_whitespace_only_strings_are_ignored():
+    """Test guess array returns ignores whitespace."""
+    # Setup
+    values = ['2020-01-05', '2020-02-14', '', '   ', '2020-03-30', '\t']
+
+    # Run
+    result = guess_array_datetime_format(values)
+
+    # Assert
+    assert result == '%Y-%m-%d'
+
+
+def test_guess_array_datetime_format_with_all_unparseable_returns_none():
+    """Test guess array returns None when all values are not dates."""
+    # Setup
+    values = ['n/a', 'not a date', 'xx', '']
+
+    # Run
+    result = guess_array_datetime_format(values)
+
+    # Assert
+    assert result is None
+
+
+@pytest.mark.parametrize(
+    'values, expected',
+    [
+        (['2020-01-05', '2020-02-14', '2020-03-30'] + [None] * 10, '%Y-%m-%d'),
+        (['2020/01/05', '2020/02/14', '2020/03/30', '2020-02-14', '2020-03-30'], '%Y/%m/%d'),
+        (['2020-01-05 00:10:05', '2020-02-14 12:12:05', '2020-03-30'], '%Y-%m-%d %H:%M:%S'),
+    ],
+)
+def test_guess_array_datetime_format_with_expected_format(values, expected):
+    """Test guess array returns expected formats."""
+    # Run
+    result = guess_array_datetime_format(values)
+
+    # Assert
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    'dayfirst, expected',
+    [
+        (False, '%m-%d-%Y'),
+        (True, '%d-%m-%Y'),
+    ],
+)
+def test_guess_array_datetime_format_dayfirst_changes_ambiguous_guess(dayfirst, expected):
+    """Test guess array with dayfirst parameter clears up ambiguity."""
+    # Setup
+    values = ['01-02-2020'] * 5
+
+    # Run
+    result = guess_array_datetime_format(values, dayfirst=dayfirst)
+
+    # Assert
+    assert result == expected
+
+
+def test_sample_size_larger_than_population_does_not_error():
+    """Test guess array with larger sample size works."""
+    # Setup
+    values = ['2020-01-01', '2020-01-02']
+
+    # Run
+    result = guess_array_datetime_format(values, sample_size=1000)
+
+    # Assert
+    assert result == '%Y-%m-%d'
+
+
+def test_sample_size_zero_returns_none():
+    """Test guess array with zero sample size returns None."""
+    # Setup
+    values = ['2020-01-01', '2020-01-02']
+
+    # Run
+    result = guess_array_datetime_format(values, sample_size=0)
+
+    # Assert
+    assert result is None
+
+
+def test_reproducible_with_fixed_random_state():
+    """Test guess array retuns the same result."""
+    # Setup
+    values = ['2020-01-05'] * 150 + ['01/05/2020'] * 150
+
+    # Run
+    result_a = guess_array_datetime_format(values, sample_size=10)
+    result_b = guess_array_datetime_format(values, sample_size=10)
+
+    # Assert
+    assert result_a == result_b
 
 
 class TestClavaDDPMSynthesizer:
