@@ -18,7 +18,6 @@ import pandas as pd
 import sklearn
 import torch
 from packaging.version import Version
-from pandas.tseries.api import guess_datetime_format
 from sdv.metadata import Metadata
 from sklearn.cluster import KMeans
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
@@ -45,6 +44,12 @@ def guess_array_datetime_format(values, sample_size=100, dayfirst=False):
     Returns:
         str: Datetime format string, or None if it can not be guessed.
     """
+    pandas_version = Version(pd.__version__).release[:2]
+    if pandas_version >= (2, 2):
+        from pandas.tseries.api import guess_datetime_format  # pandas >= 2.2.0
+    else:
+        from pandas._libs.tslibs.parsing import guess_datetime_format  # pandas < 2.2.0
+
     series = pd.Series(values)
     series = series.dropna()
     if series.empty:
