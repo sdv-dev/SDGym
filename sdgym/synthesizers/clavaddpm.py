@@ -843,9 +843,7 @@ class ClavaDDPM:
                 if datetime_format is None:
                     datetime_array = df[df.notna()].astype(str).to_numpy()
                     datetime_format = guess_array_datetime_format(datetime_array)
-                    df[col] = pd.to_datetime(
-                        df[col], format=datetime_format, errors='coerce'
-                    ).dt.strftime()
+                    df[col] = pd.to_datetime(df[col], format='mixed').dt.strftime(datetime_format)
 
                 days_since, earliest = calculate_days_since_earliest_date(df[col], datetime_format)
                 df[col] = np.asarray(days_since, dtype=float)
