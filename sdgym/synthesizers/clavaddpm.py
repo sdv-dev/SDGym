@@ -678,6 +678,10 @@ class ClavaDDPM:
             Multi-parent matching controls for unique matching.
         no_matching (bool):
             Multi-parent matching controls for no matching.
+        max_categories (int):
+            Maximum number of distinct values kept for a categorical column.
+            Columns with more are reduced to this many values, randomly sampled
+            from the data.
         device (str or None):
             Whether to use ``'cuda'`` or ``'cpu'``. If None, auto-select is used.
         seed (int):
@@ -707,6 +711,7 @@ class ClavaDDPM:
         matching_batch_size=1000,
         unique_matching=True,
         no_matching=False,
+        max_categories=100,
         device=None,
         seed=0,
         verbose=False,
@@ -729,6 +734,7 @@ class ClavaDDPM:
         self.matching_batch_size = matching_batch_size
         self.unique_matching = unique_matching
         self.no_matching = no_matching
+        self.max_categories = max_categories
         self.device = device
         self.seed = seed
         self.verbose = verbose
@@ -824,11 +830,22 @@ class ClavaDDPM:
             if name in self._synthetic_pk:
                 df[self._primary_key[name]] = np.arange(len(df))
 
+            # cap the cardinality of the discrete columns.
+            for col in self._discrete_cols[name]:
+                uniques = df[col].dropna().unique()
+                if len(uniques) > self.max_categories:
+                    kept = np.random.choice(uniques, size=self.max_categories, replace=False)
+                    outside = ~df[col].isin(kept)
+                    df.loc[outside, col] = np.random.choice(kept, size=int(outside.sum()))
+
             date_info = {}
             for col, datetime_format in self._datetime_cols[name].items():
                 if datetime_format is None:
                     datetime_array = df[df.notna()].astype(str).to_numpy()
                     datetime_format = guess_array_datetime_format(datetime_array)
+                    df[col] = pd.to_datetime(
+                        df[col], format=datetime_format, errors='coerce'
+                    ).dt.strftime()
 
                 days_since, earliest = calculate_days_since_earliest_date(df[col], datetime_format)
                 df[col] = np.asarray(days_since, dtype=float)
