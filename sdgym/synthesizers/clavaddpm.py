@@ -25,7 +25,12 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder
 
 from sdgym.synthesizers.base import MultiTableBaselineSynthesizer
-from sdgym.synthesizers.tabddpm import CAT_MISSING_VALUE, TabDDPM, ohe_to_categories
+from sdgym.synthesizers.tabddpm import (
+    CAT_MISSING_VALUE,
+    TabDDPM,
+    _DataTransformer,
+    ohe_to_categories,
+)
 
 SKLEARN_VERSION = Version(sklearn.__version__)
 
@@ -201,6 +206,32 @@ def get_domain(df, id_cols, discrete_cols):
     return domain
 
 
+def decode_id_values(values, encoder, column):
+    """Inverse-transform label-encoded id codes back to the original id values.
+
+    Sampling can create more rows than the original table, so codes past the
+    encoder's fitted range get fresh values: numeric ids continue after the
+    largest original id, other ids become new ``'{column}_{code}'`` strings.
+    The extension is deterministic per code, so a foreign key decoded with its
+    parent's encoder still matches the parent's decoded primary key.
+    """
+    codes = np.asarray(values).astype('int64')
+    classes = encoder.classes_
+    decoded = np.empty(len(codes), dtype=object)
+    in_range = (codes >= 0) & (codes < len(classes))
+    decoded[in_range] = encoder.inverse_transform(codes[in_range])
+    if (~in_range).any():
+        if pd.api.types.is_numeric_dtype(classes):
+            # continue past the largest original id (code n_classes -> max + 1, ...)
+            decoded[~in_range] = codes[~in_range] + (classes.max() + 1 - len(classes))
+        else:
+            decoded[~in_range] = [f'{column}_{code}' for code in codes[~in_range]]
+
+    if pd.api.types.is_numeric_dtype(classes):
+        return decoded.astype(classes.dtype)
+    return decoded
+
+
 def topological_sort(graph):
     """Order tables into ``[parent, child]`` relations from preprocess_utils.py."""
     in_degree = {node: 0 for node in graph}
@@ -271,7 +302,6 @@ def pair_clustering_keep_id(
             else:
                 parent_num_cols.append((col_index, col))
 
-    child_primary_key_index = original_child_cols.index(child_primary_key)
     parent_primary_key_index = original_parent_cols.index(parent_primary_key)
     foreing_key_index = original_child_cols.index(foreign_key)
 
@@ -309,21 +339,9 @@ def pair_clustering_keep_id(
     joint_num_matrix = np.concatenate([sorted_child_num_data, sorted_parent_num_data], axis=1)
     joint_cat_matrix = np.concatenate([sorted_child_cat_data, sorted_parent_cat_data], axis=1)
 
-    # Impute missing numerical values with their column mean before clustering.
-    # The reference assumed pre-imputed data; this mirrors the mean-fill that
-    # TabDDPM's own transformer applies, so clustering (which cannot take NaNs)
-    # is robust to real-world tables with missing values.
-    if joint_num_matrix.shape[1] > 0:
-        joint_num_matrix = joint_num_matrix.astype(float)
-        col_means = np.nanmean(joint_num_matrix, axis=0)
-        col_means = np.where(np.isnan(col_means), 0.0, col_means)
-        nan_positions = np.where(np.isnan(joint_num_matrix))
-        joint_num_matrix[nan_positions] = np.take(col_means, nan_positions[1])
-
-    joint_num_matrix_p_index = sorted_child_num_data.shape[1]
-    cat_one_hot = None
     if joint_cat_matrix.shape[1] > 0:
         joint_cat_matrix_p_index = sorted_child_cat_data.shape[1]
+        joint_num_matrix_p_index = sorted_child_num_data.shape[1]
 
         cat_converted = []
         for i in range(joint_cat_matrix.shape[1]):
@@ -334,7 +352,10 @@ def pair_clustering_keep_id(
             cat_converted.append(label_encoder.fit_transform(joint_cat_matrix[:, i]).astype(float))
         cat_converted = np.vstack(cat_converted).T
 
+        # Initialize an empty array to store the encoded values
         cat_one_hot = np.empty((cat_converted.shape[0], 0))
+
+        # Loop through each column in the data and encode it
         for col in range(cat_converted.shape[1]):
             if SKLEARN_VERSION.release[:2] >= (1, 2):
                 encoder = OneHotEncoder(sparse_output=False)
@@ -342,15 +363,16 @@ def pair_clustering_keep_id(
                 encoder = OneHotEncoder(sparse=False)
 
             column = cat_converted[:, col].reshape(-1, 1)
-            cat_one_hot = np.concatenate((cat_one_hot, encoder.fit_transform(column)), axis=1)
+            encoded_column = encoder.fit_transform(column)
+            cat_one_hot = np.concatenate((cat_one_hot, encoded_column), axis=1)
 
         cat_one_hot[:, joint_cat_matrix_p_index:] = (
             parent_scale * cat_one_hot[:, joint_cat_matrix_p_index:]
         )
 
+    # Perform quantile normalization using QuantileTransformer
     num_min_max = min_max_normalize_sklearn(joint_num_matrix)
 
-    # key channel: parent identity, factorized so arbitrary key types normalize
     key_factorized = pd.factorize(sorted_parent_data_repeated[:, parent_primary_key_index])[0]
     key_min_max = min_max_normalize_sklearn(key_factorized.astype(float).reshape(-1, 1))
     key_scaled = key_scale * key_min_max
@@ -410,6 +432,7 @@ def pair_clustering_keep_id(
         curr_index = 0
         agree_rates = []
         for group_length in child_group_lengths:
+            # First, determine the most common label in the current group
             most_common_label_count = np.max(
                 np.bincount(cluster_labels[curr_index : curr_index + group_length])
             )
@@ -417,13 +440,17 @@ def pair_clustering_keep_id(
                 np.bincount(cluster_labels[curr_index : curr_index + group_length])
             )
             group_cluster_labels.append(group_cluster_label)
-            agree_rates.append(most_common_label_count / group_length)
+
+            # Compute agree rate using the most common label count
+            agree_rate = most_common_label_count / group_length
+            agree_rates.append(agree_rate)
+
+            # Then, update the curr_index for the next iteration
             curr_index += group_length
 
     group_assignment = np.repeat(group_cluster_labels, child_group_lengths, axis=0).reshape((-1, 1))
     sorted_child_data_with_cluster = np.concatenate([sorted_child_data, group_assignment], axis=1)
 
-    # per-cluster distribution of "how many children a parent has"
     group_labels_list = group_cluster_labels
     group_lengths_list = child_group_lengths.tolist()
     group_lengths_dict = {}
@@ -433,38 +460,49 @@ def pair_clustering_keep_id(
             group_lengths_dict[group_label] = defaultdict(int)
         group_lengths_dict[group_label][group_lengths_list[i]] += 1
 
-    group_lengths_prob_dicts = {
-        group_label: freq_to_prob(freq_dict)
-        for group_label, freq_dict in group_lengths_dict.items()
-    }
+    group_lengths_prob_dicts = {}
+    for group_label, freq_dict in group_lengths_dict.items():
+        group_lengths_prob_dicts[group_label] = freq_to_prob(freq_dict)
 
-    # attach cluster label to the child in its original order
-    sorted_child_ids = sorted_child_data[:, child_primary_key_index]
-    child_id_to_cluster = dict(zip(sorted_child_ids, group_assignment.flatten()))
-    child_df_with_cluster = child_df.copy()
-    child_df_with_cluster[relation_cluster_name] = (
-        child_df[child_primary_key].map(child_id_to_cluster).astype(int)
+    # recover the preprocessed data back to dataframe
+    child_df_with_cluster = pd.DataFrame(
+        sorted_child_data_with_cluster, columns=original_child_cols + [relation_cluster_name]
     )
 
-    # a parent inherits its children's cluster; childless parents get a fresh id
+    # recover child df order
+    child_df_with_cluster = pd.merge(  # noqa: PD015
+        child_df[[child_primary_key]],
+        child_df_with_cluster,
+        on=child_primary_key,
+        how='left',
+    )
+
     parent_id_to_cluster = {}
     for i in range(len(sorted_child_data)):
         parent_id = sorted_child_data[i, foreing_key_index]
         if parent_id in parent_id_to_cluster:
+            assert parent_id_to_cluster[parent_id] == sorted_child_data_with_cluster[i, -1]
             continue
         parent_id_to_cluster[parent_id] = sorted_child_data_with_cluster[i, -1]
 
     max_cluster_label = max(parent_id_to_cluster.values())
-    parent_df_with_cluster = parent_df.copy()
-    parent_clusters = parent_df[parent_primary_key].map(parent_id_to_cluster)
-    parent_df_with_cluster[relation_cluster_name] = parent_clusters.fillna(
-        max_cluster_label + 1
-    ).astype(int)
 
-    new_col_entry = {
-        'type': 'discrete',
-        'size': len(set(parent_df_with_cluster[relation_cluster_name])),
-    }
+    parent_data_clusters = []
+    for i in range(len(parent_data)):
+        if parent_data[i, parent_primary_key_index] in parent_id_to_cluster:
+            parent_data_clusters.append(
+                parent_id_to_cluster[parent_data[i, parent_primary_key_index]]
+            )
+        else:
+            parent_data_clusters.append(max_cluster_label + 1)
+
+    parent_data_clusters = np.array(parent_data_clusters).reshape(-1, 1)
+    parent_data_with_cluster = np.concatenate([parent_data, parent_data_clusters], axis=1)
+    parent_df_with_cluster = pd.DataFrame(
+        parent_data_with_cluster, columns=original_parent_cols + [relation_cluster_name]
+    )
+
+    new_col_entry = {'type': 'discrete', 'size': len(set(parent_data_clusters.flatten()))}
     parent_domain_dict[relation_cluster_name] = new_col_entry.copy()
     child_domain_dict[relation_cluster_name] = new_col_entry.copy()
 
@@ -740,6 +778,7 @@ class ClavaDDPM:
         self.verbose = verbose
 
         self._parse_metadata(metadata)
+        self._metadata = metadata
         self._fitted = False
 
     def _parse_metadata(self, metadata):
@@ -750,9 +789,6 @@ class ClavaDDPM:
         # child -> list of (parent_table, foreign_key_col, parent_primary_key)
         self._parents = {name: [] for name in self._table_names}
         self._children = {name: [] for name in self._table_names}
-
-        for name, table_meta in meta['tables'].items():
-            self._primary_key[name] = table_meta.get('primary_key')
 
         for relationship in meta.get('relationships', []):
             parent = relationship['parent_table_name']
@@ -769,7 +805,7 @@ class ClavaDDPM:
         self._synthetic_pk = set()
         for name, table_meta in meta['tables'].items():
             pk = table_meta.get('primary_key')
-            if pk is None:
+            if pk is None or isinstance(pk, list):  # override composite key
                 pk = f'__{name}_pk__'
                 self._synthetic_pk.add(name)
 
@@ -778,19 +814,23 @@ class ClavaDDPM:
         # Preprocessing
         self._discrete_cols = {}
         self._datetime_cols = {}  # name -> {col: datetime_format}
+        self._id_value_cols = {}
         for name, table_meta in meta['tables'].items():
             id_cols = self._id_cols(name)
-            discrete, datetimes = [], {}
+            discrete, datetimes, id_values = [], {}, []
             for column, spec in table_meta['columns'].items():
                 sdtype = spec.get('sdtype', 'categorical')
                 if column in id_cols:
                     continue
-                if sdtype == 'datetime':
+                if sdtype == 'id':
+                    id_values.append(column)
+                elif sdtype == 'datetime':
                     datetimes[column] = spec.get('datetime_format')
                 elif sdtype != 'numerical':
                     discrete.append(column)
             self._discrete_cols[name] = discrete
             self._datetime_cols[name] = datetimes
+            self._id_value_cols[name] = id_values
 
         graph = {name: {'children': self._children[name]} for name in self._table_names}
         self._relation_order = [tuple(edge) for edge in topological_sort(graph)]
@@ -803,6 +843,16 @@ class ClavaDDPM:
     def _id_cols(self, table):
         return [self._primary_key[table]] + [fk for _p, fk, _ppk in self._parents[table]]
 
+    def _get_values(self, data, table_name, key):
+        values = [data[table_name][key].astype(str).dropna().to_numpy().flatten()]
+        for child in self._table_names:
+            for parent, fk, _ppk in self._parents[child]:
+                if parent == table_name and fk in data[child].columns:
+                    keys = data[child][fk].astype(str).dropna().to_numpy().flatten()
+                    values.append(keys)
+
+        return np.concatenate(values)
+
     def fit(self, data):
         """Fit this model to the original data.
 
@@ -810,47 +860,82 @@ class ClavaDDPM:
             data (dict):
                 Dictionary mapping each table name to a ``pandas.DataFrame``.
         """
-        missing = set(self._table_names) - set(data)
-        if missing:
-            raise ValueError(f'Missing tables in data: {sorted(missing)}')
+        self._metadata.validate_data(data)
 
         random.seed(self.seed)
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
 
-        # Preprocess every table up front: turn datetimes into numeric
-        # day-counts, label-encode the discrete columns, and derive the
-        # ``domain``. Encoders / date anchors are kept so ``sample`` can invert
-        # them.
+        self._id_encoded_cols = defaultdict(dict)
+        for name in self._table_names:
+            pk = self._primary_key[name]
+            if not (
+                pk is None
+                or name in self._synthetic_pk
+                or pd.api.types.is_numeric_dtype(data[name][pk])
+            ):
+                key_values = self._get_values(data, name, pk)
+                encoder = LabelEncoder()
+                encoder.fit(key_values)
+                self._id_encoded_cols[name][pk] = encoder
+
+            for id_col in self._id_value_cols[name]:
+                if pd.api.types.is_numeric_dtype(data[name][id_col]):
+                    continue
+
+                key_values = self._get_values(data, name, id_col)
+                encoder = LabelEncoder()
+                encoder.fit(key_values)
+                self._id_encoded_cols[name][id_col] = encoder
+
+        for name in self._table_names:
+            for parent, fk, _ppk in self._parents[name]:
+                if parent in self._id_encoded_cols and _ppk in self._id_encoded_cols[parent]:
+                    self._id_encoded_cols[name][fk] = self._id_encoded_cols[parent][_ppk]
+
+        # preprocessing
         self._tables = {}
         for name in self._table_names:
             output_cols = list(data[name].columns)
             df = data[name].copy().reset_index(drop=True)
             # tables without a primary key get an internal row-id
             if name in self._synthetic_pk:
-                df[self._primary_key[name]] = np.arange(len(df))
+                df[self._primary_key[name]] = np.arange(len(df)) + 1
 
-            # cap the cardinality of the discrete columns.
-            for col in self._discrete_cols[name]:
-                uniques = df[col].dropna().unique()
-                if len(uniques) > self.max_categories:
-                    kept = np.random.choice(uniques, size=self.max_categories, replace=False)
-                    outside = ~df[col].isin(kept)
-                    df.loc[outside, col] = np.random.choice(kept, size=int(outside.sum()))
+            # label-encode id columns
+            for col, encoder in self._id_encoded_cols[name].items():
+                notna = df[col].notna()
+                df.loc[notna, col] = encoder.transform(df.loc[notna, col].astype(str))
+                df[col] = pd.to_numeric(df[col])
 
+            # preprocess_utils: encode datetimes as days since the earliest date
             date_info = {}
             for col, datetime_format in self._datetime_cols[name].items():
                 if datetime_format is None:
-                    datetime_array = df[df.notna()].astype(str).to_numpy()
-                    datetime_format = guess_array_datetime_format(datetime_array)
+                    datetime_format = guess_array_datetime_format(df[col])
                     df[col] = pd.to_datetime(df[col], format='mixed').dt.strftime(datetime_format)
 
                 days_since, earliest = calculate_days_since_earliest_date(df[col], datetime_format)
                 df[col] = np.asarray(days_since, dtype=float)
                 date_info[col] = (earliest, datetime_format)
 
+            # preprocess_utils: label-encode the discrete columns, derive the domain
             df, label_encoders = table_label_encode(df, self._discrete_cols[name])
-            domain = get_domain(df, self._id_cols(name), self._discrete_cols[name])
+            domain = get_domain(
+                df, self._id_cols(name) + self._id_value_cols[name], self._discrete_cols[name]
+            )
+
+            # impute missing values
+            continuous_cols = [col for col, spec in domain.items() if spec['type'] == 'continuous']
+            if continuous_cols:
+                imputer = _DataTransformer(
+                    {col: {'sdtype': 'numerical'} for col in continuous_cols},
+                    normalization=None,
+                    seed=self.seed,
+                )
+                imputer.fit(df[continuous_cols])
+                x_num, _ = imputer.transform(df[continuous_cols])
+                df[continuous_cols] = x_num.astype(float)
 
             self._tables[name] = {
                 'df': df,
@@ -861,6 +946,7 @@ class ClavaDDPM:
                 'parents': list(self._parents[name]),
                 'label_encoders': label_encoders,
                 'date_info': date_info,
+                'cluster_cols': [],
             }
 
         self._clustering()
@@ -896,6 +982,15 @@ class ClavaDDPM:
                 clustering_method=self.clustering_method,
                 seed=self.seed,
             )
+
+            cluster_col = f'{parent}_{child}_cluster'
+            self._tables[parent]['cluster_cols'].append(cluster_col)
+            self._tables[child]['cluster_cols'].append(cluster_col)
+            for col in self._tables[parent]['cluster_cols']:
+                parent_df[col] = parent_df[col].astype(int)
+            for col in self._tables[child]['cluster_cols']:
+                child_df[col] = child_df[col].astype(int)
+
             self._tables[parent]['df'] = parent_df
             self._tables[child]['df'] = child_df
             self._all_group_lengths_prob_dicts[(parent, child)] = group_lengths_prob_dicts
@@ -924,10 +1019,11 @@ class ClavaDDPM:
 
         columns_meta = {}
         for column in df_without_id.columns:
-            if column not in domain:
-                continue
-            sdtype = 'categorical' if domain[column]['type'] == 'discrete' else 'numerical'
-            columns_meta[column] = {'sdtype': sdtype}
+            if column in domain:
+                sdtype = 'categorical' if domain[column]['type'] == 'discrete' else 'numerical'
+                columns_meta[column] = {'sdtype': sdtype}
+            elif column in self._id_value_cols[child]:
+                columns_meta[column] = {'sdtype': 'id'}
 
         table_metadata = Metadata.load_from_dict({
             'tables': {child: {'columns': columns_meta}},
@@ -1032,7 +1128,7 @@ class ClavaDDPM:
                     child,
                     self._tables[child]['parents'],
                     synthetic_tables,
-                    self._id_cols(child),
+                    self._id_cols(child) + self._id_value_cols[child],
                     n_clusters=self.num_matching_clusters,
                     unique_matching=self.unique_matching,
                     batch_size=self.matching_batch_size,
@@ -1044,7 +1140,7 @@ class ClavaDDPM:
         return {child: self._postprocess(child, table) for child, table in final_tables.items()}
 
     def _postprocess(self, table, df):
-        """Invert fit-time preprocessing: decode discretes, rebuild dates, order cols."""
+        """Invert fit-time preprocessing: decode discretes, rebuild dates, decode ids."""
         df = df.copy()
         state = self._tables[table]
 
@@ -1058,6 +1154,11 @@ class ClavaDDPM:
         for col, (earliest, date_format) in state['date_info'].items():
             if col in df.columns:
                 df[col] = reconstruct_dates(df[col].to_numpy(), earliest, date_format)
+
+        # decode the primary/foreign key columns back to the original id values
+        for col, encoder in self._id_encoded_cols[table].items():
+            if col in df.columns:
+                df[col] = decode_id_values(df[col].to_numpy(), encoder, col)
 
         return df[state['output_cols']].reset_index(drop=True)
 
