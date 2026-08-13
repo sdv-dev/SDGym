@@ -1046,6 +1046,7 @@ class ClavaDDPM:
             seed=self.seed,
             verbose=self.verbose,
         )
+        model._skip_validation = True
         model.fit(df_without_id[list(columns_meta)])
         return model
 

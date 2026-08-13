@@ -1030,6 +1030,7 @@ class TabDDPM:
         if device is None:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self._device = torch.device(device)
+        self._skip_validation = False
         self._fitted = False
 
     def fit(self, data):
@@ -1043,7 +1044,8 @@ class TabDDPM:
         if isinstance(data, pd.DataFrame):
             data_dict = {self._table_name: data}
 
-        self._metadata.validate_data(data_dict)
+        if not self._skip_validation:
+            self._metadata.validate_data(data_dict)
 
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
