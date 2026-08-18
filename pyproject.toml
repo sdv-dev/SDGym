@@ -28,7 +28,6 @@ dependencies = [
     "cloudpickle>=2.1.0;python_version<'3.14'",
     "cloudpickle>=3.1.1;python_version>='3.14'",
     'compress-pickle>=1.2.0',
-    'faiss-cpu>=1.10.0',
     'google-cloud-compute>=1.30.0',
     'google-auth>=2.14.1',
     'humanfriendly>=10.0',
@@ -86,8 +85,12 @@ realtabformer = [
     "torch>=2.6.0",
     'transformers<4.51',
 ]
+clavaddpm = [
+    'faiss-cpu>=1.10.0',
+    'numpy>=1.25.0',
+]
 test = [
-    'sdgym[realtabformer]',
+    'sdgym[realtabformer, clavaddpm]',
     'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
