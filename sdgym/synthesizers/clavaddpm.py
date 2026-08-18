@@ -438,7 +438,7 @@ def pair_clustering_keep_id(
                 parent_num_cols.append((col_index, col))
 
     parent_primary_key_index = original_parent_cols.index(parent_primary_key)
-    foreing_key_index = original_child_cols.index(parent_primary_key)
+    foreing_key_index = original_child_cols.index(foreign_key)
 
     # sort child data by foreign key
     sorted_child_data = child_data[np.argsort(child_data[:, foreing_key_index])]
