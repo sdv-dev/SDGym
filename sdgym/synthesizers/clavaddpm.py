@@ -438,11 +438,11 @@ def pair_clustering_keep_id(
                 parent_num_cols.append((col_index, col))
 
     parent_primary_key_index = original_parent_cols.index(parent_primary_key)
-    foreing_key_index = original_child_cols.index(foreign_key)
+    foreing_key_index = original_child_cols.index(parent_primary_key)
 
     # sort child data by foreign key
     sorted_child_data = child_data[np.argsort(child_data[:, foreing_key_index])]
-    child_group_data_dict = get_group_data_dict(sorted_child_data, [foreing_key_index])
+    child_group_data_dict = get_group_data_dict(sorted_child_data, [foreing_key_index,])
 
     # sort parent data by primary key
     sorted_parent_data = parent_data[np.argsort(parent_data[:, parent_primary_key_index])]
@@ -505,7 +505,6 @@ def pair_clustering_keep_id(
             parent_scale * cat_one_hot[:, joint_cat_matrix_p_index:]
         )
 
-    # Perform quantile normalization using QuantileTransformer
     num_min_max = min_max_normalize_sklearn(joint_num_matrix)
 
     key_factorized = pd.factorize(sorted_parent_data_repeated[:, parent_primary_key_index])[0]
@@ -528,8 +527,12 @@ def pair_clustering_keep_id(
     if SKLEARN_VERSION.release[:2] < (1, 1):
         init_param = 'kmeans'
 
+    n_init = 'auto'
+    if SKLEARN_VERSION.release[:2] < (1, 2):
+        n_init = 10
+
     if clustering_method == 'kmeans':
-        kmeans = KMeans(n_clusters=num_clusters, n_init='auto', init='k-means++', random_state=seed)
+        kmeans = KMeans(n_clusters=num_clusters, n_init=n_init, init='k-means++', random_state=seed)
         kmeans.fit(cluster_data)
         cluster_labels = kmeans.labels_
     elif clustering_method == 'both':
@@ -928,7 +931,6 @@ class ClavaDDPM:
         meta = metadata if isinstance(metadata, dict) else metadata.to_dict()
 
         self._table_names = list(meta['tables'])
-        self._primary_key = {}
         # child -> list of (parent_table, foreign_key_col, parent_primary_key)
         self._parents = {name: [] for name in self._table_names}
         self._children = {name: [] for name in self._table_names}
@@ -1312,7 +1314,6 @@ class ClavaDDPMSynthesizer(MultiTableBaselineSynthesizer):
 
     LOGGER = logging.getLogger(__name__)
     _MODEL_KWARGS = None
-    _MODALITY_FLAG = 'multi_table'
 
     def _fit(self, data, metadata):
         """Fit the synthesizer to the multi-table data.
