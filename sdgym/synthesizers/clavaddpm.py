@@ -442,7 +442,12 @@ def pair_clustering_keep_id(
 
     # sort child data by foreign key
     sorted_child_data = child_data[np.argsort(child_data[:, foreing_key_index])]
-    child_group_data_dict = get_group_data_dict(sorted_child_data, [foreing_key_index,])
+    child_group_data_dict = get_group_data_dict(
+        sorted_child_data,
+        [
+            foreing_key_index,
+        ],
+    )
 
     # sort parent data by primary key
     sorted_parent_data = parent_data[np.argsort(parent_data[:, parent_primary_key_index])]
