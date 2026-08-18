@@ -13,6 +13,7 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
+import faiss
 import numpy as np
 import pandas as pd
 import sklearn
@@ -21,8 +22,8 @@ from packaging.version import Version
 from sdv.metadata import Metadata
 from sklearn.cluster import KMeans
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
-from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder
+from tqdm import tqdm
 
 from sdgym.synthesizers.base import MultiTableBaselineSynthesizer
 from sdgym.synthesizers.tabddpm import (
@@ -35,128 +36,16 @@ from sdgym.synthesizers.tabddpm import (
 SKLEARN_VERSION = Version(sklearn.__version__)
 
 
-def guess_array_datetime_format(values, sample_size=100, dayfirst=False):
-    """Guess the most likely datetime format via majority vote over a sample.
-
-    Args:
-        values (list, numpy.array, pd.Series):
-            List of datetime values to inspect.
-        sample_size (int, optional):
-            Number of samples to use for guessing. Default 100.
-        dayfirst (bool, optional):
-            If True parses dates with the day first. Default False.
-
-    Returns:
-        str: Datetime format string, or None if it can not be guessed.
-    """
-    pandas_version = Version(pd.__version__).release[:2]
-    if pandas_version >= (2, 2):
-        from pandas.tseries.api import guess_datetime_format  # pandas >= 2.2.0
-    else:
-        from pandas._libs.tslibs.parsing import guess_datetime_format  # pandas < 2.2.0
-
-    series = pd.Series(values)
-    series = series.dropna()
-    if series.empty:
-        return None
-
-    sample_size = min(sample_size, len(series))
-    sample = series.sample(sample_size, random_state=0)
-    sample = sample.astype(str).str.strip()
-    sample = sample[sample != '']
-
-    guesses = sample.apply(guess_datetime_format, dayfirst=dayfirst).dropna()
-    counts = Counter(guesses)
-    return top[0][0] if (top := counts.most_common(1)) else None
-
-
-def get_group_data_dict(np_data, group_id_attrs=[0]):
-    """Grouping dictionary from pipeline_utils.py."""
-    group_data_dict = {}
-    data_len = len(np_data)
-    for i in range(data_len):
-        row_id = tuple(np_data[i, group_id_attrs])
-        if row_id not in group_data_dict:
-            group_data_dict[row_id] = []
-        group_data_dict[row_id].append(np_data[i])
-    return group_data_dict
-
-
-def get_group_data(np_data, group_id_attrs=[0]):
-    """Grouping list from pipeline_utils.py."""
-    group_data_list = []
-    data_len = len(np_data)
-    i = 0
-    while i < data_len:
-        group = []
-        row_id = np_data[i, group_id_attrs]
-        while (np_data[i, group_id_attrs] == row_id).all():
-            group.append(np_data[i])
-            i += 1
-            if i >= data_len:
-                break
-        group_data_list.append(np.array(group))
-    return np.array(group_data_list, dtype=object)
-
-
-def min_max_normalize_sklearn(matrix):
-    """Apply MinMaxScaler to each column from pipeline_utils.py."""
-    scaler = MinMaxScaler(feature_range=(-1, 1))
-    normalized_data = np.empty((matrix.shape[0], 0))
-    for col in range(matrix.shape[1]):
-        column = matrix[:, col].reshape(-1, 1)
-        transformed_column = scaler.fit_transform(column)
-        normalized_data = np.concatenate((normalized_data, transformed_column), axis=1)
-
-    return normalized_data
-
-
-def aggregate_and_sample(cluster_probabilities, child_group_lengths):
-    """Aggregate the distribution and sample from pipeline_modules.py."""
-    group_cluster_labels = []
-    curr_index = 0
-    agree_rates = []
-    for group_length in child_group_lengths:
-        group_probability_distribution = np.mean(
-            cluster_probabilities[curr_index : curr_index + group_length], axis=0
-        )
-        group_cluster_label = np.random.choice(
-            range(len(group_probability_distribution)), p=group_probability_distribution
-        )
-        group_cluster_labels.append(group_cluster_label)
-        agree_rates.append(np.max(group_probability_distribution))
-        curr_index += group_length
-    return group_cluster_labels, agree_rates
-
-
-def freq_to_prob(freq_dict):
-    """Converts a dict of frequencies to a dict of probabilities from pipeline_utils.py."""
-    prob_dict = {}
-    for key in freq_dict:
-        prob_dict[key] = freq_dict[key] / sum(list(freq_dict.values()))
-    return prob_dict
-
-
-def sample_from_dict(probabilities):
-    """Sample using a dict of probabilities from pipeline_utils.py."""
-    random_number = random.random()
-    cumulative_sum = 0
-    selected_key = None
-    for key, probability in probabilities.items():
-        cumulative_sum += probability
-        if cumulative_sum >= random_number:
-            selected_key = key
-            break
-    return selected_key
-
-
-def get_df_without_id(df, id_cols):
-    """Drop id columns based on `id_cols` from pipeline_utils.py."""
-    return df.drop(columns=[col for col in id_cols if col in df.columns])
+# --------------------------------------------------------------------------
+# ######################## From preprocess_utils.py ########################
+# --------------------------------------------------------------------------
 
 
 def calculate_days_since_earliest_date(dates, date_format='%y%m%d'):
-    """Encode a date column as integer days since its earliest date from preprocess_utils.py."""
+    """Encode a date column as integer days since its earliest date from preprocess_utils.py.
+
+    Modified by SDGym to take different `date_format` and handle Nans.
+    """
     parsed = [
         datetime.strptime(str(date), date_format) if pd.notna(date) else None for date in dates
     ]
@@ -166,14 +55,18 @@ def calculate_days_since_earliest_date(dates, date_format='%y%m%d'):
 
 
 def reconstruct_dates(days_since, earliest_date_str, date_format='%y%m%d'):
-    """Inverse of `calculate_days_since_earliest_date` from preprocess_utils.py."""
+    """Inverse of `calculate_days_since_earliest_date` from preprocess_utils.py.
+
+    Modified by SDGym to take different `date_format` and handle Nans.
+    """
     earliest_date = datetime.strptime(earliest_date_str, date_format)
-    return [
+    original_dates = [
         (earliest_date + timedelta(days=int(round(float(days))))).strftime(date_format)
         if pd.notna(days)
         else None
         for days in days_since
     ]
+    return original_dates
 
 
 def table_label_encode(df, discrete_cols):
@@ -188,7 +81,7 @@ def table_label_encode(df, discrete_cols):
 
 
 def table_label_decode(df, label_encoders):
-    """Inverse of :func:`table_label_encode` from preprocess_utils.py."""
+    """Inverse of `table_label_encode` from preprocess_utils.py."""
     df = df.copy()
     for col, le in label_encoders.items():
         df[col] = le.inverse_transform(df[col])
@@ -206,55 +99,292 @@ def get_domain(df, id_cols, discrete_cols):
     return domain
 
 
-def decode_id_values(values, encoder, column):
-    """Inverse-transform label-encoded id codes back to the original id values.
-
-    Sampling can create more rows than the original table, so codes past the
-    encoder's fitted range get fresh values: numeric ids continue after the
-    largest original id, other ids become new ``'{column}_{code}'`` strings.
-    The extension is deterministic per code, so a foreign key decoded with its
-    parent's encoder still matches the parent's decoded primary key.
-    """
-    codes = np.asarray(values).astype('int64')
-    classes = encoder.classes_
-    decoded = np.empty(len(codes), dtype=object)
-    in_range = (codes >= 0) & (codes < len(classes))
-    decoded[in_range] = encoder.inverse_transform(codes[in_range])
-    if (~in_range).any():
-        if pd.api.types.is_numeric_dtype(classes):
-            # continue past the largest original id (code n_classes -> max + 1, ...)
-            decoded[~in_range] = codes[~in_range] + (classes.max() + 1 - len(classes))
-        else:
-            decoded[~in_range] = [f'{column}_{code}' for code in codes[~in_range]]
-
-    if pd.api.types.is_numeric_dtype(classes):
-        return decoded.astype(classes.dtype)
-    return decoded
-
-
 def topological_sort(graph):
     """Order tables into ``[parent, child]`` relations from preprocess_utils.py."""
+    # Initialize the indegree map and output
     in_degree = {node: 0 for node in graph}
     for node in graph:
         for child in graph[node]['children']:
             in_degree[child] += 1
 
+    # Queue for nodes with no incoming edges
     zero_in_degree = [node for node, degree in in_degree.items() if degree == 0]
 
+    # Output list for storing the order
     sorted_order = []
+
+    # Start with root nodes and format them with None as parent
     for node in zero_in_degree:
         sorted_order.append([None, node])
 
+    # Using a queue to maintain nodes to process
     queue = zero_in_degree[:]
+
     while queue:
         current = queue.pop(0)
         for child in graph[current]['children']:
             in_degree[child] -= 1
             if in_degree[child] == 0:
                 queue.append(child)
+            # Add each parent-child relationship as we process them
             sorted_order.append([current, child])
 
     return sorted_order
+
+
+# --------------------------------------------------------------------------
+# ######################### From pipeline_utils.py #########################
+# --------------------------------------------------------------------------
+
+
+def get_group_data_dict(
+    np_data,
+    group_id_attrs=[
+        0,
+    ],
+):
+    """Grouping dictionary from pipeline_utils.py."""
+    group_data_dict = {}
+    data_len = len(np_data)
+    for i in range(data_len):
+        row_id = tuple(np_data[i, group_id_attrs])
+        if row_id not in group_data_dict:
+            group_data_dict[row_id] = []
+        group_data_dict[row_id].append(np_data[i])
+
+    return group_data_dict
+
+
+def get_group_data(
+    np_data,
+    group_id_attrs=[
+        0,
+    ],
+):
+    """Grouping list from pipeline_utils.py."""
+    group_data_list = []
+    data_len = len(np_data)
+    i = 0
+    while i < data_len:
+        group = []
+        row_id = np_data[i, group_id_attrs]
+
+        while (np_data[i, group_id_attrs] == row_id).all():
+            group.append(np_data[i])
+            i += 1
+            if i >= data_len:
+                break
+        group = np.array(group)
+        group_data_list.append(group)
+    group_data_list = np.array(group_data_list, dtype=object)
+
+    return group_data_list
+
+
+def min_max_normalize_sklearn(matrix):
+    """Apply MinMaxScaler to each column from pipeline_utils.py."""
+    scaler = MinMaxScaler(feature_range=(-1, 1))
+
+    normalized_data = np.empty((matrix.shape[0], 0))
+
+    # Apply MinMaxScaler to each column and concatenate the results
+    for col in range(matrix.shape[1]):
+        column = matrix[:, col].reshape(-1, 1)
+        transformed_column = scaler.fit_transform(column)
+        normalized_data = np.concatenate((normalized_data, transformed_column), axis=1)
+
+    return normalized_data
+
+
+def freq_to_prob(freq_dict):
+    """Converts a dict of frequencies to a dict of probabilities from pipeline_utils.py."""
+    prob_dict = {}
+    for key in freq_dict:
+        prob_dict[key] = freq_dict[key] / sum(list(freq_dict.values()))
+    return prob_dict
+
+
+def sample_from_dict(probabilities):
+    """Sample using a dict of probabilities from pipeline_utils.py."""
+    # Generate a random number between 0 and 1
+    random_number = random.random()
+
+    # Initialize cumulative sum and the selected key
+    cumulative_sum = 0
+    selected_key = None
+
+    # Iterate through the dictionary
+    for key, probability in probabilities.items():
+        cumulative_sum += probability
+        if cumulative_sum >= random_number:
+            selected_key = key
+            break
+
+    return selected_key
+
+
+def get_df_without_id(df, id_cols):
+    """Drop id columns based on `id_cols` from pipeline_utils.py."""
+    id_cols = [col for col in df.columns if '_id' in col]
+    return df.drop(columns=id_cols)
+
+
+def convert_to_unique_indices(indices):
+    """Convert indices to unique values from pipline_utils.py."""
+    occurrence = set()
+    max_index = len(indices)  # Assuming the range is the length of the list
+    replacement_candidates = set(range(max_index)) - set(indices)
+
+    for i, num in enumerate(tqdm(indices)):
+        if num in occurrence:
+            # Find the smallest number not in the list
+            replacement = min(replacement_candidates)
+            indices[i] = replacement
+            replacement_candidates.remove(replacement)
+        else:
+            occurrence.add(num)
+
+    return indices
+
+
+def match_tables(A, B, n_clusters=25, unique_matching=True, batch_size=100):
+    """Nearest-neighbour match of every row of ``A`` to a row of ``B`` from pipline_utils.py."""
+    A = np.ascontiguousarray(A, dtype=np.float32)
+    B = np.ascontiguousarray(B, dtype=np.float32)
+
+    # Dimension of vectors
+    d = B.shape[1]
+
+    if unique_matching:
+        quantiser = faiss.IndexFlatL2(d)
+        index = faiss.IndexIVFFlat(quantiser, d, n_clusters, faiss.METRIC_L2)
+    else:
+        res = faiss.StandardGpuResources()
+        quantiser = faiss.IndexFlatL2(d)
+        index_cpu = faiss.IndexIVFFlat(quantiser, d, n_clusters, faiss.METRIC_L2)
+        index = faiss.index_cpu_to_gpu(res, 0, index_cpu)
+
+    index.train(B)
+    index.add(B)
+
+    # Initialize lists to store the results
+    all_indices = []
+    all_distances = []
+
+    if unique_matching:
+        batch_size = 1
+        n_batches = (A.shape[0] + batch_size - 1) // batch_size
+
+        for i in tqdm(range(n_batches)):
+            start = i * batch_size
+            end = min((i + 1) * batch_size, A.shape[0])
+            D, I = index.search(A[start:end], k=1)  # noqa: E741
+            index.remove_ids(I.flatten())
+            all_distances.append(D)
+            all_indices.append(I)
+
+        # Concatenate the results from all batches
+        all_distances = np.vstack(all_distances)
+        all_indices = np.vstack(all_indices)
+        distances = all_distances.flatten().tolist()
+        indices = all_indices.flatten().tolist()
+    else:
+        n_batches = (A.shape[0] + batch_size - 1) // batch_size
+
+        for i in tqdm(range(n_batches)):
+            start = i * batch_size
+            end = min((i + 1) * batch_size, A.shape[0])
+            D, I = index.search(A[start:end], k=1)  # noqa: E741
+            all_distances.append(D)
+            all_indices.append(I)
+
+        # Concatenate the results from all batches
+        all_distances = np.vstack(all_distances)
+        all_indices = np.vstack(all_indices)
+        distances = all_distances.flatten().tolist()
+        indices = all_indices.flatten().tolist()
+        indices = convert_to_unique_indices(indices)
+        assert len(indices) == len(set(indices))
+
+    return indices, distances
+
+
+def handle_multi_parent(
+    child,
+    parents,
+    synthetic_tables,
+    id_cols,
+    n_clusters=1,
+    unique_matching=True,
+    batch_size=100,
+    no_matching=False,
+):
+    """Reconcile a child generated once per parent into a single table from pipeline_utils.py.
+
+    Modified code to use 'fk' instead of assuming '{parent}_id'.
+    """
+    synthetic_child_dfs = [
+        (synthetic_tables[(parent, child)]['df'].copy(), fk) for parent, fk, _ppk in parents
+    ]
+    anchor_index = int(np.argmin([len(df) for df, _ in synthetic_child_dfs]))
+    anchor = synthetic_child_dfs[anchor_index]
+    synthetic_child_dfs.pop(anchor_index)
+    for df, fk in synthetic_child_dfs:
+        df_without_ids = get_df_without_id(df, id_cols)
+        anchor_df_without_ids = get_df_without_id(anchor[0], id_cols)
+
+        df_val = df_without_ids.to_numpy().astype(float)
+        anchor_val = anchor_df_without_ids.to_numpy().astype(float)
+        if len(df_val.shape) == 1:
+            df_val = df_val.reshape(-1, 1)
+            anchor_val = anchor_val.reshape(-1, 1)
+
+        indices, _ = match_tables(
+            anchor_val,
+            df_val,
+            n_clusters=n_clusters,
+            unique_matching=unique_matching,
+            batch_size=batch_size,
+        )
+        if no_matching:
+            # randomly shuffle the array
+            indices = np.random.permutation(indices)
+        df = df.iloc[indices]
+        anchor[0][fk] = df[fk].to_numpy()
+    return anchor[0]
+
+
+# --------------------------------------------------------------------------
+# ######################## From pipeline_modules.py ########################
+# --------------------------------------------------------------------------
+
+
+def aggregate_and_sample(cluster_probabilities, child_group_lengths):
+    """Aggregate the distribution and sample from pipeline_modules.py."""
+    group_cluster_labels = []
+    curr_index = 0
+    agree_rates = []
+
+    for group_length in child_group_lengths:
+        # Aggregate the probability distributions by taking the mean
+        group_probability_distribution = np.mean(
+            cluster_probabilities[curr_index : curr_index + group_length], axis=0
+        )
+
+        # Sample the label from the aggregated distribution
+        group_cluster_label = np.random.choice(
+            range(len(group_probability_distribution)), p=group_probability_distribution
+        )
+        group_cluster_labels.append(group_cluster_label)
+
+        # Compute the max probability as the agree rate
+        max_probability = np.max(group_probability_distribution)
+        agree_rates.append(max_probability)
+
+        # Update the curr_index for the next iteration
+        curr_index += group_length
+
+    return group_cluster_labels, agree_rates
 
 
 def pair_clustering_keep_id(
@@ -273,7 +403,12 @@ def pair_clustering_keep_id(
     clustering_method='kmeans',
     seed=0,
 ):
-    """Cluster child rows augmented with their parent's features from pipeline_modules.py."""
+    """Cluster child rows augmented with their parent's features from pipeline_modules.py.
+
+    Modified by SDGym to:
+    * remove output statements
+    * handle different versions of sklearn
+    """
     original_child_cols = list(child_df.columns)
     original_parent_cols = list(parent_df.columns)
 
@@ -509,77 +644,90 @@ def pair_clustering_keep_id(
     return parent_df_with_cluster, child_df_with_cluster, group_lengths_prob_dicts
 
 
-def match_tables(A, B, n_clusters=25, unique_matching=True, batch_size=100):
-    """Nearest-neighbour match of every row of ``A`` to a row of ``B``.
+# --------------------------------------------------------------------------
+# ########################### SDGym extra logic ############################
+# --------------------------------------------------------------------------
+def _check_faiss_installed():
+    try:
+        import faiss  # noqa: F401
+    except ImportError as e:
+        raise ImportError(
+            "\nThe 'faiss' package is not installed.\n"
+            'Please install it via conda before running this synthesizer., e.g.:\n\n'
+            '    conda install -c pytorch -c nvidia faiss-gpu\n'
+        ) from e
 
-    n_clusters is used by the original implementation for faiss.IndexIVFFlat.
+
+def guess_array_datetime_format(values, sample_size=100, dayfirst=False):
+    """Guess the most likely datetime format via majority vote over a sample.
+
+    Args:
+        values (list, numpy.array, pd.Series):
+            List of datetime values to inspect.
+        sample_size (int, optional):
+            Number of samples to use for guessing. Default 100.
+        dayfirst (bool, optional):
+            If True parses dates with the day first. Default False.
+
+    Returns:
+        str: Datetime format string, or None if it can not be guessed.
     """
-    A = np.ascontiguousarray(A, dtype=np.float32)
-    B = np.ascontiguousarray(B, dtype=np.float32)
+    pandas_version = Version(pd.__version__).release[:2]
+    if pandas_version >= (2, 2):
+        from pandas.tseries.api import guess_datetime_format  # pandas >= 2.2.0
+    else:
+        from pandas._libs.tslibs.parsing import guess_datetime_format  # pandas < 2.2.0
 
-    if not unique_matching:
-        distances, indices = NearestNeighbors(n_neighbors=1).fit(B).kneighbors(A)
-        return indices.flatten().tolist(), distances.flatten().tolist()
+    series = pd.Series(values)
+    series = series.dropna()
+    if series.empty:
+        return None
 
-    k = min(len(B), 50)
-    distances, indices = NearestNeighbors(n_neighbors=k).fit(B).kneighbors(A)
-    used = set()
-    matched_indices = []
-    matched_distances = []
-    for row_indices, row_distances in zip(indices, distances):
-        chosen, chosen_distance = None, 0.0
-        for candidate, distance in zip(row_indices, row_distances):
-            if int(candidate) not in used:
-                chosen, chosen_distance = int(candidate), float(distance)
-                break
-        if chosen is None:
-            chosen = next(j for j in range(len(B)) if j not in used)
-        used.add(chosen)
-        matched_indices.append(chosen)
-        matched_distances.append(chosen_distance)
+    sample_size = min(sample_size, len(series))
+    sample = series.sample(sample_size, random_state=0)
+    sample = sample.astype(str).str.strip()
+    sample = sample[sample != '']
 
-    return matched_indices, matched_distances
+    guesses = sample.apply(guess_datetime_format, dayfirst=dayfirst).dropna()
+    counts = Counter(guesses)
+    return top[0][0] if (top := counts.most_common(1)) else None
 
 
-def handle_multi_parent(
-    child,
-    parents,
-    synthetic_tables,
-    id_cols,
-    n_clusters=1,
-    unique_matching=True,
-    batch_size=100,
-    no_matching=False,
-):
-    """Reconcile a child generated once per parent into a single table."""
-    synthetic_child_dfs = [
-        (synthetic_tables[(parent, child)]['df'].copy(), fk) for parent, fk, _ppk in parents
-    ]
-    anchor_index = int(np.argmin([len(df) for df, _ in synthetic_child_dfs]))
-    anchor = synthetic_child_dfs[anchor_index]
-    synthetic_child_dfs.pop(anchor_index)
-    for df, fk in synthetic_child_dfs:
-        df_without_ids = get_df_without_id(df, id_cols)
-        anchor_df_without_ids = get_df_without_id(anchor[0], id_cols)
+def decode_id_values(values, encoder, column):
+    """Inverse-transform label-encoded id codes back to the original id values.
 
-        df_val = df_without_ids.to_numpy().astype(float)
-        anchor_val = anchor_df_without_ids.to_numpy().astype(float)
-        if len(df_val.shape) == 1:
-            df_val = df_val.reshape(-1, 1)
-            anchor_val = anchor_val.reshape(-1, 1)
+    Sampling can create more rows than the original table, so codes past the
+    encoder's fitted range get fresh values: numeric ids continue after the
+    largest original id, other ids become new ``'{column}_{code}'`` strings.
 
-        indices, _ = match_tables(
-            anchor_val,
-            df_val,
-            n_clusters=n_clusters,
-            unique_matching=unique_matching,
-            batch_size=batch_size,
-        )
-        if no_matching:
-            indices = np.random.permutation(indices)
-        df = df.iloc[indices]
-        anchor[0][fk] = df[fk].to_numpy()
-    return anchor[0]
+    Args:
+        values (list, numpy.array, pd.Series):
+            ID column values.
+        encoder (sklearn.preprocessing.LabelEncoder):
+            Fitted encoder.
+        column (str):
+            Column name.
+
+    Returns:
+        np.array:
+            List of decoded id values.
+    """
+    codes = np.asarray(values).astype('int64')
+    classes = encoder.classes_
+    decoded = np.empty(len(codes), dtype=object)
+    in_range = (codes >= 0) & (codes < len(classes))
+    decoded[in_range] = encoder.inverse_transform(codes[in_range])
+    if (~in_range).any():
+        if pd.api.types.is_numeric_dtype(classes):
+            # continue past the largest original id (code n_classes -> max + 1, ...)
+            decoded[~in_range] = codes[~in_range] + (classes.max() + 1 - len(classes))
+        else:
+            decoded[~in_range] = [f'{column}_{code}' for code in codes[~in_range]]
+
+    if pd.api.types.is_numeric_dtype(classes):
+        return decoded.astype(classes.dtype)
+
+    return decoded
 
 
 @torch.no_grad()
@@ -588,7 +736,6 @@ def _sample_step(diffusion, y):
 
     Mirrors ``GaussianMultinomialDiffusion._sample`` but takes explicit
     per-row labels instead of drawing them from the empirical distribution.
-    Similar to the original classifier-guided ``conditional_sample`` implemtation.
     """
     device = diffusion.log_alpha.device
     b = y.shape[0]
@@ -716,10 +863,6 @@ class ClavaDDPM:
             Multi-parent matching controls for unique matching.
         no_matching (bool):
             Multi-parent matching controls for no matching.
-        max_categories (int):
-            Maximum number of distinct values kept for a categorical column.
-            Columns with more are reduced to this many values, randomly sampled
-            from the data.
         device (str or None):
             Whether to use ``'cuda'`` or ``'cpu'``. If None, auto-select is used.
         seed (int):
@@ -749,11 +892,12 @@ class ClavaDDPM:
         matching_batch_size=1000,
         unique_matching=True,
         no_matching=False,
-        max_categories=100,
         device=None,
         seed=0,
         verbose=False,
     ):
+        _check_faiss_installed()
+
         self.num_clusters = num_clusters
         self.parent_scale = parent_scale
         self.key_scale = key_scale
@@ -772,7 +916,6 @@ class ClavaDDPM:
         self.matching_batch_size = matching_batch_size
         self.unique_matching = unique_matching
         self.no_matching = no_matching
-        self.max_categories = max_categories
         self.device = device
         self.seed = seed
         self.verbose = verbose

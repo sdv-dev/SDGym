@@ -28,6 +28,7 @@ dependencies = [
     "cloudpickle>=2.1.0;python_version<'3.14'",
     "cloudpickle>=3.1.1;python_version>='3.14'",
     'compress-pickle>=1.2.0',
+    'faiss-cpu>=1.10.0',
     'google-cloud-compute>=1.30.0',
     'google-auth>=2.14.1',
     'humanfriendly>=10.0',
