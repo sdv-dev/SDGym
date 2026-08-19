@@ -13,7 +13,6 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
-import faiss
 import numpy as np
 import pandas as pd
 import sklearn
@@ -660,9 +659,10 @@ def _check_faiss_installed():
         import faiss  # noqa: F401
     except ImportError as e:
         raise ImportError(
-            "\nThe 'faiss' package is not installed.\n"
-            'Please install it via conda before running this synthesizer., e.g.:\n\n'
-            '    conda install -c pytorch -c nvidia faiss-gpu\n'
+            "In order to use 'ClavaDDPMSynthesizer' you have to install the extra "
+            "dependencies by first installing 'faiss' library and other dependencies: \n\n"
+            "    conda install -c pytorch -c nvidia faiss-gpu\n"
+            "    pip install sdgym['clavaddpm']\n"
         ) from e
 
 
