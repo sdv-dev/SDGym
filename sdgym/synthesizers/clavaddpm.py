@@ -247,7 +247,20 @@ def convert_to_unique_indices(indices):
 
 
 def match_tables(A, B, n_clusters=25, unique_matching=True, batch_size=100):
-    """Nearest-neighbour match of every row of ``A`` to a row of ``B`` from pipline_utils.py."""
+    """Nearest-neighbour match of every row of ``A`` to a row of ``B`` from pipline_utils.py.
+
+    Modified by SDGym to add 'faiss' import.
+    """
+    try:
+        import faiss  # noqa: F401
+    except ImportError as e:
+        raise ImportError(
+            "In order to use 'ClavaDDPMSynthesizer' you have to install the extra "
+            "dependencies by first installing 'faiss' library and other dependencies: \n\n"
+            '    conda install -c pytorch -c nvidia faiss-gpu\n'
+            "    pip install sdgym['clavaddpm']\n"
+        ) from e
+
     A = np.ascontiguousarray(A, dtype=np.float32)
     B = np.ascontiguousarray(B, dtype=np.float32)
 
@@ -661,7 +674,7 @@ def _check_faiss_installed():
         raise ImportError(
             "In order to use 'ClavaDDPMSynthesizer' you have to install the extra "
             "dependencies by first installing 'faiss' library and other dependencies: \n\n"
-            "    conda install -c pytorch -c nvidia faiss-gpu\n"
+            '    conda install -c pytorch -c nvidia faiss-gpu\n'
             "    pip install sdgym['clavaddpm']\n"
         ) from e
 
