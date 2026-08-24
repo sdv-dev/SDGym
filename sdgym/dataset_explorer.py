@@ -1,19 +1,31 @@
 """Dataset Explorer to summarize datasets stored in S3 buckets."""
 
+import csv
+import io
+import json
+import shutil
+import tempfile
 import warnings
 from collections import defaultdict
 from pathlib import Path
+from zipfile import ZipFile
 
+import botocore
 import pandas as pd
 from sdv.metadata import Metadata
 
 from sdgym.datasets import (
     SDV_DATASETS_PUBLIC_BUCKET,
     _get_available_datasets,
-    _load_dataset_with_client,
     _validate_modality,
 )
-from sdgym.s3 import _get_s3_client, _validate_s3_url
+from sdgym.s3 import (
+    _get_s3_client,
+    _raise_missing_s3_object,
+    _read_s3_object,
+    _validate_s3_url,
+    get_s3_client,
+)
 
 SUMMARY_OUTPUT_COLUMNS = [
     'Dataset',
@@ -32,6 +44,8 @@ SUMMARY_OUTPUT_COLUMNS = [
     'Max_Schema_Depth',
     'Max_Schema_Branch',
 ]
+
+S3_DOWNLOAD_CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB
 
 
 class DatasetExplorer:
@@ -212,6 +226,54 @@ class DatasetExplorer:
 
         return data_summary
 
+    def _load_metadata_from_s3(self, s3_client, modality, dataset_name):
+        """Load only the dataset metadata JSON from S3."""
+        metadata_key = f'{modality}/{dataset_name}/metadata.json'
+        raw_metadata = _read_s3_object(s3_client, self._bucket_name, metadata_key)
+        return json.loads(raw_metadata.decode('utf-8'))
+
+    @staticmethod
+    def _count_csv_rows(csv_file):
+        """Count records in a CSV file object without retaining rows."""
+        text_file = io.TextIOWrapper(csv_file, encoding='utf-8-sig', newline='')
+        count = sum(1 for row in csv.reader(text_file) if row) - 1
+        text_file.detach()
+
+        return max(count, 0)
+
+    def _get_s3_zipped_data_summary(self, s3_client, modality, dataset_name):
+        """Count rows in a zipped S3 dataset with bounded memory usage."""
+        data_key = f'{modality}/{dataset_name}/data.zip'
+        data_summary = {
+            'Total_Num_Rows': 0,
+            'Max_Num_Rows_Per_Table': 0,
+        }
+
+        with tempfile.TemporaryFile() as zip_buffer:
+            try:
+                response = s3_client.get_object(Bucket=self._bucket_name, Key=data_key)
+            except botocore.exceptions.ClientError as error:
+                _raise_missing_s3_object(error, self._bucket_name, data_key)
+
+            with response['Body'] as body:
+                shutil.copyfileobj(body, zip_buffer, length=S3_DOWNLOAD_CHUNK_SIZE)
+
+            zip_buffer.seek(0)
+            with ZipFile(zip_buffer, 'r') as zip_file:
+                csv_file_names = [
+                    file_name for file_name in zip_file.namelist() if file_name.endswith('.csv')
+                ]
+                for csv_file_name in csv_file_names:
+                    with zip_file.open(csv_file_name) as csv_file:
+                        table_num_rows = DatasetExplorer._count_csv_rows(csv_file)
+
+                    data_summary['Total_Num_Rows'] += table_num_rows
+                    data_summary['Max_Num_Rows_Per_Table'] = max(
+                        data_summary['Max_Num_Rows_Per_Table'], table_num_rows
+                    )
+
+        return data_summary
+
     def _load_and_summarize_datasets(self, modality, datasets=None):
         """Load all datasets for the given modality and compute summary statistics.
 
@@ -229,11 +291,12 @@ class DatasetExplorer:
                 for an individual dataset.
         """
         results = []
+        s3_client = self.s3_client or get_s3_client()
 
         available_datasets = _get_available_datasets(
             modality=modality,
             bucket=self._bucket_name,
-            s3_client=self.s3_client,
+            s3_client=s3_client,
         )
         if datasets is not None:
             available_datasets = available_datasets[
@@ -244,15 +307,10 @@ class DatasetExplorer:
             dataset_name = dataset_row['dataset_name']
             dataset_size_mb = dataset_row['size_MB']
             dataset_num_table = dataset_row['num_tables']
-            data, metadata_dict = _load_dataset_with_client(
-                modality=modality,
-                dataset_name=dataset_name,
-                bucket=self._bucket_name,
-                s3_client=self.s3_client,
-            )
+            metadata_dict = self._load_metadata_from_s3(s3_client, modality, dataset_name)
 
-            metadata_stats = DatasetExplorer.get_metadata_summary(metadata_dict)
-            data_stats = DatasetExplorer.get_data_summary(data)
+            metadata_stats = DatasetExplorer.get_metadata_summary(metadata_dict).copy()
+            data_stats = self._get_s3_zipped_data_summary(s3_client, modality, dataset_name)
             max_schema_depth = metadata_stats.pop('Max_Schema_Depth')
             max_schema_branch = metadata_stats.pop('Max_Schema_Branch')
             num_relationships = metadata_stats.pop('Num_Relationships')
