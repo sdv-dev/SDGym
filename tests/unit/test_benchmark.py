@@ -188,6 +188,7 @@ def test__get_metainfo_increment_aws(mock_logger, mock_client):
     assert result_1 == 0
     assert result_2 == 3
     assert result_3 == 0
+    mock_client.get_paginator.assert_called_with('list_objects_v2')
 
 
 @patch('sdgym.benchmark.LOGGER')
