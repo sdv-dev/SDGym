@@ -158,16 +158,22 @@ def test__get_metainfo_increment_aws(mock_logger, mock_client):
     """Test the `_get_metainfo_increment` method when looking for files on aws."""
     # Setup
     # Mock S3 response with existing metainfo files
-    mock_client.list_objects_v2.side_effect = [
+    mock_client.get_paginator.side_effect = [
         ValueError('Simulated S3 error'),
-        {
-            'Contents': [
-                {'Key': 'SDGym_results_10_01_2023/metainfo.yaml'},
-                {'Key': 'SDGym_results_10_01_2023/metainfo(1).yaml'},
-                {'Key': 'SDGym_results_10_01_2023/metainfo(2).yaml'},
-            ]
-        },
-        {'Contents': []},
+        Mock(
+            paginate=Mock(
+                return_value=[
+                    {
+                        'Contents': [
+                            {'Key': 'SDGym_results_10_01_2023/metainfo.yaml'},
+                            {'Key': 'SDGym_results_10_01_2023/metainfo(1).yaml'},
+                            {'Key': 'SDGym_results_10_01_2023/metainfo(2).yaml'},
+                        ]
+                    }
+                ]
+            )
+        ),
+        Mock(paginate=Mock(return_value=[{'Contents': []}])),
     ]
     top_folder = 's3://my-bucket/SDGym_results_10_01_2023'
     s3_client = mock_client
@@ -182,6 +188,7 @@ def test__get_metainfo_increment_aws(mock_logger, mock_client):
     assert result_1 == 0
     assert result_2 == 3
     assert result_3 == 0
+    mock_client.get_paginator.assert_called_with('list_objects_v2')
 
 
 @patch('sdgym.benchmark.LOGGER')

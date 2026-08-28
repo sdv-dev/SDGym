@@ -202,14 +202,18 @@ def _get_metainfo_increment(top_folder, s3_client=None):
     if s3_client:
         bucket, prefix = parse_s3_path(top_folder)
         try:
-            response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-            contents = response.get('Contents', [])
-            for obj in contents:
-                file_name = Path(obj['Key']).name
-                match = METAINFO_FILE_PATTERN.match(file_name)
-                if match:
-                    # Extract numeric suffix (e.g. metainfo(3).yaml → 3) or 0 if plain metainfo.yaml
-                    increments.append(int(match.group(1)) if match.group(1) else 0)
+            paginator = s3_client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
+            for page in pages:
+                for obj in page.get('Contents', []):
+                    file_name = Path(obj['Key']).name
+                    match = METAINFO_FILE_PATTERN.match(file_name)
+
+                    if match:
+                        # metainfo(3).yaml → 3; metainfo.yaml → 0
+                        increment = int(match.group(1)) if match.group(1) else 0
+                        increments.append(increment)
 
         except Exception:
             LOGGER.info(first_file_message)
@@ -219,10 +223,12 @@ def _get_metainfo_increment(top_folder, s3_client=None):
         if not top_folder.exists():
             LOGGER.info(first_file_message)
             return 0
+
         for file in top_folder.glob('metainfo*.yaml'):
             match = METAINFO_FILE_PATTERN.match(file.name)
             if match:
-                increments.append(int(match.group(1)) if match.group(1) else 0)
+                increment = int(match.group(1)) if match.group(1) else 0
+                increments.append(increment)
 
     return max(increments) + 1 if increments else 0
 
@@ -640,6 +646,7 @@ def _compute_scores(
         score = DCRBaselineProtection.compute_breakdown(
             real_data=real_data,
             synthetic_data=synthetic_data,
+            table_name=dataset_name,
             metadata=sdmetrics_metadata,
             num_rows_subsample=num_rows_subsample,
             num_iterations=num_iterations,
