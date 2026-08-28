@@ -869,7 +869,7 @@ class _FastTensorDataLoader:
 class Trainer:
     """Diffusion trainer."""
 
-    def __init__(self, diffusion, train_iter, lr, weight_decay, steps, device, verbose=True):
+    def __init__(self, diffusion, train_iter, lr, weight_decay, steps, device, verbose=False):
         self.diffusion = diffusion
         self.ema_model = deepcopy(self.diffusion._denoise_fn)
         for param in self.ema_model.parameters():
@@ -1095,8 +1095,6 @@ class TabDDPM:
         n_num = X_num.shape[1]
         K = self._transformer.category_sizes
         d_in = int(n_num + K.sum())
-        if d_in == 0:
-            raise ValueError('The table has no modelable columns (only id columns?).')
 
         # Empirical distribution of the conditioning label
         y_tensor = torch.from_numpy(y)
