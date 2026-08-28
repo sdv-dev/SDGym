@@ -1210,7 +1210,9 @@ class ClavaDDPM:
             verbose=self.verbose,
         )
         model._skip_validation = True
-        model.fit(df_without_id[list(columns_meta)])
+        train_data = df_without_id[list(columns_meta)]
+        train_data = train_data.loc[:, ~train_data.columns.duplicated()]
+        model.fit(train_data)
         return model
 
     def sample(self, scale=1.0):
@@ -1273,11 +1275,13 @@ class ClavaDDPM:
 
                 child_foreign_keys = np.repeat(parent_keys, sampled_group_sizes, axis=0)
                 child_primary_keys = np.arange(len(child_generated))
-                fk = next(f for p, f, _ppk in self._tables[child]['parents'] if p == parent)
 
                 generated = child_generated.copy().reset_index(drop=True)
                 generated[self._tables[child]['pk']] = child_primary_keys
-                generated[fk] = child_foreign_keys
+                for p, f, _ppk in self._tables[child]['parents']:
+                    if p == parent:
+                        generated[f] = child_foreign_keys
+
                 synthetic_tables[(parent, child)] = {
                     'df': generated,
                     'keys': list(child_primary_keys),
