@@ -953,6 +953,31 @@ def test_benchmark_multi_table_basic_synthesizers():
     ]
 
 
+def test_benchmark_multi_table_clavaddpm_no_metrics():
+    """Test it without metrics."""
+    # Run
+    custom_synthesizer = create_synthesizer_variant(
+        display_name='ClavaDDPMSynthesizer',
+        synthesizer_class='ClavaDDPMSynthesizer',
+        synthesizer_parameters={'diffusion_iterations': 300, 'num_timesteps': 100},
+    )
+    output = sdgym.benchmark_multi_table(
+        synthesizers=[],
+        custom_synthesizers=[custom_synthesizer],
+        sdv_datasets=['fake_hotels'],
+        compute_quality_score=False,
+        compute_diagnostic_score=False,
+    )
+
+    # Assert
+    train_time = output['Train_Time'][0]
+    sample_time = output['Sample_Time'][0]
+    assert isinstance(train_time, (int, float, complex)), 'Train_Time is not numerical'
+    assert isinstance(sample_time, (int, float, complex)), 'Sample_Time is not numerical'
+    assert train_time >= 0
+    assert sample_time >= 0
+
+
 @pytest.mark.skipif(
     not os.getenv('AWS_ACCESS_KEY_ID') or not os.getenv('AWS_SECRET_ACCESS_KEY'),
     reason='MovieLens benchmark requires AWS credentials for private dataset access.',

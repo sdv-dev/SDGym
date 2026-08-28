@@ -869,7 +869,7 @@ class _FastTensorDataLoader:
 class Trainer:
     """Diffusion trainer."""
 
-    def __init__(self, diffusion, train_iter, lr, weight_decay, steps, device, verbose=True):
+    def __init__(self, diffusion, train_iter, lr, weight_decay, steps, device, verbose=False):
         self.diffusion = diffusion
         self.ema_model = deepcopy(self.diffusion._denoise_fn)
         for param in self.ema_model.parameters():
@@ -886,6 +886,7 @@ class Trainer:
         self.log_every = 100
         self.print_every = 500
         self.ema_every = 1000
+        self.verbose = verbose
 
     def _anneal_lr(self, step):
         frac_done = step / self.steps
@@ -925,7 +926,7 @@ class Trainer:
             if (step + 1) % self.log_every == 0:
                 mloss = np.around(curr_loss_multi / curr_count, 4)
                 gloss = np.around(curr_loss_gauss / curr_count, 4)
-                if (step + 1) % self.print_every == 0:
+                if self.verbose and (step + 1) % self.print_every == 0:
                     sys.stdout.write(
                         f'Step {(step + 1)}/{self.steps} '
                         f'MLoss: {mloss} GLoss: {gloss} Sum: {mloss + gloss}\n'
@@ -1029,6 +1030,7 @@ class TabDDPM:
         if device is None:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self._device = torch.device(device)
+        self._skip_validation = False
         self._fitted = False
 
     def fit(self, data):
@@ -1042,7 +1044,8 @@ class TabDDPM:
         if isinstance(data, pd.DataFrame):
             data_dict = {self._table_name: data}
 
-        self._metadata.validate_data(data_dict)
+        if not self._skip_validation:
+            self._metadata.validate_data(data_dict)
 
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
@@ -1092,8 +1095,6 @@ class TabDDPM:
         n_num = X_num.shape[1]
         K = self._transformer.category_sizes
         d_in = int(n_num + K.sum())
-        if d_in == 0:
-            raise ValueError('The table has no modelable columns (only id columns?).')
 
         # Empirical distribution of the conditioning label
         y_tensor = torch.from_numpy(y)
