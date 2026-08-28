@@ -646,6 +646,7 @@ def _compute_scores(
         score = DCRBaselineProtection.compute_breakdown(
             real_data=real_data,
             synthetic_data=synthetic_data,
+            table_name=dataset_name,
             metadata=sdmetrics_metadata,
             num_rows_subsample=num_rows_subsample,
             num_iterations=num_iterations,
