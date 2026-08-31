@@ -8,6 +8,8 @@ from sdgym.synthesizers.generate import (
 from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.column import ColumnSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
+from sdgym.synthesizers.tabddpm import TabDDPMSynthesizer
+from sdgym.synthesizers.clavaddpm import ClavaDDPMSynthesizer
 from sdgym.synthesizers.uniform import UniformSynthesizer, MultiTableUniformSynthesizer
 from sdgym.synthesizers.utils import (
     get_available_single_table_synthesizers,
@@ -21,12 +23,14 @@ __all__ = [
     'ColumnSynthesizer',
     'UniformSynthesizer',
     'RealTabFormerSynthesizer',
+    'TabDDPMSynthesizer',
     'create_single_table_synthesizer',
     'create_multi_table_synthesizer',
     'create_synthesizer_variant',
     'get_available_single_table_synthesizers',
     'get_available_multi_table_synthesizers',
     'MultiTableUniformSynthesizer',
+    'ClavaDDPMSynthesizer',
 ]
 
 for sdv_name in _get_all_sdv_synthesizers():

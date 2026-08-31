@@ -64,7 +64,7 @@ dependencies = [
     'XlsxWriter>=1.2.8',
     "rdt>=1.18.2;python_version<'3.14'",
     "rdt>=1.20.0;python_version>='3.14'",
-    "sdmetrics>=0.28.0",
+    "sdmetrics>=0.29.0",
     "sdv>=1.37.0",
 ]
 
@@ -85,8 +85,15 @@ realtabformer = [
     "torch>=2.6.0",
     'transformers<4.51',
 ]
+clavaddpm = [
+    "faiss-cpu>=1.10.0;python_version<'3.14'",
+    "faiss-cpu>=1.12.0;python_version>='3.14'",
+    'scipy>=1.9.2',
+    'numpy>=1.25.0',
+]
 test = [
     'sdgym[realtabformer]',
+    'sdgym[clavaddpm]',
     'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
@@ -161,7 +168,7 @@ namespaces = false
 version = {attr = 'sdgym.__version__'}
 
 [tool.bumpversion]
-current_version = "0.14.4"
+current_version = "0.15.0.dev0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.(?P<release>[a-z]+)(?P<candidate>\d+))?'
 serialize = [
     '{major}.{minor}.{patch}.{release}{candidate}',
