@@ -1,4 +1,4 @@
-Run started:2026-06-02 13:21:42.856500+00:00
+Run started:2026-08-31 18:01:48.377649+00:00
 
 Test results:
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
@@ -74,73 +74,73 @@ Test results:
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:479:8
-478	    if isinstance(synthesizer, type):
-479	        assert issubclass(synthesizer, BaselineSynthesizer), (
-480	            '`synthesizer` must be a synthesizer class'
-481	        )
-482	        synthesizer = synthesizer()
+   Location: ./sdgym/benchmark.py:485:8
+484	    if isinstance(synthesizer, type):
+485	        assert issubclass(synthesizer, BaselineSynthesizer), (
+486	            '`synthesizer` must be a synthesizer class'
+487	        )
+488	        synthesizer = synthesizer()
 
 --------------------------------------------------
 >> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
    Severity: Low   Confidence: High
    CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
-   Location: ./sdgym/benchmark.py:484:8
-483	    else:
-484	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
-485	            '`synthesizer` must be an instance of a synthesizer class.'
-486	        )
-487	
+   Location: ./sdgym/benchmark.py:490:8
+489	    else:
+490	        assert issubclass(type(synthesizer), BaselineSynthesizer), (
+491	            '`synthesizer` must be an instance of a synthesizer class.'
+492	        )
+493	
 
 --------------------------------------------------
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
    Severity: Medium   Confidence: Low
    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b608_hardcoded_sql_expressions.html
-   Location: ./sdgym/benchmark.py:1439:31
-1438	def _get_user_data_script(access_key, secret_key, region_name, script_content):
-1439	    return textwrap.dedent(f"""\
-1440	        #!/bin/bash
-1441	        set -e
-1442	
-1443	        # Always terminate the instance when the script exits (success or failure)
-1444	        trap '
-1445	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
-1446	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
-1447	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
-1448	        ' EXIT
+   Location: ./sdgym/benchmark.py:1446:31
+1445	def _get_user_data_script(access_key, secret_key, region_name, script_content):
+1446	    return textwrap.dedent(f"""\
+1447	        #!/bin/bash
+1448	        set -e
 1449	
-1450	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-1451	        echo "======== Update and Install Dependencies ============"
-1452	        sudo apt update -y
-1453	        sudo apt install -y python3-pip python3-venv awscli
-1454	        echo "======== Configure AWS CLI ============"
-1455	        aws configure set aws_access_key_id '{access_key}'
-1456	        aws configure set aws_secret_access_key '{secret_key}'
-1457	        aws configure set default.region '{region_name}'
-1458	
-1459	        echo "======== Create Virtual Environment ============"
-1460	        python3 -m venv ~/env
-1461	        source ~/env/bin/activate
-1462	
-1463	        echo "======== Install Dependencies in venv ============"
-1464	        pip install --upgrade pip
-1465	        pip install sdgym[all]
-1466	        pip install s3fs
-1467	
-1468	        echo "======== Write Script ==========="
-1469	        cat << 'EOF' > ~/sdgym_script.py
-1470	{script_content}
-1471	EOF
-1472	
-1473	        echo "======== Run Script ==========="
-1474	        python ~/sdgym_script.py
-1475	        echo "======== Complete ==========="
-1476	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-1477	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
-1478	    """).strip()
+1450	        # Always terminate the instance when the script exits (success or failure)
+1451	        trap '
+1452	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id);
+1453	        echo "======== Terminating EC2 instance: $INSTANCE_ID ==========";
+1454	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID;
+1455	        ' EXIT
+1456	
+1457	        exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+1458	        echo "======== Update and Install Dependencies ============"
+1459	        sudo apt update -y
+1460	        sudo apt install -y python3-pip python3-venv awscli
+1461	        echo "======== Configure AWS CLI ============"
+1462	        aws configure set aws_access_key_id '{access_key}'
+1463	        aws configure set aws_secret_access_key '{secret_key}'
+1464	        aws configure set default.region '{region_name}'
+1465	
+1466	        echo "======== Create Virtual Environment ============"
+1467	        python3 -m venv ~/env
+1468	        source ~/env/bin/activate
+1469	
+1470	        echo "======== Install Dependencies in venv ============"
+1471	        pip install --upgrade pip
+1472	        pip install sdgym[all]
+1473	        pip install s3fs
+1474	
+1475	        echo "======== Write Script ==========="
+1476	        cat << 'EOF' > ~/sdgym_script.py
+1477	{script_content}
+1478	EOF
 1479	
+1480	        echo "======== Run Script ==========="
+1481	        python ~/sdgym_script.py
+1482	        echo "======== Complete ==========="
+1483	        INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+1484	        aws ec2 terminate-instances --instance-ids $INSTANCE_ID
+1485	    """).strip()
+1486	
 
 --------------------------------------------------
 >> Issue: [B615:huggingface_unsafe_download] Unsafe Hugging Face Hub download without revision pinning in load_dataset()
@@ -192,6 +192,192 @@ Test results:
 6	from urllib.parse import urlparse
 
 --------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/blacklists/blacklist_calls.html#b311-random
+   Location: ./sdgym/synthesizers/clavaddpm.py:209:20
+208	    # Generate a random number between 0 and 1
+209	    random_number = random.random()
+210	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/clavaddpm.py:319:8
+318	        indices = convert_to_unique_indices(indices)
+319	        assert len(indices) == len(set(indices))
+320	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/clavaddpm.py:479:4
+478	    sorted_parent_data_repeated = np.repeat(sorted_parent_data, group_lengths, axis=0)
+479	    assert (
+480	        sorted_parent_data_repeated[:, parent_primary_key_index]
+481	        == sorted_child_data[:, foreing_key_index]
+482	    ).all()
+483	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/clavaddpm.py:639:12
+638	        if parent_id in parent_id_to_cluster:
+639	            assert parent_id_to_cluster[parent_id] == sorted_child_data_with_cluster[i, -1]
+640	            continue
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:202:8
+201	            dropouts = [dropouts] * len(d_layers)
+202	        assert len(d_layers) == len(dropouts)
+203	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:225:8
+224	        """Create a "baseline" MLP: ReLU activations, uniform dropout."""
+225	        assert isinstance(dropout, float)
+226	        if len(d_layers) > 2:
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:227:12
+226	        if len(d_layers) > 2:
+227	            assert len(set(d_layers[1:-1])) == 1, (
+228	                'if d_layers contains more than two elements, then'
+229	                ' all elements except for the first and the last ones must be equal.'
+230	            )
+231	        return MLP(
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:301:8
+300	        super(GaussianMultinomialDiffusion, self).__init__()
+301	        assert multinomial_loss_type in ('vb_stochastic', 'vb_all')
+302	        assert parametrization in ('x0', 'direct')
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:302:8
+301	        assert multinomial_loss_type in ('vb_stochastic', 'vb_all')
+302	        assert parametrization in ('x0', 'direct')
+303	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:365:8
+364	
+365	        assert _log_add_exp(log_alpha, log_1_min_alpha).abs().sum().item() < 1.0e-5
+366	        assert _log_add_exp(log_cumprod_alpha, log_1_min_cumprod_alpha).abs().sum().item() < 1e-5
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:366:8
+365	        assert _log_add_exp(log_alpha, log_1_min_alpha).abs().sum().item() < 1.0e-5
+366	        assert _log_add_exp(log_cumprod_alpha, log_1_min_cumprod_alpha).abs().sum().item() < 1e-5
+367	        assert (np.cumsum(log_alpha) - log_cumprod_alpha).abs().sum().item() < 1.0e-5
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:367:8
+366	        assert _log_add_exp(log_cumprod_alpha, log_1_min_cumprod_alpha).abs().sum().item() < 1e-5
+367	        assert (np.cumsum(log_alpha) - log_cumprod_alpha).abs().sum().item() < 1.0e-5
+368	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:395:8
+394	            noise = torch.randn_like(x_start)
+395	        assert noise.shape == x_start.shape
+396	        return (
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:402:8
+401	    def _gaussian_q_posterior_mean_variance(self, x_start, x_t, t):
+402	        assert x_start.shape == x_t.shape
+403	        posterior_mean = (
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:413:8
+412	        B = x.shape[0]
+413	        assert t.shape == (B,)
+414	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:440:8
+439	    def _predict_xstart_from_eps(self, x_t, t, eps):
+440	        assert x_t.shape == eps.shape
+441	        return (
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:483:8
+482	    def _predict_start(self, model_out, log_x_t):
+483	        assert model_out.size(0) == log_x_t.size(0)
+484	        assert model_out.size(1) == self.num_classes.sum(), f'{model_out.size()}'
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b101_assert_used.html
+   Location: ./sdgym/synthesizers/tabddpm.py:484:8
+483	        assert model_out.size(0) == log_x_t.size(0)
+484	        assert model_out.size(1) == self.num_classes.sum(), f'{model_out.size()}'
+485	
+
+--------------------------------------------------
 >> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
    Severity: Low   Confidence: High
    CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
@@ -234,19 +420,19 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 8152
+	Total lines of code: 10274
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
 Run metrics:
 	Total issues (by severity):
 		Undefined: 0
-		Low: 9
+		Low: 27
 		Medium: 3
 		High: 0
 	Total issues (by confidence):
 		Undefined: 0
 		Low: 2
 		Medium: 2
-		High: 8
+		High: 26
 Files skipped (0):

@@ -1,5 +1,17 @@
 # History
 
+## v0.15.0 - 2026-08-31
+
+### New Features
+
+* Include `TabDDPM` and `ClavaDDPM` in monthly benchmarks - Issue [#638](https://github.com/sdv-dev/SDGym/issues/638) by @sarahmish
+* Add `TabDDPM` and `ClavaDDPM` synthesizers to SDGym - Issue [#637](https://github.com/sdv-dev/SDGym/issues/637) by @sarahmish
+* Avoid loading full datasets when generating benchmark dataset details - Issue [#609](https://github.com/sdv-dev/SDGym/issues/609) by @R-Palazzo
+
+### Bugs Fixed
+
+* Incorrect metainfo increment when S3 results span multiple pages - Issue [#634](https://github.com/sdv-dev/SDGym/issues/634) by @R-Palazzo
+
 ## v0.14.4 - 2026-06-02
 
 ### Bugs Fixed
