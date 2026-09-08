@@ -134,3 +134,22 @@ XGCSynthesizer:
     to train a model and generate synthetic data similar to the GaussianCopulaSynthesizer.
     However, it contains some additional features for higher quality modeling.
 
+TabDDOMSynthesizer:
+  library: sdgym
+  organization: Yandex
+  modality: single_table
+  type: Deep Learning
+  description: >
+    The TabDDPM model is a denoising diffusion probabilistic model for tabular datasets.
+    It uses the multinomial diffusion to model the categorical and binary features, and
+    the Gaussian diffusion to model the numerical ones.
+
+ClavaDDPMSynthesizer:
+  library: sdgym
+  organization: University of Waterloo, Vector Institute, Royal Bank of Canada
+  modality: multi_table
+  type: Deep Learning
+  description: >
+    The ClavaDDPM model is an extension of the TabDDPM model to handle multi-table datasets.
+    It is based on clustering labels as intermediaries to model relationships between tables,
+    specifically focusing on foreign key constraints.
