@@ -193,9 +193,6 @@ def get_data_and_metadata_from_path(dataset_path, modality):
         elif 'data' in file_name.stem and file_name.suffix == '.zip':
             data = _read_zipped_data(zip_file_path=(file_name), modality=modality)
 
-        if data is not None and metadata_dict is not None:
-            break
-
     return data, metadata_dict
 
 
