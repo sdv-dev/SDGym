@@ -1,4 +1,4 @@
-Run started:2026-08-31 18:01:48.377649+00:00
+Run started:2026-09-30 16:00:30.484378+00:00
 
 Test results:
 >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
@@ -168,18 +168,18 @@ Test results:
    Severity: Low   Confidence: Medium
    CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
    More Info: https://bandit.readthedocs.io/en/1.9.2/plugins/b106_hardcoded_password_funcarg.html
-   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:132:12
-131	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
-132	    creds = OAuth2Credentials(
-133	        access_token=creds_dict['access_token'],
-134	        client_id=creds_dict.get('client_id'),
-135	        client_secret=creds_dict.get('client_secret'),
-136	        refresh_token=creds_dict.get('refresh_token'),
-137	        token_expiry=None,
-138	        token_uri='https://oauth2.googleapis.com/token',
-139	        user_agent=None,
-140	    )
-141	    gauth = GoogleAuth()
+   Location: ./sdgym/run_benchmark/upload_benchmark_results.py:122:12
+121	    creds_dict = json.loads(os.environ['PYDRIVE_TOKEN'])
+122	    creds = OAuth2Credentials(
+123	        access_token=creds_dict['access_token'],
+124	        client_id=creds_dict.get('client_id'),
+125	        client_secret=creds_dict.get('client_secret'),
+126	        refresh_token=creds_dict.get('refresh_token'),
+127	        token_expiry=None,
+128	        token_uri='https://oauth2.googleapis.com/token',
+129	        user_agent=None,
+130	    )
+131	    gauth = GoogleAuth()
 
 --------------------------------------------------
 >> Issue: [B403:blacklist] Consider possible security implications associated with pickle module.
@@ -420,7 +420,7 @@ Test results:
 --------------------------------------------------
 
 Code scanned:
-	Total lines of code: 10274
+	Total lines of code: 10262
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 
