@@ -187,13 +187,11 @@ def get_data_and_metadata_from_path(dataset_path, modality):
     metadata_dict = None
     data = None
     for file_name in dataset_path.iterdir():
-        if 'metadata' in file_name.stem and file_name.suffix == '.json':
+        is_metadata = 'metadata' in file_name.stem and file_name.suffix == '.json'
+        if (is_metadata and metadata_dict is None) or file_name.name == 'metadata.json':
             metadata_dict = _read_metadata_json(file_name)
         elif 'data' in file_name.stem and file_name.suffix == '.zip':
             data = _read_zipped_data(zip_file_path=(file_name), modality=modality)
-
-        if data is not None and metadata_dict is not None:
-            break
 
     return data, metadata_dict
 
