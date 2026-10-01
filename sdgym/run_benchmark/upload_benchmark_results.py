@@ -33,17 +33,7 @@ from sdgym.s3 import S3_REGION, load_pickle_from_s3, parse_s3_path
 from sdgym.utils import _set_column_width
 
 LOGGER = logging.getLogger(__name__)
-SYNTHESIZER_TO_GLOBAL_POSITION = {
-    'CTGAN': 'middle right',
-    'TVAE': 'middle left',
-    'GaussianCopula': 'bottom center',
-    'Uniform': 'top center',
-    'Column': 'top center',
-    'CopulaGAN': 'top center',
-    'RealTabFormer': 'bottom center',
-    'HSA': 'bottom center',
-    'Independent': 'top center',
-}
+
 SDGYM_RUNS_FILENAME = 'SDGym_Runs.xlsx'
 MODEL_DETAILS_FILENAME = 'Model_Details.xlsx'
 DATASET_DETAILS_FILENAME = 'Dataset_Details.xlsx'

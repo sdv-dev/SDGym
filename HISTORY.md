@@ -1,5 +1,12 @@
 # History
 
+## v0.15.1 - 2026-09-30
+
+### Bugs Fixed
+
+* Fix tests after adding Metadata V2 for demo datasets - Issue [#646](https://github.com/sdv-dev/SDGym/issues/646) by @sarahmish
+* Update model card for TabDDPM and ClavaDDPM - Issue [#644](https://github.com/sdv-dev/SDGym/issues/644) by @sarahmish
+
 ## v0.15.0 - 2026-08-31
 
 ### New Features
