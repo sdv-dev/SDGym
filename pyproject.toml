@@ -91,9 +91,13 @@ clavaddpm = [
     'scipy>=1.9.2',
     'numpy>=1.25.0',
 ]
+data_designer = [
+    "data-designer>=0.9.3;python_version>='3.10'",
+]
 test = [
     'sdgym[realtabformer]',
     'sdgym[clavaddpm]',
+    'sdgym[data_designer]',
     'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',
