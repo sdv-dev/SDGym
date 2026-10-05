@@ -92,7 +92,7 @@ clavaddpm = [
     'numpy>=1.25.0',
 ]
 data_designer = [
-    "data-designer>=0.9.3;python_version>='3.10'",
+    "data-designer;python_version>='3.10'",
 ]
 test = [
     'sdgym[realtabformer]',

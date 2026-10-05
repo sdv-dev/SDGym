@@ -11,14 +11,15 @@ from sdgym.synthesizers.base import BaselineSynthesizer
 
 LOGGER = logging.getLogger(__name__)
 
-PII_PLACEHOLDER_PREFIX = 'sdgym-pii-'
 MIN_PYTHON_VERSION = (3, 10)
 DEFAULT_MODEL_ALIAS = 'text'
 DEFAULT_MODEL_ID = 'nvidia/nvidia-nemotron-nano-9b-v2'
 DEFAULT_MODEL_PROVIDER = 'nvidia'
+DEFAULT_TEMPRATURE = 0.85
+DEFAULT_TOP_P = 0.95
+PII_PLACEHOLDER_PREFIX = 'sdgym-pii-'
 MAX_TEXT_EXAMPLES = 3
 MAX_TEXT_EXAMPLE_LENGTH = 100
-
 
 MISSING_PROPORTION_ATTRIBUTES = (
     'missing_values_proportion',
@@ -31,7 +32,7 @@ TEXT_CONTEXT_SDTYPES = {'numerical', 'categorical', 'boolean', 'datetime'}
 
 def _import_data_designer():
     if sys.version_info < MIN_PYTHON_VERSION:
-        raise ImportError('DataDesigner only supports python >= 3.10')
+        raise ImportError('DataDesignerSynthesizer only supports python >= 3.10')
 
     try:
         import data_designer.config as data_designer_config
@@ -89,12 +90,14 @@ def _attach_missing_proportion(column_config, missing_proportion):
     )
 
 
-def _create_default_model_config(dd, model_alias):
+def _create_default_model_config(dd, model_alias, temperature=None, top_p=None):
+    tempature = tempature or DEFAULT_TEMPRATURE
+    top_p = top_p or DEFAULT_TOP_P
     return dd.ModelConfig(
         alias=model_alias,
         model=DEFAULT_MODEL_ID,
         provider=DEFAULT_MODEL_PROVIDER,
-        inference_parameters=dd.ChatCompletionInferenceParams(temperature=0.85, top_p=0.95),
+        inference_parameters=dd.ChatCompletionInferenceParams(temperature=temperature, top_p=top_p),
     )
 
 
@@ -141,11 +144,7 @@ def _get_decimal_places(values):
 
 
 def _create_numerical_config(dd, column_name, column_data, column_metadata):
-    """Map a numerical column to a ``uniform`` sampler.
-
-    The range and precision come from the metadata ``range_min``, ``range_max`` and
-    ``decimal_places`` when present, otherwise they are computed from the data.
-    """
+    """Map a numerical column to a ``uniform`` sampler."""
     values = pd.to_numeric(column_data, errors='coerce').dropna()
     if values.empty:
         LOGGER.warning(f"Column '{column_name}' has no numeric values, sampling zeros.")
@@ -189,7 +188,7 @@ def _create_datetime_config(dd, column_name, column_data, column_metadata):
 
 
 def _create_id_config(dd, column_name):
-    """Map an id column to a ``uuid`` sampler."""
+    """Map an id column to a ``uuid`` sampler, no other id sampler is available."""
     return dd.SamplerColumnConfig(
         name=column_name, sampler_type=dd.SamplerType.UUID, params=dd.UUIDSamplerParams()
     )
@@ -207,38 +206,23 @@ def _create_text_config(dd, column_name, column_data, model_alias, context_colum
     for value in column_data.dropna().astype(str).unique()[:MAX_TEXT_EXAMPLES]:
         examples.append(repr(value[:MAX_TEXT_EXAMPLE_LENGTH]))
 
-    prompt = f"Generate a realistic value for the column '{column_name}' of a tabular dataset."
+    prompt = (
+        'You are a helpful assistant that generates synthetic data.'
+        f"Generate a realistic value for the column '{column_name}' of a tabular dataset."
+    )
     if examples:
-        prompt += f' Example values from this column: {", ".join(examples)}.'
+        prompt += f' Here are a few examples from this column: {", ".join(examples)}.'
 
-    references = [name for name in context_columns if name.isidentifier()]
-    if references:
-        row = ', '.join(f'{name}: {{{{ {name} }}}}' for name in references)
-        prompt += f' The value must be consistent with the other values in this row: {row}.'
+    if context_columns:
+        row = ', '.join(f'{{ {name} }}' for name in context_columns)
+        prompt += f' Refer to the values in these columns for context: {row}.'
 
     prompt += ' Respond with the value only, without any explanation.'
     return dd.LLMTextColumnConfig(name=column_name, prompt=prompt, model_alias=model_alias)
 
 
 def get_missing_value_proportions(data, metadata, table_name=None):
-    """Return the proportion of missing values per column, honoring ``range_is_nullable``.
-
-    Data Designer cannot generate missing values, so these proportions must be applied to the
-    sampled data afterwards. Columns whose metadata says ``range_is_nullable: false`` are
-    reported as having no missing values regardless of the data.
-
-    Args:
-        data (pd.DataFrame):
-            The real data.
-        metadata (sdv.metadata.Metadata or dict):
-            Metadata V2 describing ``data``.
-        table_name (str or None):
-            The table to use when the metadata has more than one table.
-
-    Returns:
-        dict[str, float]:
-            Mapping of column name to proportion of missing values in ``[0, 1]``.
-    """
+    """Return the proportion of missing values per column."""
     table_metadata = _get_table_metadata(metadata, table_name)
     return {
         column_name: _get_missing_proportion(data[column_name], column_metadata)
@@ -248,44 +232,40 @@ def get_missing_value_proportions(data, metadata, table_name=None):
 
 
 def create_data_designer_config(
-    data, metadata, table_name=None, model_alias=DEFAULT_MODEL_ALIAS, model_configs=None
+    data, metadata, table_name=None, model_alias=None, temperature=None, top_p=None
 ):
-    """Map a single table dataset and its Metadata V2 to a Data Designer config builder.
+    """Map a single table dataset and its metadata to a Data Designer config builder.
 
     Args:
-        data (pd.DataFrame):
+        data (dict[str, pd.DataFrame]):
             The real data. Used to fit the sampler parameters that the metadata does not
             provide (frequencies, ranges, boolean rates) and to pick text examples.
-        metadata (sdv.metadata.Metadata or dict):
-            Metadata V2 describing ``data``. ``range_values``, ``range_min``, ``range_max``,
-            ``decimal_places`` and ``range_is_nullable`` are used when present.
+        metadata (sdv.Metadata):
+            Metadata describing the data. If range values are not present, they are
+            extracted directly from data.
         table_name (str or None):
             The table to map when the metadata has more than one table. Defaults to the only
             table.
         model_alias (str):
-            The model alias used by LLM generated (``text``) columns. Defaults to ``'text'``.
-        model_configs (list[ModelConfig] or None):
-            Model configurations to register with the builder. If ``None``, a single
-            ``ModelConfig`` for ``model_alias`` is created that uses the NVIDIA provider.
+            The model alias used by LLM generated text columns. Defaults to 'text'.
 
     Returns:
-        data_designer.config.DataDesignerConfigBuilder:
-            A builder holding one column config per metadata column, ready to be passed to
-            ``DataDesigner.create`` or ``.preview``.
+        DataDesignerConfigBuilder:
+            A builder holding one column config per metadata column.
     """
+    model_alias = model_alias or DEFAULT_MODEL_ALIAS
+
     dd = _import_data_designer()
     table_metadata = _get_table_metadata(metadata, table_name)
-    if model_configs is None:
-        model_configs = [_create_default_model_config(dd, model_alias)]
-
+    model_configs = [_create_default_model_config(dd, model_alias, temperature, top_p)]
     missing = [name for name in table_metadata.columns if name not in data.columns]
     if missing:
         raise ValueError(f'The following columns are missing from the data: {missing}')
 
     context_columns = [
         name
-        for name, column in table_metadata.columns.items()
-        if column['sdtype'] in TEXT_CONTEXT_SDTYPES
+        for name, column_meta in table_metadata.columns.items()
+        if column_meta['sdtype'] in TEXT_CONTEXT_SDTYPES
     ]
 
     column_configs = []
@@ -323,7 +303,8 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
-        config_builder = create_data_designer_config(data, metadata)
+        model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
+        config_builder = create_data_designer_config(data, metadata, **model_kwargs)
         try:
             from data_designer.interface import DataDesigner
         except Exception as exception:

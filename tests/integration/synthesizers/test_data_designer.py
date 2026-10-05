@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from sdgym.synthesizers.data_designer import DataDesignerSynthesizer
+from sdgym.synthesizers import DataDesignerSynthesizer
 
 pytest.importorskip('data_designer.interface')
 

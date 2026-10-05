@@ -8,9 +8,16 @@ import pandas as pd
 import pytest
 from sdv.metadata import Metadata
 
-from sdgym.synthesizers.data_designer import (
-    PII_PLACEHOLDER_PREFIX,
+from sdgym.synthesizers import (
     DataDesignerSynthesizer,
+    get_available_multi_table_synthesizers,
+    get_available_single_table_synthesizers,
+)
+from sdgym.synthesizers.data_designer import (
+    DEFAULT_MODEL_ID,
+    DEFAULT_TEMPRATURE,
+    DEFAULT_TOP_P,
+    PII_PLACEHOLDER_PREFIX,
     _attach_missing_proportion,
     _import_data_designer,
     create_data_designer_config,
@@ -66,9 +73,8 @@ def data():
 
 
 @pytest.fixture
-def v2_metadata():
-    """Metadata V2 with range hints that disagree with the data on purpose."""
-    return Metadata.load_from_dict({
+def data_metadata_with_range():
+    metadata = Metadata.load_from_dict({
         'tables': {
             'guests': {
                 'columns': {
@@ -100,20 +106,18 @@ def v2_metadata():
                     'has_rewards': {'sdtype': 'boolean', 'range_is_nullable': False},
                 }
             }
-        },
-        'METADATA_SPEC_VERSION': 'V2',
+        }
     })
 
-
-@pytest.fixture
-def v2_data():
-    return pd.DataFrame({
+    data = pd.DataFrame({
         'room_type': ['BASIC', 'BASIC', 'DELUXE', 'BASIC'],
         'amenities_fee': [10.5, np.nan, 20.25, np.nan],
         'num_guests': [2.5, 3.0, 2.0, 4.0],
         'checkin_date': ['10 Feb 2020', '11 Mar 2020', '12 Apr 2020', '13 May 2020'],
         'has_rewards': [True, False, None, False],
     })
+
+    return data, metadata
 
 
 def _get_column(builder, name):
@@ -136,12 +140,13 @@ def test_import_error_on_unsupported_python(sys_mock, data, metadata):
     """Test an error is raised when running on python older than 3.10."""
     # Setup
     sys_mock.version_info = (3, 9, 18)
+    expected_message = 'DataDesignerSynthesizer only supports python >= 3.10'
 
     # Run and Assert
-    with pytest.raises(ImportError, match='DataDesigner only supports python >= 3.10'):
+    with pytest.raises(ImportError, match=expected_message):
         _import_data_designer()
 
-    with pytest.raises(ImportError, match='DataDesigner only supports python >= 3.10'):
+    with pytest.raises(ImportError, match=expected_message):
         create_data_designer_config(data, metadata)
 
 
@@ -355,23 +360,47 @@ def test_id_maps_to_uuid(data, metadata):
     assert column.params.short_form is False
 
 
-def test_text_maps_to_llm_text_conditioned_on_row(data, metadata):
-    """Test text columns are LLM generated with examples and references to the row."""
+def test_text_maps_to_llm_text_with_examples_and_context(data, metadata):
+    """Test text columns are LLM generated with examples and the context columns."""
     # Run
     column = _get_column(create_data_designer_config(data, metadata), 'review')
 
     # Assert
     assert isinstance(column, dd.LLMTextColumnConfig)
     assert column.model_alias == 'text'
-    assert "'Great stay.', 'Room was small.', 'Loved the pool!'" in column.prompt
-    for reference in ('room_type', 'num_guests', 'has_rewards', 'checkin_date', 'checkout_ts'):
-        assert f'{{{{ {reference} }}}}' in column.prompt
+    assert "Generate a realistic value for the column 'review'" in column.prompt
+    assert (
+        "Here are a few examples from this column: 'Great stay.', 'Room was small.', "
+        "'Loved the pool!'."
+    ) in column.prompt
+    assert column.prompt.endswith('Respond with the value only, without any explanation.')
+
+    _, _, context = column.prompt.partition('Refer to the values in these columns for context:')
+    context_columns = ('has_rewards', 'room_type', 'num_guests', 'amenities_fee', 'checkin_date')
+    for name in (*context_columns, 'checkout_ts'):
+        assert name in context
 
     for excluded in ('guest_id', 'guest_email', 'notes', 'review'):
-        assert f'{{ {excluded} }}' not in column.prompt
+        assert excluded not in context
 
 
-def test_default_model_config_uses_nvidia_provider(data, metadata):
+def test_text_without_examples_or_context():
+    """Test the prompt omits the examples and context when there are none."""
+    # Setup
+    data = pd.DataFrame({'review': [None, None]})
+    metadata = Metadata.load_from_dict({
+        'tables': {'t': {'columns': {'review': {'sdtype': 'text'}}}}
+    })
+
+    # Run
+    column = _get_column(create_data_designer_config(data, metadata), 'review')
+
+    # Assert
+    assert 'examples from this column' not in column.prompt
+    assert 'for context' not in column.prompt
+
+
+def test_default_model_config(data, metadata):
     """Test a default NVIDIA model config is registered for the model alias."""
     # Run
     builder = create_data_designer_config(data, metadata, model_alias='my-alias')
@@ -379,27 +408,22 @@ def test_default_model_config_uses_nvidia_provider(data, metadata):
     # Assert
     (model_config,) = builder.model_configs
     assert model_config.alias == 'my-alias'
+    assert model_config.model == DEFAULT_MODEL_ID
     assert model_config.provider == 'nvidia'
+    assert model_config.inference_parameters.temperature == DEFAULT_TEMPRATURE == 0.85
+    assert model_config.inference_parameters.top_p == DEFAULT_TOP_P == 0.95
     assert _get_column(builder, 'review').model_alias == 'my-alias'
 
 
-def test_custom_model_configs_are_used(data, metadata):
-    """Test explicitly passed model configs replace the default."""
-    # Setup
-    model_configs = [
-        dd.ModelConfig(
-            alias='text',
-            model='gpt-4.1',
-            provider='openai',
-            inference_parameters=dd.ChatCompletionInferenceParams(),
-        )
-    ]
-
+def test_custom_tempature_and_top_p(data, metadata):
+    """Test ``tempature`` and ``top_p`` override the default inference parameters."""
     # Run
-    builder = create_data_designer_config(data, metadata, model_configs=model_configs)
+    builder = create_data_designer_config(data, metadata, tempature=0.2, top_p=0.5)
 
     # Assert
-    assert builder.model_configs == model_configs
+    (model_config,) = builder.model_configs
+    assert model_config.inference_parameters.temperature == 0.2
+    assert model_config.inference_parameters.top_p == 0.5
 
 
 def test_missing_data_column_raises(data, metadata):
@@ -452,19 +476,23 @@ def test_wrong_metadata_type_raises(data, bad_metadata):
         create_data_designer_config(data, bad_metadata)
 
 
-def test_range_values_define_categories_with_zero_weight_for_unseen(v2_data, v2_metadata):
+def test_range_values_define_categories_with_zero_weight_for_unseen(data_metadata_with_range):
     """Test ``range_values`` are used as the categories, weighted by the observed counts."""
+    # Setup
+    data, metadata = data_metadata_with_range
+
     # Run
-    column = _get_column(create_data_designer_config(v2_data, v2_metadata), 'room_type')
+    column = _get_column(create_data_designer_config(data, metadata), 'room_type')
 
     # Assert
     assert column.params.values == ['BASIC', 'DELUXE', 'SUITE']  # noqa: PD011
     np.testing.assert_allclose(column.params.weights, [0.75, 0.25, 0.0])
 
 
-def test_range_values_without_observations_sample_uniformly(v2_metadata):
+def test_range_values_without_observations_sample_uniformly(data_metadata_with_range):
     """Test ``range_values`` fall back to uniform weights when the data has no values."""
     # Setup
+    _, metadata = data_metadata_with_range
     data = pd.DataFrame({
         'room_type': [None, None],
         'amenities_fee': [1.0, 2.0],
@@ -474,17 +502,20 @@ def test_range_values_without_observations_sample_uniformly(v2_metadata):
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, v2_metadata), 'room_type')
+    column = _get_column(create_data_designer_config(data, metadata), 'room_type')
 
     # Assert
-    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE']  # noqa: PD011
+    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE']
     assert column.params.weights is None
 
 
-def test_range_min_max_and_decimal_places_override_data(v2_data, v2_metadata):
+def test_range_min_max_and_decimal_places_override_data(data_metadata_with_range):
     """Test numerical ranges and precision come from the metadata when present."""
+    # Setup
+    data, metadata = data_metadata_with_range
+
     # Run
-    builder = create_data_designer_config(v2_data, v2_metadata)
+    builder = create_data_designer_config(data, metadata)
 
     # Assert
     fee = _get_column(builder, 'amenities_fee')
@@ -496,20 +527,26 @@ def test_range_min_max_and_decimal_places_override_data(v2_data, v2_metadata):
     assert guests.convert_to == 'int'
 
 
-def test_datetime_range_min_max_override_data(v2_data, v2_metadata):
+def test_datetime_range_min_max_override_data(data_metadata_with_range):
     """Test datetime ranges come from the string ``range_min`` and ``range_max``."""
+    # Setup
+    data, metadata = data_metadata_with_range
+
     # Run
-    column = _get_column(create_data_designer_config(v2_data, v2_metadata), 'checkin_date')
+    column = _get_column(create_data_designer_config(data, metadata), 'checkin_date')
 
     # Assert
     assert column.params.start == '03 Jan 2020'
     assert column.params.end == '05 Jan 2021'
 
 
-def test_get_missing_value_proportions_honors_range_is_nullable(v2_data, v2_metadata):
+def test_get_missing_value_proportions_honors_range_is_nullable(data_metadata_with_range):
     """Test missing proportions come from the data unless the metadata says not nullable."""
+    # Setup
+    data, metadata = data_metadata_with_range
+
     # Run
-    proportions = get_missing_value_proportions(v2_data, v2_metadata)
+    proportions = get_missing_value_proportions(data, metadata)
 
     # Assert
     assert proportions == {
@@ -521,10 +558,13 @@ def test_get_missing_value_proportions_honors_range_is_nullable(v2_data, v2_meta
     }
 
 
-def test_get_missing_value_proportions_table_name(v2_data, v2_metadata):
+def test_get_missing_value_proportions_table_name(data_metadata_with_range):
     """Test the proportions can be requested for a named table."""
+    # Setup
+    data, metadata = data_metadata_with_range
+
     # Run
-    proportions = get_missing_value_proportions(v2_data, v2_metadata, table_name='guests')
+    proportions = get_missing_value_proportions(data, metadata, table_name='guests')
 
     # Assert
     assert proportions['amenities_fee'] == 0.5
@@ -543,10 +583,11 @@ def test_attach_missing_proportion_sets_supported_attribute():
     assert config.missing_proportion == 0.3
 
 
-def test_attach_missing_proportion_is_noop_on_real_configs(v2_data, v2_metadata):
+def test_attach_missing_proportion_is_noop_on_real_configs(data_metadata_with_range):
     """Test nothing is attached when the config has no missing value field."""
     # Setup
-    column = _get_column(create_data_designer_config(v2_data, v2_metadata), 'amenities_fee')
+    data, metadata = data_metadata_with_range
+    column = _get_column(create_data_designer_config(data, metadata), 'amenities_fee')
 
     # Run
     _attach_missing_proportion(column, 0.5)
@@ -561,9 +602,11 @@ def test_attach_missing_proportion_is_noop_on_real_configs(v2_data, v2_metadata)
 class TestDataDesignerSynthesizer:
     """Unit tests for the ``DataDesignerSynthesizer``."""
 
-    def test_modality(self):
-        """Test the synthesizer is a single table synthesizer."""
+    def test_is_listed_as_single_table_synthesizer(self):
+        """Test the synthesizer is registered as a single table synthesizer."""
         assert DataDesignerSynthesizer._MODALITY_FLAG == 'single_table'
+        assert 'DataDesignerSynthesizer' in get_available_single_table_synthesizers()
+        assert 'DataDesignerSynthesizer' not in get_available_multi_table_synthesizers()
 
     @patch('data_designer.interface.DataDesigner')
     @patch('sdgym.synthesizers.data_designer.create_data_designer_config')
@@ -580,6 +623,21 @@ class TestDataDesignerSynthesizer:
         data_designer_mock.assert_called_once_with()
         assert synthesizer._config_builder is create_config_mock.return_value
         assert synthesizer._internal_synthesizer is data_designer_mock.return_value
+
+    @patch('data_designer.interface.DataDesigner')
+    @patch('sdgym.synthesizers.data_designer.create_data_designer_config')
+    def test__fit_passes_model_kwargs(self, create_config_mock, data_designer_mock, data, metadata):
+        """Test ``_MODEL_KWARGS`` are forwarded to the config creation."""
+        # Setup
+        synthesizer = DataDesignerSynthesizer()
+        synthesizer._MODEL_KWARGS = {'tempature': 0.2, 'top_p': 0.5}
+
+        # Run
+        synthesizer._fit(data, metadata)
+
+        # Assert
+        create_config_mock.assert_called_once_with(data, metadata, tempature=0.2, top_p=0.5)
+        assert synthesizer._MODEL_KWARGS == {'tempature': 0.2, 'top_p': 0.5}
 
     @patch('sdgym.synthesizers.data_designer.create_data_designer_config')
     def test__fit_raises_when_interface_is_missing(self, create_config_mock, data, metadata):

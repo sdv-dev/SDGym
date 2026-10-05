@@ -7,6 +7,7 @@ from sdgym.synthesizers.generate import (
 )
 from sdgym.synthesizers.identity import DataIdentity
 from sdgym.synthesizers.column import ColumnSynthesizer
+from sdgym.synthesizers.data_designer import DataDesignerSynthesizer
 from sdgym.synthesizers.realtabformer import RealTabFormerSynthesizer
 from sdgym.synthesizers.tabddpm import TabDDPMSynthesizer
 from sdgym.synthesizers.clavaddpm import ClavaDDPMSynthesizer
@@ -21,6 +22,7 @@ from sdgym.synthesizers.sdv import create_sdv_synthesizer_class, _get_all_sdv_sy
 __all__ = [
     'DataIdentity',
     'ColumnSynthesizer',
+    'DataDesignerSynthesizer',
     'UniformSynthesizer',
     'RealTabFormerSynthesizer',
     'TabDDPMSynthesizer',
