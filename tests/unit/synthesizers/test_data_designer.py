@@ -2,20 +2,13 @@
 
 import re
 import sys
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-import cloudpickle
 import numpy as np
 import pandas as pd
 import pytest
 from sdv.metadata import Metadata
 
-from sdgym.synthesizers import (
-    DataDesignerSynthesizer,
-    get_available_multi_table_synthesizers,
-    get_available_single_table_synthesizers,
-)
 from sdgym.synthesizers.data_designer import (
     DEFAULT_MODEL_ID,
     DEFAULT_TEMPERATURE,
@@ -302,7 +295,7 @@ def test_create_data_designer_config_other_sdtypes_fall_back_to_category_sampler
 
     notes = _get_column(builder, 'notes')
     assert notes.sampler_type == dd.SamplerType.CATEGORY
-    assert notes.params.values == ['x', 'y', 'z']
+    assert notes.params.values == ['x', 'y', 'z']  # noqa: PD011
     np.testing.assert_allclose(notes.params.weights, [0.6, 0.2, 0.2])
 
 
@@ -448,7 +441,12 @@ def test_create_data_designer_config_maps_text_to_llm_text_examples_and_context(
 
     _, _, context = column.prompt.partition('Refer to the values in these columns for context:')
     context_columns = (
-        'has_rewards', 'room_type', 'num_guests', 'amenities_fee', 'checkin_date', 'checkout_ts'
+        'has_rewards',
+        'room_type',
+        'num_guests',
+        'amenities_fee',
+        'checkin_date',
+        'checkout_ts',
     )
     for name in context_columns:
         assert name in context
@@ -561,8 +559,8 @@ def test_create_data_designer_config_wrong_metadata_type_raises(data, bad_metada
 
 
 def test_create_data_designer_config_range_values_define_categories_with_zero_weight_for_unseen(
-        data_metadata_with_range
-    ):
+    data_metadata_with_range,
+):
     """Test ``range_values`` are used as the categories, weighted by the observed counts."""
     # Setup
     data, metadata = data_metadata_with_range
@@ -571,13 +569,13 @@ def test_create_data_designer_config_range_values_define_categories_with_zero_we
     column = _get_column(create_data_designer_config(data, metadata)[0], 'room_type')
 
     # Assert
-    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE']
+    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE']  # noqa: PD011
     np.testing.assert_allclose(column.params.weights, [0.75, 0.25, 0.0])
 
 
 def test_create_data_designer_config_range_values_with_only_nulls_observed(
-        data_metadata_with_range
-    ):
+    data_metadata_with_range,
+):
     """Test ``range_values`` are kept and the nulls become the only observed category."""
     # Setup
     _, metadata = data_metadata_with_range
@@ -593,13 +591,13 @@ def test_create_data_designer_config_range_values_with_only_nulls_observed(
     column = _get_column(create_data_designer_config(data, metadata)[0], 'room_type')
 
     # Assert
-    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE', '__null__']
+    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE', '__null__']  # noqa: PD011
     np.testing.assert_allclose(column.params.weights, [0.0, 0.0, 0.0, 1.0])
 
 
 def test_create_data_designer_config_range_min_max_and_decimal_places_override_data(
-        data_metadata_with_range
-    ):
+    data_metadata_with_range,
+):
     """Test numerical ranges and precision come from the metadata when present."""
     # Setup
     data, metadata = data_metadata_with_range

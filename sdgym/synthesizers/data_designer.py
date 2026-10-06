@@ -9,9 +9,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sdv.metadata import Metadata
-from sdv._utils import _create_unique_name
 from rdt.transformers.utils import fill_nan_with_none
+from sdv._utils import _create_unique_name
+from sdv.metadata import Metadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer
 
