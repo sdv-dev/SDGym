@@ -1,11 +1,17 @@
 """NVIDIA NeMo Data Designer integration."""
 
 import logging
+import shutil
 import sys
+import tempfile
+import uuid
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sdv.metadata import Metadata
+from sdv._utils import _create_unique_name
+from rdt.transformers.utils import fill_nan_with_none
 
 from sdgym.synthesizers.base import BaselineSynthesizer
 
@@ -15,9 +21,10 @@ MIN_PYTHON_VERSION = (3, 10)
 DEFAULT_MODEL_ALIAS = 'text'
 DEFAULT_MODEL_ID = 'nvidia/nvidia-nemotron-nano-9b-v2'
 DEFAULT_MODEL_PROVIDER = 'nvidia'
-DEFAULT_TEMPRATURE = 0.85
+DEFAULT_TEMPERATURE = 0.85
 DEFAULT_TOP_P = 0.95
 PII_PLACEHOLDER_PREFIX = 'sdgym-pii-'
+NULL_PLACEHOLDER = '__null__'
 MAX_TEXT_EXAMPLES = 3
 MAX_TEXT_EXAMPLE_LENGTH = 100
 
@@ -91,8 +98,8 @@ def _attach_missing_proportion(column_config, missing_proportion):
 
 
 def _create_default_model_config(dd, model_alias, temperature=None, top_p=None):
-    tempature = tempature or DEFAULT_TEMPRATURE
-    top_p = top_p or DEFAULT_TOP_P
+    temperature = DEFAULT_TEMPERATURE if temperature is None else temperature
+    top_p = DEFAULT_TOP_P if top_p is None else top_p
     return dd.ModelConfig(
         alias=model_alias,
         model=DEFAULT_MODEL_ID,
@@ -101,12 +108,17 @@ def _create_default_model_config(dd, model_alias, temperature=None, top_p=None):
     )
 
 
-def _create_categorical_config(dd, column_name, column_data, column_metadata):
+def _create_categorical_config(
+    dd, column_name, column_data, column_metadata, null_placeholder=None
+):
     """Map a categorical column to a weighted ``category`` sampler."""
-    value_counts = column_data.dropna().value_counts()
+    column_data = fill_nan_with_none(column_data).fillna(null_placeholder)
+    value_counts = column_data.value_counts()
     values = column_metadata.get('range_values')
     if values is None:
         values = list(value_counts.index)
+    elif null_placeholder in value_counts.index and null_placeholder not in values:
+        values = [*values, null_placeholder]
 
     if not values:
         LOGGER.warning(
@@ -246,8 +258,14 @@ def create_data_designer_config(
         table_name (str or None):
             The table to map when the metadata has more than one table. Defaults to the only
             table.
-        model_alias (str):
+        model_alias (str or None):
             The model alias used by LLM generated text columns. Defaults to 'text'.
+        temperature (float or None):
+            Sampling temperature of the model used by LLM generated text columns. Higher
+            values produce more varied text. Defaults to 0.85.
+        top_p (float or None):
+            Nucleus sampling probability of the model used by LLM generated text columns.
+            Defaults to 0.95.
 
     Returns:
         DataDesignerConfigBuilder:
@@ -257,6 +275,7 @@ def create_data_designer_config(
 
     dd = _import_data_designer()
     table_metadata = _get_table_metadata(metadata, table_name)
+    null_placeholder = _create_unique_name(NULL_PLACEHOLDER, table_metadata.columns)
     model_configs = [_create_default_model_config(dd, model_alias, temperature, top_p)]
     missing = [name for name in table_metadata.columns if name not in data.columns]
     if missing:
@@ -283,7 +302,9 @@ def create_data_designer_config(
         elif sdtype == 'text':
             config = _create_text_config(dd, column_name, column_data, model_alias, context_columns)
         else:
-            config = _create_categorical_config(dd, column_name, column_data, column_metadata)
+            config = _create_categorical_config(
+                dd, column_name, column_data, column_metadata, null_placeholder
+            )
 
         _attach_missing_proportion(config, _get_missing_proportion(column_data, column_metadata))
         column_configs.append(config)
@@ -292,7 +313,7 @@ def create_data_designer_config(
     for config in column_configs:
         builder.add_column(config)
 
-    return builder
+    return builder, null_placeholder
 
 
 class DataDesignerSynthesizer(BaselineSynthesizer):
@@ -304,7 +325,14 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
 
     def _fit(self, data, metadata):
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
-        config_builder = create_data_designer_config(data, metadata, **model_kwargs)
+        self._artifact_path = model_kwargs.pop('artifact_path', None)
+        self._cleanup_artifacts = model_kwargs.pop('cleanup_artifacts', True)
+        self._config_builder, self._null_placeholder = create_data_designer_config(
+            data, metadata, **model_kwargs
+        )
+
+    def _sample_from_synthesizer(self, synthesizer, n_sample):
+        """Sample synthetic data with specified sample count."""
         try:
             from data_designer.interface import DataDesigner
         except Exception as exception:
@@ -313,14 +341,23 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
                 " dependencies by running  pip install sdgym['data_designer'] "
             ) from exception
 
-        model = DataDesigner()
+        is_temporary = synthesizer._artifact_path is None
+        if is_temporary:
+            artifact_path = Path(tempfile.mkdtemp(prefix='sdgym-data-designer-'))
+        else:
+            artifact_path = Path(synthesizer._artifact_path)
 
-        self._internal_synthesizer = model
-        self._config_builder = config_builder
-
-    def _sample_from_synthesizer(self, synthesizer, n_sample):
-        """Sample synthetic data with specified sample count."""
-        output = synthesizer._internal_synthesizer.create(
-            synthesizer._config_builder, num_records=n_sample
-        )
-        return output.load_dataset()
+        # A unique name keeps concurrent or repeated sample calls from sharing a folder.
+        dataset_name = f'dataset-{uuid.uuid4().hex}'
+        try:
+            output = DataDesigner(artifact_path=artifact_path).create(
+                synthesizer._config_builder, num_records=n_sample, dataset_name=dataset_name
+            )
+            sampled_data = output.load_dataset()
+            return sampled_data.mask(sampled_data == synthesizer._null_placeholder)
+        finally:
+            if synthesizer._cleanup_artifacts:
+                to_remove = artifact_path if is_temporary else artifact_path / dataset_name
+                shutil.rmtree(to_remove, ignore_errors=True)
+            else:
+                self.LOGGER.info(f'Data Designer artifacts kept in {artifact_path / dataset_name}')
