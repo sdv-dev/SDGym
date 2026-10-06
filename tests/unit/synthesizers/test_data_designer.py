@@ -163,7 +163,7 @@ def test__import_succeeds_on_supported_python(sys_mock):
 def test_create_data_designer_config_returns_builder_with_one_config_per_column(data, metadata):
     """Test every metadata column gets a config and the builder validates."""
     # Run
-    builder, _ = create_data_designer_config(data, metadata)
+    builder = create_data_designer_config(data, metadata)
     names = [config.name for config in builder.get_column_configs()]
 
     # Assert
@@ -174,7 +174,7 @@ def test_create_data_designer_config_returns_builder_with_one_config_per_column(
 def test_create_data_designer_config_maps_categorical_to_weighted_category_sampler(data, metadata):
     """Test categorical columns use a ``category`` sampler with observed frequencies."""
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'room_type')
+    column = _get_column(create_data_designer_config(data, metadata), 'room_type')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.CATEGORY
@@ -191,14 +191,14 @@ def test_create_data_designer_config_categorical_values_are_scalars():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'room_type')
+    column = _get_column(create_data_designer_config(data, metadata), 'room_type')
 
     # Assert
     assert column.params.values == [2, 1]  # noqa: PD011
 
 
-def test_create_data_designer_config_categorical_nulls_are_one_category():
-    """Test every kind of missing value is counted as the single category."""
+def test_create_data_designer_config_categorical_nulls_are_dropped():
+    """Test every kind of missing value is dropped from the categories."""
     # Setup
     data = pd.DataFrame({'cat': ['a', None, 'b', np.nan, pd.NaT, 'a', float('nan'), 'a']})
     metadata = Metadata.load_from_dict({
@@ -206,16 +206,16 @@ def test_create_data_designer_config_categorical_nulls_are_one_category():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'cat')
+    column = _get_column(create_data_designer_config(data, metadata), 'cat')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.CATEGORY
-    assert column.params.values == ['__null__', 'a', 'b']  # noqa: PD011
-    np.testing.assert_allclose(column.params.weights, [0.5, 0.375, 0.125])
+    assert column.params.values == ['a', 'b']  # noqa: PD011
+    np.testing.assert_allclose(column.params.weights, [0.75, 0.25])
 
 
-def test_create_data_designer_config_categorical_nulls_added_to_range_values():
-    """Test observed nulls extend the metadata ``range_values`` with the null placeholder."""
+def test_create_data_designer_config_range_values_ignore_observed_nulls():
+    """Test only the metadata ``range_values`` are sampled when nulls were observed."""
     # Setup
     data = pd.DataFrame({'cat': ['a', None, 'a', 'c']})
     metadata = Metadata.load_from_dict({
@@ -225,15 +225,15 @@ def test_create_data_designer_config_categorical_nulls_added_to_range_values():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'cat')
+    column = _get_column(create_data_designer_config(data, metadata), 'cat')
 
     # Assert
-    assert column.params.values == ['a', 'b', '__null__']  # noqa: PD011
-    np.testing.assert_allclose(column.params.weights, [2 / 3, 0.0, 1 / 3])
+    assert column.params.values == ['a', 'b']  # noqa: PD011
+    np.testing.assert_allclose(column.params.weights, [1.0, 0.0])
 
 
 def test_create_data_designer_config_range_values_without_nulls_are_unchanged():
-    """Test the null placeholder is not added to ``range_values`` when no null was observed."""
+    """Test ``range_values`` are weighted by the observed frequencies."""
     # Setup
     data = pd.DataFrame({'cat': ['a', 'b', 'a']})
     metadata = Metadata.load_from_dict({
@@ -243,15 +243,15 @@ def test_create_data_designer_config_range_values_without_nulls_are_unchanged():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'cat')
+    column = _get_column(create_data_designer_config(data, metadata), 'cat')
 
     # Assert
     assert column.params.values == ['a', 'b']  # noqa: PD011
     np.testing.assert_allclose(column.params.weights, [2 / 3, 1 / 3])
 
 
-def test_create_data_designer_config_all_null_categorical_uses_single_category():
-    """Test a completely null column uses a category sampler with one category."""
+def test_create_data_designer_config_all_null_categorical_uses_placeholder():
+    """Test a completely null column falls back to a placeholder sampler."""
     # Setup
     data = pd.DataFrame({'empty': [None, np.nan, pd.NaT]})
     metadata = Metadata.load_from_dict({
@@ -259,12 +259,11 @@ def test_create_data_designer_config_all_null_categorical_uses_single_category()
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'empty')
+    column = _get_column(create_data_designer_config(data, metadata), 'empty')
 
     # Assert
-    assert column.sampler_type == dd.SamplerType.CATEGORY
-    assert column.params.values == ['__null__']  # noqa: PD011
-    assert column.params.weights == [1.0]
+    assert column.sampler_type == dd.SamplerType.UUID
+    assert column.params.prefix == PII_PLACEHOLDER_PREFIX
 
 
 def test_create_data_designer_config_empty_categorical_uses_placeholder():
@@ -276,7 +275,7 @@ def test_create_data_designer_config_empty_categorical_uses_placeholder():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'empty')
+    column = _get_column(create_data_designer_config(data, metadata), 'empty')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.UUID
@@ -286,7 +285,7 @@ def test_create_data_designer_config_empty_categorical_uses_placeholder():
 def test_create_data_designer_config_other_sdtypes_fall_back_to_category_sampler(data, metadata):
     """Test pii and unknown sdtypes are sampled from the observed values."""
     # Run
-    builder, _ = create_data_designer_config(data, metadata)
+    builder = create_data_designer_config(data, metadata)
 
     # Assert
     email = _get_column(builder, 'guest_email')
@@ -302,7 +301,7 @@ def test_create_data_designer_config_other_sdtypes_fall_back_to_category_sampler
 def test_create_data_designer_config_boolean_maps_to_bernoulli(data, metadata):
     """Test boolean columns use a ``bernoulli`` sampler with the observed True rate."""
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'has_rewards')
+    column = _get_column(create_data_designer_config(data, metadata), 'has_rewards')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.BERNOULLI
@@ -318,7 +317,7 @@ def test_create_data_designer_config_boolean_without_values_uses_even_odds():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'flag')
+    column = _get_column(create_data_designer_config(data, metadata), 'flag')
 
     # Assert
     assert column.params.p == 0.5
@@ -327,7 +326,7 @@ def test_create_data_designer_config_boolean_without_values_uses_even_odds():
 def test_create_data_designer_config_integer_numerical_maps_to_uniform_int(data, metadata):
     """Test whole valued columns use a ``uniform`` sampler converted to int."""
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'num_guests')
+    column = _get_column(create_data_designer_config(data, metadata), 'num_guests')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.UNIFORM
@@ -339,7 +338,7 @@ def test_create_data_designer_config_integer_numerical_maps_to_uniform_int(data,
 def test_create_data_designer_config_float_numerical_keeps_observed_decimal_places(data, metadata):
     """Test float columns use a ``uniform`` sampler with the observed precision."""
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'amenities_fee')
+    column = _get_column(create_data_designer_config(data, metadata), 'amenities_fee')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.UNIFORM
@@ -357,7 +356,7 @@ def test_create_data_designer_config_numerical_without_values_samples_zeros():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'amount')
+    column = _get_column(create_data_designer_config(data, metadata), 'amount')
 
     # Assert
     assert (column.params.low, column.params.high) == (0.0, 0.0)
@@ -366,7 +365,7 @@ def test_create_data_designer_config_numerical_without_values_samples_zeros():
 def test_create_data_designer_config_datetime_range_uses_datetime_format(data, metadata):
     """Test the observed datetime range is expressed in the column ``datetime_format``."""
     # Run
-    builder, _ = create_data_designer_config(data, metadata)
+    builder = create_data_designer_config(data, metadata)
 
     # Assert
     checkin = _get_column(builder, 'checkin_date')
@@ -388,7 +387,7 @@ def test_create_data_designer_config_datetime_without_format_uses_default_format
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'when')
+    column = _get_column(create_data_designer_config(data, metadata), 'when')
 
     # Assert
     assert column.params.start == '2020-01-01 00:00:00'
@@ -406,7 +405,7 @@ def test_create_data_designer_config_all_null_datetime_uses_placeholder():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'when')
+    column = _get_column(create_data_designer_config(data, metadata), 'when')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.UUID
@@ -416,7 +415,7 @@ def test_create_data_designer_config_all_null_datetime_uses_placeholder():
 def test_create_data_designer_config_maps_id_to_uuid(data, metadata):
     """Test id columns use a full ``uuid`` sampler."""
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'guest_id')
+    column = _get_column(create_data_designer_config(data, metadata), 'guest_id')
 
     # Assert
     assert column.sampler_type == dd.SamplerType.UUID
@@ -427,7 +426,7 @@ def test_create_data_designer_config_maps_id_to_uuid(data, metadata):
 def test_create_data_designer_config_maps_text_to_llm_text_examples_and_context(data, metadata):
     """Test text columns are LLM generated with examples and the context columns."""
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'review')
+    column = _get_column(create_data_designer_config(data, metadata), 'review')
 
     # Assert
     assert isinstance(column, dd.LLMTextColumnConfig)
@@ -464,7 +463,7 @@ def test_create_data_designer_config_text_without_examples_or_context():
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'review')
+    column = _get_column(create_data_designer_config(data, metadata), 'review')
 
     # Assert
     assert 'examples from this column' not in column.prompt
@@ -474,7 +473,7 @@ def test_create_data_designer_config_text_without_examples_or_context():
 def test_create_data_designer_config_default_model_config(data, metadata):
     """Test a default NVIDIA model config is registered for the model alias."""
     # Run
-    builder, _ = create_data_designer_config(data, metadata, model_alias='my-alias')
+    builder = create_data_designer_config(data, metadata, model_alias='my-alias')
 
     # Assert
     (model_config,) = builder.model_configs
@@ -489,7 +488,7 @@ def test_create_data_designer_config_default_model_config(data, metadata):
 def test_create_data_designer_config_custom_temperature_and_top_p(data, metadata):
     """Test ``temperature`` and ``top_p`` override the default inference parameters."""
     # Run
-    builder, _ = create_data_designer_config(data, metadata, temperature=0.2, top_p=0.5)
+    builder = create_data_designer_config(data, metadata, temperature=0.2, top_p=0.5)
 
     # Assert
     (model_config,) = builder.model_configs
@@ -500,7 +499,7 @@ def test_create_data_designer_config_custom_temperature_and_top_p(data, metadata
 def test_create_data_designer_config_zero_temperature(data, metadata):
     """Test a temperature of zero is a valid value and is kept."""
     # Run
-    builder, _ = create_data_designer_config(data, metadata, temperature=0)
+    builder = create_data_designer_config(data, metadata, temperature=0)
 
     # Assert
     (model_config,) = builder.model_configs
@@ -542,7 +541,7 @@ def test_create_data_designer_config_table_name_selects_table_from_multi_table_m
     })
 
     # Run
-    builder, _ = create_data_designer_config(data, metadata, table_name='a')
+    builder = create_data_designer_config(data, metadata, table_name='a')
 
     # Assert
     assert [config.name for config in builder.get_column_configs()] == ['x']
@@ -566,7 +565,7 @@ def test_create_data_designer_config_range_values_define_categories_with_zero_we
     data, metadata = data_metadata_with_range
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'room_type')
+    column = _get_column(create_data_designer_config(data, metadata), 'room_type')
 
     # Assert
     assert column.params.values == ['BASIC', 'DELUXE', 'SUITE']  # noqa: PD011
@@ -576,7 +575,7 @@ def test_create_data_designer_config_range_values_define_categories_with_zero_we
 def test_create_data_designer_config_range_values_with_only_nulls_observed(
     data_metadata_with_range,
 ):
-    """Test ``range_values`` are kept and the nulls become the only observed category."""
+    """Test ``range_values`` are sampled uniformly when only nulls were observed."""
     # Setup
     _, metadata = data_metadata_with_range
     data = pd.DataFrame({
@@ -588,11 +587,11 @@ def test_create_data_designer_config_range_values_with_only_nulls_observed(
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'room_type')
+    column = _get_column(create_data_designer_config(data, metadata), 'room_type')
 
     # Assert
-    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE', '__null__']  # noqa: PD011
-    np.testing.assert_allclose(column.params.weights, [0.0, 0.0, 0.0, 1.0])
+    assert column.params.values == ['BASIC', 'DELUXE', 'SUITE']  # noqa: PD011
+    assert column.params.weights is None
 
 
 def test_create_data_designer_config_range_min_max_and_decimal_places_override_data(
@@ -603,7 +602,7 @@ def test_create_data_designer_config_range_min_max_and_decimal_places_override_d
     data, metadata = data_metadata_with_range
 
     # Run
-    builder, _ = create_data_designer_config(data, metadata)
+    builder = create_data_designer_config(data, metadata)
 
     # Assert
     fee = _get_column(builder, 'amenities_fee')
@@ -621,7 +620,7 @@ def test_create_data_designer_config_datetime_range_min_max_override_data(data_m
     data, metadata = data_metadata_with_range
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'checkin_date')
+    column = _get_column(create_data_designer_config(data, metadata), 'checkin_date')
 
     # Assert
     assert column.params.start == '03 Jan 2020'
@@ -675,7 +674,7 @@ def test__attach_missing_proportion_is_noop_on_real_configs(data_metadata_with_r
     """Test nothing is attached when the config has no missing value field."""
     # Setup
     data, metadata = data_metadata_with_range
-    column = _get_column(create_data_designer_config(data, metadata)[0], 'amenities_fee')
+    column = _get_column(create_data_designer_config(data, metadata), 'amenities_fee')
 
     # Run
     _attach_missing_proportion(column, 0.5)

@@ -1,4 +1,4 @@
-"""NVIDIA NeMo Data Designer integration."""
+"""NVIDIA Data Designer integration."""
 
 import logging
 import shutil
@@ -9,8 +9,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from rdt.transformers.utils import fill_nan_with_none
-from sdv._utils import _create_unique_name
 from sdv.metadata import Metadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer
@@ -24,7 +22,6 @@ DEFAULT_MODEL_PROVIDER = 'nvidia'
 DEFAULT_TEMPERATURE = 0.85
 DEFAULT_TOP_P = 0.95
 PII_PLACEHOLDER_PREFIX = 'sdgym-pii-'
-NULL_PLACEHOLDER = '__null__'
 MAX_TEXT_EXAMPLES = 3
 MAX_TEXT_EXAMPLE_LENGTH = 100
 
@@ -108,17 +105,12 @@ def _create_default_model_config(dd, model_alias, temperature=None, top_p=None):
     )
 
 
-def _create_categorical_config(
-    dd, column_name, column_data, column_metadata, null_placeholder=None
-):
+def _create_categorical_config(dd, column_name, column_data, column_metadata):
     """Map a categorical column to a weighted ``category`` sampler."""
-    column_data = fill_nan_with_none(column_data).fillna(null_placeholder)
-    value_counts = column_data.value_counts()
+    value_counts = column_data.dropna().value_counts()
     values = column_metadata.get('range_values')
     if values is None:
         values = list(value_counts.index)
-    elif null_placeholder in value_counts.index and null_placeholder not in values:
-        values = [*values, null_placeholder]
 
     if not values:
         LOGGER.warning(
@@ -275,7 +267,6 @@ def create_data_designer_config(
 
     dd = _import_data_designer()
     table_metadata = _get_table_metadata(metadata, table_name)
-    null_placeholder = _create_unique_name(NULL_PLACEHOLDER, table_metadata.columns)
     model_configs = [_create_default_model_config(dd, model_alias, temperature, top_p)]
     missing = [name for name in table_metadata.columns if name not in data.columns]
     if missing:
@@ -302,9 +293,7 @@ def create_data_designer_config(
         elif sdtype == 'text':
             config = _create_text_config(dd, column_name, column_data, model_alias, context_columns)
         else:
-            config = _create_categorical_config(
-                dd, column_name, column_data, column_metadata, null_placeholder
-            )
+            config = _create_categorical_config(dd, column_name, column_data, column_metadata)
 
         _attach_missing_proportion(config, _get_missing_proportion(column_data, column_metadata))
         column_configs.append(config)
@@ -313,7 +302,7 @@ def create_data_designer_config(
     for config in column_configs:
         builder.add_column(config)
 
-    return builder, null_placeholder
+    return builder
 
 
 class DataDesignerSynthesizer(BaselineSynthesizer):
@@ -327,9 +316,7 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         self._artifact_path = model_kwargs.pop('artifact_path', None)
         self._cleanup_artifacts = model_kwargs.pop('cleanup_artifacts', True)
-        self._config_builder, self._null_placeholder = create_data_designer_config(
-            data, metadata, **model_kwargs
-        )
+        self._config_builder = create_data_designer_config(data, metadata, **model_kwargs)
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
@@ -353,8 +340,7 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
             output = DataDesigner(artifact_path=artifact_path).create(
                 synthesizer._config_builder, num_records=n_sample, dataset_name=dataset_name
             )
-            sampled_data = output.load_dataset()
-            return sampled_data.mask(sampled_data == synthesizer._null_placeholder)
+            return output.load_dataset()
         finally:
             if synthesizer._cleanup_artifacts:
                 to_remove = artifact_path if is_temporary else artifact_path / dataset_name
