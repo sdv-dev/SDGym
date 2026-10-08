@@ -46,4 +46,4 @@ def test_benchmark_single_table_with_data_designer():
     assert 'Quality_Score' in result.columns
     assert 'DataDesignerSynthesizer' in result['Synthesizer'].to_numpy()
     assert 'adult' in result['Dataset'].to_numpy()
-    assert not pd.isna(result[['Synthesizer', 'Dataset', 'Quality_Score']]).any().any()
+    assert not pd.isna(result[['Synthesizer', 'Dataset', 'Adjusted_Quality_Score']]).any().any()

@@ -306,8 +306,9 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
+        table_name = metadata.tables[0]
         metadata.validate()
-        metadata.validate_data(data)
+        metadata.validate_data({table_name: data})
 
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         self._artifact_path = model_kwargs.pop('artifact_path', None)
