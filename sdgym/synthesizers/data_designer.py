@@ -52,10 +52,7 @@ def _import_data_designer():
 def _get_table_metadata(metadata, table_name=None):
     """Return the metadata of ``table_name`` from a ``Metadata`` object."""
     if not isinstance(metadata, Metadata):
-        raise TypeError(
-            f'Expected sdv.Metadata, got {type(metadata).__name__}. '
-            'DataDesignerSynthesizer only supports single table metadata.'
-        )
+        raise TypeError(f'Expected sdv.Metadata, got {type(metadata).__name__}. ')
 
     if table_name is None:
         if len(metadata.tables) != 1:
@@ -72,35 +69,19 @@ def _get_table_metadata(metadata, table_name=None):
     return metadata.tables[table_name]
 
 
-def _get_missing_proportion(column_data, column_metadata):
-    if column_metadata.get('range_is_nullable') is False or len(column_data) == 0:
-        return 0.0
-
-    return float(column_data.isna().mean())
-
-
-def _attach_missing_proportion(column_config, missing_proportion):
-    if not missing_proportion:
-        return
-
-    for attribute in MISSING_PROPORTION_ATTRIBUTES:
-        if hasattr(column_config, attribute):
-            setattr(column_config, attribute, missing_proportion)
-            return
-
-    LOGGER.debug(
-        f"Column '{column_config.name}' has {missing_proportion:.1%} missing values but the "
-        'DataDesignerSynthesizer has no missing value setting.'
-    )
-
-
-def _create_default_model_config(dd, model_alias, temperature=None, top_p=None):
-    temperature = DEFAULT_TEMPERATURE if temperature is None else temperature
-    top_p = DEFAULT_TOP_P if top_p is None else top_p
-    return dd.ModelConfig(
-        alias=model_alias,
+def _create_default_model_config(
+        dd,
+        model_alias,
         model=DEFAULT_MODEL_ID,
         provider=DEFAULT_MODEL_PROVIDER,
+        temperature=DEFAULT_TEMPERATURE,
+        top_p=DEFAULT_TOP_P,
+    ):
+
+    return dd.ModelConfig(
+        alias=model_alias,
+        model=model,
+        provider=provider,
         inference_parameters=dd.ChatCompletionInferenceParams(temperature=temperature, top_p=top_p),
     )
 
@@ -225,23 +206,20 @@ def _create_text_config(dd, column_name, column_data, model_alias, context_colum
     return dd.LLMTextColumnConfig(name=column_name, prompt=prompt, model_alias=model_alias)
 
 
-def get_missing_value_proportions(data, metadata, table_name=None):
-    """Return the proportion of missing values per column."""
-    table_metadata = _get_table_metadata(metadata, table_name)
-    return {
-        column_name: _get_missing_proportion(data[column_name], column_metadata)
-        for column_name, column_metadata in table_metadata.columns.items()
-        if column_name in data.columns
-    }
-
-
 def create_data_designer_config(
-    data, metadata, table_name=None, model_alias=None, temperature=None, top_p=None
+    data,
+    metadata,
+    table_name=None,
+    model_alias=DEFAULT_MODEL_ALIAS,
+    model=DEFAULT_MODEL_ID,
+    provider=DEFAULT_MODEL_PROVIDER,
+    temperature=DEFAULT_TEMPERATURE,
+    top_p=DEFAULT_TOP_P
 ):
     """Map a single table dataset and its metadata to a Data Designer config builder.
 
     Args:
-        data (dict[str, pd.DataFrame]):
+        data (pd.DataFrame):
             The real data. Used to fit the sampler parameters that the metadata does not
             provide (frequencies, ranges, boolean rates) and to pick text examples.
         metadata (sdv.Metadata):
@@ -250,12 +228,16 @@ def create_data_designer_config(
         table_name (str or None):
             The table to map when the metadata has more than one table. Defaults to the only
             table.
-        model_alias (str or None):
+        model_alias (str):
             The model alias used by LLM generated text columns. Defaults to 'text'.
-        temperature (float or None):
+        model (str):
+            TODO: update model docstrings.
+        provider (str):
+            TODO: update model provider docstrings.
+        temperature (float):
             Sampling temperature of the model used by LLM generated text columns. Higher
             values produce more varied text. Defaults to 0.85.
-        top_p (float or None):
+        top_p (float):
             Nucleus sampling probability of the model used by LLM generated text columns.
             Defaults to 0.95.
 
@@ -263,14 +245,11 @@ def create_data_designer_config(
         DataDesignerConfigBuilder:
             A builder holding one column config per metadata column.
     """
-    model_alias = model_alias or DEFAULT_MODEL_ALIAS
-
     dd = _import_data_designer()
     table_metadata = _get_table_metadata(metadata, table_name)
-    model_configs = [_create_default_model_config(dd, model_alias, temperature, top_p)]
-    missing = [name for name in table_metadata.columns if name not in data.columns]
-    if missing:
-        raise ValueError(f'The following columns are missing from the data: {missing}')
+    model_configs = [
+        _create_default_model_config(dd, model_alias, model, provider, temperature, top_p)
+    ]
 
     context_columns = [
         name
@@ -282,7 +261,9 @@ def create_data_designer_config(
     for column_name, column_metadata in table_metadata.columns.items():
         sdtype = column_metadata['sdtype']
         column_data = data[column_name]
-        if sdtype == 'boolean':
+        if column_data.isna().all():
+            config = _create_placeholder_config(dd, column_name)
+        elif sdtype == 'boolean':
             config = _create_boolean_config(dd, column_name, column_data)
         elif sdtype == 'numerical':
             config = _create_numerical_config(dd, column_name, column_data, column_metadata)
@@ -295,7 +276,6 @@ def create_data_designer_config(
         else:
             config = _create_categorical_config(dd, column_name, column_data, column_metadata)
 
-        _attach_missing_proportion(config, _get_missing_proportion(column_data, column_metadata))
         column_configs.append(config)
 
     builder = dd.DataDesignerConfigBuilder(model_configs=model_configs)
@@ -313,6 +293,7 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
+        metadata.validate_data(data)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         self._artifact_path = model_kwargs.pop('artifact_path', None)
         self._cleanup_artifacts = model_kwargs.pop('cleanup_artifacts', True)
@@ -323,9 +304,9 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
         try:
             from data_designer.interface import DataDesigner
         except Exception as exception:
-            raise ValueError(
-                "In order to use 'DataDesignerSynthesizer' you have to install the extra"
-                " dependencies by running  pip install sdgym['data_designer'] "
+            raise ImportError(
+                "To use 'DataDesignerSynthesizer' you have to install the extra "
+                "dependencies by running pip install sdgym['data_designer']"
             ) from exception
 
         is_temporary = synthesizer._artifact_path is None
