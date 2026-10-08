@@ -70,13 +70,13 @@ def _get_table_metadata(metadata, table_name=None):
 
 
 def _create_default_model_config(
-        dd,
-        model_alias,
-        model=DEFAULT_MODEL_ID,
-        provider=DEFAULT_MODEL_PROVIDER,
-        temperature=DEFAULT_TEMPERATURE,
-        top_p=DEFAULT_TOP_P,
-    ):
+    dd,
+    model_alias,
+    model=DEFAULT_MODEL_ID,
+    provider=DEFAULT_MODEL_PROVIDER,
+    temperature=DEFAULT_TEMPERATURE,
+    top_p=DEFAULT_TOP_P,
+):
 
     return dd.ModelConfig(
         alias=model_alias,
@@ -131,9 +131,17 @@ def _get_decimal_places(values):
 def _create_numerical_config(dd, column_name, column_data, column_metadata):
     """Map a numerical column to a ``uniform`` sampler."""
     values = pd.to_numeric(column_data, errors='coerce').dropna()
-    if values.empty:
-        LOGGER.warning(f"Column '{column_name}' has no numeric values, sampling zeros.")
-        values = pd.Series([0.0])
+    values_empty = values.empty
+    has_range = 'range_min' in column_metadata and 'range_max' in column_metadata
+    if values_empty and not has_range:
+        LOGGER.warning(
+            f"Column '{column_name}' has no numeric values, sampling from normal distribution."
+        )
+        return dd.SamplerColumnConfig(
+            name=column_name,
+            sampler_type=dd.SamplerType.GAUSSIAN,
+            params=dd.GaussianSamplerParams(mean=0, stddev=1),
+        )
 
     low = column_metadata.get('range_min', values.min())
     high = column_metadata.get('range_max', values.max())
@@ -157,11 +165,17 @@ def _create_datetime_config(dd, column_name, column_data, column_metadata):
     values = pd.to_datetime(column_data, format=datetime_format, errors='coerce').dropna()
     start = pd.to_datetime(column_metadata.get('range_min', values.min()), format=datetime_format)
     end = pd.to_datetime(column_metadata.get('range_max', values.max()), format=datetime_format)
-    if pd.isna(start) or pd.isna(end):
+
+    if pd.isna(start) and pd.isna(end):
         LOGGER.warning(
             f"Column '{column_name}' has no parseable datetimes, using a placeholder sampler."
         )
         return _create_placeholder_config(dd, column_name)
+
+    elif pd.isna(start):
+        start = end
+    elif pd.isna(end):
+        end = start
 
     output_format = datetime_format or '%Y-%m-%d %H:%M:%S'
     params = dd.DatetimeSamplerParams(
@@ -214,7 +228,7 @@ def create_data_designer_config(
     model=DEFAULT_MODEL_ID,
     provider=DEFAULT_MODEL_PROVIDER,
     temperature=DEFAULT_TEMPERATURE,
-    top_p=DEFAULT_TOP_P
+    top_p=DEFAULT_TOP_P,
 ):
     """Map a single table dataset and its metadata to a Data Designer config builder.
 
@@ -231,9 +245,10 @@ def create_data_designer_config(
         model_alias (str):
             The model alias used by LLM generated text columns. Defaults to 'text'.
         model (str):
-            TODO: update model docstrings.
+            The model identifier used for inference. This must correspond to the
+            served model name configured by the specified provider.
         provider (str):
-            TODO: update model provider docstrings.
+            The provider identifier used to route inference requests to the specified model.
         temperature (float):
             Sampling temperature of the model used by LLM generated text columns. Higher
             values produce more varied text. Defaults to 0.85.
@@ -261,9 +276,7 @@ def create_data_designer_config(
     for column_name, column_metadata in table_metadata.columns.items():
         sdtype = column_metadata['sdtype']
         column_data = data[column_name]
-        if column_data.isna().all():
-            config = _create_placeholder_config(dd, column_name)
-        elif sdtype == 'boolean':
+        if sdtype == 'boolean':
             config = _create_boolean_config(dd, column_name, column_data)
         elif sdtype == 'numerical':
             config = _create_numerical_config(dd, column_name, column_data, column_metadata)
@@ -293,7 +306,9 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
+        metadata.validate()
         metadata.validate_data(data)
+    
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         self._artifact_path = model_kwargs.pop('artifact_path', None)
         self._cleanup_artifacts = model_kwargs.pop('cleanup_artifacts', True)

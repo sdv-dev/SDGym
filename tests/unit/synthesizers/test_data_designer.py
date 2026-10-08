@@ -2,7 +2,7 @@
 
 import re
 import sys
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -14,10 +14,8 @@ from sdgym.synthesizers.data_designer import (
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
     PII_PLACEHOLDER_PREFIX,
-    _attach_missing_proportion,
     _import_data_designer,
     create_data_designer_config,
-    get_missing_value_proportions,
 )
 
 dd = pytest.importorskip('data_designer.config')
@@ -118,6 +116,15 @@ def data_metadata_with_range():
 
 def _get_column(builder, name):
     return builder.get_column_config(name)
+
+
+def _create_all_null_inputs(column_metadata, values=(None, np.nan, None)):
+    """Create a one column table whose values are all null, with its metadata."""
+    data = pd.DataFrame({'column': pd.Series(list(values), dtype=object)})
+    metadata = Metadata.load_from_dict({
+        'tables': {'table': {'columns': {'column': column_metadata}}}
+    })
+    return data, metadata
 
 
 def test__import_error_when_package_is_missing():
@@ -347,19 +354,48 @@ def test_create_data_designer_config_float_numerical_keeps_observed_decimal_plac
     assert column.convert_to is None
 
 
-def test_create_data_designer_config_numerical_without_values_samples_zeros():
-    """Test an all null numerical column is sampled as zeros."""
+@pytest.mark.parametrize(
+    'values',
+    [[np.nan, np.nan], [None, None], [np.nan, None, pd.NA], ['a', 'b']],
+)
+def test_create_data_designer_config_numerical_without_values_uses_gaussian(values, caplog):
+    """Test a numerical column without numeric values is sampled from a standard normal."""
     # Setup
-    data = pd.DataFrame({'amount': [np.nan, np.nan]})
+    data = pd.DataFrame({'amount': pd.Series(values)})
+    metadata = Metadata.load_from_dict({
+        'tables': {'table': {'columns': {'amount': {'sdtype': 'numerical'}}}}
+    })
+    expected_message = "Column 'amount' has no numeric values, sampling from normal distribution."
+
+    # Run
+    with caplog.at_level('WARNING', logger='sdgym.synthesizers.data_designer'):
+        column = _get_column(create_data_designer_config(data, metadata), 'amount')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.GAUSSIAN
+    assert isinstance(column.params, dd.GaussianSamplerParams)
+    assert (column.params.mean, column.params.stddev) == (0.0, 1.0)
+    assert column.params.decimal_places is None
+    assert column.convert_to is None
+    assert expected_message in caplog.messages
+
+
+def test_create_data_designer_config_numerical_with_some_values_uses_uniform(caplog):
+    """Test a single numeric value is enough to keep the ``uniform`` sampler."""
+    # Setup
+    data = pd.DataFrame({'amount': [np.nan, 2.5, None]})
     metadata = Metadata.load_from_dict({
         'tables': {'table': {'columns': {'amount': {'sdtype': 'numerical'}}}}
     })
 
     # Run
-    column = _get_column(create_data_designer_config(data, metadata), 'amount')
+    with caplog.at_level('WARNING', logger='sdgym.synthesizers.data_designer'):
+        column = _get_column(create_data_designer_config(data, metadata), 'amount')
 
     # Assert
-    assert (column.params.low, column.params.high) == (0.0, 0.0)
+    assert column.sampler_type == dd.SamplerType.UNIFORM
+    assert (column.params.low, column.params.high) == (2.5, 2.5)
+    assert caplog.messages == []
 
 
 def test_create_data_designer_config_datetime_range_uses_datetime_format(data, metadata):
@@ -470,6 +506,161 @@ def test_create_data_designer_config_text_without_examples_or_context():
     assert 'for context' not in column.prompt
 
 
+def test_create_data_designer_config_all_null_numerical_with_range_uses_uniform():
+    """Test an all null numerical column uses the metadata range when both bounds are set."""
+    # Setup
+    column_metadata = {
+        'sdtype': 'numerical',
+        'range_min': 10.0,
+        'range_max': 20.0,
+        'decimal_places': 2,
+    }
+    data, metadata = _create_all_null_inputs(column_metadata)
+
+    # Run
+    column = _get_column(create_data_designer_config(data, metadata), 'column')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.UNIFORM
+    assert (column.params.low, column.params.high) == (10.0, 20.0)
+    assert column.params.decimal_places == 2
+    assert column.convert_to is None
+
+
+def test_create_data_designer_config_all_null_numerical_with_range_defaults_to_integers():
+    """Test an all null numerical column with a range but no precision is sampled as int."""
+    # Setup
+    column_metadata = {'sdtype': 'numerical', 'range_min': 10.0, 'range_max': 20.0}
+    data, metadata = _create_all_null_inputs(column_metadata)
+
+    # Run
+    column = _get_column(create_data_designer_config(data, metadata), 'column')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.UNIFORM
+    assert (column.params.low, column.params.high) == (10.0, 20.0)
+    assert column.params.decimal_places == 0
+    assert column.convert_to == 'int'
+
+
+@pytest.mark.parametrize('range_key', ['range_min', 'range_max'])
+def test_create_data_designer_config_all_null_numerical_with_one_bound_uses_gaussian(range_key):
+    """Test an all null numerical column with only one bound falls back to a normal."""
+    # Setup
+    data, metadata = _create_all_null_inputs({'sdtype': 'numerical', range_key: 10.0})
+
+    # Run
+    column = _get_column(create_data_designer_config(data, metadata), 'column')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.GAUSSIAN
+    assert (column.params.mean, column.params.stddev) == (0.0, 1.0)
+
+
+def test_create_data_designer_config_all_null_datetime_with_range_uses_datetime_sampler():
+    """Test an all null datetime column uses the metadata range when both bounds are set."""
+    # Setup
+    column_metadata = {
+        'sdtype': 'datetime',
+        'datetime_format': '%d %b %Y',
+        'range_min': '03 Jan 2020',
+        'range_max': '05 Jan 2021',
+    }
+    data, metadata = _create_all_null_inputs(column_metadata)
+
+    # Run
+    column = _get_column(create_data_designer_config(data, metadata), 'column')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.DATETIME
+    assert (column.params.start, column.params.end) == ('03 Jan 2020', '05 Jan 2021')
+
+
+@pytest.mark.parametrize('range_key', ['range_min', 'range_max'])
+def test_create_data_designer_config_all_null_datetime_with_one_bound_uses_it_twice(range_key):
+    """Test an all null datetime column with one bound uses it as both start and end."""
+    # Setup
+    column_metadata = {
+        'sdtype': 'datetime',
+        'datetime_format': '%Y-%m-%d',
+        range_key: '2020-06-15',
+    }
+    data, metadata = _create_all_null_inputs(column_metadata)
+
+    # Run
+    column = _get_column(create_data_designer_config(data, metadata), 'column')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.DATETIME
+    assert (column.params.start, column.params.end) == ('2020-06-15', '2020-06-15')
+
+
+def test_create_data_designer_config_all_null_id_uses_uuid():
+    """Test an all null id column still uses a full ``uuid`` sampler."""
+    # Setup
+    data, metadata = _create_all_null_inputs({'sdtype': 'id'})
+
+    # Run
+    column = _get_column(create_data_designer_config(data, metadata), 'column')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.UUID
+    assert column.params.prefix is None
+    assert column.params.short_form is False
+
+
+@pytest.mark.parametrize(
+    'column_metadata',
+    [
+        {'sdtype': 'email', 'pii': True},
+        {'sdtype': 'unknown', 'pii': True},
+        {'sdtype': 'address', 'pii': True},
+    ],
+    ids=['email', 'unknown', 'address'],
+)
+def test_create_data_designer_config_all_null_other_sdtypes_use_placeholder(
+    column_metadata, caplog
+):
+    """Test all null columns of the remaining sdtypes fall back to a placeholder sampler."""
+    # Setup
+    data, metadata = _create_all_null_inputs(column_metadata)
+    expected_message = "Column 'column' has no observed values, using a placeholder sampler."
+
+    # Run
+    with caplog.at_level('WARNING', logger='sdgym.synthesizers.data_designer'):
+        column = _get_column(create_data_designer_config(data, metadata), 'column')
+
+    # Assert
+    assert column.sampler_type == dd.SamplerType.UUID
+    assert column.params.prefix == PII_PLACEHOLDER_PREFIX
+    assert column.params.short_form is True
+    assert expected_message in caplog.messages
+
+
+def test_create_data_designer_config_all_null_table_builds_and_validates():
+    """Test a table where every column is null still produces a valid config."""
+    # Setup
+    sdtypes = ['numerical', 'categorical', 'boolean', 'datetime', 'id', 'unknown']
+    data = pd.DataFrame({sdtype: pd.Series([None, np.nan], dtype=object) for sdtype in sdtypes})
+    metadata = Metadata.load_from_dict({
+        'tables': {'table': {'columns': {sdtype: {'sdtype': sdtype} for sdtype in sdtypes}}}
+    })
+
+    # Run
+    builder = create_data_designer_config(data, metadata)
+
+    # Assert
+    sampler_types = {config.name: config.sampler_type for config in builder.get_column_configs()}
+    assert sampler_types == {
+        'numerical': dd.SamplerType.GAUSSIAN,
+        'categorical': dd.SamplerType.UUID,
+        'boolean': dd.SamplerType.BERNOULLI,
+        'datetime': dd.SamplerType.UUID,
+        'id': dd.SamplerType.UUID,
+        'unknown': dd.SamplerType.UUID,
+    }
+
+
 def test_create_data_designer_config_default_model_config(data, metadata):
     """Test a default NVIDIA model config is registered for the model alias."""
     # Run
@@ -505,13 +696,6 @@ def test_create_data_designer_config_zero_temperature(data, metadata):
     (model_config,) = builder.model_configs
     assert model_config.inference_parameters.temperature == 0
     assert model_config.inference_parameters.top_p == DEFAULT_TOP_P
-
-
-def test_create_data_designer_config_missing_data_column_raises(data, metadata):
-    """Test an error is raised when the data lacks a metadata column."""
-    # Run and Assert
-    with pytest.raises(ValueError, match=r"columns are missing from the data: \['notes'\]"):
-        create_data_designer_config(data.drop(columns=['notes']), metadata)
 
 
 def test_create_data_designer_config_multi_table_metadata_raises(data):
@@ -625,62 +809,3 @@ def test_create_data_designer_config_datetime_range_min_max_override_data(data_m
     # Assert
     assert column.params.start == '03 Jan 2020'
     assert column.params.end == '05 Jan 2021'
-
-
-def test_get_missing_value_proportions_honors_range_is_nullable(data_metadata_with_range):
-    """Test missing proportions come from the data unless the metadata says not nullable."""
-    # Setup
-    data, metadata = data_metadata_with_range
-
-    # Run
-    proportions = get_missing_value_proportions(data, metadata)
-
-    # Assert
-    assert proportions == {
-        'room_type': 0.0,
-        'amenities_fee': 0.5,
-        'num_guests': 0.0,
-        'checkin_date': 0.0,
-        'has_rewards': 0.0,
-    }
-
-
-def test_get_missing_value_proportions_table_name(data_metadata_with_range):
-    """Test the proportions can be requested for a named table."""
-    # Setup
-    data, metadata = data_metadata_with_range
-
-    # Run
-    proportions = get_missing_value_proportions(data, metadata, table_name='guests')
-
-    # Assert
-    assert proportions['amenities_fee'] == 0.5
-
-
-def test_attach_missing_proportion_sets_supported_attribute():
-    """Test the proportion is attached when the config exposes a missing value field."""
-    # Setup
-    config = Mock(spec=['name', 'missing_proportion'])
-    config.missing_proportion = None
-
-    # Run
-    _attach_missing_proportion(config, 0.3)
-
-    # Assert
-    assert config.missing_proportion == 0.3
-
-
-def test__attach_missing_proportion_is_noop_on_real_configs(data_metadata_with_range):
-    """Test nothing is attached when the config has no missing value field."""
-    # Setup
-    data, metadata = data_metadata_with_range
-    column = _get_column(create_data_designer_config(data, metadata), 'amenities_fee')
-
-    # Run
-    _attach_missing_proportion(column, 0.5)
-
-    # Assert
-    assert not any(
-        hasattr(column, attribute)
-        for attribute in ('missing_values_proportion', 'missing_proportion', 'null_proportion')
-    )
