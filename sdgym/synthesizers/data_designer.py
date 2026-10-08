@@ -308,7 +308,7 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
     def _fit(self, data, metadata):
         metadata.validate()
         metadata.validate_data(data)
-    
+
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         self._artifact_path = model_kwargs.pop('artifact_path', None)
         self._cleanup_artifacts = model_kwargs.pop('cleanup_artifacts', True)
