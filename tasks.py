@@ -71,7 +71,7 @@ def _get_minimum_versions(dependencies, python_version):
         elif '@' not in min_versions[req.name]:
             existing_version = Version(min_versions[req.name].split('==')[1])
             new_version = next(
-                (spec.version for spec in req.specifier if spec.operator in ('>=', '==')),
+                (Version(spec.version) for spec in req.specifier if spec.operator in ('>=', '==')),
                 existing_version,
             )
             if new_version > existing_version:
@@ -169,6 +169,7 @@ def install_minimum(c):
 
 @task
 def minimum(c):
+    os.environ['SDGYM_MINIMUM_TESTS'] = 'true'
     install_minimum(c)
     check_dependencies(c)
     unit(c)

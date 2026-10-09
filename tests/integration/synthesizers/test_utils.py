@@ -11,6 +11,7 @@ def test_get_available_single_table_synthesizers():
         'CTGANSynthesizer',
         'ColumnSynthesizer',
         'CopulaGANSynthesizer',
+        'DataDesignerSynthesizer',
         'DataIdentity',
         'GaussianCopulaSynthesizer',
         'RealTabFormerSynthesizer',
