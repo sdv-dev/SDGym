@@ -30,7 +30,6 @@ def sample_data():
             {'output_dir': 'checkpoints', 'overwrite_output_dir': True, 'num_train_epochs': 10},
         ),
     ],
-    ids=['removed_by_transformers', 'supported_by_transformers'],
 )
 @patch('sdgym.synthesizers.realtabformer.dataclasses.fields')
 def test__remove_unsupported_training_args(fields_mock, field_names, expected):

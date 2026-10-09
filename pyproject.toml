@@ -92,13 +92,13 @@ clavaddpm = [
 ]
 data_designer = [
     "data-designer>=0.8;python_version>='3.10'",
-    "google-api-core<2.36;python_version>='3.10'",  # data-designer requires opentelemetry-api<1.44, google-api-core>=2.36 requires >=1.44
+    "google-api-core<2.36;python_version>='3.10'",  # requires opentelemetry-api<1.44
     "pandas>=2.3.3;python_version>='3.10'",
     "scipy>=1.11.0;python_version>='3.10'",
-    "transformers>=5.0.0;python_version>='3.10'",  # data-designer requires huggingface-hub>=1, which only transformers>=5 supports
-    "boto3>=1.34.63;python_version>='3.10'",  # data-designer requires urllib3>=2.7, which botocore supports since 1.34.63
+    "transformers>=5.0.0;python_version>='3.10'",  # requires huggingface-hub>=1
+    "boto3>=1.34.63;python_version>='3.10'",  # requires urllib3>=2.7
     "botocore>=1.34.63;python_version>='3.10'",
-    "pyOpenSSL>=26.4.0;python_version>='3.10'",  # data-designer requires cryptography>=48, which pydrive2 only supports with a recent pyOpenSSL
+    "pyOpenSSL>=26.4.0;python_version>='3.10'",  # requires cryptography>=48
 ]
 test = [
     'sdgym[realtabformer]',

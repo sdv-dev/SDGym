@@ -169,6 +169,7 @@ def install_minimum(c):
 
 @task
 def minimum(c):
+    os.environ['SDGYM_MINIMUM_TESTS'] = 'true'
     install_minimum(c)
     check_dependencies(c)
     unit(c)
