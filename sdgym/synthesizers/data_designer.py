@@ -306,7 +306,7 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
-        table_name = metadata.tables[0]
+        table_name = metadata._get_single_table_name()
         metadata.validate()
         metadata.validate_data({table_name: data})
 
