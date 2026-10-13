@@ -153,3 +153,12 @@ ClavaDDPMSynthesizer:
     The ClavaDDPM model is an extension of the TabDDPM model to handle multi-table datasets.
     It is based on clustering labels as intermediaries to model relationships between tables,
     specifically focusing on foreign key constraints.
+
+DataDesignerSynthesizer:
+  library: data-designer
+  organization: Nvidia
+  modality: single_table
+  type: Statistical and Large Language Models
+  description: >
+    NVIDIA Data Designer is a configurable framework that uses LLMs, statistical models,
+    and customizable samplers to generate synthetic data.
