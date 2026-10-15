@@ -134,7 +134,7 @@ XGCSynthesizer:
     to train a model and generate synthetic data similar to the GaussianCopulaSynthesizer.
     However, it contains some additional features for higher quality modeling.
 
-TabDDOMSynthesizer:
+TabDDPMSynthesizer:
   library: sdgym
   organization: Yandex
   modality: single_table
