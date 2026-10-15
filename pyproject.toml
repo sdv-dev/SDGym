@@ -83,7 +83,6 @@ dask = ['dask', 'distributed']
 realtabformer = [
     'realtabformer>=0.2.3,!=0.2.4',
     "torch>=2.6.0",
-    'transformers<4.51',
 ]
 clavaddpm = [
     "faiss-cpu>=1.10.0;python_version<'3.14'",
@@ -91,9 +90,20 @@ clavaddpm = [
     'scipy>=1.9.2',
     'numpy>=1.25.0',
 ]
+data_designer = [
+    "data-designer>=0.8;python_version>='3.10'",
+    "google-api-core<2.36;python_version>='3.10'",  # requires opentelemetry-api<1.44
+    "pandas>=2.3.3;python_version>='3.10'",
+    "scipy>=1.11.0;python_version>='3.10'",
+    "transformers>=5.0.0;python_version>='3.10'",  # requires huggingface-hub>=1
+    "boto3>=1.34.63;python_version>='3.10'",  # requires urllib3>=2.7
+    "botocore>=1.34.63;python_version>='3.10'",
+    "pyOpenSSL>=26.4.0;python_version>='3.10'",  # requires cryptography>=48
+]
 test = [
     'sdgym[realtabformer]',
     'sdgym[clavaddpm]',
+    'sdgym[data_designer]',
     'pytest>=6.2.5',
     'pytest-cov>=2.6.0',
     'jupyter>=1.0.0,<2',

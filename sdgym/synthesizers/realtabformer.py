@@ -1,12 +1,15 @@
 """REaLTabFormer integration."""
 
 import contextlib
+import dataclasses
 import logging
 from functools import partialmethod
 
 import tqdm
 
 from sdgym.synthesizers.base import BaselineSynthesizer
+
+REMOVED_TRAINING_ARGS = ('overwrite_output_dir',)
 
 
 @contextlib.contextmanager
@@ -17,6 +20,16 @@ def prevent_tqdm_output():
         yield
     finally:
         tqdm.__init__ = partialmethod(tqdm.__init__, disable=False)
+
+
+def _remove_unsupported_training_args(model):
+    """Drop deprecated args that are no longer used by transformers."""
+    from transformers import TrainingArguments
+
+    supported = {field.name for field in dataclasses.fields(TrainingArguments)}
+    for name in REMOVED_TRAINING_ARGS:
+        if name not in supported:
+            model.training_args_kwargs.pop(name, None)
 
 
 class RealTabFormerSynthesizer(BaselineSynthesizer):
@@ -39,6 +52,7 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
         with prevent_tqdm_output():
             model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
             model = REaLTabFormer(model_type='tabular', **model_kwargs)
+            _remove_unsupported_training_args(model)
             model.fit(data)
 
         self._internal_synthesizer = model
