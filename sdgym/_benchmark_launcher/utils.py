@@ -43,6 +43,7 @@ MODALITY_TO_JOB_SETUP = {
             'BootstrapSynthesizer',
             'RealTabFormerSynthesizer',
             'TabDDPMSynthesizer',
+            'DataDesignerSynthesizer',
         ],
     },
     'multi_table': {
