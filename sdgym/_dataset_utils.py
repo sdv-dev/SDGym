@@ -8,7 +8,7 @@ from zipfile import ZipFile
 import numpy as np
 import pandas as pd
 from sdv.metadata import Metadata
-from sdv.utils import poc
+from sdv.utils import get_random_subset
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def _get_multi_table_dataset_subset(data, metadata_dict):
         data[table_name] = data[table_name][list(table.columns)]
 
     # Subsample the data mantaining the referential integrity
-    data = poc.get_random_subset(
+    data = get_random_subset(
         data=data,
         metadata=metadata,
         main_table_name=largest_table_name,

@@ -62,10 +62,9 @@ dependencies = [
     "torch>=2.9.0;python_version>='3.14'",
     'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
-    "rdt>=1.18.2;python_version<'3.14'",
-    "rdt>=1.20.0;python_version>='3.14'",
     "sdmetrics>=0.29.0",
-    "sdv>=1.37.0",
+    "rdt>=2.0.0,<3",
+    "sdv>=2.0.0,<3",
 ]
 
 [project.urls]

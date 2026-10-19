@@ -4,6 +4,7 @@ import logging
 import sys
 from importlib import import_module
 
+import pandas as pd
 from sdv import multi_table, single_table
 
 from sdgym.synthesizers.base import (
@@ -41,6 +42,10 @@ def _get_all_sdv_synthesizers():
 
 def _fit(self, data, metadata):
     LOGGER.info('Fitting %s', self.__class__.__name__)
+    if isinstance(data, pd.DataFrame):
+        table_name = metadata._get_single_table_name()
+        data = {table_name: data}
+
     sdv_class = getattr(import_module(f'sdv.{self._MODALITY_FLAG}'), self.SDV_NAME)
     synthesizer = sdv_class(metadata=metadata, **self._MODEL_KWARGS)
     synthesizer.fit(data)
@@ -50,7 +55,7 @@ def _fit(self, data, metadata):
 def _sample_from_synthesizer(self, synthesizer, sample_arg):
     LOGGER.info('Sampling %s', self.__class__.__name__)
     if self._MODALITY_FLAG == 'multi_table':
-        return synthesizer._internal_synthesizer.sample(scale=sample_arg)
+        return synthesizer._internal_synthesizer.sample_scale(scale=sample_arg)
 
     return synthesizer._internal_synthesizer.sample(num_rows=sample_arg)
 

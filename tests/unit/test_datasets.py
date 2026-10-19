@@ -446,7 +446,7 @@ def test_dataset_to_bucket_raises_inaccessible_bucket(get_available_mock):
 @patch('sdgym.datasets.get_s3_client')
 @patch('sdgym.datasets._get_metadata')
 @patch('sdgym.datasets._load_data_from_zip')
-@patch('sdgym.datasets._get_first_v1_metadata_bytes')
+@patch('sdgym.datasets._get_first_v2_metadata_bytes')
 @patch('sdgym.datasets._get_data_from_bucket')
 @patch('sdgym.datasets._find_data_zip_key')
 @patch('sdgym.datasets._list_objects')
@@ -454,7 +454,7 @@ def test__load_private_sdv_demo_dataset(
     list_objects_mock,
     find_data_zip_key_mock,
     get_data_from_bucket_mock,
-    get_first_v1_metadata_bytes_mock,
+    get_first_v2_metadata_bytes_mock,
     load_data_from_zip_mock,
     get_metadata_mock,
     get_s3_client_mock,
@@ -480,7 +480,7 @@ def test__load_private_sdv_demo_dataset(
     list_objects_mock.return_value = contents
     find_data_zip_key_mock.return_value = data_key
     get_data_from_bucket_mock.return_value = raw_data
-    get_first_v1_metadata_bytes_mock.return_value = metadata_bytes
+    get_first_v2_metadata_bytes_mock.return_value = metadata_bytes
     load_data_from_zip_mock.return_value = {'table_name': table_data}
     metadata_mock.to_dict.return_value = {'meta': 'data'}
     get_metadata_mock.return_value = metadata_mock
@@ -497,7 +497,7 @@ def test__load_private_sdv_demo_dataset(
     get_data_from_bucket_mock.assert_called_once_with(
         data_key, bucket=bucket_name, client=s3_client_mock
     )
-    get_first_v1_metadata_bytes_mock.assert_called_once_with(
+    get_first_v2_metadata_bytes_mock.assert_called_once_with(
         contents, dataset_prefix, bucket=bucket_name, client=s3_client_mock
     )
     load_data_from_zip_mock.assert_called_once_with(ANY, bucket_name, dataset_name)

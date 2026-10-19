@@ -12,7 +12,7 @@ import pandas as pd
 from sdv.datasets.demo import (
     _find_data_zip_key,
     _get_data_from_bucket,
-    _get_first_v1_metadata_bytes,
+    _get_first_v2_metadata_bytes,
     _get_metadata,
     _list_objects,
     _load_data_from_zip,
@@ -188,7 +188,7 @@ def get_data_and_metadata_from_path(dataset_path, modality):
     data = None
     for file_name in dataset_path.iterdir():
         is_metadata = 'metadata' in file_name.stem and file_name.suffix == '.json'
-        if (is_metadata and metadata_dict is None) or file_name.name == 'metadata.json':
+        if (is_metadata and metadata_dict is None) or file_name.name == 'metadata_v2.json':
             metadata_dict = _read_metadata_json(file_name)
         elif 'data' in file_name.stem and file_name.suffix == '.zip':
             data = _read_zipped_data(zip_file_path=(file_name), modality=modality)
@@ -302,7 +302,7 @@ def _load_private_sdv_demo_dataset(modality, dataset_name, bucket, s3_client=Non
     contents = _list_objects(dataset_prefix, bucket=bucket_name, client=s3_client)
     data_key = _find_data_zip_key(contents, dataset_prefix, bucket_name)
     data_bytes = io.BytesIO(_get_data_from_bucket(data_key, bucket=bucket_name, client=s3_client))
-    metadata_bytes = _get_first_v1_metadata_bytes(
+    metadata_bytes = _get_first_v2_metadata_bytes(
         contents, dataset_prefix, bucket=bucket_name, client=s3_client
     )
     data = _load_data_from_zip(data_bytes, bucket_name, dataset_name)

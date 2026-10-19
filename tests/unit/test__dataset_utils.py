@@ -36,7 +36,7 @@ def test__parse_numeric_value(value, expected):
         assert result == expected
 
 
-@patch('sdgym._dataset_utils.poc.get_random_subset')
+@patch('sdgym._dataset_utils.get_random_subset')
 @patch('sdgym._dataset_utils.Metadata')
 def test__get_multi_table_dataset_subset(mock_metadata, mock_subset):
     """Test multi-table subset selection calls SDV and trims columns."""
