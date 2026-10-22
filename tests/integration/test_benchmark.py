@@ -823,7 +823,7 @@ def test_benchmark_single_table_error_during_fit(mock_fit):
     # Setup
     def fit(self, data):
         processed_data = self.preprocess(data)
-        self._fit(processed_data)
+        self.fit_processed_data(processed_data)
         raise Exception('Fitting error')
 
     mock_fit.side_effect = fit

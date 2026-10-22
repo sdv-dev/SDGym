@@ -22,8 +22,14 @@ class ColumnSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
+        if isinstance(metadata, Metadata):
+            table_name = metadata._get_single_table_name()
+        else:
+            table_name = next(iter(data))
+
+        table_data = data[table_name]
         hyper_transformer = HyperTransformer()
-        hyper_transformer.detect_initial_config(data)
+        hyper_transformer.detect_initial_config(table_data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
         if isinstance(metadata, Metadata):
@@ -48,14 +54,14 @@ class ColumnSynthesizer(BaselineSynthesizer):
 
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
-            column_name for column_name, data in data.items() if data.dtype.kind in {'O', 'i'}
+            column_name for column_name, data in table_data.items() if data.dtype.kind in {'O', 'i'}
         ]
         hyper_transformer.remove_transformers(columns_to_remove)
 
-        hyper_transformer.fit(data)
-        transformed = hyper_transformer.transform(data)
+        hyper_transformer.fit(table_data)
+        transformed = hyper_transformer.transform(table_data)
 
-        self.length = len(data)
+        self.length = len(table_data)
         gm_models = {}
         for name, column in transformed.items():
             kind = column.dtype.kind
@@ -68,6 +74,7 @@ class ColumnSynthesizer(BaselineSynthesizer):
         self.hyper_transformer = hyper_transformer
         self.transformed_data = transformed
         self.gm_models = gm_models
+        self._table_name = table_name
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
         hyper_transformer = synthesizer.hyper_transformer
@@ -84,4 +91,4 @@ class ColumnSynthesizer(BaselineSynthesizer):
 
             sampled[name] = values
 
-        return hyper_transformer.reverse_transform(sampled)
+        return {synthesizer._table_name: hyper_transformer.reverse_transform(sampled)}

@@ -28,10 +28,11 @@ class TestUniformSynthesizer:
         column_synthesizer = ColumnSynthesizer()
 
         # Run
-        trained_synthesizer = column_synthesizer.get_trained_synthesizer(data, {})
+        trained_synthesizer = column_synthesizer.get_trained_synthesizer({'table': data}, {})
         samples = column_synthesizer.sample_from_synthesizer(
             trained_synthesizer, n_samples=n_samples
         )
+        samples = samples['table']
 
         # Assert
         assert samples['num'].between(-10, 10).all()
@@ -105,7 +106,7 @@ class TestUniformSynthesizer:
         }
 
         # Run
-        real_data = pd.DataFrame(data)
+        real_data = {'table': pd.DataFrame(data)}
         synthesizer = ColumnSynthesizer().get_trained_synthesizer(real_data, metadata)
         hyper_transformer_config = synthesizer.hyper_transformer.get_config()
 

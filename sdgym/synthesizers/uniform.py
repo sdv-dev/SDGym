@@ -6,6 +6,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
+from sdv.metadata import Metadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiTableBaselineSynthesizer
 
@@ -21,22 +22,29 @@ class UniformSynthesizer(BaselineSynthesizer):
         super().__init__()
         self.hyper_transformer = None
         self.transformed_data = None
+        self._table_name = None
 
     def _fit(self, data, metadata):
         """Fit the synthesizer to the data.
 
         Args:
-            data (pd.DataFrame):
+            data (dict[str, pd.DataFrame]):
                 The data to fit the synthesizer to.
             metadata (sdv.metadata.Metadata):
                 The metadata describing the data.
         """
+        if isinstance(metadata, Metadata):
+            table_name = metadata._get_single_table_name()
+        else:
+            table_name = next(iter(data))
+
+        table_data = data[table_name]
         hyper_transformer = HyperTransformer()
-        hyper_transformer.detect_initial_config(data)
+        hyper_transformer.detect_initial_config(table_data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
-        table = next(iter(metadata.tables.values()))
-        for column_name, column in table.columns.items():
+        table_metadata = next(iter(metadata.tables.values()))
+        for column_name, column in table_metadata.columns.items():
             sdtype = column['sdtype']
             if sdtype in supported_sdtypes:
                 config[column_name] = sdtype
@@ -59,15 +67,16 @@ class UniformSynthesizer(BaselineSynthesizer):
         # This is done to match the behavior of the synthesizer for SDGym <= 0.6.0
         columns_to_remove = [
             column_name
-            for column_name, column_data in data.items()
+            for column_name, column_data in table_data.items()
             if column_data.dtype.kind in {'O', 'i', 'b'}
         ]
         hyper_transformer.remove_transformers(columns_to_remove)
 
-        hyper_transformer.fit(data)
-        transformed = hyper_transformer.transform(data)
+        hyper_transformer.fit(table_data)
+        transformed = hyper_transformer.transform(table_data)
         self.hyper_transformer = hyper_transformer
         self.transformed_data = transformed
+        self._table_name = table_name
 
     def _sample_from_synthesizer(self, synthesizer, n_samples):
         hyper_transformer = synthesizer.hyper_transformer
@@ -85,7 +94,7 @@ class UniformSynthesizer(BaselineSynthesizer):
                 values = np.random.uniform(column.min(), column.max(), size=n_samples)
             sampled[name] = values
 
-        return hyper_transformer.reverse_transform(sampled)
+        return {synthesizer._table_name: hyper_transformer.reverse_transform(sampled)}
 
 
 class MultiTableUniformSynthesizer(MultiTableBaselineSynthesizer):
@@ -112,7 +121,7 @@ class MultiTableUniformSynthesizer(MultiTableBaselineSynthesizer):
         for table_name, table_data in data.items():
             table_metadata = metadata.get_table_metadata(table_name)
             synthesizer = UniformSynthesizer()
-            synthesizer._fit(table_data, table_metadata)
+            synthesizer._fit({table_name: table_data}, table_metadata)
             self.num_rows_per_table[table_name] = len(table_data)
             self.table_synthesizers[table_name] = synthesizer
 
@@ -135,6 +144,6 @@ class MultiTableUniformSynthesizer(MultiTableBaselineSynthesizer):
             sampled_table = UniformSynthesizer().sample_from_synthesizer(
                 table_synthesizer, n_samples=n_samples
             )
-            sampled_data[table_name] = sampled_table
+            sampled_data[table_name] = sampled_table[table_name]
 
         return sampled_data

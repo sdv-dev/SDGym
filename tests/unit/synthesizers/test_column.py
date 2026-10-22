@@ -14,7 +14,7 @@ class TestColumnSynthesizer:
         # Setup
         column_synthesizer = ColumnSynthesizer()
         column_synthesizer.length = 10
-        data = pd.DataFrame({'col': [1, 2, 3, 4]})
+        data = {'table': pd.DataFrame({'col': [1, 2, 3, 4]})}
         metadata = Metadata()
         metadata.add_table('table')
         metadata.add_column('col', 'table', sdtype='numerical')
@@ -31,7 +31,7 @@ class TestColumnSynthesizer:
         # Setup
         column_synthesizer = ColumnSynthesizer()
         column_synthesizer.length = 10
-        data = pd.DataFrame({'col': [1, 2, 3, 4]})
+        data = {'table': pd.DataFrame({'col': [1, 2, 3, 4]})}
         metadata = _SingleTableMetadata()
         metadata.add_column('col', sdtype='numerical')
 

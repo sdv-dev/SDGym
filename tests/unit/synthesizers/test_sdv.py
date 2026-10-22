@@ -61,10 +61,12 @@ def test__get_all_sdv_synthesizers():
 def test__fit(mock_logger):
     """Test the `_fit` method."""
     # Setup
-    data = pd.DataFrame({
-        'column1': [1, 2, 3, 4, 5],
-        'column2': ['A', 'B', 'C', 'D', 'E'],
-    })
+    data = {
+        'table_1': pd.DataFrame({
+            'column1': [1, 2, 3, 4, 5],
+            'column2': ['A', 'B', 'C', 'D', 'E'],
+        })
+    }
     metadata = Metadata().load_from_dict({
         'tables': {
             'table_1': {

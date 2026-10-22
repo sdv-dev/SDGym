@@ -30,48 +30,50 @@ class TestUniformSynthesizer:
         }
 
         data = {
-            'guest_email': {
-                0: 'michaelsanders@shaw.net',
-                1: 'randy49@brown.biz',
-                2: 'webermelissa@neal.com',
-                3: 'gsims@terry.com',
-                4: 'misty33@smith.biz',
-            },
-            'has_rewards': {0: False, 1: False, 2: True, 3: False, 4: False},
-            'room_type': {0: 'BASIC', 1: 'BASIC', 2: 'DELUXE', 3: 'BASIC', 4: 'BASIC'},
-            'amenities_fee': {0: 37.89, 1: 24.37, 2: 0.0, 3: np.nan, 4: 16.45},
-            'checkin_date': {
-                0: '27 Dec 2020',
-                1: '30 Dec 2020',
-                2: '17 Sep 2020',
-                3: '28 Dec 2020',
-                4: '05 Apr 2020',
-            },
-            'checkout_date': {
-                0: '29 Dec 2020',
-                1: '02 Jan 2021',
-                2: '18 Sep 2020',
-                3: '31 Dec 2020',
-                4: np.nan,
-            },
-            'room_rate': {0: 131.23, 1: 114.43, 2: 368.33, 3: 115.61, 4: 122.41},
-            'billing_address': {
-                0: '49380 Rivers Street\nSpencerville, AK 68265',
-                1: '88394 Boyle Meadows\nConleyberg, TN 22063',
-                2: '0323 Lisa Station Apt. 208\nPort Thomas, LA 82585',
-                3: '77 Massachusetts Ave\nCambridge, MA 02139',
-                4: '1234 Corporate Drive\nBoston, MA 02116',
-            },
-            'credit_card_number': {
-                0: 4075084747483975747,
-                1: 180072822063468,
-                2: 38983476971380,
-                3: 4969551998845740,
-                4: 3558512986488983,
-            },
+            'table': {
+                'guest_email': {
+                    0: 'michaelsanders@shaw.net',
+                    1: 'randy49@brown.biz',
+                    2: 'webermelissa@neal.com',
+                    3: 'gsims@terry.com',
+                    4: 'misty33@smith.biz',
+                },
+                'has_rewards': {0: False, 1: False, 2: True, 3: False, 4: False},
+                'room_type': {0: 'BASIC', 1: 'BASIC', 2: 'DELUXE', 3: 'BASIC', 4: 'BASIC'},
+                'amenities_fee': {0: 37.89, 1: 24.37, 2: 0.0, 3: np.nan, 4: 16.45},
+                'checkin_date': {
+                    0: '27 Dec 2020',
+                    1: '30 Dec 2020',
+                    2: '17 Sep 2020',
+                    3: '28 Dec 2020',
+                    4: '05 Apr 2020',
+                },
+                'checkout_date': {
+                    0: '29 Dec 2020',
+                    1: '02 Jan 2021',
+                    2: '18 Sep 2020',
+                    3: '31 Dec 2020',
+                    4: np.nan,
+                },
+                'room_rate': {0: 131.23, 1: 114.43, 2: 368.33, 3: 115.61, 4: 122.41},
+                'billing_address': {
+                    0: '49380 Rivers Street\nSpencerville, AK 68265',
+                    1: '88394 Boyle Meadows\nConleyberg, TN 22063',
+                    2: '0323 Lisa Station Apt. 208\nPort Thomas, LA 82585',
+                    3: '77 Massachusetts Ave\nCambridge, MA 02139',
+                    4: '1234 Corporate Drive\nBoston, MA 02116',
+                },
+                'credit_card_number': {
+                    0: 4075084747483975747,
+                    1: 180072822063468,
+                    2: 38983476971380,
+                    3: 4969551998845740,
+                    4: 3558512986488983,
+                },
+            }
         }
 
-        real_data = pd.DataFrame(data)
+        real_data = {'table': pd.DataFrame(data['table'])}
 
         # Run
         synthesizer = uniform_synthesizer.get_trained_synthesizer(real_data, metadata)
@@ -142,8 +144,8 @@ class TestMultiTableUniformSynthesizer:
             call('table2'),
         ])
         mock_uniform_fit.assert_has_calls([
-            call(data['table1'], st_metadatas[0]),
-            call(data['table2'], st_metadatas[1]),
+            call({'table1': data['table1']}, st_metadatas[0]),
+            call({'table2': data['table2']}, st_metadatas[1]),
         ])
         assert synthesizer.num_rows_per_table == {
             'table1': 3,
@@ -220,8 +222,8 @@ class TestMultiTableUniformSynthesizer:
             'table2': synthesizer_table2,
         }
         mock_sample_from_synthesizer.side_effect = [
-            'sampled_data_table1',
-            'sampled_data_table2',
+            {'table1': 'sampled_data_table1'},
+            {'table2': 'sampled_data_table2'},
         ]
         scale = 2
 
@@ -255,22 +257,30 @@ class TestMultiTableUniformSynthesizer:
         }
         table_1 = UniformSynthesizer()
         table_1._fit(
-            data['table1'],
+            {'table1': data['table1']},
             Metadata.load_from_dict({
-                'columns': {
-                    'col1': {'sdtype': 'numerical'},
-                    'col2': {'sdtype': 'categorical'},
-                },
+                'tables': {
+                    'table1': {
+                        'columns': {
+                            'col1': {'sdtype': 'numerical'},
+                            'col2': {'sdtype': 'categorical'},
+                        },
+                    }
+                }
             }),
         )
         table_2 = UniformSynthesizer()
         table_2._fit(
-            data['table2'],
+            {'table2': data['table2']},
             Metadata.load_from_dict({
-                'columns': {
-                    'col3': {'sdtype': 'numerical'},
-                    'col4': {'sdtype': 'boolean'},
-                },
+                'tables': {
+                    'table2': {
+                        'columns': {
+                            'col3': {'sdtype': 'numerical'},
+                            'col4': {'sdtype': 'boolean'},
+                        },
+                    }
+                }
             }),
         )
         trained_synthesizer = MultiTableUniformSynthesizer()

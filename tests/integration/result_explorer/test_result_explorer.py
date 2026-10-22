@@ -62,8 +62,10 @@ def test_end_to_end_local(tmp_path):
     assert runs == [expected_run]
     assert isinstance(synthetic_data, pd.DataFrame)
     assert isinstance(synthesizer, TVAESynthesizer)
-    assert set(new_synthetic_data.columns) == set(synthetic_data_fake_companies.columns)
-    assert new_synthetic_data.shape[0] == 10
+    assert set(new_synthetic_data['fake_companies'].columns) == set(
+        synthetic_data_fake_companies.columns
+    )
+    assert new_synthetic_data['fake_companies'].shape[0] == 10
 
 
 @pytest.mark.parametrize(

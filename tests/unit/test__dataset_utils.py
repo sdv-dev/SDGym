@@ -87,6 +87,24 @@ def test__get_dataset_subset_single_table():
     assert 'tables' in result_meta
 
 
+def test__get_dataset_subset_single_table_dict():
+    """Test tabular dataset subset works when data is a dictionary of one table."""
+    # Setup
+    df = pd.DataFrame({f'c{i}': range(2000) for i in range(15)})
+    metadata = {'tables': {'table': {'columns': {f'c{i}': {} for i in range(15)}}}}
+
+    # Run
+    result, result_meta = _get_dataset_subset({'table': df}, metadata, modality='single_table')
+
+    # Assert
+    assert isinstance(result, dict)
+    assert list(result) == ['table']
+    assert len(result['table']) <= 1000
+    assert len(result['table'].columns) == 10
+    assert 'tables' in result_meta
+    assert len(result_meta['tables']['table']['columns']) == 10
+
+
 def test__get_dataset_subset_sequential():
     """Test sequential dataset preserves mandatory columns."""
     # Setup

@@ -122,9 +122,13 @@ def _get_dataset_subset(data, metadata_dict, modality):
     filtered = _filter_columns(columns=columns, mandatory_columns=mandatory_columns)
 
     table_info['columns'] = filtered
-    data = data[list(filtered)]
-    max_rows = min(MAX_NUM_ROWS, len(data))
-    data = data.sample(max_rows)
+    # single-table data may be a dictionary mapping the table name to its DataFrame
+    is_dict = isinstance(data, dict)
+    table_data = data[table_name] if is_dict else data
+    table_data = table_data[list(filtered)]
+    max_rows = min(MAX_NUM_ROWS, len(table_data))
+    table_data = table_data.sample(max_rows)
+    data = {table_name: table_data} if is_dict else table_data
 
     return data, metadata_dict
 
