@@ -171,7 +171,7 @@ def test__read_zipped_data_multitable(mock_read):
 
 @patch('sdgym._dataset_utils._read_csv_from_zip')
 def test__read_zipped_data_single(mock_read):
-    """Test zipped CSV reading returns a DataFrame for single-table."""
+    """Test zipped CSV reading returns a single-entry dict for single-table."""
     # Setup
     mock_read.return_value = pd.DataFrame({'a': [1]})
 
@@ -184,7 +184,9 @@ def test__read_zipped_data_single(mock_read):
         data_single = _read_zipped_data('fake.zip', modality='single_table')
 
     # Assert
-    assert isinstance(data_single, pd.DataFrame)
+    assert isinstance(data_single, dict)
+    assert list(data_single) == ['table1']
+    assert isinstance(data_single['table1'], pd.DataFrame)
     assert mock_read.call_count == 1
 
 

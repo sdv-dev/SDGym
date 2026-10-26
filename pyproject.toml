@@ -62,7 +62,7 @@ dependencies = [
     "torch>=2.9.0;python_version>='3.14'",
     'tqdm>=4.66.3',
     'XlsxWriter>=1.2.8',
-    "sdmetrics>=0.29.0",
+    "sdmetrics>=0.32.0",
     "rdt>=2.0.0,<3",
     "sdv>=2.0.0,<3",
 ]

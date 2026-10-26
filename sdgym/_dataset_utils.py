@@ -133,15 +133,17 @@ def _get_dataset_subset(data, metadata_dict, modality):
 
 
 def _read_zipped_data(zip_file_path, modality):
+    """Read every CSV in a zip file into a dictionary mapping table name to DataFrame.
+
+    The table name is taken from the CSV file name. Single-table datasets are
+    returned as a dictionary with a single entry.
+    """
     data = {}
     with ZipFile(zip_file_path, 'r') as zf:
         for file_name in zf.namelist():
             if file_name.endswith('.csv'):
                 key = Path(file_name).stem
                 data[key] = _read_csv_from_zip(zf, csv_file_name=file_name)
-
-    if modality != 'multi_table':
-        data = next(iter(data.values()))
 
     return data
 

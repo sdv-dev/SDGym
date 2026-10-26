@@ -260,7 +260,7 @@ def test_get_data_and_metadata_both_found(read_data_mock, read_meta_mock, iterdi
     data_file = dataset_path / 'data.zip'
 
     iterdir_mock.return_value = [metadata_file, data_file]
-    read_meta_mock.return_value = {'info': 'meta'}
+    read_meta_mock.return_value = {'tables': {'my_table': {'columns': {}}}}
     read_data_mock.return_value = 'dataframe'
 
     # Run
@@ -269,8 +269,44 @@ def test_get_data_and_metadata_both_found(read_data_mock, read_meta_mock, iterdi
     # Assert
     read_meta_mock.assert_called_once_with(metadata_file)
     read_data_mock.assert_called_once_with(zip_file_path=data_file, modality='single_table')
-    assert data == 'dataframe'
-    assert metadata == {'info': 'meta'}
+    assert data == {'my_table': 'dataframe'}
+    assert metadata == {'tables': {'my_table': {'columns': {}}}}
+
+
+@patch('pathlib.Path.iterdir')
+@patch('sdgym.datasets._read_zipped_data')
+def test_get_data_and_metadata_single_table_no_metadata(read_data_mock, iterdir_mock, tmp_path):
+    """Test single-table data keeps the file name when there is no metadata."""
+    dataset_path = tmp_path
+    data_file = dataset_path / 'data.zip'
+    iterdir_mock.return_value = [data_file]
+    read_data_mock.return_value = {'data': 'dataframe'}
+
+    # Run
+    data, metadata = get_data_and_metadata_from_path(dataset_path, 'single_table')
+
+    # Assert
+    assert data == {'data': 'dataframe'}
+    assert metadata is None
+
+
+@patch('pathlib.Path.iterdir')
+@patch('sdgym.datasets._read_metadata_json')
+@patch('sdgym.datasets._read_zipped_data')
+def test_get_data_and_metadata_multi_table(read_data_mock, read_meta_mock, iterdir_mock, tmp_path):
+    """Test multi-table data is returned as read, without renaming."""
+    dataset_path = tmp_path
+    metadata_file = dataset_path / 'metadata.json'
+    data_file = dataset_path / 'data.zip'
+    iterdir_mock.return_value = [metadata_file, data_file]
+    read_meta_mock.return_value = {'tables': {'a': {}, 'b': {}}}
+    read_data_mock.return_value = {'a': 'df_a', 'b': 'df_b'}
+
+    # Run
+    data, _ = get_data_and_metadata_from_path(dataset_path, 'multi_table')
+
+    # Assert
+    assert data == {'a': 'df_a', 'b': 'df_b'}
 
 
 @patch('sdgym.datasets._read_metadata_json')
@@ -505,7 +541,8 @@ def test__load_private_sdv_demo_dataset(
     assert data_bytes.getvalue() == raw_data
     get_metadata_mock.assert_called_once_with(metadata_bytes, dataset_name)
     metadata_mock.to_dict.assert_called_once_with()
-    pd.testing.assert_frame_equal(data, table_data)
+    assert list(data) == ['table_name']
+    pd.testing.assert_frame_equal(data['table_name'], table_data)
     assert metadata == {'meta': 'data'}
 
 
@@ -655,6 +692,8 @@ def test_load_dataset_limit_dataset_size():
     )
 
     # Assert
+    assert list(data) == ['adult']
+    data = data['adult']
     assert list(data.columns) == [
         'age',
         'workclass',

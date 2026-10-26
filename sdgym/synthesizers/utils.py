@@ -38,9 +38,10 @@ def _get_supported_synthesizers():
 
     return sorted(synthesizers)
 
+
 def _get_single_table_name(data, metadata):
     """Get the table name from metadata or data.
-    
+
     Args:
         data (dict[str, pd.DataFrame]):
             Dictionary mapping the name to the dataframe. Expected to
@@ -59,7 +60,7 @@ def _get_single_table_name(data, metadata):
             raise ValueError(
                 "The data contains more than one table. Could not determine 'table name'."
             )
-        
+
         table_name = next(iter(data))
 
     return table_name

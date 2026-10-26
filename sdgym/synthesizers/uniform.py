@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
-from sdv.metadata import Metadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiTableBaselineSynthesizer
 from sdgym.synthesizers.utils import _get_single_table_name

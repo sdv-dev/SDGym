@@ -98,12 +98,14 @@ class TestTabDDPMSynthesizer:
         # Assert
         assert isinstance(result._internal_synthesizer, TabDDPM)
         assert isinstance(result, TabDDPMSynthesizer)
-        assert len(sampled_data) == n_sample
+        assert isinstance(sampled_data, dict)
+        assert len(sampled_data['table']) == n_sample
 
     def test__sample_from_synthesizer(self):
         """Test _sample_from_synthesizer generates data with the specified sample size."""
         # Setup
         trained_model = MagicMock()
+        trained_model._table_name = 'table'
         trained_model._internal_synthesizer = MagicMock()
         trained_model._internal_synthesizer.sample.return_value = MagicMock(
             shape=(10, 5)
@@ -117,5 +119,5 @@ class TestTabDDPMSynthesizer:
         # Assert
         trained_model._internal_synthesizer.sample.assert_called_once_with(n_sample)
         assert synthetic_data['table'].shape[0] == n_sample, (
-            f'Expected {n_sample} rows, but got {synthetic_data.shape[0]}'
+            f'Expected {n_sample} rows, but got {synthetic_data["table"].shape[0]}'
         )

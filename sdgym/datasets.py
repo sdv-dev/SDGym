@@ -18,6 +18,7 @@ from sdv.datasets.demo import (
     _load_data_from_zip,
     download_demo,
 )
+from sdv.metadata import Metadata
 
 from sdgym._dataset_utils import (
     _get_dataset_subset,
@@ -178,11 +179,12 @@ def get_data_and_metadata_from_path(dataset_path, modality):
             interpret and load the dataset (e.g., ``'single_table'``, ``'multi_table'``).
 
     Returns:
-        tuple[pd.DataFrame | dict, dict | None]:
+        tuple[dict | None, dict | None]:
             A tuple containing:
-                - The loaded dataset as a ``pandas.DataFrame`` or a dictionary with
-                  ``pandas.DataFrame`` if ``multi_table``.
-            - The dataset metadata as a dictionary.
+                - The loaded dataset as a dictionary mapping table name to
+                  ``pandas.DataFrame``. Single-table datasets have a single entry
+                  named after the table in the metadata.
+                - The dataset metadata as a dictionary.
     """
     metadata_dict = None
     data = None
@@ -193,7 +195,22 @@ def get_data_and_metadata_from_path(dataset_path, modality):
         elif 'data' in file_name.stem and file_name.suffix == '.zip':
             data = _read_zipped_data(zip_file_path=(file_name), modality=modality)
 
+    if modality == 'single_table' and data is not None:
+        data = _set_table_single_table_name(data, metadata_dict)
+
     return data, metadata_dict
+
+
+def _set_table_single_table_name(data, metadata_dict):
+    if isinstance(data, dict):
+        return data
+
+    metadata = Metadata.load_from_dict(metadata_dict)
+    if len(metadata.tables) != 1:
+        return data
+
+    table_name = metadata._get_single_table_name()
+    return {table_name: data}
 
 
 def _genereate_dataset_info(s3_client, bucket_name, contents):
@@ -306,9 +323,6 @@ def _load_private_sdv_demo_dataset(modality, dataset_name, bucket, s3_client=Non
         contents, dataset_prefix, bucket=bucket_name, client=s3_client
     )
     data = _load_data_from_zip(data_bytes, bucket_name, dataset_name)
-    if modality != 'multi_table':
-        data = data.popitem()[1]
-
     metadata = _get_metadata(metadata_bytes, dataset_name)
     return data, metadata.to_dict()
 
@@ -378,7 +392,7 @@ def load_dataset(
             columns. Defauts to ``False``.
 
     Returns:
-        pd.DataFrame | dict, dict:
+        tuple (dict[str, pd.DataFrame], dict):
             The data and medatata for a dataset.
     """
     s3_client = get_s3_client(
