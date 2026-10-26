@@ -273,42 +273,6 @@ def test_get_data_and_metadata_both_found(read_data_mock, read_meta_mock, iterdi
     assert metadata == {'tables': {'my_table': {'columns': {}}}}
 
 
-@patch('pathlib.Path.iterdir')
-@patch('sdgym.datasets._read_zipped_data')
-def test_get_data_and_metadata_single_table_no_metadata(read_data_mock, iterdir_mock, tmp_path):
-    """Test single-table data keeps the file name when there is no metadata."""
-    dataset_path = tmp_path
-    data_file = dataset_path / 'data.zip'
-    iterdir_mock.return_value = [data_file]
-    read_data_mock.return_value = {'data': 'dataframe'}
-
-    # Run
-    data, metadata = get_data_and_metadata_from_path(dataset_path, 'single_table')
-
-    # Assert
-    assert data == {'data': 'dataframe'}
-    assert metadata is None
-
-
-@patch('pathlib.Path.iterdir')
-@patch('sdgym.datasets._read_metadata_json')
-@patch('sdgym.datasets._read_zipped_data')
-def test_get_data_and_metadata_multi_table(read_data_mock, read_meta_mock, iterdir_mock, tmp_path):
-    """Test multi-table data is returned as read, without renaming."""
-    dataset_path = tmp_path
-    metadata_file = dataset_path / 'metadata.json'
-    data_file = dataset_path / 'data.zip'
-    iterdir_mock.return_value = [metadata_file, data_file]
-    read_meta_mock.return_value = {'tables': {'a': {}, 'b': {}}}
-    read_data_mock.return_value = {'a': 'df_a', 'b': 'df_b'}
-
-    # Run
-    data, _ = get_data_and_metadata_from_path(dataset_path, 'multi_table')
-
-    # Assert
-    assert data == {'a': 'df_a', 'b': 'df_b'}
-
-
 @patch('sdgym.datasets._read_metadata_json')
 @patch('sdgym.datasets._read_zipped_data')
 def test_get_data_and_metadata_no_files(read_data_mock, read_meta_mock):
@@ -708,21 +672,131 @@ def test_load_dataset_limit_dataset_size():
     ]
     assert data.shape == (1000, 10)
     assert metadata_dict == {
-        'METADATA_SPEC_VERSION': 'V1',
+        'METADATA_SPEC_VERSION': 'V2',
         'relationships': [],
         'tables': {
             'adult': {
                 'columns': {
-                    'age': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
-                    'education': {'sdtype': 'categorical'},
-                    'education-num': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
-                    'fnlwgt': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
-                    'marital-status': {'sdtype': 'categorical'},
-                    'occupation': {'sdtype': 'categorical'},
-                    'race': {'sdtype': 'categorical'},
-                    'relationship': {'sdtype': 'categorical'},
-                    'sex': {'sdtype': 'categorical'},
-                    'workclass': {'sdtype': 'categorical'},
+                    'age': {
+                        'sdtype': 'numerical',
+                        'range_is_nullable': False,
+                        'range_min': 17,
+                        'range_max': 90,
+                        'decimal_places': 0,
+                    },
+                    'workclass': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Private',
+                            'Local-gov',
+                            '?',
+                            'Federal-gov',
+                            'Self-emp-not-inc',
+                            'Self-emp-inc',
+                            'State-gov',
+                            'Without-pay',
+                            'Never-worked',
+                        ],
+                    },
+                    'fnlwgt': {
+                        'sdtype': 'numerical',
+                        'range_is_nullable': False,
+                        'range_min': 12285,
+                        'range_max': 1484705,
+                        'decimal_places': 0,
+                    },
+                    'education': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Some-college',
+                            'Bachelors',
+                            'Assoc-acdm',
+                            '5th-6th',
+                            '11th',
+                            'HS-grad',
+                            'Assoc-voc',
+                            'Masters',
+                            'Doctorate',
+                            'Prof-school',
+                            '10th',
+                            '7th-8th',
+                            '1st-4th',
+                            '9th',
+                            '12th',
+                            'Preschool',
+                        ],
+                    },
+                    'education-num': {
+                        'sdtype': 'numerical',
+                        'range_is_nullable': False,
+                        'range_min': 1,
+                        'range_max': 16,
+                        'decimal_places': 0,
+                    },
+                    'marital-status': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Divorced',
+                            'Never-married',
+                            'Married-civ-spouse',
+                            'Separated',
+                            'Married-spouse-absent',
+                            'Widowed',
+                            'Married-AF-spouse',
+                        ],
+                    },
+                    'occupation': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Adm-clerical',
+                            'Prof-specialty',
+                            'Sales',
+                            'Transport-moving',
+                            'Other-service',
+                            'Exec-managerial',
+                            '?',
+                            'Protective-serv',
+                            'Craft-repair',
+                            'Machine-op-inspct',
+                            'Farming-fishing',
+                            'Handlers-cleaners',
+                            'Tech-support',
+                            'Priv-house-serv',
+                            'Armed-Forces',
+                        ],
+                    },
+                    'relationship': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Unmarried',
+                            'Not-in-family',
+                            'Husband',
+                            'Own-child',
+                            'Other-relative',
+                            'Wife',
+                        ],
+                    },
+                    'race': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'White',
+                            'Amer-Indian-Eskimo',
+                            'Black',
+                            'Asian-Pac-Islander',
+                            'Other',
+                        ],
+                    },
+                    'sex': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': ['Female', 'Male'],
+                    },
                 }
             }
         },

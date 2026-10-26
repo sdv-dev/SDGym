@@ -182,8 +182,7 @@ def get_data_and_metadata_from_path(dataset_path, modality):
         tuple[dict | None, dict | None]:
             A tuple containing:
                 - The loaded dataset as a dictionary mapping table name to
-                  ``pandas.DataFrame``. Single-table datasets have a single entry
-                  named after the table in the metadata.
+                  ``pandas.DataFrame``.
                 - The dataset metadata as a dictionary.
     """
     metadata_dict = None
@@ -196,12 +195,12 @@ def get_data_and_metadata_from_path(dataset_path, modality):
             data = _read_zipped_data(zip_file_path=(file_name), modality=modality)
 
     if modality == 'single_table' and data is not None:
-        data = _set_table_single_table_name(data, metadata_dict)
+        data = _set_single_table_as_dict(data, metadata_dict)
 
     return data, metadata_dict
 
 
-def _set_table_single_table_name(data, metadata_dict):
+def _set_single_table_as_dict(data, metadata_dict):
     if isinstance(data, dict):
         return data
 

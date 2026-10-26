@@ -171,7 +171,7 @@ def test__read_zipped_data_multitable(mock_read):
 
 @patch('sdgym._dataset_utils._read_csv_from_zip')
 def test__read_zipped_data_single(mock_read):
-    """Test zipped CSV reading returns a single-entry dict for single-table."""
+    """Test zipped CSV reading returns a dict with one entry for single-table."""
     # Setup
     mock_read.return_value = pd.DataFrame({'a': [1]})
 

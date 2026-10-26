@@ -14,7 +14,6 @@ def test_datadesigner_end_to_end():
     data, metadata_dict = load_dataset(
         'single_table', 'student_placements', limit_dataset_size=False
     )
-    data = {'student_placement': data}
     datadesigner_instance = DataDesignerSynthesizer()
     datadesigner_instance._MODEL_KWARGS = {'temperature': 0.5}
 
@@ -23,11 +22,13 @@ def test_datadesigner_end_to_end():
     sampled_data = datadesigner_instance.sample_from_synthesizer(trained_synthesizer, n_samples=10)
 
     # Assert
-    assert sampled_data['student_placements'].shape[1] == data['student_placements'].shape[1], (
-        f'Sampled data shape {sampled_data.shape} does not match original data shape {data.shape}'
+    real_table = data['student_placements']
+    sampled_table = sampled_data['student_placements']
+    assert sampled_table.shape[1] == real_table.shape[1], (
+        f'Sampled data shape {sampled_table.shape} does not match '
+        f'original data shape {real_table.shape}'
     )
-
-    assert set(sampled_data.columns) == set(data.columns)
+    assert set(sampled_table.columns) == set(real_table.columns)
 
 
 def test_benchmark_single_table_with_data_designer():
