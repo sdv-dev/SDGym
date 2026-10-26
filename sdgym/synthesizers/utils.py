@@ -1,5 +1,7 @@
 """Utility functions for synthesizers in SDGym."""
 
+from sdv.metadata import Metadata
+
 from sdgym.synthesizers.base import BaselineSynthesizer
 
 
@@ -35,3 +37,29 @@ def _get_supported_synthesizers():
         synthesizers.extend(BaselineSynthesizer._get_supported_synthesizers(modality))
 
     return sorted(synthesizers)
+
+def _get_single_table_name(data, metadata):
+    """Get the table name from metadata or data.
+    
+    Args:
+        data (dict[str, pd.DataFrame]):
+            Dictionary mapping the name to the dataframe. Expected to
+            be a dictionary of one dataframe.
+        metadata (sdv.Metadata):
+            The metadata.
+
+    Returns:
+        str:
+            The name of the table.
+    """
+    if isinstance(metadata, Metadata):
+        table_name = metadata._get_single_table_name()
+    else:
+        if len(data) != 1:
+            raise ValueError(
+                "The data contains more than one table. Could not determine 'table name'."
+            )
+        
+        table_name = next(iter(data))
+
+    return table_name

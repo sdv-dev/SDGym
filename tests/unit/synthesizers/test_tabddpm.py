@@ -88,7 +88,7 @@ class TestTabDDPMSynthesizer:
             },
         }
 
-        real_data = pd.DataFrame(data)
+        real_data = {'table': pd.DataFrame(data)}
         n_sample = 5
 
         # Run
@@ -116,6 +116,6 @@ class TestTabDDPMSynthesizer:
 
         # Assert
         trained_model._internal_synthesizer.sample.assert_called_once_with(n_sample)
-        assert synthetic_data.shape[0] == n_sample, (
+        assert synthetic_data['table'].shape[0] == n_sample, (
             f'Expected {n_sample} rows, but got {synthetic_data.shape[0]}'
         )

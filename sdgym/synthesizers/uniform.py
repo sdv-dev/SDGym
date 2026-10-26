@@ -9,6 +9,7 @@ from rdt.hyper_transformer import HyperTransformer
 from sdv.metadata import Metadata
 
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiTableBaselineSynthesizer
+from sdgym.synthesizers.utils import _get_single_table_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,11 +34,7 @@ class UniformSynthesizer(BaselineSynthesizer):
             metadata (sdv.metadata.Metadata):
                 The metadata describing the data.
         """
-        if isinstance(metadata, Metadata):
-            table_name = metadata._get_single_table_name()
-        else:
-            table_name = next(iter(data))
-
+        table_name = _get_single_table_name(data, metadata)
         table_data = data[table_name]
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(table_data)

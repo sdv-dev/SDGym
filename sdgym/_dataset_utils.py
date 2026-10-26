@@ -122,7 +122,6 @@ def _get_dataset_subset(data, metadata_dict, modality):
     filtered = _filter_columns(columns=columns, mandatory_columns=mandatory_columns)
 
     table_info['columns'] = filtered
-    # single-table data may be a dictionary mapping the table name to its DataFrame
     is_dict = isinstance(data, dict)
     table_data = data[table_name] if is_dict else data
     table_data = table_data[list(filtered)]
