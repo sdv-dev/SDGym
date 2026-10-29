@@ -59,7 +59,7 @@ jobs:
           python -m venv venv
           source venv/bin/activate
 
-          python -m pip install --upgrade pip
+          make upgradepip
           python -m pip install sdv-installer
           python -c "
           from sdv_installer.installation.installer import install_packages
