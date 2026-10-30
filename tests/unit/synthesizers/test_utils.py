@@ -9,6 +9,7 @@ def test__get_supported_synthesizers():
         'ClavaDDPMSynthesizer',
         'ColumnSynthesizer',
         'CopulaGANSynthesizer',
+        'DataDesignerSynthesizer',
         'DataIdentity',
         'GaussianCopulaSynthesizer',
         'HMASynthesizer',
