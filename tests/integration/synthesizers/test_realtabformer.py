@@ -1,3 +1,4 @@
+import os
 import sys
 
 import pytest
@@ -7,6 +8,10 @@ from sdgym.synthesizers import RealTabFormerSynthesizer
 
 
 @pytest.mark.skipif(sys.platform.startswith('darwin'), reason='Test not supported on github MacOS')
+@pytest.mark.skipif(
+    sys.platform.startswith('win') and os.environ.get('SDGYM_MINIMUM_TESTS') == 'true',
+    reason='Test fails on github Windows with the minimum dependency versions',
+)
 def test_realtabformer_end_to_end():
     """Test it without metrics."""
     # Setup

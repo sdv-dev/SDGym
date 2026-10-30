@@ -1,8 +1,8 @@
 FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
 CMD nvidia-smi
 
-RUN apt-get update && apt-get install -y build-essential curl python3.9 python3-pip \
-    python3-distutils && ln -s /usr/bin/python3.9 /usr/bin/python
+RUN apt-get update && apt-get install -y build-essential curl python3.11 python3-pip \
+    python3-distutils && ln -s /usr/bin/python3.11 /usr/bin/python
 
 RUN mkdir /SDGym && \
     mkdir /SDGym/sdgym && \
