@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
-from sdmetrics.reports.single_table import QualityReport
+from sdmetrics.reports import QualityReport
 from sdv.metadata import Metadata
 from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
@@ -726,7 +726,7 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
         quality_report = QualityReport.load(
             synth_dir / synthesizer / f'{synthesizer}_quality_report.pkl'
         )
-        assert quality_report.get_score() == pytest.approx(score['Quality_Score'].item())
+        assert quality_report.get_score() == score['Quality_Score'].item()
 
     # Load top-level results.csv
     saved_results_path = (

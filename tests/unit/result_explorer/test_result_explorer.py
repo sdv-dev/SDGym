@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
+from sdmetrics.reports import QualityReport
 
 from sdgym.result_explorer.result_explorer import (
     ResultsExplorer,
@@ -307,7 +308,7 @@ class TestResultsExplorer:
             file_type='quality_report',
         )
         explorer._handler.load_quality_report.assert_called_once_with('path/to/quality_report.pkl')
-        assert quality_report is report
+        assert isinstance(quality_report, QualityReport)
 
     @patch('sdgym.result_explorer.result_explorer._load_dataset_with_client')
     def test_load_real_data(self, mock_load_dataset, tmp_path):

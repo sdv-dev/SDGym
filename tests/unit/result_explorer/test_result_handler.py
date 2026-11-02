@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
-from sdmetrics.reports.single_table import QualityReport
+from sdmetrics.reports import QualityReport
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
