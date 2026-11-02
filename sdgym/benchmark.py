@@ -268,6 +268,9 @@ def _setup_output_destination_aws(
                     f's3://{bucket_name}/{synth_folder}/'
                     f'{final_synth_name}_synthetic_data.{synthetic_data_extension}'
                 ),
+                'quality_report': (
+                    f's3://{bucket_name}/{synth_folder}/{final_synth_name}_quality_report.pkl'
+                ),
                 'benchmark_result': (
                     f's3://{bucket_name}/{synth_folder}/{final_synth_name}_benchmark_result.csv'
                 ),
@@ -335,6 +338,7 @@ def _setup_output_destination(
                 'synthetic_data': str(
                     synth_folder / f'{final_synth_name}_synthetic_data.{synthetic_data_extension}'
                 ),
+                'quality_report': str(synth_folder / f'{final_synth_name}_quality_report.pkl'),
                 'benchmark_result': str(synth_folder / f'{final_synth_name}_benchmark_result.csv'),
                 'metainfo': str(top_folder / f'metainfo{suffix}.yaml'),
                 'results': str(top_folder / f'results{suffix}.csv'),
@@ -569,6 +573,8 @@ def _compute_scores(
     compute_privacy_score,
     modality,
     dataset_name,
+    synthesizer_path=None,
+    result_writer=None,
 ):
     metrics = metrics or []
     if modality == 'single_table':
@@ -633,6 +639,8 @@ def _compute_scores(
         quality_report.generate(real_data, synthetic_data, sdmetrics_metadata, verbose=False)
         output['quality_score_time'] = calculate_score_time(start)
         output['quality_score'] = quality_report.get_score()
+        if synthesizer_path is not None and result_writer is not None:
+            result_writer.write_report(quality_report, synthesizer_path['quality_report'])
 
     if compute_privacy_score:
         start = get_utc_now()
@@ -724,6 +732,8 @@ def _score(
                 compute_privacy_score,
                 modality,
                 dataset_name,
+                synthesizer_path,
+                result_writer,
             )
 
             output['timeout'] = False  # There was no timeout
@@ -1293,6 +1303,7 @@ def benchmark_single_table(
                     <synthesizer_name>/
                         synthesizer.pkl
                         synthetic_data.csv
+                        quality_report.pkl
         show_progress (bool):
             Whether to use tqdm to keep track of the progress. Defaults to ``False``.
 
@@ -1704,6 +1715,7 @@ def benchmark_multi_table(
                     <synthesizer_name>/
                         synthesizer.pkl
                         synthetic_data.csv
+                        quality_report.pkl
         show_progress (bool):
             Whether to use tqdm to keep track of the progress. Defaults to ``False``.
 

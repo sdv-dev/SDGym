@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
+from sdmetrics.reports.single_table import QualityReport
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
@@ -670,6 +671,19 @@ class TestLocalResultsHandler:
         assert loaded_synthesizer is not None
         assert isinstance(loaded_synthesizer, GaussianCopulaSynthesizer)
 
+    def test_load_quality_report(self, tmp_path):
+        """Test the `load_quality_report` method."""
+        # Setup
+        report_path = tmp_path / 'quality_report.pkl'
+        QualityReport().save(report_path)
+        result_handler = LocalResultsHandler(str(tmp_path))
+
+        # Run
+        loaded_report = result_handler.load_quality_report('quality_report.pkl')
+
+        # Assert
+        assert isinstance(loaded_report, QualityReport)
+
     def test_load_synthetic_data_zip(self, tmp_path):
         """Test the `load_synthetic_data` method for zipped multi-table data (local)."""
         # Setup
@@ -846,6 +860,25 @@ class TestS3ResultsHandler:
         assert isinstance(loaded_synthesizer, GaussianCopulaSynthesizer)
         mock_s3_client.get_object.assert_called_once_with(
             Bucket='my-bucket', Key='prefix/synthesizer.pkl'
+        )
+
+    def test_load_quality_report(self, tmp_path):
+        """Test the `load_quality_report` method."""
+        # Setup
+        report_path = tmp_path / 'quality_report.pkl'
+        QualityReport().save(report_path)
+        mock_s3_client = Mock()
+        mock_s3_client.get_object.return_value = {'Body': Mock(read=report_path.read_bytes)}
+        result_handler = S3ResultsHandler('s3://my-bucket/prefix', mock_s3_client)
+        result_handler.s3_client = mock_s3_client
+
+        # Run
+        loaded_report = result_handler.load_quality_report('quality_report.pkl')
+
+        # Assert
+        assert isinstance(loaded_report, QualityReport)
+        mock_s3_client.get_object.assert_called_once_with(
+            Bucket='my-bucket', Key='prefix/quality_report.pkl'
         )
 
     def test_load_synthetic_data_zip(self):

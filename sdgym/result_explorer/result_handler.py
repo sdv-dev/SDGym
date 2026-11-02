@@ -3,6 +3,7 @@
 import io
 import operator
 import os
+import tempfile
 import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -11,6 +12,7 @@ import cloudpickle
 import pandas as pd
 import yaml
 from botocore.exceptions import ClientError
+from sdmetrics.reports.base_report import BaseReport
 
 from sdgym._dataset_utils import _read_zipped_data
 from sdgym.benchmark import TIMEOUT, _add_adjusted_scores
@@ -56,6 +58,11 @@ class ResultsHandler(ABC):
     @abstractmethod
     def load_synthetic_data(self, file_path):
         """Load synthetic data from a file."""
+        pass
+
+    @abstractmethod
+    def load_quality_report(self, file_path):
+        """Load a quality report from a file."""
         pass
 
     @abstractmethod
@@ -412,6 +419,10 @@ class LocalResultsHandler(ResultsHandler):
 
         return pd.read_csv(full_path)
 
+    def load_quality_report(self, file_path):
+        """Load a quality report from a pickle file."""
+        return BaseReport.load(os.path.join(self.base_path, file_path))
+
     def _get_results_files(self, results_folder_name, prefix, suffix):
         return [
             f
@@ -528,6 +539,15 @@ class S3ResultsHandler(ResultsHandler):
             return _read_zipped_data(io.BytesIO(body), modality='multi_table')
 
         return pd.read_csv(io.BytesIO(body))
+
+    def load_quality_report(self, file_path):
+        """Load a quality report from S3."""
+        key = f'{self.prefix}{file_path}'
+        response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
+        with tempfile.NamedTemporaryFile(suffix='.pkl') as temp_file:
+            temp_file.write(response['Body'].read())
+            temp_file.flush()
+            return BaseReport.load(temp_file.name)
 
     def _get_results_files(self, results_folder_name, prefix, suffix):
         s3_prefix = f'{self.prefix}{results_folder_name}/'

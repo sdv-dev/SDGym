@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
+from sdmetrics.reports.single_table import QualityReport
 from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
@@ -44,6 +45,11 @@ def test_end_to_end_local(tmp_path):
         dataset_name='fake_companies',
         synthesizer_name='TVAESynthesizer',
     )
+    quality_report = result_explorer.load_quality_report(
+        results_folder_name=runs[0],
+        dataset_name='fake_companies',
+        synthesizer_name='TVAESynthesizer',
+    )
     assert isinstance(synthesizer, TVAESynthesizer)
     new_synthetic_data = synthesizer.sample(num_rows=10)
 
@@ -64,6 +70,12 @@ def test_end_to_end_local(tmp_path):
     assert isinstance(synthesizer, TVAESynthesizer)
     assert set(new_synthetic_data.columns) == set(synthetic_data_fake_companies.columns)
     assert new_synthetic_data.shape[0] == 10
+    assert isinstance(quality_report, QualityReport)
+    expected_quality_score = results.loc[
+        (results['Dataset'] == 'fake_companies') & (results['Synthesizer'] == 'TVAESynthesizer'),
+        'Quality_Score',
+    ].item()
+    assert quality_report.get_score() == pytest.approx(expected_quality_score)
 
 
 @pytest.mark.parametrize(

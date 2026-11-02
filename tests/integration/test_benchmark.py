@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
+from sdmetrics.reports.single_table import QualityReport
 from sdv.metadata import Metadata
 from sdv.single_table.copulas import GaussianCopulaSynthesizer
 
@@ -715,11 +716,17 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
             f'{synthesizer}.pkl',
             f'{synthesizer}_synthetic_data.csv',
             f'{synthesizer}_benchmark_result.csv',
+            f'{synthesizer}_quality_report.pkl',
         }
 
         score_path = synth_dir / synthesizer / f'{synthesizer}_benchmark_result.csv'
         score = pd.read_csv(score_path)
         score_saved_separately = pd.concat([score_saved_separately, score], ignore_index=True)
+
+        quality_report = QualityReport.load(
+            synth_dir / synthesizer / f'{synthesizer}_quality_report.pkl'
+        )
+        assert quality_report.get_score() == pytest.approx(score['Quality_Score'].item())
 
     # Load top-level results.csv
     saved_results_path = (
@@ -802,6 +809,7 @@ def test_benchmark_single_table_with_output_destination_multiple_runs(tmp_path):
             f'{synthesizer}.pkl',
             f'{synthesizer}_synthetic_data.csv',
             f'{synthesizer}_benchmark_result.csv',
+            f'{synthesizer}_quality_report.pkl',
         }
 
         score = pd.read_csv(synth_path / f'{synthesizer}_benchmark_result.csv')
@@ -1076,6 +1084,7 @@ def test_benchmark_multi_table_with_output_destination_multiple_runs(tmp_path):
             f'{synthesizer}.pkl',
             f'{synthesizer}_synthetic_data.zip',
             f'{synthesizer}_benchmark_result.csv',
+            f'{synthesizer}_quality_report.pkl',
         }
 
         score = pd.read_csv(synth_path / f'{synthesizer}_benchmark_result.csv')

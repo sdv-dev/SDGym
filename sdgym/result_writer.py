@@ -1,6 +1,7 @@
 """Results writer for SDGym benchmark."""
 
 import io
+import tempfile
 import zipfile
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -31,6 +32,11 @@ class ResultsWriter(ABC):
     @abstractmethod
     def write_yaml(self, data, file_path, append=False):
         """Write data to a YAML file."""
+        pass
+
+    @abstractmethod
+    def write_report(self, report, file_path):
+        """Write an SDMetrics report to a pickle file."""
         pass
 
 
@@ -95,6 +101,10 @@ class LocalResultsWriter:
         with open(file_path, 'wb') as f:
             cloudpickle.dump(obj, f)
 
+    def write_report(self, report, file_path):
+        """Write an SDMetrics report to a pickle file."""
+        report.save(file_path)
+
     def write_yaml(self, data, file_path, append=False):
         """Write data to a YAML file."""
         file_path = Path(file_path)
@@ -140,6 +150,14 @@ class S3ResultsWriter(ResultsWriter):
         cloudpickle.dump(obj, buffer)
         buffer.seek(0)
         self.s3_client.put_object(Body=buffer.read(), Bucket=bucket, Key=key)
+
+    def write_report(self, report, file_path):
+        """Write an SDMetrics report to S3 as a pickle file."""
+        bucket, key = parse_s3_path(file_path)
+        with tempfile.NamedTemporaryFile(suffix='.pkl') as temp_file:
+            report.save(temp_file.name)
+            temp_file.seek(0)
+            self.s3_client.put_object(Body=temp_file.read(), Bucket=bucket, Key=key)
 
     def write_yaml(self, data, file_path, append=False):
         """Write data to a YAML file in S3."""
