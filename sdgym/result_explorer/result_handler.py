@@ -544,10 +544,12 @@ class S3ResultsHandler(ResultsHandler):
         """Load a quality report from S3."""
         key = f'{self.prefix}{file_path}'
         response = self.s3_client.get_object(Bucket=self.bucket_name, Key=key)
-        with tempfile.NamedTemporaryFile(suffix='.pkl') as temp_file:
-            temp_file.write(response['Body'].read())
-            temp_file.flush()
-            return BaseReport.load(temp_file.name)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = os.path.join(temp_dir, 'report.pkl')
+            with open(temp_path, 'wb') as temp_file:
+                temp_file.write(response['Body'].read())
+
+            return BaseReport.load(temp_path)
 
     def _get_results_files(self, results_folder_name, prefix, suffix):
         s3_prefix = f'{self.prefix}{results_folder_name}/'

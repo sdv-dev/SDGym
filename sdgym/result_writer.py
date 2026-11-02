@@ -154,10 +154,10 @@ class S3ResultsWriter(ResultsWriter):
     def write_report(self, report, file_path):
         """Write an SDMetrics report to S3 as a pickle file."""
         bucket, key = parse_s3_path(file_path)
-        with tempfile.NamedTemporaryFile(suffix='.pkl') as temp_file:
-            report.save(temp_file.name)
-            temp_file.seek(0)
-            self.s3_client.put_object(Body=temp_file.read(), Bucket=bucket, Key=key)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir) / 'report.pkl'
+            report.save(temp_path)
+            self.s3_client.put_object(Body=temp_path.read_bytes(), Bucket=bucket, Key=key)
 
     def write_yaml(self, data, file_path, append=False):
         """Write data to a YAML file in S3."""
