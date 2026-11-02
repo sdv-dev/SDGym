@@ -5,9 +5,9 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
+from sdmetrics.reports import QualityReport
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
-from sdmetrics.reports import QualityReport
 
 from sdgym.result_explorer.result_explorer import (
     ResultsExplorer,
@@ -289,7 +289,7 @@ class TestResultsExplorer:
         path.mkdir(parents=True)
         explorer = ResultsExplorer(str(path), modality='single_table')
         explorer._handler = Mock()
-        report = Mock()
+        report = Mock(spec=QualityReport)
         explorer._handler.load_quality_report = Mock(return_value=report)
         explorer._get_file_path = Mock(return_value='path/to/quality_report.pkl')
 

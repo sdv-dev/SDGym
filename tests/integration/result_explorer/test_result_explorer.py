@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
-from sdmetrics.reports import QualityReport
+from sdmetrics.reports.base_report import BaseReport
 from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
@@ -74,7 +74,7 @@ def test_end_to_end_local(tmp_path):
     assert isinstance(synthesizer, TVAESynthesizer)
     assert set(new_synthetic_data.columns) == set(synthetic_data_fake_companies.columns)
     assert new_synthetic_data.shape[0] == 10
-    assert isinstance(quality_report, QualityReport)
+    assert isinstance(quality_report, BaseReport)
     assert quality_report.get_score() == expected_quality_score
 
 
