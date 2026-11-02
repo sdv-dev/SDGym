@@ -13,5 +13,5 @@ def sdv_install_cmd(credentials):
 pip install sdv-installer
 
 python -c "from sdv_installer.installation.installer import install_packages; \\
-install_packages(username='{username}', license_key='{license_key}')"
+install_packages(username='{username}', license_key='{license_key}', version='0.53')"
 """)
