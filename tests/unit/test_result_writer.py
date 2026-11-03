@@ -62,6 +62,19 @@ class TestLocalResultsWriter:
 
         assert loaded_obj == obj
 
+    def test_write_report(self, tmp_path):
+        """Test the `write_report` method."""
+        # Setup
+        result_writer = LocalResultsWriter()
+        file_path = tmp_path / 'quality_report.pkl'
+        report = Mock()
+
+        # Run
+        result_writer.write_report(report, file_path)
+
+        # Assert
+        report.save.assert_called_once_with(file_path)
+
     def test_write_yaml(self, tmp_path):
         """Test the `write_yaml` method."""
         # Setup
@@ -268,6 +281,28 @@ class TestS3ResultsWriter:
             Body=cloudpickle.dumps(obj),
             Bucket='bucket_name',
             Key='key_prefix/test_object.pkl',
+        )
+
+    @patch('sdgym.result_writer.parse_s3_path')
+    def test_write_report(self, mockparse_s3_path):
+        """Test the `write_report` method."""
+        # Setup
+        mock_s3_client = Mock()
+        mockparse_s3_path.return_value = ('bucket_name', 'key_prefix/quality_report.pkl')
+        result_writer = S3ResultsWriter(mock_s3_client)
+        report = Mock()
+        report.save.side_effect = lambda path: open(path, 'wb').write(b'report-bytes')
+
+        # Run
+        result_writer.write_report(report, 'quality_report.pkl')
+
+        # Assert
+        mockparse_s3_path.assert_called_once_with('quality_report.pkl')
+        report.save.assert_called_once()
+        mock_s3_client.put_object.assert_called_once_with(
+            Body=b'report-bytes',
+            Bucket='bucket_name',
+            Key='key_prefix/quality_report.pkl',
         )
 
     @patch('sdgym.result_writer.parse_s3_path')
