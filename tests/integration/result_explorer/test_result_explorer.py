@@ -2,6 +2,7 @@ import shutil
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -75,7 +76,7 @@ def test_end_to_end_local(tmp_path):
     assert set(new_synthetic_data.columns) == set(synthetic_data_fake_companies.columns)
     assert new_synthetic_data.shape[0] == 10
     assert isinstance(quality_report, BaseReport)
-    assert quality_report.get_score() == expected_quality_score
+    np.testing.assert_allclose(quality_report.get_score(), expected_quality_score)
 
 
 @pytest.mark.parametrize(

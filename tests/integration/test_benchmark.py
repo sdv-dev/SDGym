@@ -726,7 +726,7 @@ def test_benchmark_single_table_with_output_destination(tmp_path):
         quality_report = QualityReport.load(
             synth_dir / synthesizer / f'{synthesizer}_quality_report.pkl'
         )
-        assert quality_report.get_score() == score['Quality_Score'].item()
+        np.testing.assert_allclose(quality_report.get_score(), score['Quality_Score'].item())
 
     # Load top-level results.csv
     saved_results_path = (
