@@ -16,6 +16,7 @@ from sdgym.benchmark import (
     JobArgs,
     _add_adjusted_scores,
     _check_write_permissions,
+    _compute_scores,
     _ensure_uniform_included,
     _fill_adjusted_scores_with_none,
     _format_output,
@@ -379,6 +380,74 @@ def test__ensure_uniform_included_detects_uniform_string(modality, uniform_strin
     assert all(expected_message not in record.message for record in caplog.records)
 
 
+@patch('sdgym.benchmark.SingleTableQualityReport')
+@patch('sdgym.benchmark.convert_metadata_to_sdmetrics')
+def test__compute_scores_saves_quality_report(mock_convert_metadata, mock_quality_report):
+    """Test that `_compute_scores` saves the quality report when an output path is given."""
+    # Setup
+    real_data = pd.DataFrame({'a': [1, 2, 3]})
+    synthetic_data = pd.DataFrame({'a': [1, 2, 3]})
+    output = {}
+    result_writer = Mock()
+    synthesizer_path = {'quality_report': 'path/to/quality_report.pkl'}
+    mock_quality_report.return_value.get_score.return_value = 0.8
+
+    # Run
+    _compute_scores(
+        metrics=[],
+        real_data=real_data,
+        synthetic_data=synthetic_data,
+        metadata={},
+        output=output,
+        compute_quality_score=True,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        modality='single_table',
+        dataset_name='adult',
+        synthesizer_path=synthesizer_path,
+        result_writer=result_writer,
+    )
+
+    # Assert
+    assert output['quality_score'] == 0.8
+    mock_quality_report.return_value.generate.assert_called_once_with(
+        real_data, synthetic_data, mock_convert_metadata.return_value, verbose=False
+    )
+    result_writer.write_report.assert_called_once_with(
+        mock_quality_report.return_value, 'path/to/quality_report.pkl'
+    )
+
+
+@patch('sdgym.benchmark.SingleTableQualityReport')
+@patch('sdgym.benchmark.convert_metadata_to_sdmetrics')
+def test__compute_scores_without_output_destination(mock_convert_metadata, mock_quality_report):
+    """Test that `_compute_scores` does not save the quality report without an output path."""
+    # Setup
+    output = {}
+    result_writer = Mock()
+    mock_quality_report.return_value.get_score.return_value = 0.8
+
+    # Run
+    _compute_scores(
+        metrics=[],
+        real_data=pd.DataFrame(),
+        synthetic_data=pd.DataFrame(),
+        metadata={},
+        output=output,
+        compute_quality_score=True,
+        compute_diagnostic_score=False,
+        compute_privacy_score=False,
+        modality='single_table',
+        dataset_name='adult',
+        synthesizer_path=None,
+        result_writer=result_writer,
+    )
+
+    # Assert
+    assert output['quality_score'] == 0.8
+    result_writer.write_report.assert_not_called()
+
+
 def test__format_output():
     """Test the method ``_format_output`` and confirm that metrics are properly computed."""
     # Setup
@@ -578,6 +647,9 @@ def test__setup_output_destination_single_table(tmp_path):
                 'synthetic_data': str(
                     base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.csv'
                 ),
+                'quality_report': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_quality_report.pkl'
+                ),
                 'benchmark_result': str(
                     base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
                 ),
@@ -611,6 +683,9 @@ def test__setup_output_destination_multi_table(tmp_path):
                 'synthesizer': str(base_path / f'{dataset}_{today}' / synth / f'{synth}.pkl'),
                 'synthetic_data': str(
                     base_path / f'{dataset}_{today}' / synth / f'{synth}_synthetic_data.zip'
+                ),
+                'quality_report': str(
+                    base_path / f'{dataset}_{today}' / synth / f'{synth}_quality_report.pkl'
                 ),
                 'benchmark_result': str(
                     base_path / f'{dataset}_{today}' / synth / f'{synth}_benchmark_result.csv'
@@ -760,6 +835,10 @@ def test_setup_output_destination_aws(mock_get_metainfo_increment, modality):
             assert 'synthetic_data' in paths[dataset][synth]
             assert paths[dataset][synth]['synthetic_data'] == (
                 f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}{data_suffix}'
+            )
+            assert 'quality_report' in paths[dataset][synth]
+            assert paths[dataset][synth]['quality_report'] == (
+                f's3://{bucket_name}/{top_folder}/{dataset}_{today}/{synth}/{synth}_quality_report.pkl'
             )
             assert 'benchmark_result' in paths[dataset][synth]
             assert paths[dataset][synth]['benchmark_result'] == (

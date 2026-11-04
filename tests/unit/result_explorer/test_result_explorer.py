@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
+from sdmetrics.reports import QualityReport
 from sdv.metadata import Metadata
 from sdv.single_table import GaussianCopulaSynthesizer
 
@@ -281,6 +282,34 @@ class TestResultsExplorer:
         explorer._handler.load_synthetic_data.assert_called_once_with('path/to/synthetic_data.csv')
         pd.testing.assert_frame_equal(synthetic_data, data)
 
+    def test_load_quality_report(self, tmp_path):
+        """Test `load_quality_report` method."""
+        # Setup
+        path = tmp_path / 'single_table'
+        path.mkdir(parents=True)
+        explorer = ResultsExplorer(str(path), modality='single_table')
+        explorer._handler = Mock()
+        report = Mock(spec=QualityReport)
+        explorer._handler.load_quality_report = Mock(return_value=report)
+        explorer._get_file_path = Mock(return_value='path/to/quality_report.pkl')
+
+        # Run
+        quality_report = explorer.load_quality_report(
+            results_folder_name='results_folder_07_07_2025',
+            dataset_name='my_dataset',
+            synthesizer_name='my_synthesizer',
+        )
+
+        # Assert
+        explorer._get_file_path.assert_called_once_with(
+            results_folder_name='results_folder_07_07_2025',
+            dataset_name='my_dataset',
+            synthesizer_name='my_synthesizer',
+            file_type='quality_report',
+        )
+        explorer._handler.load_quality_report.assert_called_once_with('path/to/quality_report.pkl')
+        assert isinstance(quality_report, QualityReport)
+
     @patch('sdgym.result_explorer.result_explorer._load_dataset_with_client')
     def test_load_real_data(self, mock_load_dataset, tmp_path):
         """Test `load_real_data` method."""
@@ -438,6 +467,11 @@ class TestResultsExplorer:
                 {'dataset_name': 'my_dataset', 'synthesizer_name': 'my_synthesizer'},
                 'synthetic_data',
             ),
+            (
+                'load_quality_report',
+                {'dataset_name': 'my_dataset', 'synthesizer_name': 'my_synthesizer'},
+                'quality_report',
+            ),
         ],
     )
     def test_load_latest_result_by_default(self, method, kwargs, file_type, tmp_path):
@@ -474,7 +508,7 @@ class TestResultsExplorer:
         elif file_type is None:
             result_explorer._get_file_path.assert_not_called()
             handler_method.assert_called_once_with(results_folder_name=folder_latest_run)
-        elif method in ['load_synthesizer', 'load_synthetic_data']:
+        elif method in ['load_synthesizer', 'load_synthetic_data', 'load_quality_report']:
             result_explorer._get_file_path.assert_called_once_with(
                 results_folder_name=folder_latest_run,
                 dataset_name=kwargs['dataset_name'],

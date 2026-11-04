@@ -96,7 +96,7 @@ class ResultsExplorer:
         return self._handler.list()
 
     def _get_file_path(self, results_folder_name, dataset_name, synthesizer_name, file_type):
-        """Validate access to the synthesizer or synthetic data file."""
+        """Validate access to the synthesizer, synthetic data or quality report file."""
         end_filename = f'{synthesizer_name}'
         if file_type == 'synthetic_data':
             # Multi-table synthetic data is zipped (multiple CSVs), single table is CSV
@@ -106,6 +106,8 @@ class ResultsExplorer:
                 end_filename += '_synthetic_data.csv'
         elif file_type == 'synthesizer':
             end_filename += '.pkl'
+        elif file_type == 'quality_report':
+            end_filename += '_quality_report.pkl'
 
         date = '_'.join(results_folder_name.split('_')[-3:])
         path_parts = [results_folder_name, f'{dataset_name}_{date}', synthesizer_name]
@@ -153,6 +155,31 @@ class ResultsExplorer:
             file_type='synthetic_data',
         )
         return self._handler.load_synthetic_data(file_path)
+
+    def load_quality_report(self, dataset_name, synthesizer_name, results_folder_name=None):
+        """Load the quality report for a given dataset and synthesizer.
+
+        Args:
+            dataset_name (str):
+                The name of the dataset.
+            synthesizer_name (str):
+                The name of the synthesizer.
+            results_folder_name (str, optional):
+                The name of the results folder to load from. If not provided,
+                the latest run will be used. Defaults to None.
+
+        Returns:
+            sdmetrics.reports.QualityReport:
+                The quality report computed during the benchmark.
+        """
+        results_folder_name = results_folder_name or self._get_latest_run()
+        file_path = self._get_file_path(
+            results_folder_name=results_folder_name,
+            dataset_name=dataset_name,
+            synthesizer_name=synthesizer_name,
+            file_type='quality_report',
+        )
+        return self._handler.load_quality_report(file_path)
 
     def load_real_data(self, dataset_name):
         """Load the real data for a given dataset.

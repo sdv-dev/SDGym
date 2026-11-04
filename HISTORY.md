@@ -1,5 +1,15 @@
 # History
 
+## v0.16.1 - 2026-11-04
+
+### New Features
+
+* Saving the QualityReport as part of the benchmark artifacts - Issue [#666](https://github.com/sdv-dev/SDGym/issues/666) by @sarahmish
+
+### Bugs Fixed
+
+* Pin SDV<2.0 packages - Issue [#671](https://github.com/sdv-dev/SDGym/issues/671) by @sarahmish
+
 ## v0.16.0 - 2026-10-30
 
 ### New Features
