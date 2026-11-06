@@ -23,6 +23,7 @@ from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from torch import Tensor
 
 from sdgym.synthesizers.base import BaselineSynthesizer
+from sdgym.synthesizers.utils import _get_single_table_name
 
 CAT_MISSING_VALUE = '__nan__'
 
@@ -1196,12 +1197,15 @@ class TabDDPMSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
+        table_name = _get_single_table_name(data, metadata)
+        table_data = data[table_name]
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = TabDDPM(metadata, **model_kwargs)
-        model.fit(data)
+        model.fit(table_data)
 
         self._internal_synthesizer = model
+        self._table_name = table_name
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
-        return synthesizer._internal_synthesizer.sample(n_sample)
+        return {synthesizer._table_name: synthesizer._internal_synthesizer.sample(n_sample)}

@@ -306,14 +306,16 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
-        table_name = metadata._get_single_table_name()
         metadata.validate()
-        metadata.validate_data({table_name: data})
+        metadata.validate_data(data)
 
+        table_name = metadata._get_single_table_name()
+        table_data = data[table_name]
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         self._artifact_path = model_kwargs.pop('artifact_path', None)
         self._cleanup_artifacts = model_kwargs.pop('cleanup_artifacts', True)
-        self._config_builder = create_data_designer_config(data, metadata, **model_kwargs)
+        self._config_builder = create_data_designer_config(table_data, metadata, **model_kwargs)
+        self._table_name = table_name
 
     def _sample_from_synthesizer(self, synthesizer, n_sample):
         """Sample synthetic data with specified sample count."""
@@ -332,12 +334,12 @@ class DataDesignerSynthesizer(BaselineSynthesizer):
             artifact_path = Path(synthesizer._artifact_path)
 
         # A unique name keeps concurrent or repeated sample calls from sharing a folder.
-        dataset_name = f'dataset-{uuid.uuid4().hex}'
+        dataset_name = f'dataset-{synthesizer._table_name}-{uuid.uuid4().hex}'
         try:
             output = DataDesigner(artifact_path=artifact_path).create(
                 synthesizer._config_builder, num_records=n_sample, dataset_name=dataset_name
             )
-            return output.load_dataset()
+            return {synthesizer._table_name: output.load_dataset()}
         finally:
             if synthesizer._cleanup_artifacts:
                 to_remove = artifact_path if is_temporary else artifact_path / dataset_name

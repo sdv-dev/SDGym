@@ -209,3 +209,20 @@ def _set_column_width(writer, df, sheet_name):
 def _is_list_of_type(values, type_to_check=str):
     """Checks that 'values' is a list and all elements are of type 'type_to_check'."""
     return isinstance(values, list) and all(isinstance(value, type_to_check) for value in values)
+
+
+def _get_single_table_dataframe(data):
+    """Get the only table from a dictionary of one dataframe."""
+    if not isinstance(data, dict) or not all(
+        isinstance(table, pd.DataFrame) for table in data.values()
+    ):
+        raise ValueError(
+            'The data must be a dictionary mapping a single table name to a dataframe.'
+        )
+
+    if len(data) != 1:
+        raise ValueError(
+            f'The data must contain exactly one table, but {len(data)} tables were found.'
+        )
+
+    return next(iter(data.values()))

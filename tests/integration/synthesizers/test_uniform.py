@@ -31,8 +31,9 @@ def test_uniform_synthesizer():
     uniform_synthesizer = UniformSynthesizer()
 
     # Run
-    trained_synthesizer = uniform_synthesizer.get_trained_synthesizer(data, {})
+    trained_synthesizer = uniform_synthesizer.get_trained_synthesizer({'table': data}, {})
     samples = uniform_synthesizer.sample_from_synthesizer(trained_synthesizer, n_samples=n_samples)
+    samples = samples['table']
 
     # Assert numerical values are uniform
     min_val = samples['num'].min()

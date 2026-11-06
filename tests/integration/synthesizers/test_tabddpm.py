@@ -21,8 +21,10 @@ def test_tabddpm_end_to_end():
     sampled_data = tabddpm_instance.sample_from_synthesizer(trained_synthesizer, n_samples=10)
 
     # Assert
-    assert sampled_data.shape[1] == data.shape[1], (
-        f'Sampled data shape {sampled_data.shape} does not match original data shape {data.shape}'
+    real_table = data['student_placements']
+    sampled_table = sampled_data['student_placements']
+    assert sampled_table.shape[1] == real_table.shape[1], (
+        f'Sampled data shape {sampled_table.shape} does not match '
+        f'original data shape {real_table.shape}'
     )
-
-    assert set(sampled_data.columns) == set(data.columns)
+    assert set(sampled_table.columns) == set(real_table.columns)

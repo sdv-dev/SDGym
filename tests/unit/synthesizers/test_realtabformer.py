@@ -69,7 +69,8 @@ class TestRealTabFormerSynthesizer:
         # Setup
         mock_model = MagicMock()
         mock_real_tab_former.return_value = mock_model
-        data = MagicMock()
+        table_data = MagicMock()
+        data = {'table': table_data}
         metadata = MagicMock()
         synthesizer = RealTabFormerSynthesizer()
 
@@ -78,14 +79,16 @@ class TestRealTabFormerSynthesizer:
 
         # Assert
         mock_real_tab_former.assert_called_once_with(model_type='tabular')
-        mock_model.fit.assert_called_once_with(data)
+        mock_model.fit.assert_called_once_with(table_data)
         assert result._internal_synthesizer == mock_model
+        assert result._table_name == 'table'
         assert isinstance(result, RealTabFormerSynthesizer)
 
     def test__sample_from_synthesizer(self):
         """Test _sample_from_synthesizer generates data with the specified sample size."""
         # Setup
         trained_model = MagicMock()
+        trained_model._table_name = 'table'
         trained_model._internal_synthesizer = MagicMock()
         trained_model._internal_synthesizer.sample.return_value = MagicMock(
             shape=(10, 5)
@@ -98,6 +101,7 @@ class TestRealTabFormerSynthesizer:
 
         # Assert
         trained_model._internal_synthesizer.sample.assert_called_once_with(n_sample)
-        assert synthetic_data.shape[0] == n_sample, (
-            f'Expected {n_sample} rows, but got {synthetic_data.shape[0]}'
+        assert isinstance(synthetic_data, dict)
+        assert synthetic_data['table'].shape[0] == n_sample, (
+            f'Expected {n_sample} rows, but got {synthetic_data["table"].shape[0]}'
         )

@@ -50,7 +50,7 @@ def _fit(self, data, metadata):
 def _sample_from_synthesizer(self, synthesizer, sample_arg):
     LOGGER.info('Sampling %s', self.__class__.__name__)
     if self._MODALITY_FLAG == 'multi_table':
-        return synthesizer._internal_synthesizer.sample(scale=sample_arg)
+        return synthesizer._internal_synthesizer.sample_scale(scale=sample_arg)
 
     return synthesizer._internal_synthesizer.sample(num_rows=sample_arg)
 
