@@ -1,5 +1,27 @@
 # History
 
+## v0.16.1 - 2026-11-04
+
+### New Features
+
+* Saving the QualityReport as part of the benchmark artifacts - Issue [#666](https://github.com/sdv-dev/SDGym/issues/666) by @sarahmish
+
+### Bugs Fixed
+
+* Pin SDV<2.0 packages - Issue [#671](https://github.com/sdv-dev/SDGym/issues/671) by @sarahmish
+
+## v0.16.0 - 2026-10-30
+
+### New Features
+
+* Include `DataDesignerSynthesizer` in the monthly benchmark - Issue [#657](https://github.com/sdv-dev/SDGym/issues/657) by @sarahmish
+* Add DataDesigner synthesizer - Issue [#651](https://github.com/sdv-dev/SDGym/issues/651) by @sarahmish
+
+### Maintenance
+
+* Make Multi-Table monthly benchmark run on the second day of the month - Issue [#664](https://github.com/sdv-dev/SDGym/issues/664) by @sarahmish
+* Remove support for Python 3.9 - Issue [#661](https://github.com/sdv-dev/SDGym/issues/661) by @sarahmish
+
 ## v0.15.1 - 2026-09-30
 
 ### Bugs Fixed

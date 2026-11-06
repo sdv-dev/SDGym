@@ -2,9 +2,11 @@ import shutil
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
+from sdmetrics.reports.base_report import BaseReport
 from sdv.single_table import TVAESynthesizer
 
 from sdgym import ResultsExplorer
@@ -44,6 +46,15 @@ def test_end_to_end_local(tmp_path):
         dataset_name='fake_companies',
         synthesizer_name='TVAESynthesizer',
     )
+    quality_report = result_explorer.load_quality_report(
+        results_folder_name=runs[0],
+        dataset_name='fake_companies',
+        synthesizer_name='TVAESynthesizer',
+    )
+    expected_quality_score = results.loc[
+        (results['Dataset'] == 'fake_companies') & (results['Synthesizer'] == 'TVAESynthesizer'),
+        'Quality_Score',
+    ].item()
     assert isinstance(synthesizer, TVAESynthesizer)
     new_synthetic_data = synthesizer.sample(num_rows=10)
 
@@ -66,6 +77,8 @@ def test_end_to_end_local(tmp_path):
         synthetic_data_fake_companies.columns
     )
     assert new_synthetic_data['fake_companies'].shape[0] == 10
+    assert isinstance(quality_report, BaseReport)
+    np.testing.assert_allclose(quality_report.get_score(), expected_quality_score)
 
 
 @pytest.mark.parametrize(
