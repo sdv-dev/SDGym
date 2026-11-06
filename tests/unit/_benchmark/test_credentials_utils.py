@@ -19,7 +19,7 @@ from sdgym._benchmark.credentials_utils import (
 pip install sdv-installer
 
 python -c "from sdv_installer.installation.installer import install_packages; \\
-install_packages(username='test_user', license_key='test_key', version='0.53')"
+install_packages(username='test_user', license_key='test_key')"
 """,
         ),
         ({'sdv': {}}, ''),
