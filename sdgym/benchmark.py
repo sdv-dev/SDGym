@@ -49,6 +49,7 @@ from sdgym.s3 import (
 from sdgym.synthesizers import MultiTableUniformSynthesizer, UniformSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
+    _get_single_table_dataframe,
     calculate_score_time,
     convert_metadata_to_sdmetrics,
     format_exception,
@@ -504,7 +505,7 @@ def _synthesize(
         if modality == 'multi_table':
             synthetic_data = sample_from_synthesizer(fitted_synthesizer, 1.0)
         else:
-            num_rows = len(next(iter(data.values())))
+            num_rows = len(_get_single_table_dataframe(data))
             synthetic_data = sample_from_synthesizer(fitted_synthesizer, n_samples=num_rows)
 
         sample_end = get_utc_now()
@@ -521,7 +522,7 @@ def _synthesize(
                     synthetic_data, synthesizer_path['synthetic_data']
                 )
             else:
-                synthetic_table = next(iter(synthetic_data.values()))
+                synthetic_table = _get_single_table_dataframe(synthetic_data)
                 result_writer.write_dataframe(synthetic_table, synthesizer_path['synthetic_data'])
 
         return synthetic_data, train_time, sample_time, synthesizer_size, peak_memory
@@ -569,8 +570,8 @@ def _compute_scores(
     metrics = metrics or []
     if modality == 'single_table':
         sdmetrics_metadata = convert_metadata_to_sdmetrics(metadata)
-        sdmetrics_real_data = next(iter(real_data.values()))
-        sdmetrics_synthetic_data = next(iter(synthetic_data.values()))
+        sdmetrics_real_data = _get_single_table_dataframe(real_data)
+        sdmetrics_synthetic_data = _get_single_table_dataframe(synthetic_data)
     else:
         sdmetrics_metadata = metadata
         sdmetrics_real_data = real_data

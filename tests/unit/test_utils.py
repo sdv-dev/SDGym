@@ -3,8 +3,10 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pandas as pd
+import pytest
 
 from sdgym.utils import (
+    _get_single_table_dataframe,
     _is_list_of_type,
     _set_column_width,
     calculate_score_time,
@@ -100,3 +102,54 @@ def test__is_list_of_type():
     assert not _is_list_of_type([1, 2])
     assert not _is_list_of_type(1)
     assert not _is_list_of_type('a')
+
+
+def test__get_single_table_dataframe():
+    """Test `_get_single_table_dataframe` returns the only table in the dictionary."""
+    # Setup
+    table = pd.DataFrame({'a': [1, 2, 3]})
+    data = {'table': table}
+
+    # Run
+    result = _get_single_table_dataframe(data)
+
+    # Assert
+    pd.testing.assert_frame_equal(result, table)
+
+
+@pytest.mark.parametrize(
+    'data',
+    [
+        pd.DataFrame({'a': [1, 2, 3]}),
+        'invalid',
+        {'table': [1, 2, 3]},
+        {'table': pd.DataFrame({'a': [1]}), 'other': 'not a dataframe'},
+    ],
+)
+def test__get_single_table_dataframe_not_dict_of_dataframes(data):
+    """Test `_get_single_table_dataframe` errors if the input is not a dict of dataframe."""
+    # Setup
+    expected_message = 'The data must be a dictionary mapping a single table name to a dataframe.'
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _get_single_table_dataframe(data)
+
+
+@pytest.mark.parametrize(
+    'data, num_tables',
+    [
+        ({}, 0),
+        ({'table_1': pd.DataFrame({'a': [1]}), 'table_2': pd.DataFrame({'b': [2]})}, 2),
+    ],
+)
+def test__get_single_table_dataframe_wrong_number_of_tables(data, num_tables):
+    """Test `_get_single_table_dataframe` raises an error if there is not exactly one table."""
+    # Setup
+    expected_message = (
+        f'The data must contain exactly one table, but {num_tables} tables were found.'
+    )
+
+    # Run and Assert
+    with pytest.raises(ValueError, match=expected_message):
+        _get_single_table_dataframe(data)
