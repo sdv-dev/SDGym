@@ -380,7 +380,7 @@ def test__ensure_uniform_included_detects_uniform_string(modality, uniform_strin
     assert all(expected_message not in record.message for record in caplog.records)
 
 
-@patch('sdgym.benchmark.SingleTableQualityReport')
+@patch('sdgym.benchmark.QualityReport')
 @patch('sdgym.benchmark.convert_metadata_to_sdmetrics')
 def test__compute_scores_saves_quality_report(mock_convert_metadata, mock_quality_report):
     """Test that `_compute_scores` saves the quality report when an output path is given."""
@@ -418,7 +418,7 @@ def test__compute_scores_saves_quality_report(mock_convert_metadata, mock_qualit
     )
 
 
-@patch('sdgym.benchmark.SingleTableQualityReport')
+@patch('sdgym.benchmark.QualityReport')
 @patch('sdgym.benchmark.convert_metadata_to_sdmetrics')
 def test__compute_scores_without_output_destination(mock_convert_metadata, mock_quality_report):
     """Test that `_compute_scores` does not save the quality report without an output path."""
