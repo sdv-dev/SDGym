@@ -8,7 +8,7 @@ import pandas as pd
 from rdt.hyper_transformer import HyperTransformer
 
 from sdgym.synthesizers.base import BaselineSynthesizer, MultiTableBaselineSynthesizer
-from sdgym.synthesizers.utils import _get_single_table_name
+from sdgym.synthesizers.utils import _get_single_table_name_and_dataframe
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,8 +33,7 @@ class UniformSynthesizer(BaselineSynthesizer):
             metadata (sdv.metadata.Metadata):
                 The metadata describing the data.
         """
-        table_name = _get_single_table_name(data, metadata)
-        table_data = data[table_name]
+        table_name, table_data = _get_single_table_name_and_dataframe(data, metadata)
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(table_data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()

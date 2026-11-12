@@ -8,7 +8,7 @@ from functools import partialmethod
 import tqdm
 
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.utils import _get_single_table_name
+from sdgym.synthesizers.utils import _get_single_table_name_and_dataframe
 
 REMOVED_TRAINING_ARGS = ('overwrite_output_dir',)
 
@@ -50,8 +50,7 @@ class RealTabFormerSynthesizer(BaselineSynthesizer):
                 " dependencies by running  pip install sdgym['realtabformer'] "
             ) from exception
 
-        table_name = _get_single_table_name(data, metadata)
-        table_data = data[table_name]
+        table_name, table_data = _get_single_table_name_and_dataframe(data, metadata)
         with prevent_tqdm_output():
             model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
             model = REaLTabFormer(model_type='tabular', **model_kwargs)

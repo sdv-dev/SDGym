@@ -204,11 +204,7 @@ def _set_single_table_as_dict(data, metadata_dict):
     if isinstance(data, dict):
         return data
 
-    metadata = Metadata.load_from_dict(metadata_dict)
-    if len(metadata.tables) != 1:
-        return data
-
-    table_name = metadata._get_single_table_name()
+    table_name = Metadata.load_from_dict(metadata_dict)._get_single_table_name()
     return {table_name: data}
 
 

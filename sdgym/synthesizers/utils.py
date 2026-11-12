@@ -64,3 +64,21 @@ def _get_single_table_name(data, metadata):
         table_name = next(iter(data))
 
     return table_name
+
+
+def _get_single_table_name_and_dataframe(data, metadata):
+    """Get the table name and its dataframe from single table data.
+
+    Args:
+        data (dict[str, pd.DataFrame]):
+            Dictionary mapping the name to the dataframe. Expected to
+            be a dictionary of one dataframe.
+        metadata (sdv.Metadata):
+            The metadata.
+
+    Returns:
+        tuple[str, pd.DataFrame]:
+            The name of the table and its dataframe.
+    """
+    table_name = _get_single_table_name(data, metadata)
+    return table_name, data[table_name]

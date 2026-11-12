@@ -23,7 +23,7 @@ from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from torch import Tensor
 
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.utils import _get_single_table_name
+from sdgym.synthesizers.utils import _get_single_table_name_and_dataframe
 
 CAT_MISSING_VALUE = '__nan__'
 
@@ -1197,8 +1197,7 @@ class TabDDPMSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
-        table_name = _get_single_table_name(data, metadata)
-        table_data = data[table_name]
+        table_name, table_data = _get_single_table_name_and_dataframe(data, metadata)
         model_kwargs = self._MODEL_KWARGS.copy() if self._MODEL_KWARGS else {}
         model = TabDDPM(metadata, **model_kwargs)
         model.fit(table_data)

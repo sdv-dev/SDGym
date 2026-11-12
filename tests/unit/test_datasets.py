@@ -17,6 +17,7 @@ from sdgym.datasets import (
     _load_private_sdv_demo_dataset,
     _load_sdv_demo_dataset,
     _path_contains_data_and_metadata,
+    _set_single_table_as_dict,
     _validate_modality,
     dataset_to_bucket,
     get_data_and_metadata_from_path,
@@ -289,6 +290,33 @@ def test_get_data_and_metadata_no_files(read_data_mock, read_meta_mock):
     read_meta_mock.assert_not_called()
     assert data is None
     assert metadata is None
+
+
+def test__set_single_table_as_dict():
+    """Test `_set_single_table_as_dict` wraps a dataframe using the metadata table name."""
+    # Setup
+    data = pd.DataFrame({'col_a': [1, 2, 3]})
+    metadata_dict = {'tables': {'my_table': {'columns': {'col_a': {'sdtype': 'numerical'}}}}}
+
+    # Run
+    result = _set_single_table_as_dict(data, metadata_dict)
+
+    # Assert
+    assert list(result) == ['my_table']
+    pd.testing.assert_frame_equal(result['my_table'], data)
+
+
+def test__set_single_table_as_dict_already_dict():
+    """Test `_set_single_table_as_dict` returns the data as is when it is a dictionary."""
+    # Setup
+    data = {'other_name': pd.DataFrame({'col_a': [1, 2, 3]})}
+    metadata_dict = {'tables': {'my_table': {'columns': {'col_a': {'sdtype': 'numerical'}}}}}
+
+    # Run
+    result = _set_single_table_as_dict(data, metadata_dict)
+
+    # Assert
+    pd.testing.assert_frame_equal(result['my_table'], data)
 
 
 @patch('sdgym.datasets._parse_numeric_value')

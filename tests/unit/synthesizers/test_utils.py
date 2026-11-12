@@ -2,7 +2,11 @@ import pandas as pd
 import pytest
 from sdv.metadata import Metadata
 
-from sdgym.synthesizers.utils import _get_single_table_name, _get_supported_synthesizers
+from sdgym.synthesizers.utils import (
+    _get_single_table_name,
+    _get_single_table_name_and_dataframe,
+    _get_supported_synthesizers,
+)
 
 
 def test__get_supported_synthesizers():
@@ -82,3 +86,29 @@ def test__get_single_table_name_errors():
 
     # Assert
     assert result_object == 'table1'
+
+
+def test__get_single_table_name_and_dataframe():
+    """Test the `_get_single_table_name_and_dataframe` method."""
+    # Setup
+    table = pd.DataFrame({'col_a': [1, 2, 3], 'col_b': ['a', 'b', 'c']})
+    data = {'table1': table}
+    metadata_dict = {
+        'tables': {
+            'table1': {
+                'columns': {'col_a': {'sdtype': 'numerical'}, 'col_b': {'sdtype': 'categorical'}}
+            }
+        }
+    }
+    metadata_object = Metadata.load_from_dict(metadata_dict)
+
+    # Run
+    name_from_dict, table_from_dict = _get_single_table_name_and_dataframe(data, metadata_dict)
+    name_from_object, table_from_object = _get_single_table_name_and_dataframe(
+        data, metadata_object
+    )
+
+    # Assert
+    assert name_from_dict == name_from_object == 'table1'
+    pd.testing.assert_frame_equal(table_from_dict['table1'],  table)
+    pd.testing.assert_frame_equal(table_from_object['table1'], table)

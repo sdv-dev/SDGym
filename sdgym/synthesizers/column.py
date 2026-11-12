@@ -8,7 +8,7 @@ from sdv.metadata import Metadata
 from sklearn.mixture import GaussianMixture
 
 from sdgym.synthesizers.base import BaselineSynthesizer
-from sdgym.synthesizers.utils import _get_single_table_name
+from sdgym.synthesizers.utils import _get_single_table_name_and_dataframe
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,14 +23,12 @@ class ColumnSynthesizer(BaselineSynthesizer):
     _MODALITY_FLAG = 'single_table'
 
     def _fit(self, data, metadata):
-        table_name = _get_single_table_name(data, metadata)
-        table_data = data[table_name]
+        table_name, table_data = _get_single_table_name_and_dataframe(data, metadata)
         hyper_transformer = HyperTransformer()
         hyper_transformer.detect_initial_config(table_data)
         supported_sdtypes = hyper_transformer._get_supported_sdtypes()
         config = {}
         if isinstance(metadata, Metadata):
-            table_name = metadata._get_single_table_name()
             columns = metadata.tables[table_name].columns
         else:
             columns = metadata.columns
