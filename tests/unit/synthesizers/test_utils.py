@@ -110,5 +110,5 @@ def test__get_single_table_name_and_dataframe():
 
     # Assert
     assert name_from_dict == name_from_object == 'table1'
-    pd.testing.assert_frame_equal(table_from_dict['table1'], table)
-    pd.testing.assert_frame_equal(table_from_object['table1'], table)
+    pd.testing.assert_frame_equal(table_from_dict, table)
+    pd.testing.assert_frame_equal(table_from_object, table)

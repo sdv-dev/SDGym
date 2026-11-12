@@ -316,7 +316,8 @@ def test__set_single_table_as_dict_already_dict():
     result = _set_single_table_as_dict(data, metadata_dict)
 
     # Assert
-    pd.testing.assert_frame_equal(result['my_table'], data)
+    assert list(result) == ['other_name']
+    pd.testing.assert_frame_equal(result['other_name'], data['other_name'])
 
 
 @patch('sdgym.datasets._parse_numeric_value')
