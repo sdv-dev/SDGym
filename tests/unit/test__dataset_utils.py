@@ -36,7 +36,7 @@ def test__parse_numeric_value(value, expected):
         assert result == expected
 
 
-@patch('sdgym._dataset_utils.poc.get_random_subset')
+@patch('sdgym._dataset_utils.get_random_subset')
 @patch('sdgym._dataset_utils.Metadata')
 def test__get_multi_table_dataset_subset(mock_metadata, mock_subset):
     """Test multi-table subset selection calls SDV and trims columns."""
@@ -85,6 +85,24 @@ def test__get_dataset_subset_single_table():
     assert len(result_df) <= 1000
     assert len(result_df.columns) == 10
     assert 'tables' in result_meta
+
+
+def test__get_dataset_subset_single_table_dict():
+    """Test tabular dataset subset works when data is a dictionary of one table."""
+    # Setup
+    df = pd.DataFrame({f'c{i}': range(2000) for i in range(15)})
+    metadata = {'tables': {'table': {'columns': {f'c{i}': {} for i in range(15)}}}}
+
+    # Run
+    result, result_meta = _get_dataset_subset({'table': df}, metadata, modality='single_table')
+
+    # Assert
+    assert isinstance(result, dict)
+    assert list(result) == ['table']
+    assert len(result['table']) <= 1000
+    assert len(result['table'].columns) == 10
+    assert 'tables' in result_meta
+    assert len(result_meta['tables']['table']['columns']) == 10
 
 
 def test__get_dataset_subset_sequential():
@@ -153,7 +171,7 @@ def test__read_zipped_data_multitable(mock_read):
 
 @patch('sdgym._dataset_utils._read_csv_from_zip')
 def test__read_zipped_data_single(mock_read):
-    """Test zipped CSV reading returns a DataFrame for single-table."""
+    """Test zipped CSV reading returns a dict with one entry for single-table."""
     # Setup
     mock_read.return_value = pd.DataFrame({'a': [1]})
 
@@ -166,7 +184,9 @@ def test__read_zipped_data_single(mock_read):
         data_single = _read_zipped_data('fake.zip', modality='single_table')
 
     # Assert
-    assert isinstance(data_single, pd.DataFrame)
+    assert isinstance(data_single, dict)
+    assert list(data_single) == ['table1']
+    assert isinstance(data_single['table1'], pd.DataFrame)
     assert mock_read.call_count == 1
 
 

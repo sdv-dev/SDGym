@@ -1,5 +1,11 @@
 # History
 
+## v0.17.0 - 2026-11-13
+
+### New Features
+
+* Update SDGym to use SDV 2.0 - Issue [#658](https://github.com/sdv-dev/SDGym/issues/658) by @sarahmish
+
 ## v0.16.1 - 2026-11-04
 
 ### New Features

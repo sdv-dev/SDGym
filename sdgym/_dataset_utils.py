@@ -8,7 +8,7 @@ from zipfile import ZipFile
 import numpy as np
 import pandas as pd
 from sdv.metadata import Metadata
-from sdv.utils import poc
+from sdv.utils import get_random_subset
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def _get_multi_table_dataset_subset(data, metadata_dict):
         data[table_name] = data[table_name][list(table.columns)]
 
     # Subsample the data mantaining the referential integrity
-    data = poc.get_random_subset(
+    data = get_random_subset(
         data=data,
         metadata=metadata,
         main_table_name=largest_table_name,
@@ -122,9 +122,12 @@ def _get_dataset_subset(data, metadata_dict, modality):
     filtered = _filter_columns(columns=columns, mandatory_columns=mandatory_columns)
 
     table_info['columns'] = filtered
-    data = data[list(filtered)]
-    max_rows = min(MAX_NUM_ROWS, len(data))
-    data = data.sample(max_rows)
+    is_dict = isinstance(data, dict)
+    table_data = data[table_name] if is_dict else data
+    table_data = table_data[list(filtered)]
+    max_rows = min(MAX_NUM_ROWS, len(table_data))
+    table_data = table_data.sample(max_rows)
+    data = {table_name: table_data} if is_dict else table_data
 
     return data, metadata_dict
 
@@ -136,9 +139,6 @@ def _read_zipped_data(zip_file_path, modality):
             if file_name.endswith('.csv'):
                 key = Path(file_name).stem
                 data[key] = _read_csv_from_zip(zf, csv_file_name=file_name)
-
-    if modality != 'multi_table':
-        data = next(iter(data.values()))
 
     return data
 
