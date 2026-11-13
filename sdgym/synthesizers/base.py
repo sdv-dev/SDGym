@@ -129,9 +129,8 @@ class BaselineSynthesizer(abc.ABC):
                 The number of samples to create.
 
         Returns:
-            pandas.DataFrame or dict:
-                The sampled data. If single-table, should be a DataFrame. If multi-table,
-                should be a dict mapping table name to DataFrame.
+            dict[str, pandas.DataFrame]:
+                The sampled data mapping table name to DataFrame.
         """
         return self._sample_from_synthesizer(synthesizer, n_samples)
 

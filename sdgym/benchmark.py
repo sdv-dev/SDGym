@@ -25,18 +25,7 @@ import pandas as pd
 import tqdm
 import yaml
 from botocore.config import Config
-from sdmetrics.reports.multi_table import (
-    DiagnosticReport as MultiTableDiagnosticReport,
-)
-from sdmetrics.reports.multi_table import (
-    QualityReport as MultiTableQualityReport,
-)
-from sdmetrics.reports.single_table import (
-    DiagnosticReport as SingleTableDiagnosticReport,
-)
-from sdmetrics.reports.single_table import (
-    QualityReport as SingleTableQualityReport,
-)
+from sdmetrics.reports import DiagnosticReport, QualityReport
 from sdmetrics.single_table import DCRBaselineProtection
 
 from sdgym.datasets import (
@@ -60,6 +49,7 @@ from sdgym.s3 import (
 from sdgym.synthesizers import MultiTableUniformSynthesizer, UniformSynthesizer
 from sdgym.synthesizers.base import BaselineSynthesizer
 from sdgym.utils import (
+    _get_single_table_dataframe,
     calculate_score_time,
     convert_metadata_to_sdmetrics,
     format_exception,
@@ -515,7 +505,8 @@ def _synthesize(
         if modality == 'multi_table':
             synthetic_data = sample_from_synthesizer(fitted_synthesizer, 1.0)
         else:
-            synthetic_data = sample_from_synthesizer(fitted_synthesizer, n_samples=len(data))
+            num_rows = len(_get_single_table_dataframe(data))
+            synthetic_data = sample_from_synthesizer(fitted_synthesizer, n_samples=num_rows)
 
         sample_end = get_utc_now()
         sample_time = sample_end - train_end
@@ -530,9 +521,9 @@ def _synthesize(
                 result_writer.write_zipped_dataframes(
                     synthetic_data, synthesizer_path['synthetic_data']
                 )
-
             else:
-                result_writer.write_dataframe(synthetic_data, synthesizer_path['synthetic_data'])
+                synthetic_table = _get_single_table_dataframe(synthetic_data)
+                result_writer.write_dataframe(synthetic_table, synthesizer_path['synthetic_data'])
 
         return synthetic_data, train_time, sample_time, synthesizer_size, peak_memory
 
@@ -579,8 +570,12 @@ def _compute_scores(
     metrics = metrics or []
     if modality == 'single_table':
         sdmetrics_metadata = convert_metadata_to_sdmetrics(metadata)
+        sdmetrics_real_data = _get_single_table_dataframe(real_data)
+        sdmetrics_synthetic_data = _get_single_table_dataframe(synthetic_data)
     else:
         sdmetrics_metadata = metadata
+        sdmetrics_real_data = real_data
+        sdmetrics_synthetic_data = synthetic_data
 
     if len(metrics) > 0:
         metrics, metric_kwargs = get_metrics(metrics, modality=modality)
@@ -600,7 +595,7 @@ def _compute_scores(
             start = get_utc_now()
             try:
                 LOGGER.info('Computing %s on dataset %s', metric_name, dataset_name)
-                metric_args = (real_data, synthetic_data, sdmetrics_metadata)
+                metric_args = (sdmetrics_real_data, sdmetrics_synthetic_data, sdmetrics_metadata)
                 score = metric.compute(*metric_args, **metric_kwargs.get(metric_name, {}))
                 normalized_score = metric.normalize(score)
             except Exception:
@@ -620,23 +615,15 @@ def _compute_scores(
 
     if compute_diagnostic_score:
         start = get_utc_now()
-        if modality == 'single_table':
-            diagnostic_report = SingleTableDiagnosticReport()
-        else:
-            diagnostic_report = MultiTableDiagnosticReport()
-
-        diagnostic_report.generate(real_data, synthetic_data, sdmetrics_metadata, verbose=False)
+        diagnostic_report = DiagnosticReport()
+        diagnostic_report.generate(real_data, synthetic_data, metadata, verbose=False)
         output['diagnostic_score_time'] = calculate_score_time(start)
         output['diagnostic_score'] = diagnostic_report.get_score()
 
     if compute_quality_score:
         start = get_utc_now()
-        if modality == 'single_table':
-            quality_report = SingleTableQualityReport()
-        else:
-            quality_report = MultiTableQualityReport()
-
-        quality_report.generate(real_data, synthetic_data, sdmetrics_metadata, verbose=False)
+        quality_report = QualityReport()
+        quality_report.generate(real_data, synthetic_data, metadata, verbose=False)
         output['quality_score_time'] = calculate_score_time(start)
         output['quality_score'] = quality_report.get_score()
         if synthesizer_path is not None and result_writer is not None:
@@ -644,7 +631,7 @@ def _compute_scores(
 
     if compute_privacy_score:
         start = get_utc_now()
-        num_rows = len(synthetic_data)
+        num_rows = len(sdmetrics_synthetic_data)
         # parameters were determined by running experiments with all datasets
         # and tweaking num_rows_subsample and num_iterations until
         # absolute difference from real score was close (while keeping runtime low)
@@ -652,8 +639,8 @@ def _compute_scores(
         num_rows_subsample = math.floor(num_rows * 0.60)
         num_iterations = 2
         score = DCRBaselineProtection.compute_breakdown(
-            real_data=real_data,
-            synthetic_data=synthetic_data,
+            real_data=sdmetrics_real_data,
+            synthetic_data=sdmetrics_synthetic_data,
             table_name=dataset_name,
             metadata=sdmetrics_metadata,
             num_rows_subsample=num_rows_subsample,

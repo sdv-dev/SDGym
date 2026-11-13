@@ -17,6 +17,7 @@ from sdgym.datasets import (
     _load_private_sdv_demo_dataset,
     _load_sdv_demo_dataset,
     _path_contains_data_and_metadata,
+    _set_single_table_as_dict,
     _validate_modality,
     dataset_to_bucket,
     get_data_and_metadata_from_path,
@@ -260,7 +261,7 @@ def test_get_data_and_metadata_both_found(read_data_mock, read_meta_mock, iterdi
     data_file = dataset_path / 'data.zip'
 
     iterdir_mock.return_value = [metadata_file, data_file]
-    read_meta_mock.return_value = {'info': 'meta'}
+    read_meta_mock.return_value = {'tables': {'my_table': {'columns': {}}}}
     read_data_mock.return_value = 'dataframe'
 
     # Run
@@ -269,8 +270,8 @@ def test_get_data_and_metadata_both_found(read_data_mock, read_meta_mock, iterdi
     # Assert
     read_meta_mock.assert_called_once_with(metadata_file)
     read_data_mock.assert_called_once_with(zip_file_path=data_file, modality='single_table')
-    assert data == 'dataframe'
-    assert metadata == {'info': 'meta'}
+    assert data == {'my_table': 'dataframe'}
+    assert metadata == {'tables': {'my_table': {'columns': {}}}}
 
 
 @patch('sdgym.datasets._read_metadata_json')
@@ -289,6 +290,34 @@ def test_get_data_and_metadata_no_files(read_data_mock, read_meta_mock):
     read_meta_mock.assert_not_called()
     assert data is None
     assert metadata is None
+
+
+def test__set_single_table_as_dict():
+    """Test `_set_single_table_as_dict` wraps a dataframe using the metadata table name."""
+    # Setup
+    data = pd.DataFrame({'col_a': [1, 2, 3]})
+    metadata_dict = {'tables': {'my_table': {'columns': {'col_a': {'sdtype': 'numerical'}}}}}
+
+    # Run
+    result = _set_single_table_as_dict(data, metadata_dict)
+
+    # Assert
+    assert list(result) == ['my_table']
+    pd.testing.assert_frame_equal(result['my_table'], data)
+
+
+def test__set_single_table_as_dict_already_dict():
+    """Test `_set_single_table_as_dict` returns the data as is when it is a dictionary."""
+    # Setup
+    data = {'other_name': pd.DataFrame({'col_a': [1, 2, 3]})}
+    metadata_dict = {'tables': {'my_table': {'columns': {'col_a': {'sdtype': 'numerical'}}}}}
+
+    # Run
+    result = _set_single_table_as_dict(data, metadata_dict)
+
+    # Assert
+    assert list(result) == ['other_name']
+    pd.testing.assert_frame_equal(result['other_name'], data['other_name'])
 
 
 @patch('sdgym.datasets._parse_numeric_value')
@@ -446,7 +475,7 @@ def test_dataset_to_bucket_raises_inaccessible_bucket(get_available_mock):
 @patch('sdgym.datasets.get_s3_client')
 @patch('sdgym.datasets._get_metadata')
 @patch('sdgym.datasets._load_data_from_zip')
-@patch('sdgym.datasets._get_first_v1_metadata_bytes')
+@patch('sdgym.datasets._get_first_v2_metadata_bytes')
 @patch('sdgym.datasets._get_data_from_bucket')
 @patch('sdgym.datasets._find_data_zip_key')
 @patch('sdgym.datasets._list_objects')
@@ -454,7 +483,7 @@ def test__load_private_sdv_demo_dataset(
     list_objects_mock,
     find_data_zip_key_mock,
     get_data_from_bucket_mock,
-    get_first_v1_metadata_bytes_mock,
+    get_first_v2_metadata_bytes_mock,
     load_data_from_zip_mock,
     get_metadata_mock,
     get_s3_client_mock,
@@ -480,7 +509,7 @@ def test__load_private_sdv_demo_dataset(
     list_objects_mock.return_value = contents
     find_data_zip_key_mock.return_value = data_key
     get_data_from_bucket_mock.return_value = raw_data
-    get_first_v1_metadata_bytes_mock.return_value = metadata_bytes
+    get_first_v2_metadata_bytes_mock.return_value = metadata_bytes
     load_data_from_zip_mock.return_value = {'table_name': table_data}
     metadata_mock.to_dict.return_value = {'meta': 'data'}
     get_metadata_mock.return_value = metadata_mock
@@ -497,7 +526,7 @@ def test__load_private_sdv_demo_dataset(
     get_data_from_bucket_mock.assert_called_once_with(
         data_key, bucket=bucket_name, client=s3_client_mock
     )
-    get_first_v1_metadata_bytes_mock.assert_called_once_with(
+    get_first_v2_metadata_bytes_mock.assert_called_once_with(
         contents, dataset_prefix, bucket=bucket_name, client=s3_client_mock
     )
     load_data_from_zip_mock.assert_called_once_with(ANY, bucket_name, dataset_name)
@@ -505,7 +534,8 @@ def test__load_private_sdv_demo_dataset(
     assert data_bytes.getvalue() == raw_data
     get_metadata_mock.assert_called_once_with(metadata_bytes, dataset_name)
     metadata_mock.to_dict.assert_called_once_with()
-    pd.testing.assert_frame_equal(data, table_data)
+    assert list(data) == ['table_name']
+    pd.testing.assert_frame_equal(data['table_name'], table_data)
     assert metadata == {'meta': 'data'}
 
 
@@ -655,6 +685,8 @@ def test_load_dataset_limit_dataset_size():
     )
 
     # Assert
+    assert list(data) == ['adult']
+    data = data['adult']
     assert list(data.columns) == [
         'age',
         'workclass',
@@ -669,21 +701,131 @@ def test_load_dataset_limit_dataset_size():
     ]
     assert data.shape == (1000, 10)
     assert metadata_dict == {
-        'METADATA_SPEC_VERSION': 'V1',
+        'METADATA_SPEC_VERSION': 'V2',
         'relationships': [],
         'tables': {
             'adult': {
                 'columns': {
-                    'age': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
-                    'education': {'sdtype': 'categorical'},
-                    'education-num': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
-                    'fnlwgt': {'computer_representation': 'Int64', 'sdtype': 'numerical'},
-                    'marital-status': {'sdtype': 'categorical'},
-                    'occupation': {'sdtype': 'categorical'},
-                    'race': {'sdtype': 'categorical'},
-                    'relationship': {'sdtype': 'categorical'},
-                    'sex': {'sdtype': 'categorical'},
-                    'workclass': {'sdtype': 'categorical'},
+                    'age': {
+                        'sdtype': 'numerical',
+                        'range_is_nullable': False,
+                        'range_min': 17,
+                        'range_max': 90,
+                        'decimal_places': 0,
+                    },
+                    'workclass': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Private',
+                            'Local-gov',
+                            '?',
+                            'Federal-gov',
+                            'Self-emp-not-inc',
+                            'Self-emp-inc',
+                            'State-gov',
+                            'Without-pay',
+                            'Never-worked',
+                        ],
+                    },
+                    'fnlwgt': {
+                        'sdtype': 'numerical',
+                        'range_is_nullable': False,
+                        'range_min': 12285,
+                        'range_max': 1484705,
+                        'decimal_places': 0,
+                    },
+                    'education': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Some-college',
+                            'Bachelors',
+                            'Assoc-acdm',
+                            '5th-6th',
+                            '11th',
+                            'HS-grad',
+                            'Assoc-voc',
+                            'Masters',
+                            'Doctorate',
+                            'Prof-school',
+                            '10th',
+                            '7th-8th',
+                            '1st-4th',
+                            '9th',
+                            '12th',
+                            'Preschool',
+                        ],
+                    },
+                    'education-num': {
+                        'sdtype': 'numerical',
+                        'range_is_nullable': False,
+                        'range_min': 1,
+                        'range_max': 16,
+                        'decimal_places': 0,
+                    },
+                    'marital-status': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Divorced',
+                            'Never-married',
+                            'Married-civ-spouse',
+                            'Separated',
+                            'Married-spouse-absent',
+                            'Widowed',
+                            'Married-AF-spouse',
+                        ],
+                    },
+                    'occupation': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Adm-clerical',
+                            'Prof-specialty',
+                            'Sales',
+                            'Transport-moving',
+                            'Other-service',
+                            'Exec-managerial',
+                            '?',
+                            'Protective-serv',
+                            'Craft-repair',
+                            'Machine-op-inspct',
+                            'Farming-fishing',
+                            'Handlers-cleaners',
+                            'Tech-support',
+                            'Priv-house-serv',
+                            'Armed-Forces',
+                        ],
+                    },
+                    'relationship': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'Unmarried',
+                            'Not-in-family',
+                            'Husband',
+                            'Own-child',
+                            'Other-relative',
+                            'Wife',
+                        ],
+                    },
+                    'race': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': [
+                            'White',
+                            'Amer-Indian-Eskimo',
+                            'Black',
+                            'Asian-Pac-Islander',
+                            'Other',
+                        ],
+                    },
+                    'sex': {
+                        'sdtype': 'categorical',
+                        'range_is_nullable': False,
+                        'range_values': ['Female', 'Male'],
+                    },
                 }
             }
         },

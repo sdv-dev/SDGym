@@ -380,17 +380,18 @@ def test__ensure_uniform_included_detects_uniform_string(modality, uniform_strin
     assert all(expected_message not in record.message for record in caplog.records)
 
 
-@patch('sdgym.benchmark.SingleTableQualityReport')
+@patch('sdgym.benchmark.QualityReport')
 @patch('sdgym.benchmark.convert_metadata_to_sdmetrics')
 def test__compute_scores_saves_quality_report(mock_convert_metadata, mock_quality_report):
     """Test that `_compute_scores` saves the quality report when an output path is given."""
     # Setup
-    real_data = pd.DataFrame({'a': [1, 2, 3]})
-    synthetic_data = pd.DataFrame({'a': [1, 2, 3]})
+    real_data = {'table': pd.DataFrame({'a': [1, 2, 3]})}
+    synthetic_data = {'table': pd.DataFrame({'a': [1, 2, 3]})}
     output = {}
     result_writer = Mock()
     synthesizer_path = {'quality_report': 'path/to/quality_report.pkl'}
     mock_quality_report.return_value.get_score.return_value = 0.8
+    mock_convert_metadata.return_value = {}
 
     # Run
     _compute_scores(
@@ -418,7 +419,7 @@ def test__compute_scores_saves_quality_report(mock_convert_metadata, mock_qualit
     )
 
 
-@patch('sdgym.benchmark.SingleTableQualityReport')
+@patch('sdgym.benchmark.QualityReport')
 @patch('sdgym.benchmark.convert_metadata_to_sdmetrics')
 def test__compute_scores_without_output_destination(mock_convert_metadata, mock_quality_report):
     """Test that `_compute_scores` does not save the quality report without an output path."""
@@ -430,8 +431,8 @@ def test__compute_scores_without_output_destination(mock_convert_metadata, mock_
     # Run
     _compute_scores(
         metrics=[],
-        real_data=pd.DataFrame(),
-        synthetic_data=pd.DataFrame(),
+        real_data={'table': pd.DataFrame()},
+        synthetic_data={'table': pd.DataFrame()},
         metadata={},
         output=output,
         compute_quality_score=True,
