@@ -8,9 +8,13 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-from slack_sdk import WebClient
 
 from sdgym.s3 import parse_s3_path
+
+try:
+    from slack_sdk import WebClient
+except ImportError:  # Slack is only needed to post benchmark notifications
+    WebClient = None
 
 OUTPUT_DESTINATION_AWS = 's3://sdgym-benchmark/Benchmarks/'
 DEBUG_SLACK_CHANNEL = 'sdv-alerts-debug'
@@ -84,6 +88,12 @@ def _get_slack_client():
         WebClient:
             An authenticated Slack WebClient instance.
     """
+    if WebClient is None:
+        raise ImportError(
+            "Posting Slack messages requires the 'slack-sdk' package. "
+            "Install it with 'pip install slack-sdk'."
+        )
+
     token = os.getenv('SLACK_TOKEN')
     client = WebClient(token=token)
     return client
