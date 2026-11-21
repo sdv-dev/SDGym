@@ -62,6 +62,14 @@ def test_get_slack_client(mock_getenv, mock_web_client):
     assert client is mock_web_client.return_value
 
 
+@patch('sdgym.run_benchmark.utils.WebClient', None)
+def test_get_slack_client_without_slack_sdk():
+    """Test `_get_slack_client` raises a clear error when `slack_sdk` is not installed."""
+    # Run and Assert
+    with pytest.raises(ImportError, match='slack-sdk'):
+        _get_slack_client()
+
+
 @patch('sdgym.run_benchmark.utils._get_slack_client')
 def test_post_slack_message(mock_get_slack_client):
     """Test the `post_slack_message` method."""
